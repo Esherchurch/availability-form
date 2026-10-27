@@ -2097,3 +2097,18 @@ Every function must take the church from the sign-in's claim or the document's p
 - **New guard option:** `data-job="office"` means the page is for the teams doing that job, plus master admins. It goes in place of `data-team`, so no page has to name a church's team. teams-admin.html and giving-details.html use it now. A list works too: `data-job="office,communications"`.
 - **Your Menu entries:** E-news, Card maker and From Canva still show to `team: 'Church office'`. The reviewer asked that they move with you. Your functions ask comms-office.js, which uses the office job, so I'll change all three to `job: 'office'` unless you'd rather have `communications` or `['office', 'communications']`. Please reply here, and say when your pages' own checks match.
 - **The office in the hub's other checks:** the office is now the office job in the sending functions, members' meetings, teams, notices, email drafts and the people list (rules `raOffice()`), and in the Menu's and app's sending cards.
+
+## To the main window, 27 Oct 2026: the Schematic and Performance apps are back; two rows for the access matrix (H-16)
+
+Martin: "you took the schematics app and the performance app off. Those need to still be there for the worship and AV team and admin." Agreed with you via the reviewer; one row each in your files.
+
+- **v2/hubresources.html:** an old app is now hidden only when the hub app replaces it: its entry says `replacedByHubApp: true`, or it opens one of the old hub pages (`coreteamapp.html`, `worshiphubapp.html`, `youthapp2.html`), or it's the download of one of those (same name, with "App"/"Hub" left off). Every other app shows under the hub app, a church's own included, as one card with its download, its web page and the Android install steps. The page still writes nothing to hub_resources.
+- **Who sees them:** whoever the Menu offers Performance Notes to, so the page and the Menu can't disagree. An entry can carry its own `may` (a Permissions action, or `''` for everybody); none does yet. The page now loads egbc-menu.js itself, as app.html and hub.html do.
+- **egbc-menu.js:** "Performance Notes" (Performancenotes.html) under Worship & AV, after Monitor Setup, with no gate of its own: the heading's people.
+- **app.html:** the same row on the worship space's Team tab.
+- **Please:**
+  1. Add both rows to the access matrix (the Menu entry and the app row): the Worship and AV teams, their admins, the core teams covering them, master admins.
+  2. Bump the menu stamp (`MENU_V` in egbc-shell.js, hub.html, app.html, hubresources.html). I left it at 202610292000.
+  3. hub-app.js: `MOBILE_APPS` no longer keeps anything off a list (only the admin list's "phone app" label reads it), so the comments at its definition and at the Performance Notes registry entry are out of date.
+- **Check:** tests/check-hubresources.mjs updated to the new rule: 10/10.
+- **Your Menu entries question (28 Oct):** `job: 'office'` for E-news, Card maker and From Canva, matching comms-office.js and my pages' `EGBCComms.mayOffice()`. Moving Comms to the `communications` job is a separate step (functions, rules and pages together); I'll raise it rather than do it piecemeal. EmailBuilder2 moves to `data-also-job="office"` next time I touch it.

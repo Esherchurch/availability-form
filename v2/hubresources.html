@@ -8,6 +8,7 @@
 
 <script src="egbc-shell.js?v=202610292000" data-title="Apps and downloads"></script>
 <script src="egbc-guard.js?v=202610282000"></script>
+<script src="egbc-menu.js?v=202610292000"></script>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Apps and downloads</title>
@@ -151,7 +152,7 @@
 <div class="page-header">
   <div>
     <h1>Apps and downloads</h1>
-    <p>The hub app for your phone, and the web tools and links your teams use</p>
+    <p>The hub app for your phone, your team's own apps, and the web tools and links your teams use</p>
   </div>
 </div>
 
@@ -174,6 +175,7 @@
       </div>
       <div class="hub-qr" id="hub-app-qr" aria-label="QR code for the hub app"></div>
     </div>
+    <div id="team-apps"></div>
     <div id="resource-list"></div>
   </div>
 </div>
@@ -189,6 +191,23 @@
     <div class="qr-actions">
       <button class="btn btn-secondary btn-sm" onclick="downloadQr()">⬇ Save QR Image</button>
     </div>
+  </div>
+</div>
+
+<!-- Android download (.apk) Modal -->
+<div class="modal-overlay" id="apk-modal">
+  <div class="modal" style="max-width:480px;">
+    <button class="modal-close" onclick="closeApkModal()">Close</button>
+    <h3 id="apk-modal-title">Install the app</h3>
+    <p class="subtitle">An Android app, downloaded from here rather than the Play Store.</p>
+    <div class="ios-steps" style="margin-top:16px;">
+      <div class="ios-step"><div class="step-num">1</div><div class="step-text">On your <strong>Android</strong> phone, tap <strong>Download</strong> below, or scan the QR code with the phone's camera.</div></div>
+      <div class="ios-step"><div class="step-num">2</div><div class="step-text">When it has downloaded, tap the file to open it (or find it in <strong>Files &gt; Downloads</strong>).</div></div>
+      <div class="ios-step"><div class="step-num">3</div><div class="step-text">If the phone asks, tap <strong>Settings</strong> and turn on <strong>Allow from this source</strong>, then go back.</div></div>
+      <div class="ios-step"><div class="step-num">4</div><div class="step-text">Tap <strong>Install</strong>, then <strong>Open</strong>. To update it later, download the new version the same way.</div></div>
+    </div>
+    <p class="subtitle" id="apk-modal-web" style="margin-top:14px;"></p>
+    <a id="apk-modal-link" href="#" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:12px;">Download →</a>
   </div>
 </div>
 
@@ -250,6 +269,19 @@
    with them installed keep working - the no-retire rule is about not
    breaking those). Here only its web tools and links are shown.
 
+   EXCEPT THE TEAMS' OWN APPS (27 Oct 2026; Martin: "you took the
+   schematics app and the performance app off. Those need to still be
+   there for the worship and AV team and admin"). Only an app the hub app
+   REPLACES is left out: its entry says so (replacedByHubApp: true), or it
+   opens one of the old hub pages app.html took over (REPLACED_PAGES), or
+   it is the install of one of those (the same app's name). Every other
+   app shows, a church's own included, under the hub app (teamAppsHTML).
+   WHO SEES ONE: whoever the Menu offers Performance Notes to (Worship &
+   AV: those teams, their admins, the core teams covering them, master
+   admins), so the page and the Menu never disagree and no team is named
+   here. An entry may say otherwise (may: an action on Church settings >
+   Permissions, or '' for everybody); none does yet.
+
    READ-ONLY. While the original site uses hub_resources, this page changes
    nothing in it: no Admin Login (which was a password in the page's own
    source), no editor. Editing comes back for master admins when the
@@ -278,18 +310,77 @@ function loadHubApp() {
   }, function () { /* this page's own address is a complete answer */ });
 }
 
+// ── The teams' own apps ──
+/* The old hub pages the hub app took over (app.html is each of them now). */
+const REPLACED_PAGES = ['coreteamapp.html', 'worshiphubapp.html', 'youthapp2.html'];
+const pageOf = d => (d.url || '').split(/[?#]/)[0].replace(/\/+$/, '').split('/').pop().toLowerCase();
+/* One app's entries share a name ("Performance App": the download, and
+   its web page): "App" and "Hub" left off, so "Youth Worship App" is
+   "Youth Worship Hub"'s download. */
+const appName = d => String(d.name || '').toLowerCase().replace(/\b(app|hub)\b/g, '').replace(/\s+/g, ' ').trim();
+
+/* May this person see an app? Its own permission, else the Menu's answer. */
+function maySee(app) {
+  const A = EGBCAuth;
+  if (app.may === '' || A.isMaster()) return true;
+  if (app.may) return !!(A.may && A.may(app.may));
+  const M = window.EGBCMenu;
+  if (!M) return false;
+  const find = ns => ns.some(n => (n.url || '').toLowerCase() === 'performancenotes.html' || find(n.children || []));
+  return find(M.forPerson(M.who()));
+}
+
+function teamAppsHTML(apps) {
+  if (!apps.length) return '';
+  return '<div class="section-label" style="margin-top:10px;">Your team\'s apps</div>' + apps.map(a => {
+    const icon = a.icon ? `<img src="${escHtml(a.icon)}" alt="">` : '📱';
+    const version = a.version ? `<span class="badge badge-version">${escHtml(a.version)}</span>` : '';
+    const qr = a.apk || a.web;
+    return `<div class="resource-card">
+    <div class="card-icon">${icon}</div>
+    <div class="card-body">
+      <div class="card-name">${escHtml(a.name)}</div>
+      <div class="card-desc">${escHtml(a.description || '')}</div>
+      <div class="card-meta"><span class="badge badge-apk">${a.apk ? 'Android app' : 'App'}</span>${version}</div>
+    </div>
+    <div class="card-actions">
+      ${a.apk ? `<a href="${escHtml(a.apk)}" rel="noopener" class="btn btn-primary btn-sm">Download</a>
+      <button class="btn btn-secondary btn-sm" onclick="showApkModal('${escHtml(a.apk)}','${escHtml(a.name)}','${escHtml(a.web || '')}')">How to install</button>` : ''}
+      ${a.web ? `<a href="${escHtml(a.web)}" target="_blank" rel="noopener" class="btn ${a.apk ? 'btn-secondary' : 'btn-primary'} btn-sm">Open →</a>` : ''}
+      ${!a.apk && a.web ? `<button class="btn btn-secondary btn-sm" onclick="showInstallModal('${escHtml(a.web)}','${escHtml(a.name)}')">How to install</button>` : ''}
+      <button class="btn btn-secondary btn-sm btn-icon" onclick="showQr('${escHtml(qr)}','${escHtml(a.name)}')">⬛ QR</button>
+    </div>
+  </div>`;
+  }).join('');
+}
+
 // ── Web tools and links ──
 async function loadResources() {
   const list = document.getElementById('resource-list');
   list.innerHTML = SKELETON;
   try {
-    const snap = await db.collection('hub_resources').orderBy('order').get();
+    const [snap] = await Promise.all([db.collection('hub_resources').orderBy('order').get(),
+      EGBCAuth.loadPerms ? EGBCAuth.loadPerms().catch(() => {}) : null]);
     const seen = new Set([HUB_APP.toLowerCase()]);
     const isApp = d => d.type === 'apk' || d.type === 'pwa';
     const urlKey = d => (d.url || d.downloadUrl || '').trim().replace(/\/+$/, '').toLowerCase();
-    /* The old apps (type apk / pwa) are the original site's: not listed here. */
+    const docs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    /* An app: each name with a download, and the web page of the same name. */
+    const appNames = new Set(docs.filter(isApp).map(appName));
+    const isAppEntry = d => isApp(d) || appNames.has(appName(d));
+    const replaced = new Set(docs.filter(d => d.replacedByHubApp === true || REPLACED_PAGES.includes(pageOf(d))).map(appName));
+    const apps = new Map();
+    docs.filter(d => isAppEntry(d) && !replaced.has(appName(d))).forEach(d => {
+      const k = appName(d), a = apps.get(k) || { name: d.name, may: d.may };
+      if (d.downloadUrl && !a.apk) { a.apk = d.downloadUrl; a.name = d.name; }
+      if (d.url && !a.web) a.web = d.url;
+      if (d.may !== undefined) a.may = d.may;
+      ['description', 'version', 'icon'].forEach(f => { if (!a[f] && (d[f] || (f === 'icon' && d.iconUrl))) a[f] = d[f] || d.iconUrl; });
+      apps.set(k, a);
+    });
+    document.getElementById('team-apps').innerHTML = teamAppsHTML([...apps.values()].filter(a => (a.apk || a.web) && maySee(a)));
     const links = [];
-    snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).filter(d => !isApp(d)).forEach(d => {
+    docs.filter(d => !isAppEntry(d)).forEach(d => {
       const k = urlKey(d); if (k && seen.has(k)) return; if (k) seen.add(k); links.push(d);
     });
     list.innerHTML = links.length
@@ -351,6 +442,14 @@ function showInstallModal(url, name) {
   document.getElementById('install-modal').classList.add('open');
   showInstallTab('android');
 }
+function showApkModal(url, name, web) {
+  document.getElementById('apk-modal-title').textContent = 'Install ' + name;
+  document.getElementById('apk-modal-link').href = url;
+  document.getElementById('apk-modal-web').textContent = web ? 'On an iPhone or a computer, use Open instead: it is the same app on the web.' : '';
+  document.getElementById('apk-modal').classList.add('open');
+}
+function closeApkModal() { document.getElementById('apk-modal').classList.remove('open'); }
+document.getElementById('apk-modal').addEventListener('click', function(e) { if (e.target === this) closeApkModal(); });
 function closeInstallModal() { document.getElementById('install-modal').classList.remove('open'); }
 function showInstallTab(tab) {
   ['android', 'ios', 'computer'].forEach(t => {

@@ -310,6 +310,11 @@
             description: 'What is plugged into what' },
           { title: 'Monitor Setup', url: 'MonitorStageMap.html', icon: 'speaker',
             description: 'Who hears what on stage' },
+          /* Its own installed app too (G-1 option a; Apps and downloads).
+             For the heading's people: Worship, AV, their admins, the core
+             teams covering them, master admins. */
+          { title: 'Performance Notes', url: 'Performancenotes.html', icon: 'notebook-pen',
+            description: 'On stage: your part and your monitor mix' },
           /* Admins of AV or Worship only (FINDINGS-churchshow.md R1-R3). */
           { title: 'Connect ChurchShow', url: 'churchshow.html', icon: 'monitor-play', feature: 'churchShow',
             admin: true, adminOf: ['AV Team', 'Worship Team'],

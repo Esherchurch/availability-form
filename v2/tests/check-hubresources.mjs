@@ -2,13 +2,17 @@
  * I install the app? It has all the old ones on here, which it shouldn't").
  *
  *   node tests/check-hubresources.mjs          (from v2/, the dev emulators up)
- *   BREAK=1 node tests/check-hubresources.mjs  the old apps listed again: must fail
+ *   BREAK=1 node tests/check-hubresources.mjs  the replaced apps listed again: must fail
  *
- * In a browser at 375, a made-up member, with a made-up old app and a
- * made-up link in the shared hub_resources list:
+ * In a browser at 375, a made-up Worship Team member, with made-up entries
+ * in the shared hub_resources list: an old hub app the hub app replaces (its
+ * page and its download), a team's own app (its download and its web page,
+ * 27 Oct 2026: Martin's Schematic and Performance apps) and a link:
  *   - the hub app is first, with a QR code of the church's own address
  *     (hubAddress: https://egbc.churchhq.co.uk/app.html for EGBC);
- *   - no old app is listed; the web link still is;
+ *   - the replaced app is not listed; the team's app is, once, with its
+ *     download and its web page; the web link still is;
+ *   - a member on no team does not see the team's app;
  *   - nothing on the page can change the shared list (no Admin Login);
  *   - the original site's own hubresources.html is untouched (git).
  */
@@ -54,7 +58,7 @@ const server = http.createServer((q, s) => {
     let t = body.toString('utf8');
     const h = /<head[^>]*>/i.exec(t); if (h) t = t.slice(0, h.index + h[0].length) + NO_SW + t.slice(h.index + h[0].length);
     /* The break: every entry listed, the old apps included. */
-    if (BREAK && url === '/hubresources.html') { const was = t; t = t.replace('.filter(d => !isApp(d)).forEach', '.forEach'); if (t === was) console.log('  FAIL  the break did not apply'); }
+    if (BREAK && url === '/hubresources.html') { const was = t; t = t.replace('&& !replaced.has(appName(d))', ''); if (t === was) console.log('  FAIL  the break did not apply'); }
     body = Buffer.from(t, 'utf8');
   }
   s.writeHead(200, { 'Content-Type': (/\.js$/.test(f) ? 'text/javascript' : /\.png$/.test(f) ? 'image/png' : 'text/html') + (/\.png$/.test(f) ? '' : '; charset=utf-8'), 'Cache-Control': 'no-store' });
@@ -76,8 +80,11 @@ try {
   await req(9099, 'POST', '/identitytoolkit.googleapis.com/v1/projects/egbc-worship-planner/accounts:update', { localId: P.uid, emailVerified: true }, OWNER);
   await put('addressBook/' + P.member, { name: P.name, email: P.email, markers: ['Worship Team'], adminFor: [], masterAdmin: false, archived: false, isMinor: false, churchMember: true });
   await put('users/' + P.uid, { uid: P.uid, email: P.email, name: P.name, memberId: P.member, status: 'active', linkedBy: 'admin', teams: ['Worship Team'], adminFor: [], masterAdmin: false, churchMember: true });
-  await put('hub_resources/hr_old_app', { name: 'HR Old Worship App (synthetic)', type: 'pwa', downloadUrl: 'https://example.invalid/old-worship.html', order: 0 });
-  await put('hub_resources/hr_link', { name: 'HR Song Library Link (synthetic)', type: 'link', url: 'https://example.invalid/songs', order: 1 });
+  await put('hub_resources/hr_old_app', { name: 'HR Old Team App', type: 'apk', downloadUrl: 'https://example.invalid/old-team.apk', order: 0 });
+  await put('hub_resources/hr_old_page', { name: 'HR Old Team Hub', type: 'link', url: 'https://example.invalid/worshiphubapp.html', order: 1 });
+  await put('hub_resources/hr_team_apk', { name: 'HR Stage App', type: 'apk', downloadUrl: 'https://example.invalid/stage.apk', version: '1.0.0', order: 2 });
+  await put('hub_resources/hr_team_web', { name: 'HR Stage App', type: 'link', url: 'https://example.invalid/Performancenotes.html', order: 3 });
+  await put('hub_resources/hr_link', { name: 'HR Song Library Link (synthetic)', type: 'link', url: 'https://example.invalid/songs', order: 4 });
 
   let list; for (let i = 0; i < 60; i++) { try { list = await getJSON('/json/list'); if (list.some((x) => x.type === 'page')) break; } catch {} await sleep(500); }
   const ws = new WebSocket(list.find(x => x.type === 'page').webSocketDebuggerUrl);
@@ -103,14 +110,25 @@ try {
   ok('the hub app comes first', L.first === 'The hub app', L.first);
   ok('  with a QR code of the church\'s own address (https://egbc.churchhq.co.uk/app.html)', L.qr === 'https://egbc.churchhq.co.uk/app.html' && L.img, JSON.stringify({ qr: L.qr, img: L.img }));
   ok('  and how to install it, on Android, iPhone and a computer', /How to install/.test(L.text) && String(await evl('!!document.getElementById("install-tab-computer")')) === 'true');
-  ok('no old app is listed', !/HR Old Worship App/.test(L.text), L.text.slice(0, 300));
+  ok('the app the hub app replaces is not listed (its page or its download)', !/HR Old Team/.test(L.text), L.text.slice(0, 300));
+  const team = JSON.parse(String(await evl('JSON.stringify([...document.querySelectorAll("#team-apps .resource-card")].map(c=>({name:c.querySelector(".card-name").textContent,links:[...c.querySelectorAll("a")].map(a=>a.getAttribute("href"))})))')) || '[]');
+  ok('the team\'s own app is, once, with its download and its web page', team.length === 1 && team[0].name === 'HR Stage App'
+    && team[0].links.includes('https://example.invalid/stage.apk') && team[0].links.includes('https://example.invalid/Performancenotes.html'), JSON.stringify(team));
   ok('  the web link still is', /HR Song Library Link/.test(L.text));
   ok('nothing here can change the shared list (no Admin Login)', !L.admin);
   ok('no errors on the page', errs.length === 0, errs.join(' | '));
+
+  console.log('\nA member on no team');
+  await put('users/' + P.uid, { uid: P.uid, email: P.email, name: P.name, memberId: P.member, status: 'active', linkedBy: 'admin', teams: [], adminFor: [], masterAdmin: false, churchMember: true });
+  await put('addressBook/' + P.member, { name: P.name, email: P.email, markers: [], adminFor: [], masterAdmin: false, archived: false, isMinor: false, churchMember: true });
+  await send('Page.navigate', { url: 'http://localhost:' + SERVE + '/hubresources.html' });
+  let T = '';
+  for (let i = 0; i < 40; i++) { await sleep(500); T = String(await evl('document.body.innerText.replace(/\\s+/g," ")')); if (/HR Song Library/.test(T)) break; }
+  ok('does not see the team\'s app', /HR Song Library/.test(T) && !/HR Stage App/.test(T), T.slice(0, 300));
   exitCode = R.every(Boolean) ? 0 : 1;
 } catch (e) { console.log('  FAIL  the run itself: ' + (e && e.stack || e)); }
 finally {
-  for (const p of ['hub_resources/hr_old_app', 'hub_resources/hr_link', 'users/' + P.uid, 'addressBook/' + P.member]) await req(8181, 'DELETE', DOCS + '/' + p, undefined, OWNER).catch(() => {});
+  for (const p of ['hub_resources/hr_old_app', 'hub_resources/hr_old_page', 'hub_resources/hr_team_apk', 'hub_resources/hr_team_web', 'hub_resources/hr_link', 'users/' + P.uid, 'addressBook/' + P.member]) await req(8181, 'DELETE', DOCS + '/' + p, undefined, OWNER).catch(() => {});
   try { chrome.kill(); } catch {}
   server.close();
 }
