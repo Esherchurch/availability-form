@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drivers and vehicles</title>
+<!-- DRIVERS AND VEHICLES (the reviewing window's job 4; egbc-transport.js). Who may drive for the church and the
+     vehicles it uses: licence and insurance checks with dates, the minibus and its checks (MiDAS where the church asks
+     for it), and the walk-round before each journey. A driver's record is the minimum and only the people the church
+     names read it; everyone else sees only who is cleared, until when. Event assessments choose from these. -->
+<script src="egbc-nosend.js?v=202610212000"></script>
+<script src="egbc-appmode.js?v=202610201500"></script>
+<script src="egbc-shell.js?v=202610282000" data-title="Drivers and vehicles"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="egbc-auth.js?v=202610282000"></script>
+<script src="egbc-church.js?v=202610192330"></script>
+<script src="egbc-events.js?v=202610281600"></script>
+<script src="egbc-team-jobs.js?v=202610261800"></script>
+<script src="egbc-transport.js?v=202610291500"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
+        --green:#15803d;--green-bg:#ecfdf3;--amber:#b07d2e;--amber-bg:#fdf6e9;--red:#b0392c;--red-bg:#fdecea}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--canvas);color:var(--body);font:400 14px/1.5 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:820px;margin:0 auto;padding:20px 16px 72px}
+  h1{font-size:22px;font-weight:700;color:var(--ink);margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 14px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+  .card h2{font-size:16px;font-weight:600;color:var(--ink);margin:0 0 8px}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+  .tab{min-height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--line-2);background:#fff;font:600 13.5px Inter,sans-serif;color:var(--body);cursor:pointer}
+  .tab.on{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn{min-height:44px;padding:0 16px;border-radius:10px;border:1px solid var(--brand);background:var(--brand);color:#fff;font:600 14px Inter,sans-serif;cursor:pointer}
+  .btn.sec{background:#fff;color:var(--brand)}.btn.sm{min-height:36px;padding:0 12px;font-size:13px}
+  label{display:block;font:600 13px Inter,sans-serif;color:var(--ink);margin:10px 0 4px}
+  .inp,select{width:100%;min-height:44px;border:1px solid var(--line-2);border-radius:10px;padding:0 10px;font:400 14px Inter,sans-serif;background:#fff;color:var(--ink)}
+  .check{display:flex;gap:8px;align-items:flex-start;font-weight:400;margin:6px 0}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+  .hint{color:var(--muted);font-size:13px}
+  .item{border-top:1px solid var(--line);padding:10px 0;display:flex;gap:10px;align-items:flex-start;justify-content:space-between}
+  .item:first-of-type{border-top:0}
+  .item b{color:var(--ink)}
+  .rag{display:inline-flex;align-items:center;gap:6px;min-height:24px;padding:0 9px;border-radius:999px;font:600 12px Inter,sans-serif;white-space:nowrap}
+  .rag.red{background:var(--red-bg);color:var(--red)}.rag.amber{background:var(--amber-bg);color:var(--amber)}.rag.green{background:var(--green-bg);color:var(--green)}.rag.grey{background:#f3f4f6;color:var(--muted)}
+  .ro{background:var(--amber-bg);color:#6b4a26;border-radius:10px;padding:10px 12px;font-size:13px;margin:0 0 14px}
+  .chip{display:inline-flex;align-items:center;gap:6px;background:var(--tint);color:var(--brand-dark);border-radius:999px;padding:4px 10px;margin:4px 6px 0 0;font-size:13px}
+  .chip button{border:0;background:none;color:inherit;cursor:pointer;font-size:15px}
+  @media (max-width:560px){.two{grid-template-columns:1fr}.item{flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap"><p class="hint">Loading…</p></div>
+<script>
+(function () {
+  'use strict';
+  var TR = window.EGBCTransport, TJ = window.EGBCTeamJobs;
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  function db() { return EGBCAuth.db; }
+  function uid() { return (EGBCAuth.user() || {}).uid; }
+  var wrap = document.getElementById('wrap');
+  var TODAY = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  var ME = {}, OFFICE = false, READER = false, SET = TR.settingsOf({}), RAW_SET = null, PEOPLE = [], DRIVERS = [], VEHICLES = [], CHECKS = {}, V = { tab: 'vehicles', edit: null, walk: null, msg: '' };
+  var WORDS = { red: 'Not cleared', amber: 'Due soon', green: 'Cleared' };
+  function nameOf(mid) { var p = PEOPLE.filter(function (x) { return x.id === mid; })[0]; return p ? p.name : 'someone'; }
+  function day(s) { return s ? (window.EGBCEvents && EGBCEvents.fmtDate ? EGBCEvents.fmtDate(s + 'T12:00') : s) : ''; }
+  function rag(r, words) { return '<span class="rag ' + r + '" data-rag="' + r + '">' + esc(words) + '</span>'; }
+
+  function tabs() {
+    var list = [['vehicles', 'Vehicles']];
+    if (READER) list.unshift(['drivers', 'Drivers']);
+    if (OFFICE) list.push(['settings', 'Settings']);
+    return '<div class="tabs" role="tablist">' + list.map(function (t) { return '<button class="tab' + (V.tab === t[0] ? ' on' : '') + '" data-tab="' + t[0] + '" role="tab" aria-selected="' + (V.tab === t[0]) + '">' + t[1] + '</button>'; }).join('') + '</div>';
+  }
+  function draw() {
+    var body = V.tab === 'drivers' && READER ? driversHtml() : V.tab === 'settings' && OFFICE ? settingsHtml() : vehiclesHtml();
+    wrap.innerHTML = '<h1>Drivers and vehicles</h1><p class="sub">Who may drive for the church, and the vehicles it uses.</p>' + tabs() +
+      (V.msg ? '<p class="hint" id="msg" role="status">' + esc(V.msg) + '</p>' : '') + body;
+    wire();
+  }
+
+  /* ---- drivers (the people the church names) ---- */
+  function driversHtml() {
+    if (V.edit && V.edit.kind === 'driver') return driverForm(V.edit.d);
+    var rows = DRIVERS.slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); }).map(function (d) {
+      var s = TR.driverState(d, SET, TODAY);
+      return '<div class="item" data-driver="' + esc(d.memberId) + '"><div><b>' + esc(d.name) + '</b> ' + rag(s.rag, WORDS[s.rag]) +
+        '<div class="hint">' + (s.carsUntil ? 'Cars: cleared until ' + esc(day(s.carsUntil)) : 'Cars: not cleared') + ' · ' + (d.minibus === 'no' ? 'Not the minibus' : s.minibusUntil ? 'Minibus: cleared until ' + esc(day(s.minibusUntil)) : 'Minibus: not cleared') + '</div>' +
+        (s.why.length ? '<div class="hint" data-why>' + s.why.map(esc).join(' ') + '</div>' : '') + '</div>' +
+        '<button class="btn sec sm" data-editdriver="' + esc(d.memberId) + '">Change</button></div>';
+    });
+    var have = DRIVERS.map(function (d) { return d.memberId; });
+    return '<p class="ro" id="private">Private: only ' + (SET.readers.length ? esc(SET.readers.map(nameOf).join(', ')) : 'the people the church names') + ' and master admins see these records. Everyone else sees only who is cleared, and until when.</p>' +
+      '<div class="card" id="drivers"><h2>Drivers</h2>' + (rows.length ? rows.join('') : '<p class="hint" id="noDrivers">No drivers yet.</p>') +
+      (DRIVERS.length < 500 ? '<label for="addDriver">Add a driver</label><select id="addDriver"><option value="">Choose someone…</option>' + PEOPLE.filter(function (p) { return have.indexOf(p.id) < 0; }).map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>'; }).join('') + '</select>'
+        : '<p class="hint">500 drivers: the most a list holds.</p>') + '</div>';
+  }
+  function driverForm(d) {
+    var lic = d.licence || {}, ins = d.insurance || {}, mid = d.midas || {}, cats = lic.categories || [];
+    var opt = function (list, v) { return list.map(function (o) { return '<option value="' + o[0] + '"' + (v === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join(''); };
+    return '<div class="card" id="driverForm"><h2>' + esc(d.name) + '</h2>' +
+      '<p class="hint" style="margin:0">Only what the checks need: never the licence number, a date of birth, an address or any points.</p>' +
+      '<label>Licence categories</label>' + TR.CATS.map(function (c) { return '<label class="check"><input type="checkbox" data-cat="' + c[0] + '"' + (cats.indexOf(c[0]) >= 0 ? ' checked' : '') + '> ' + esc(c[1]) + '</label>'; }).join('') +
+      '<div class="two"><div><label for="licOn">Licence last checked on</label><input class="inp" type="date" id="licOn" value="' + esc(lic.checkedOn || '') + '"></div>' +
+      '<div><label for="licHow">How</label><select id="licHow"><option value="">Choose…</option>' + opt(TR.CHECKED_HOW, lic.checkedHow) + '</select></div></div>' +
+      '<div class="two"><div><label for="licExp">The photocard runs out on (if it does)</label><input class="inp" type="date" id="licExp" value="' + esc(lic.expires || '') + '"></div>' +
+      '<div><label>Checked again every</label><p style="margin:10px 0 0">' + SET.recheckMonths + ' months (Settings)</p></div></div>' +
+      '<div class="two"><div><label for="insKind">Insurance</label><select id="insKind"><option value="">Not recorded</option>' + opt([['own', 'Their own, for church use'], ['church', 'On the church’s policy']], ins.kind) + '</select></div>' +
+      '<div><label for="insExp">Their own insurance runs out on</label><input class="inp" type="date" id="insExp" value="' + esc(ins.expires || '') + '"></div></div>' +
+      '<label for="mb">May they drive the minibus?</label><select id="mb">' + opt(TR.MINIBUS, d.minibus || 'no') + '</select>' +
+      (SET.midas ? '<div class="two"><div><label for="midasOn">The minibus driver course (MiDAS) done on</label><input class="inp" type="date" id="midasOn" value="' + esc(mid.on || '') + '"></div>' +
+        '<div><label for="midasKind">Which</label><select id="midasKind"><option value="">Choose…</option>' + opt([['standard', 'Standard'], ['accessible', 'Accessible (with wheelchair users)']], mid.kind) + '</select></div></div><p class="hint">Renewed every 4 years.</p>' : '') +
+      '<div class="row"><button class="btn" id="saveDriver">Save</button><button class="btn sec" id="cancel">Cancel</button>' + (d.existing ? '<button class="btn sec" id="dropDriver">No longer a driver</button>' : '') + '</div></div>';
+  }
+
+  /* ---- vehicles (everyone) ---- */
+  function vehiclesHtml() {
+    if (V.edit && V.edit.kind === 'vehicle') return vehicleForm(V.edit.v);
+    if (V.walk) return walkForm(V.walk);
+    var may = READER || OFFICE;
+    var list = VEHICLES.filter(function (v) { return v.active !== false; });
+    return '<div class="card" id="vehicles"><h2>Vehicles</h2>' + (list.length ? list.map(function (v) {
+      var s = TR.vehicleState(v, TODAY), last = CHECKS[v.id];
+      return '<div class="item" data-vehicle="' + esc(v.id) + '"><div><b>' + esc(v.name) + '</b> ' + rag(s.rag, s.legalOk ? (s.rag === 'green' ? 'In date' : 'Check the dates') : 'Must not be used') +
+        '<div class="hint">' + esc([v.reg, v.seats ? v.seats + ' seats' : '', v.accessible ? 'wheelchair accessible' : ''].filter(Boolean).join(' · ')) + '</div>' +
+        '<div class="hint">' + s.rows.map(function (r) { return '<span data-due="' + r.k + '" data-duerag="' + r.rag + '">' + esc(r.label) + ': ' + (r.due ? esc(day(r.due)) : 'not recorded') + '</span>'; }).join(' · ') + '</div>' +
+        '<div class="hint" data-last>' + (last ? 'Last walk-round: ' + esc(last.byName) + ', ' + esc(day(last.on)) + (last.ok ? ', all fine' : ', with problems: ' + esc((last.failed || []).join('; ') + (last.defects ? ' ' + last.defects : ''))) : 'No walk-round recorded yet.') + '</div></div>' +
+        '<div class="row" style="margin:0"><button class="btn sm" data-walk="' + esc(v.id) + '">Walk-round check</button>' + (may ? '<button class="btn sec sm" data-editvehicle="' + esc(v.id) + '">Change</button>' : '') + '</div></div>';
+    }).join('') : '<p class="hint" id="noVehicles">No vehicles yet.</p>') +
+      (may ? '<div class="row"><button class="btn sec" id="addVehicle">Add a vehicle</button></div>' : '') + '</div>';
+  }
+  function vehicleForm(v) {
+    var due = v.due || {};
+    return '<div class="card" id="vehicleForm"><h2>' + esc(v.name || 'A new vehicle') + '</h2>' +
+      '<div class="two"><div><label for="vName">Name</label><input class="inp" id="vName" maxlength="80" value="' + esc(v.name || '') + '" placeholder="The minibus"></div>' +
+      '<div><label for="vKind">Kind</label><select id="vKind">' + [['minibus', 'Minibus'], ['car', 'Car'], ['van', 'Van'], ['other', 'Other']].map(function (o) { return '<option value="' + o[0] + '"' + (v.kind === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div></div>' +
+      '<div class="two"><div><label for="vReg">Registration</label><input class="inp" id="vReg" maxlength="12" value="' + esc(v.reg || '') + '"></div>' +
+      '<div><label for="vSeats">Passenger seats</label><input class="inp" type="number" id="vSeats" min="0" max="60" value="' + (v.seats || '') + '"></div></div>' +
+      '<label class="check"><input type="checkbox" id="vAcc"' + (v.accessible ? ' checked' : '') + '> Wheelchair accessible</label>' +
+      '<div class="two">' + TR.VEHICLE_DATES.map(function (x) { return '<div><label for="vd_' + x[0] + '">' + esc(x[1]) + (x[0] === 'service' ? ' next due' : ' runs out on') + '</label><input class="inp" type="date" id="vd_' + x[0] + '" value="' + esc(due[x[0]] || '') + '"></div>'; }).join('') + '</div>' +
+      '<div class="row"><button class="btn" id="saveVehicle">Save</button><button class="btn sec" id="cancel">Cancel</button>' + (v.id ? '<button class="btn sec" id="retireVehicle">No longer used</button>' : '') + '</div></div>';
+  }
+  function walkForm(id) {
+    var v = VEHICLES.filter(function (x) { return x.id === id; })[0] || {};
+    return '<div class="card" id="walkForm"><h2>Before you drive: ' + esc(v.name) + '</h2><p class="hint" style="margin:0 0 6px">Tick each one that is fine. Anything not ticked is recorded as a problem; don’t drive with a problem that makes it unsafe, and tell the office.</p>' +
+      TR.WALK.map(function (w, i) { return '<label class="check"><input type="checkbox" data-walkitem="' + i + '"> ' + esc(w) + '</label>'; }).join('') +
+      '<label for="defects">Anything else (optional)</label><input class="inp" id="defects" maxlength="500">' +
+      '<div class="row"><button class="btn" id="saveWalk">Record it</button><button class="btn sec" id="cancel">Cancel</button></div></div>';
+  }
+
+  /* ---- settings (the office) ---- */
+  function settingsHtml() {
+    return '<div class="card" id="settings"><h2>Who keeps the driver records</h2><p class="hint" style="margin:0">Only these people (up to 20) and master admins see a driver’s licence and insurance details.</p><div>' +
+      (SET.readers.length ? SET.readers.map(function (m) { return '<span class="chip">' + esc(nameOf(m)) + '<button type="button" aria-label="Take off" data-dropreader="' + esc(m) + '">×</button></span>'; }).join('') : '<p class="hint">Nobody yet.</p>') + '</div>' +
+      (SET.readers.length < 20 ? '<select id="addReader" style="margin-top:8px"><option value="">Add someone…</option>' + PEOPLE.filter(function (p) { return SET.readers.indexOf(p.id) < 0; }).map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>'; }).join('') + '</select>' : '') +
+      '<label class="check" style="margin-top:14px"><input type="checkbox" id="setMidas"' + (SET.midas ? ' checked' : '') + '> Minibus drivers must have done the minibus driver course (MiDAS), renewed every 4 years</label>' +
+      '<label for="setRecheck">Check each licence again every</label><select id="setRecheck">' + [6, 12, 24, 36].map(function (n) { return '<option value="' + n + '"' + (SET.recheckMonths === n ? ' selected' : '') + '>' + n + ' months</option>'; }).join('') + '</select>' +
+      '<div class="row"><button class="btn" id="saveSettings">Save</button></div></div>';
+  }
+
+  function wire() {
+    var $ = function (id) { return document.getElementById(id); }, say = function (m) { V.msg = m; draw(); };
+    document.querySelectorAll('[data-tab]').forEach(function (b) { b.onclick = function () { V.tab = b.getAttribute('data-tab'); V.edit = null; V.walk = null; V.msg = ''; draw(); }; });
+    if ($('cancel')) $('cancel').onclick = function () { V.edit = null; V.walk = null; draw(); };
+    if ($('addDriver')) $('addDriver').onchange = function () { var m = $('addDriver').value; if (m) { V.edit = { kind: 'driver', d: { memberId: m, name: nameOf(m), minibus: 'no' } }; draw(); } };
+    document.querySelectorAll('[data-editdriver]').forEach(function (b) { b.onclick = function () { var d = DRIVERS.filter(function (x) { return x.memberId === b.getAttribute('data-editdriver'); })[0]; V.edit = { kind: 'driver', d: Object.assign({ existing: true }, d) }; draw(); }; });
+    if ($('saveDriver')) $('saveDriver').onclick = function () {
+      var d = V.edit.d, rec = { memberId: d.memberId, name: String(d.name || '').slice(0, 120),
+        licence: { categories: [].map.call(document.querySelectorAll('[data-cat]:checked'), function (e) { return e.getAttribute('data-cat'); }), checkedOn: $('licOn').value, checkedHow: $('licHow').value, checkedBy: String(ME.name || '').slice(0, 120), expires: $('licExp').value },
+        insurance: { kind: $('insKind').value, expires: $('insKind').value === 'own' ? $('insExp').value : '' }, minibus: $('mb').value,
+        midas: { on: $('midasOn') ? $('midasOn').value : '', kind: $('midasKind') ? $('midasKind').value : '' }, active: true, updatedAt: new Date().toISOString(), updatedBy: uid(), updatedByName: String(ME.name || '').slice(0, 120) };
+      if (rec.insurance.kind === 'own' && !rec.insurance.expires) { say('Say when their own insurance runs out.'); return; }
+      var b = db().batch();
+      b.set(db().collection('drivers').doc(d.memberId), rec);
+      b.set(db().collection('driverOk').doc(d.memberId), Object.assign(TR.okRecord(rec, SET, rec.name), { updatedAt: rec.updatedAt }));
+      $('saveDriver').disabled = true;
+      b.commit().then(function () { DRIVERS = DRIVERS.filter(function (x) { return x.memberId !== d.memberId; }).concat([rec]); V.edit = null; say('Saved.'); }, function (e) { $('saveDriver').disabled = false; say('Not saved: ' + (e.message || e)); });
+    };
+    if ($('dropDriver')) $('dropDriver').onclick = function () {
+      var m = V.edit.d.memberId, b = db().batch();
+      b.delete(db().collection('drivers').doc(m)); b.delete(db().collection('driverOk').doc(m));
+      b.commit().then(function () { DRIVERS = DRIVERS.filter(function (x) { return x.memberId !== m; }); V.edit = null; say('Removed: their record is deleted.'); }, function (e) { say('Not removed: ' + (e.message || e)); });
+    };
+    if ($('addVehicle')) $('addVehicle').onclick = function () { V.edit = { kind: 'vehicle', v: { kind: 'minibus', due: {} } }; draw(); };
+    document.querySelectorAll('[data-editvehicle]').forEach(function (b) { b.onclick = function () { V.edit = { kind: 'vehicle', v: VEHICLES.filter(function (x) { return x.id === b.getAttribute('data-editvehicle'); })[0] }; draw(); }; });
+    var putVehicle = function (active) {
+      var v = V.edit.v, name = $('vName').value.trim();
+      if (!name) { say('Give the vehicle a name.'); return; }
+      var rec = { name: name.slice(0, 80), kind: $('vKind').value, reg: $('vReg').value.trim().toUpperCase().slice(0, 12), seats: Math.max(0, Math.min(60, parseInt($('vSeats').value, 10) || 0)), accessible: $('vAcc').checked,
+        siteId: v.siteId || '', due: {}, active: active, updatedAt: new Date().toISOString(), updatedBy: uid() };
+      TR.VEHICLE_DATES.forEach(function (x) { rec.due[x[0]] = $('vd_' + x[0]).value; });
+      var ref = v.id ? db().collection('vehicles').doc(v.id) : db().collection('vehicles').doc();
+      ref.set(rec).then(function () { VEHICLES = VEHICLES.filter(function (x) { return x.id !== ref.id; }).concat([Object.assign({ id: ref.id }, rec)]); V.edit = null; say(active ? 'Saved.' : 'It is no longer listed.'); }, function (e) { say('Not saved: ' + (e.message || e)); });
+    };
+    if ($('saveVehicle')) $('saveVehicle').onclick = function () { putVehicle(true); };
+    if ($('retireVehicle')) $('retireVehicle').onclick = function () { putVehicle(false); };
+    document.querySelectorAll('[data-walk]').forEach(function (b) { b.onclick = function () { V.walk = b.getAttribute('data-walk'); draw(); }; });
+    if ($('saveWalk')) $('saveWalk').onclick = function () {
+      var failed = [];
+      document.querySelectorAll('[data-walkitem]').forEach(function (e) { if (!e.checked) failed.push(TR.WALK[+e.getAttribute('data-walkitem')]); });
+      var rec = { vehicleId: V.walk, by: uid(), byName: String(ME.name || 'Someone').slice(0, 120), at: firebase.firestore.FieldValue.serverTimestamp(), ok: !failed.length && !$('defects').value.trim(), failed: failed, defects: $('defects').value.trim().slice(0, 500) };
+      $('saveWalk').disabled = true;
+      db().collection('vehicleChecks').add(rec).then(function () { CHECKS[V.walk] = Object.assign({}, rec, { on: TODAY }); V.walk = null; say(rec.ok ? 'Recorded: all fine. Drive safely.' : 'Recorded, with the problems. Tell the office, and don’t drive if it isn’t safe.'); },
+        function (e) { $('saveWalk').disabled = false; say('Not recorded: ' + (e.message || e)); });
+    };
+    var putSet = function (s) {
+      return db().collection('transportSettings').doc('main').set({ readers: s.readers, midas: s.midas, recheckMonths: s.recheckMonths, updatedAt: new Date().toISOString(), updatedBy: uid() })
+        .then(function () { SET = TR.settingsOf(s); say('Saved.'); }, function (e) { say('Not saved: ' + (e.message || e)); });
+    };
+    if ($('addReader')) $('addReader').onchange = function () { var m = $('addReader').value; if (m) putSet(Object.assign({}, SET, { readers: SET.readers.concat([m]).slice(0, 20) })); };
+    document.querySelectorAll('[data-dropreader]').forEach(function (b) { b.onclick = function () { var m = b.getAttribute('data-dropreader'); putSet(Object.assign({}, SET, { readers: SET.readers.filter(function (x) { return x !== m; }) })); }; });
+    if ($('saveSettings')) $('saveSettings').onclick = function () { putSet(Object.assign({}, SET, { midas: $('setMidas').checked, recheckMonths: parseInt($('setRecheck').value, 10) || 12 })); };
+  }
+
+  /* ---- loading ---- */
+  EGBCAuth.require().then(function (profile) {
+    ME = { name: (profile || {}).name || '', memberId: (profile || {}).memberId || '' };
+    return EGBCAuth.loadPerms().then(function (P) {
+      OFFICE = !!(EGBCAuth.isMaster && EGBCAuth.isMaster()) || TJ.teamsFor(P.jobs, 'office', P.set).some(function (t) { return EGBCAuth.inTeam(t); });
+      return db().collection('transportSettings').doc('main').get().catch(function () { return null; });
+    }).then(function (s) {
+      SET = TR.settingsOf(s && s.exists ? s.data() : {});
+      READER = !!(EGBCAuth.isMaster && EGBCAuth.isMaster()) || (ME.memberId && SET.readers.indexOf(ME.memberId) >= 0);
+      if (READER) V.tab = 'drivers';
+      var none = { docs: [] };
+      return Promise.all([
+        db().collection('vehicles').get().catch(function () { return none; }),
+        READER ? db().collection('drivers').get().catch(function () { return none; }) : none,
+        READER || OFFICE ? db().collection('addressBook').get().catch(function () { return none; }) : none,
+        db().collection('vehicleChecks').orderBy('at', 'desc').limit(200).get().catch(function () { return none; })
+      ]);
+    }).then(function (r) {
+      VEHICLES = r[0].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+      DRIVERS = r[1].docs.map(function (d) { return d.data(); });
+      PEOPLE = r[2].docs.map(function (d) { var v = d.data(); return { id: d.id, name: String(v.name || '').trim(), minor: v.isMinor === true, archived: !!v.archived }; })
+        .filter(function (p) { return p.name && !p.minor && !p.archived; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
+      r[3].docs.forEach(function (d) { var c = d.data(); if (!CHECKS[c.vehicleId]) CHECKS[c.vehicleId] = Object.assign({}, c, { on: c.at && c.at.toDate ? c.at.toDate().toISOString().slice(0, 10) : '' }); });
+      draw();
+    });
+  }).catch(function (e) { wrap.innerHTML = '<div class="card">' + esc((e && e.message) || e) + '</div>'; });
+})();
+</script>
+</body>
+</html>

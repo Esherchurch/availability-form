@@ -21,6 +21,7 @@
 <script src="egbc-hs-core.js?v=202610281000"></script>
 <script src="egbc-hs-templates.js?v=202610281800"></script>
 <script src="egbc-hs-dash.js?v=202610281800"></script>
+<script src="egbc-transport.js?v=202610291500"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <!-- A BUILDING'S OR AN EVENT'S HEALTH AND SAFETY ASSESSMENT, PRINTED (H&S step 6; F-280 section 7): A4, not the
      editing screen. DRAFT until signed and countersigned (a building's) or approved (an event's); a row of dials;
@@ -116,9 +117,12 @@
       if (!a) throw new Error('this event has no risk assessment yet');
       var site = a.siteId, siteName = function (sid) { var s = sites.filter(function (x) { return x.id === sid; })[0]; return s ? s.name : ''; };
       return Promise.all([site ? db().collection('rooms').where('siteId', '==', site).get().then(function (s) { return s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); }) : [],
-        site ? get('raStatus', site + '__hs').catch(function () { return null; }) : null, site ? get('raStatus', site + '__fire').catch(function () { return null; }) : null]).then(function (w) {
+        site ? get('raStatus', site + '__hs').catch(function () { return null; }) : null, site ? get('raStatus', site + '__fire').catch(function () { return null; }) : null,
+        a.transport ? db().collection('driverOk').get().catch(function () { return { docs: [] }; }) : { docs: [] }, a.transport ? db().collection('vehicles').get().catch(function () { return { docs: [] }; }) : { docs: [] }]).then(function (w) {
         var roomIds = (ev.location || {}).roomIds || [], rooms = (w[0] || []).filter(function (x) { return roomIds.indexOf(x.id) >= 0; });
-        var rows = HT.eventHubRows({ a: a, rooms: rooms, stat: { hs: w[1], fire: w[2] }, siteName: siteName(site), today: TODAY }), must = rows.filter(function (x) { return x.mustNot; });
+        var byId = function (s) { var o = {}; s.docs.forEach(function (d) { o[d.id] = Object.assign({ id: d.id }, d.data()); }); return o; };
+        var rows = HT.eventHubRows({ a: a, rooms: rooms, stat: { hs: w[1], fire: w[2] }, siteName: siteName(site), today: TODAY })
+          .concat(window.EGBCTransport.eventRows({ transport: a.transport, drivers: byId(w[3]), vehicles: byId(w[4]), day: String(ev.startLocal || TODAY).slice(0, 10), away: HT.AWAY.indexOf(a.kind) >= 0 })), must = rows.filter(function (x) { return x.mustNot; });
         var qs = HT.eventQuestions(a.kind, a.flags, a.care), left = HT.eventDone(a.kind, a.flags, a.care, a.answers);
         var done = a.status === 'approved', kindWords = (HT.EVENT_KINDS.filter(function (x) { return x[0] === a.kind; })[0] || [])[1] || '';
         var status = done ? '<div class="status" id="pStatus" data-state="signed">SIGNED AND APPROVED<small>Signed by ' + esc(a.signedByName) + ', the organiser, on ' + esc(longDate(a.signedAt)) + '. Approved by ' + esc(a.approvedByName) + ', health and safety, on ' + esc(longDate(a.approvedAt)) + '. Version ' + a.version + '.</small></div>'

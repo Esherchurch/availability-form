@@ -28,6 +28,7 @@
 <script src="egbc-hs-core.js?v=202610281000"></script>
 <script src="egbc-hs-templates.js?v=202610281800"></script>
 <script src="egbc-ra-draft.js?v=202610281800"></script>
+<script src="egbc-transport.js?v=202610291500"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -82,6 +83,7 @@
   var E = window.EGBCEvents, RA = window.EGBCRaCore, H = window.EGBCHsCore, HT = window.EGBCHsTemplates, esc = E.esc;
   var TODAY = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   var ID = (location.search.match(/[?&]event=([\w-]+)/) || [])[1] || '';
+  var DOK = {}, VEH = {}, TR = window.EGBCTransport;   /* drivers cleared, and vehicles (job 4) */
   var ME = {}, JOBP = null, EV = null, U18 = false, A = null, SITES = [], ROLES = {}, ROOMS = [], STAT = {}, SET = {}, READ = null, EDIT = false,
       OFFICE = false, MASTER = false, RUNS = false, LEADER = false, AI = null;
   function db() { return EGBCAuth.db; }
@@ -129,15 +131,21 @@
       EDIT = A.status === 'draft' && mayWrite();
       var site = A.siteId, roomIds = ((EV.location || {}).roomIds || []);
       return Promise.all([site ? db().collection('rooms').where('siteId', '==', site).get().then(all, function () { return []; }) : [],
-        site ? get('raStatus', site + '__hs') : null, site ? get('raStatus', site + '__fire') : null]).then(function (w) {
+        site ? get('raStatus', site + '__hs') : null, site ? get('raStatus', site + '__fire') : null,
+        db().collection('driverOk').get().then(all, function () { return []; }), db().collection('vehicles').get().then(all, function () { return []; })]).then(function (w) {
         ROOMS = (w[0] || []).filter(function (x) { return roomIds.indexOf(x.id) >= 0; });
         STAT = { hs: w[1], fire: w[2] };
+        DOK = {}; (w[3] || []).forEach(function (x) { DOK[x.id] = x; });
+        VEH = {}; (w[4] || []).forEach(function (x) { VEH[x.id] = x; });
       });
     });
   }
 
   /* ---------------- the hub's own rows (F-280 3C), from its numbers ---------------- */
-  function hubRows() { return HT.eventHubRows({ a: A, rooms: ROOMS, stat: STAT, siteName: siteName(A.siteId), today: TODAY }); }
+  function hubRows() {
+    return HT.eventHubRows({ a: A, rooms: ROOMS, stat: STAT, siteName: siteName(A.siteId), today: TODAY })
+      .concat(TR.eventRows({ transport: A.transport, drivers: DOK, vehicles: VEH, day: String(EV.startLocal || TODAY).slice(0, 10), away: away() }));
+  }
   function mustNot() { return hubRows().some(function (r) { return r.mustNot; }); }
 
   /* ---------------- reading the form back ---------------- */
@@ -149,6 +157,8 @@
     if ($('eMarked')) A.marked = $('eMarked').checked;
     HT.EVENT_FLAGS.forEach(function (f) { var e = $('flag_' + f[0]); if (e) { if (e.checked) A.flags[f[0]] = true; else delete A.flags[f[0]]; } });
     if ($('vName')) A.venue.name = v('vName').slice(0, 200);
+    if ($('trCard')) A.transport = { driverIds: [].map.call(document.querySelectorAll('[data-trdriver]:checked'), function (e) { return e.getAttribute('data-trdriver'); }).slice(0, 20),
+      vehicleIds: [].map.call(document.querySelectorAll('[data-trvehicle]:checked'), function (e) { return e.getAttribute('data-trvehicle'); }).slice(0, 10) };
     var c = document.querySelector('input[name="care"]:checked'); if (c) A.care = { support: c.value };
     if (A.care.support) A.answers.careSupport = A.care.support === 'yes' ? 'Yes' : 'No';
     if ($('sec_plan')) A.sections.plan = $('sec_plan').value.slice(0, 4000);
@@ -197,6 +207,18 @@
       var s = STAT[k], rag = !s || s.status !== 'countersigned' ? 'grey' : HT.reviewRag(s.reviewDue, TODAY);
       return '<div class="item" data-bra="' + k + '"><span class="dot ' + rag + '"></span>' + esc(HT.KINDS[k].title) + ': ' + (!s ? 'not started' : s.status === 'countersigned' ? 'version ' + s.version + ', review by ' + esc(RA.longDate(s.reviewDue)) : esc(s.status)) + '</div>';
     }).join('') + '<p class="hint">This event’s assessment adds only what the event changes.</p></div>';
+  }
+  /* DRIVERS AND VEHICLES (job 4): chosen from the church's records; the hub's rows above check them for the day */
+  function transportHtml() {
+    var t = A.transport || {}, dIds = t.driverIds || [], vIds = t.vehicleIds || [];
+    if (!away() && !dIds.length && !vIds.length) return '';
+    var day = String(EV.startLocal || TODAY).slice(0, 10);
+    var drivers = Object.keys(DOK).map(function (k) { return DOK[k]; }).filter(function (d) { return d.carsUntil || d.minibusUntil || dIds.indexOf(d.id) >= 0; }).sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+    var vehicles = Object.keys(VEH).map(function (k) { return VEH[k]; }).filter(function (v) { return v.active !== false || vIds.indexOf(v.id) >= 0; });
+    var until = function (d) { return [d.carsUntil ? 'cars until ' + RA.longDate(d.carsUntil) : '', d.minibusUntil ? 'the minibus until ' + RA.longDate(d.minibusUntil) : ''].filter(Boolean).join('; ') || 'not cleared'; };
+    return '<div class="card" id="trCard"><h2>Drivers and vehicles</h2><p class="hint">If the church is driving: choose them here (they are kept on <a href="transport.html">Drivers and vehicles</a>). The hub checks each is cleared, and in date, on ' + esc(RA.longDate(day)) + '.</p>' +
+      (vehicles.length ? '<p class="l" style="margin:8px 0 2px">Vehicles</p>' + vehicles.map(function (v) { return '<label class="check"><input type="checkbox" data-trvehicle="' + esc(v.id) + '"' + (vIds.indexOf(v.id) >= 0 ? ' checked' : '') + (EDIT ? '' : ' disabled') + '> ' + esc(v.name) + (v.reg ? ' (' + esc(v.reg) + ')' : '') + '</label>'; }).join('') : '<p class="hint">No vehicles are recorded.</p>') +
+      (drivers.length ? '<p class="l" style="margin:8px 0 2px">Drivers</p>' + drivers.map(function (d) { return '<label class="check"><input type="checkbox" data-trdriver="' + esc(d.id) + '"' + (dIds.indexOf(d.id) >= 0 ? ' checked' : '') + (EDIT ? '' : ' disabled') + '> ' + esc(d.name) + ' <span class="hint">(' + esc(until(d)) + ')</span></label>'; }).join('') : '<p class="hint">No drivers are cleared yet.</p>') + '</div>';
   }
   function venueHtml() {
     if (!away()) return '';
@@ -274,7 +296,7 @@
   function draw() {
     $('wrap').innerHTML = '<h1>Event risk assessment</h1><p class="sub">' + esc(EV.title || '') + (EV.startLocal ? ' · ' + esc(RA.longDate(String(EV.startLocal).slice(0, 10))) : '') +
       (A.updatedAt ? ' · <a id="printLink" href="ra-print.html?event=' + encodeURIComponent(ID) + '" target="_blank" rel="noopener">Print</a>' : '') + '</p>' +
-      statusHtml() + EGBCRaDraft.label(A, RA.longDate) + '<div class="banner info" id="notAdvice">' + esc(H.NOT_ADVICE) + '</div>' + aboutHtml() + (EDIT ? EGBCRaDraft.box(AI, 'the event') : '') + hubHtml() + buildingHtml() + venueHtml() + hazardsHtml() + actionsHtml() +
+      statusHtml() + EGBCRaDraft.label(A, RA.longDate) + '<div class="banner info" id="notAdvice">' + esc(H.NOT_ADVICE) + '</div>' + aboutHtml() + (EDIT ? EGBCRaDraft.box(AI, 'the event') : '') + hubHtml() + buildingHtml() + venueHtml() + transportHtml() + hazardsHtml() + actionsHtml() +
       '<div class="card"><h2>The plan for the day</h2><p class="hint">Stewards and their briefing, first aiders, the timings, who is in charge.</p>' + (EDIT ? '<textarea id="sec_plan" rows="4" maxlength="4000">' + esc(A.sections.plan || '') + '</textarea>' : '<p>' + esc(A.sections.plan || '—') + '</p>') + '</div>' +
       questionsHtml() + signHtml() + (EDIT ? '<div class="bar"><button class="btn" type="button" id="saveGo">Save</button><span class="hint" id="said" role="status"></span></div>' : '<p class="hint" id="said" role="status"></p>');
     wire();
@@ -286,6 +308,7 @@
     out.answers = Object.assign({}, x.answers);
     if (x.ai) out.ai = x.ai;
     if (x.suggested) out.suggested = x.suggested;
+    if (x.transport && ((x.transport.driverIds || []).length || (x.transport.vehicleIds || []).length)) out.transport = { driverIds: x.transport.driverIds || [], vehicleIds: x.transport.vehicleIds || [] };
     if (HT.AWAY.indexOf(x.kind) < 0) { out.care = { support: '' }; delete out.answers.careSupport; delete out.answers.careHow; }
     out.updatedBy = uid(); out.updatedAt = nowIso(); return out;
   }

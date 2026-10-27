@@ -13232,3 +13232,43 @@ The rules go live when the hub goes live. A real AI call only on your word.
 **For main:** a Menu entry, "Working alone" (lone.html), for everyone signed in, with building compliance on.
 
 **Deploy (the reviewing window's):** `loneWorkingCheck` (new), and `raRemindersDaily` again. No new secret. The rules go live when the hub goes live.
+
+---
+
+### F-306 — Job 4: drivers and vehicles (the reviewing window's job 4, 29 Oct) (the events window)
+
+**What it does** (transport.html; egbc-transport.js; rules for `transportSettings`, `drivers`, `driverOk`, `vehicles`, `vehicleChecks`):
+- **A driver's record holds the minimum:**
+  - the licence categories (B, D1, D), when it was last checked and how (with the DVLA, or the licence seen), and when the photocard runs out
+  - their own insurance and when it runs out, or "on the church's policy"
+  - whether they may drive the minibus: D1 on their licence, or their car licence under the conditions (21 or over, held it 2 years, a volunteer, 3.5 tonnes, or 4.25 with a wheelchair lift)
+  - the MiDAS minibus course and its date, renewed every 4 years, where the church asks for it
+
+  Never the licence number, a date of birth, an address or points.
+- **Who reads it:** only the people the office names (up to 20) and master admins. Everyone else sees `driverOk`: a name and the dates someone is cleared until, for cars and for the minibus. Removing a driver deletes their record.
+- **Rechecks:** each licence is checked again every 12 months (6 to 36; a setting).
+- **Vehicles:** the MOT, insurance, road tax and service dates, with colours. An MOT, insurance or road tax that has run out says "Must not be used". Anyone signed in records the **walk-round check** before driving (8 items, and anything else wrong). The last check shows on each vehicle.
+- **Linked to event assessments:** an away event's assessment has "Drivers and vehicles", chosen from the records (ids only, on `raEvents.transport`). The hub's own rows check each on the event's day:
+  - a vehicle out of date, or a driver not cleared (for the minibus when a minibus is chosen), is a red "must not go ahead" row, and it can't be signed
+  - otherwise there is a green row for each
+
+  The print shows the same rows.
+- **For any church:** any number of vehicles, and up to 500 drivers on the page.
+
+**Quick check** (emulator, the synthetic parish), 11/11:
+- a named reader's private list
+- the minimum record, and cleared-until for everyone else
+- someone else can't read a record
+- the office adds the minibus
+- everyone sees it, and an MOT that has run out
+- a walk-round recorded
+- the event blocked by the MOT, then not once it was renewed
+- saved with its choices
+- the print
+- no page errors
+
+Two mistakes in my own code were found and fixed on the way: "mot" in lower case, and a missing service date stopping the "in date" row.
+
+**For main:** a Menu entry, "Drivers and vehicles" (transport.html), for everyone signed in.
+
+**Deploy:** nothing. There are no functions. The rules go live when the hub goes live.
