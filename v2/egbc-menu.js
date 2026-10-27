@@ -126,8 +126,8 @@
         description: 'Which address each team’s emails come from' },
       /* The hub's notices: post one (the editor opens), or manage them. */
       /* Members' meetings (21 Oct 2026): agenda, papers, how to join, votes.
-         Church members, and whoever runs them (the Church office, the Elders,
-         master admins) - the same as the page and the rules. */
+         Church members, and whoever runs them (the office and trustees
+         jobs, master admins) - the same as the page and the rules. */
       { title: 'Members\u2019 meetings', url: 'church-meeting.html', icon: 'vote', feature: 'meetings', cmm: true,
         description: 'Agenda, papers, how to join, and the votes' },
       { title: 'Notices', url: 'hub.html?notices=1', icon: 'megaphone', feature: 'notices', messages: true,
@@ -183,8 +183,8 @@
         description: 'Report something broken, and what is being fixed' },
       /* BUILDING COMPLIANCE (the events window's F-231/F-233): an add-on,
          off until the church switches it on (buildingCompliance). The
-         register for master admins, the Church office and the Elders; the
-         checks given out, for the Maintenance team, the office and master
+         register for master admins, the office and the trustees; the
+         checks given out, for the buildings job, the office and master
          admins - the pages' own tests. */
       /* By job, as the pages decide since F-297: the office and the trustees. */
       { title: 'Building compliance', url: 'compliance.html', icon: 'clipboard-check', feature: 'buildingCompliance',
@@ -216,16 +216,16 @@
     { title: 'Church admin', section: true, fold: true, icon: 'settings', children: [
       { title: 'Church settings', url: 'church-settings.html', icon: 'sliders-horizontal', master: true,
         description: 'The church\'s name and logo, giving details, and notifications on or off' },
-      /* Master admins and the Church office (Martin, 15 Oct 2026). */
-      { title: 'Teams and groups', url: 'teams-admin.html', icon: 'users-round', team: 'Church office',
+      /* Master admins and the office (Martin, 15 Oct 2026; the office job, H-9). */
+      { title: 'Teams and groups', url: 'teams-admin.html', icon: 'users-round', job: 'office',
         description: 'Add, rename, recolour, order and archive teams' },
       /* Who may do what (H-14; Martin's answer 6): master admins only. */
       { title: 'Permissions', url: 'permissions.html', icon: 'key-round', master: true,
         description: 'Who may do what, section by section, and exceptions' },
       /* The money team, by its name (F-200), and master admins. */
-      /* The church's bank details, for the Church office and master admins
+      /* The church's bank details, for the office job and master admins
          (21 Oct 2026: Church settings became master admins only). */
-      { title: 'Giving details', url: 'giving-details.html', icon: 'landmark', team: 'Church office', feature: 'payments',
+      { title: 'Giving details', url: 'giving-details.html', icon: 'landmark', job: 'office', feature: 'payments',
         description: 'The bank details people see on Give' },
       /* The finance job (team jobs; the money team setting, then "Finance",
          when none is stored - F-297), and master admins. */
@@ -373,7 +373,8 @@
        they will hang, and the mechanism is tested rather than waiting. */
     if (node.members && !who.isChurchMember) return false;
     /* Members' meetings: church members and whoever runs them. */
-    if (node.cmm && !who.isChurchMember && !who.isMaster && !onTeam(['Church office', 'Elders'], who)) return false;
+    if (node.cmm && !who.isChurchMember && !who.isMaster
+        && !['office', 'trustees'].some(function (j) { return (who.jobs || []).indexOf(j) !== -1; })) return false;
     if (node.admin && !who.isAdmin) return false;
     /* adminOf: an admin of one of these areas (or a master admin), the same
        test the page's own guard makes. Plain admin: true lets in an admin of

@@ -2091,3 +2091,9 @@ Every function must take the church from the sign-in's claim or the document's p
 - **New:** `<script src="egbc-guard.js?v=202610281400" data-also-job="office"></script>` lets in anybody on a team doing that job (team jobs), ORed with the page's other guard settings, as `data-also-team` is. A list works: `data-also-job="office,communications"`.
 - The guard reads the team jobs first when the answer turns on them.
 - EmailBuilder2.html can swap `data-also-team="Church office"` for it.
+
+## From the main window, 28 Oct 2026: `data-job`, and your three Menu entries
+
+- **New guard option:** `data-job="office"` means the page is for the teams doing that job, plus master admins. It goes in place of `data-team`, so no page has to name a church's team. teams-admin.html and giving-details.html use it now. A list works too: `data-job="office,communications"`.
+- **Your Menu entries:** E-news, Card maker and From Canva still show to `team: 'Church office'`. The reviewer asked that they move with you. Your functions ask comms-office.js, which uses the office job, so I'll change all three to `job: 'office'` unless you'd rather have `communications` or `['office', 'communications']`. Please reply here, and say when your pages' own checks match.
+- **The office in the hub's other checks:** the office is now the office job in the sending functions, members' meetings, teams, notices, email drafts and the people list (rules `raOffice()`), and in the Menu's and app's sending cards.

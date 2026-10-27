@@ -532,7 +532,7 @@ service cloud.firestore {
       // admin, master or under-18 ticks. A new person they add is on their
       // teams only. Removing somebody is the office's, or the leader's when
       // the person is on no team but theirs.
-      allow write: if isMaster() || onTeam('Church office') || bookLeaderOk();
+      allow write: if raOffice() || bookLeaderOk();
     }
 
     function bookLeaderOk() {
@@ -778,13 +778,13 @@ service cloud.firestore {
       // Adding a team gives access to whoever is ticked into it, and `runs`
       // decides who runs things - neither is an ordinary admin job.
       // TEAMS & GROUPS (Martin, 15 Oct 2026): master admins and the Church
-      // office group keep the list (teams-admin.html). The office may not
+      // office job keep the list (teams-admin.html). The office may not
       // change `runs` - who runs things stays a master admin's - and nobody
       // deletes one: archive, never remove (markers and history stay).
       // coreFor (H-15): the teams this one is the core team for. Like runs,
       // it gives people access, so it is a master admin's: the office may
       // keep the list but not change what a team covers.
-      allow write: if (isMaster() || (onTeam('Church office')
+      allow write: if (isMaster() || (raOffice()
                         && request.resource.data.get('runs', []) == (resource == null ? [] : resource.data.get('runs', []))
                         && request.resource.data.get('coreFor', []) == (resource == null ? [] : resource.data.get('coreFor', []))
                         && request.resource.data.get('board', '') == (resource == null ? '' : resource.data.get('board', ''))))
@@ -1147,7 +1147,7 @@ service cloud.firestore {
     function urgentOk() {
       return request.resource.data.get('urgent', false) != true
              || (resource != null && resource.data.get('urgent', false) == true)
-             || isMaster() || onTeam('Church office');
+             || raOffice();
     }
     // WHO MAY POST A NOTICE (Martin, 16 Oct 2026, any church): the church
     // office and master admins, to anyone (teams [] is everyone); a team
@@ -1158,7 +1158,7 @@ service cloud.firestore {
       return teams is list && teams.size() > 0 && teams.hasOnly(me().get('adminFor', []));
     }
     function mayNoticeTo(teams) {
-      return isMaster() || onTeam('Church office') || (isAdmin() && noticeTeamsMine(teams));
+      return raOffice() || (isAdmin() && noticeTeamsMine(teams));
     }
     match /news/{itemId} {
       allow read: if active();
@@ -1486,7 +1486,7 @@ service cloud.firestore {
     // which replaces 11 Oct's "anyone on Core Team"): team leaders, the
     // church office and master admins.
     match /emailDrafts/{draftId} {
-      allow read, write: if isMaster() || isAdmin() || onTeam('Church office');
+      allow read, write: if raOffice() || isAdmin();
     }
 
     // THE E-NEWS (comms window, 19 Oct 2026; FINDINGS-comms). The office

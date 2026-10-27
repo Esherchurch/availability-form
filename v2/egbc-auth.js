@@ -340,6 +340,17 @@
         'This page holds the whole church’s settings, so only a master admin can open it.'];
     }
 
+    /* data-job: the teams doing one of these jobs, and master admins. */
+    if (opts.job && !alsoOk && !EGBCAuth.isMaster() && !String(opts.job).split(',').some(function (j) {
+      return EGBCAuth.myJobs().indexOf(j.trim()) !== -1;
+    })) {
+      var JOB_WORDS = { office: 'the church office', trustees: 'the trustees', finance: 'the people who look after the money',
+        buildings: 'the people who look after the buildings', leadership: 'the church\u2019s leaders' };
+      var j0 = String(opts.job).split(',')[0].trim();
+      return ['No access to this page', 'This page is for ' + (JOB_WORDS[j0] || 'the people who do this job in the church') +
+        '. If you think you should have access, ask the church office.'];
+    }
+
     if (opts.adminAny && !EGBCAuth.isAdmin() && !alsoOk) {
       return ['Admins only',
         'This page is for people who manage a team. If you think you should ' +
@@ -1451,7 +1462,7 @@
             var no = guardRefusal(opts, profile);
             /* Book a room counts the office job (team jobs, H-9), which
                loadPerms() reads: asked for only when the answer turns on it. */
-            if (no && (opts.leadsOrCore || opts.alsoJob) && !PERMS.ready) {
+            if (no && (opts.leadsOrCore || opts.alsoJob || opts.job) && !PERMS.ready) {
               loadPerms().catch(function () {}).then(function () {
                 var again = guardRefusal(opts, profile);
                 if (again) { EGBCAuth._blockPage(again[0], again[1], profile); return; }

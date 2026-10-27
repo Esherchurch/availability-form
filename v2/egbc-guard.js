@@ -46,6 +46,10 @@
   /* data-also-job="office" - the same, for a team job (team jobs, H-9):
      whichever of the church's teams does that job. */
   var alsoJob = script ? script.getAttribute('data-also-job') : null;
+  /* data-job="office" - the page is for a team job (team jobs, H-9):
+     whichever of the church's teams does it, and master admins. In place
+     of data-team, so no page names a church's team. */
+  var job = script ? script.getAttribute('data-job') : null;
   /* data-allow-pending="parent" (FINDINGS-notify N-5.5): the app alone
      lets in a verified address the church holds no record for, as a
      parent, to Parents' Sunday and Notifications and nothing else. */
@@ -179,6 +183,7 @@
     if (adminAny) opts.adminAny = true;
     if (alsoTeam) opts.alsoTeam = alsoTeam;
     if (alsoJob) opts.alsoJob = alsoJob;
+    if (job) opts.job = job;
     if (allowPending) opts.allowPending = allowPending;
     if (anyTeam) opts.anyTeam = true;
     if (masterOnly) opts.master = true;

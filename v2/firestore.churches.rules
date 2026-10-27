@@ -139,7 +139,7 @@ allow write: if isAdmin() && adminOf(request.resource.data.team);
 match /addressBook/{personId} {
 allow get: if isAdmin() || volunteer() || bookIsMine(personId);
 allow list: if isAdmin() || volunteer();
-allow write: if isMaster() || onTeam('Church office') || bookLeaderOk();
+allow write: if raOffice() || bookLeaderOk();
 }
 function bookLeaderOk() {
 let mine = me().get('adminFor', []);
@@ -243,7 +243,7 @@ allow delete: if false;
 }
 match /teams/{teamId} {
 allow read: if active();
-allow write: if (isMaster() || (onTeam('Church office')
+allow write: if (isMaster() || (raOffice()
 && request.resource.data.get('runs', []) == (resource == null ? [] : resource.data.get('runs', []))
 && request.resource.data.get('coreFor', []) == (resource == null ? [] : resource.data.get('coreFor', []))
 && request.resource.data.get('board', '') == (resource == null ? '' : resource.data.get('board', ''))))
@@ -418,13 +418,13 @@ allow update: if false;
 function urgentOk() {
 return request.resource.data.get('urgent', false) != true
 || (resource != null && resource.data.get('urgent', false) == true)
-|| isMaster() || onTeam('Church office');
+|| raOffice();
 }
 function noticeTeamsMine(teams) {
 return teams is list && teams.size() > 0 && teams.hasOnly(me().get('adminFor', []));
 }
 function mayNoticeTo(teams) {
-return isMaster() || onTeam('Church office') || (isAdmin() && noticeTeamsMine(teams));
+return raOffice() || (isAdmin() && noticeTeamsMine(teams));
 }
 match /news/{itemId} {
 allow read: if active();
@@ -548,7 +548,7 @@ allow read: if volunteer();
 allow write: if isAdmin();
 }
 match /emailDrafts/{draftId} {
-allow read, write: if isMaster() || isAdmin() || onTeam('Church office');
+allow read, write: if raOffice() || isAdmin();
 }
 function enewsOffice() { return raOffice(); }
 function enewsIssueOk() {

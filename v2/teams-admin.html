@@ -3,7 +3,7 @@
 <head>
 <script src="egbc-nosend.js?v=202610212000"></script>
 <script src="egbc-appmode.js?v=202610201500"></script>
-<script src="egbc-shell.js?v=202610281800" data-title="Teams &amp; groups"></script>
+<script src="egbc-shell.js?v=202610282000" data-title="Teams &amp; groups"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Teams &amp; groups — EGBC</title>
@@ -13,8 +13,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610281400"></script>
-<script src="egbc-guard.js?v=202610281400" data-team="Church office"></script>
+<script src="egbc-auth.js?v=202610282000"></script>
+<script src="egbc-guard.js?v=202610282000" data-job="office"></script>
 <script src="egbc-team-jobs.js?v=202610261800"></script>
 <style>
   :root{
@@ -109,7 +109,7 @@
    changed - archive it and add a new one instead, because the id is what
    every address book record, rota and marker points at.
 
-   WHO: master admins and the Church office (firestore.rules, match /teams).
+   WHO: master admins and the office job (firestore.rules, match /teams).
    The office cannot change `runs` - what a group may run - which stays a
    master admin's. Nobody deletes a team; archiving keeps every marker.
 
