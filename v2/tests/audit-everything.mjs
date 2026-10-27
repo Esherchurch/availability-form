@@ -118,7 +118,8 @@ const OFF_MENU_BY_DESIGN = {
    (check-menu's REACHED_ELSEWHERE), so menuFor() never lists them. */
 const ALSO_AUDIT = ['sg-print.html',   /* the reviewing window, F-296 item 3 */
   'assessment.html',                    /* and F-299: it is in the Menu too, listed so it is never missed */
-  'event-ra.html'];                     /* F-301, for the final test */
+  'event-ra.html',                      /* F-301, for the final test */
+  'ra-print.html'];                     /* and F-302 */
 const SKIP_TAP = /sign ?out|log ?out|back to me|stop viewing|delete|remove|archive|clear |reset|unsubscribe|\bsend\b|disconnect|withdraw|decline|cancel (my|this|the) /i;
 const SKIP_LIVE = /save|submit|book|sign ?up|register|\badd\b|create|upload|\bpay\b|give now|confirm|approve|accept|post|publish|mark as|tick|import|generate|sync|\+ ?service|not done|auto-?populate|restore/i;
 /* BUTTONS THAT WRITE TO THE LIVE CHURCH, which a --live run must never
