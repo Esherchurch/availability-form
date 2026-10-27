@@ -238,6 +238,9 @@
          master admins only - the server's check. */
       { title: 'What we hold about someone', url: 'privacy.html', icon: 'file-search', dataLeadOnly: true,
         description: 'For a data request: everything on the register about one person' },
+      /* The church's kinds of service and service roles (H-11): the office. */
+      { title: 'Your services', url: 'services-settings.html', icon: 'calendar-cog', job: 'office',
+        description: 'The kinds of service and meeting, and the roles a service names' },
       /* Who may do what (H-14; Martin's answer 6): master admins only. */
       { title: 'Permissions', url: 'permissions.html', icon: 'key-round', master: true,
         description: 'Who may do what, section by section, and exceptions' },

@@ -188,7 +188,7 @@ allow write: if (isAdmin()
 allow read: if isPastor() || isLeadership();
 allow update: if (isPastor() || isLeadership())
 && request.resource.data.diff(resource.data).affectedKeys()
-.hasOnly(['publicTitle', 'speaker', 'speakerId', 'serviceLeader', 'serviceLeaderId', 'readers', 'updatedAt', 'updatedBy'])
+.hasOnly(['publicTitle', 'speaker', 'speakerId', 'serviceLeader', 'serviceLeaderId', 'serviceRoles', 'readers', 'updatedAt', 'updatedBy'])
 && request.resource.data.get('publicTitle', '') is string
 && request.resource.data.get('publicTitle', '').size() <= 140
 && request.resource.data.get('readers', []) is list
@@ -1578,6 +1578,11 @@ allow write: if (isMaster() && id == 'notifications'
 && request.resource.data.live is bool);
 allow write: if (isMaster() && id == 'features'
 && request.resource.data.keys().hasOnly(['care', 'prayer', 'notifications', 'watch', 'sermons', 'giftAid', 'teamMail', 'rotaReports', 'preachingPlan', 'pictureLibrary', 'publicWhatson', 'sundaysInWhatsOn', 'newHere', 'usualPeople', 'screenPaging', 'maintenance', 'events', 'roomBookings', 'kids', 'smallGroups', 'forms', 'payments', 'safeguarding', 'pinBoards', 'meetings', 'notices', 'churchShow', 'availability', 'sessionPlanner', 'buildingCompliance', 'safeguardingRegister', 'enews', 'cardMaker', 'canva', 'quiz', 'updatedAt', 'updatedBy']));
+allow write: if raOffice() && id == 'services'
+&& request.resource.data.keys().hasOnly(['types', 'roles', 'updatedAt', 'updatedBy'])
+&& request.resource.data.types is list && request.resource.data.types.size() <= 200
+&& request.resource.data.roles is list && request.resource.data.roles.size() <= 50
+&& request.resource.data.updatedBy == request.auth.uid;
 allow write: if (isMaster() && id == 'permissions'
 && request.resource.data.keys().hasOnly(['actions', 'updatedAt', 'updatedBy'])
 && request.resource.data.actions is map

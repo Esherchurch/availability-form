@@ -43,7 +43,7 @@
      one-time offer on Home, and Kids Church Today's "Call on their phone". -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <script src="egbc-plan-audience.js?v=202610131430"></script>
-<script src="egbc-auth.js?v=202610292200"></script>
+<script src="egbc-auth.js?v=202610300900"></script>
 <script src="egbc-orientation.js?v=202610160500"></script>
 <!-- No team on the door: everyone in the address book has this app. Somebody
      signed in who is not in the book is turned away by the guard with the
@@ -414,7 +414,7 @@
 <script src="egbc-events-home.js?v=202610152100"></script>
 <script src="egbc-notify-core.js?v=202610262100"></script>
 <script src="egbc-notify.js?v=202610141700"></script>
-<script src="egbc-menu.js?v=202610292200"></script>
+<script src="egbc-menu.js?v=202610300900"></script>
 <script src="egbc-app.js?v=202610281400"></script>
 <!-- The one service worker on the v2 scope, so a phone that has only ever
      opened the app can receive (N-5). -->
@@ -431,10 +431,10 @@
      the planner still works, with no drag handle. -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script src="egbc-plan-store.js?v=202610252100"></script>
-<script src="egbc-core-planner.js?v=202610261800"></script>
+<script src="egbc-core-planner.js?v=202610300900"></script>
 <script src="egbc-core-meetings.js?v=202610272330"></script>
 <script src="egbc-care.js?v=202610152215"></script>
-<script src="egbc-core-rota.js?v=202610272330"></script>
+<script src="egbc-core-rota.js?v=202610300900"></script>
 <script>
 /* ---- the screens that open a page which already does the job -------
    APP-DESIGN-BRIEF §5, and A1 counted 11 of the mock-up's 24 this way.
@@ -1926,13 +1926,16 @@ function thisSunday(spaceKey) {
   }
 
   /* THE TEAM, as the planner's own table has it. */
+  /* The church's service roles first (H-11). EGBC's card has always shown
+     the Service Leader and not the Speaker, so the Speaker stays off. */
+  var named = EGBCAuth.slideRoles(SUNDAY.ev).filter(function (p) { return p[1] && p[0] !== 'Speaker'; });
   var team = Object.keys(a).filter(function (r) { return a[r] && a[r].name; }).sort();
-  if (SUNDAY.ev.serviceLeader) team.unshift('Service Leader');
-  if (team.length) {
-    out += sec('Who is on', card(team.map(function (r) {
-      var who = r === 'Service Leader' ? SUNDAY.ev.serviceLeader : (a[r] || {}).name;
-      return row('user', r, who || '', NOCHEV, null, sp.colour, sp.tint);
-    }).join('')));
+  if (named.length || team.length) {
+    out += sec('Who is on', card(named.map(function (p) {
+      return row('user', p[0], p[1], NOCHEV, null, sp.colour, sp.tint);
+    }).concat(team.map(function (r) {
+      return row('user', r, (a[r] || {}).name || '', NOCHEV, null, sp.colour, sp.tint);
+    })).join('')));
   }
 
   out += card(row('headphones', 'Play through the songs', 'Listen before you come', null,

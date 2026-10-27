@@ -310,6 +310,41 @@
     'Midnight Service', 'Worship and AV Team Meeting', 'All Team Practice', 'Core Team Meeting',
     'Worship Team Meeting', 'AV Team Meeting', 'Song Writing Workshop', 'LOUD Worship'];
 
+  /* THE CHURCH'S OWN KINDS OF SERVICE AND MEETING (H-11, egbc-services.js:
+     churchSettings/services; EGBC's twelve when nothing is stored, which are
+     the lists above). Loaded once; until then the lists above stand in.
+     MAIN: the church's first kind of service - EGBC's Sunday Morning
+     Worship - which "Populate term" and auto-fill work on. */
+  var SV = { S: null, cfg: null, sites: [], promise: null };
+  function services() {
+    if (SV.promise) return SV.promise;
+    if (!(global.EGBCAuth && EGBCAuth.services)) return Promise.resolve(SV);
+    SV.promise = Promise.all([EGBCAuth.services(),
+      db().collection('sites').get().then(function (s) {
+        return s.docs.map(function (d) { var x = d.data() || {}; return { id: d.id, name: String(x.name || d.id), active: x.active !== false }; })
+          .filter(function (x) { return x.active; });
+      }, function () { return []; })
+    ]).then(function (r) { SV.S = r[0].S; SV.cfg = r[0].cfg; SV.sites = r[1]; return SV; }, function () { return SV; });
+    return SV.promise;
+  }
+  function typeNames() { return SV.S ? SV.S.types(SV.cfg).map(function (t) { return t.name; }) : EVENT_TYPES_LIST; }
+  function mainType() { return SV.S ? (SV.S.serviceNames(SV.cfg)[0] || typeNames()[0]) : 'Sunday Morning Worship'; }
+  function isServiceType(t) { return SV.S ? SV.S.isService(SV.cfg, t) : SERVICE_KINDS.indexOf(t) >= 0; }
+  /* A new rota event of a kind: its usual times, building, teams (by job)
+     and rota places. */
+  function freshEvent(type, date) {
+    var ev = SV.S ? SV.S.newEvent(SV.cfg, type, date, function (j) { return EGBCAuth.teamsForJob(j); }) : null;
+    if (!ev) {
+      var d = NEW_EVENT_DEFAULTS[type] || {}, svc = SERVICE_KINDS.indexOf(type) >= 0;
+      ev = Object.assign({ date: date, type: type, description: '', teams: d.teams || ['Worship Team', 'AV Team'],
+        startTime: d.startTime || (svc ? '08:00' : '19:30'), endTime: d.endTime || (svc ? '11:30' : '21:00'),
+        roles: d.roles || (svc ? MANDATORY_SUNDAY_ROLES.slice() : []), archived: false }, svc ? SUNDAY_PUBLIC : {});
+    }
+    if (!ev.teams.length) ev.teams = ['Worship Team', 'AV Team'].filter(function () { return !SV.cfg; });
+    ev.termLabel = getTermLabel(date);
+    return ev;
+  }
+
   var NEW_EVENT_DEFAULTS = {
     'Sunday Morning Worship': { teams: ['Worship Team', 'AV Team'], startTime: '08:00', endTime: '11:30', roles: MANDATORY_SUNDAY_ROLES.slice() },
     'Sunday Team Practice': { teams: ['Worship Team'], startTime: '19:30', endTime: '21:30', roles: ['Worship Leader', 'Keyboard', 'Guitar', 'Drums', 'Bass'] },
@@ -327,6 +362,7 @@
     onMembers: null, onEvents: null
   };
   function db() { return H.db || (global.EGBCAuth && EGBCAuth.db); }
+  function escA(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }); }
   function toast(m) { H.toast(m); }
   function loader(a, b) { H.loader(a, b); }
   function personName(raw) {
@@ -747,7 +783,7 @@
       + '<input type="date" class="cr-input" id="new-event-date"></div>'
       + '<div class="cr-field"><label class="cr-label">Event Type</label>'
       + '<select class="cr-select" id="new-event-type" onchange="syncNewEventVideo()">'
-      + NEW_EVENT_TYPES.map(function (t) { return '<option value="' + t + '">' + t + '</option>'; }).join('')
+      + (SV.S ? typeNames() : NEW_EVENT_TYPES).map(function (t) { return '<option value="' + escA(t) + '">' + escA(t) + '</option>'; }).join('')
       + '</select></div>'
       + '<div class="cr-field"><label class="cr-label">Description / Notes (optional)</label>'
       + '<input class="cr-input" id="new-event-term" placeholder="e.g. Easter Sunday, Communion..."></div>'
@@ -785,10 +821,14 @@
   }
   global.closeNewEventForm = closeNewEventForm;
   /* The old name, because CoreTeamApp's header "+" calls it. */
-  global.openNewEventModal = function () {
+  global.openNewEventModal = async function () {
+    await services();
+    var old = document.getElementById('cr-new-event');
+    if (old && SV.S && !old.dataset.svc) { old.remove(); }
     var el = ensureForm();
+    if (SV.S) el.dataset.svc = '1';
     document.getElementById('new-event-date').value = new Date().toISOString().split('T')[0];
-    document.getElementById('new-event-type').value = 'Sunday Morning Worship';
+    document.getElementById('new-event-type').value = mainType();
     document.getElementById('new-event-term').value = '';
     document.getElementById('new-event-video').innerHTML = '<option value="">No video call</option>'
       + rooms().map(function (p) { return '<option value="' + p[0] + '">' + p[1] + '</option>'; }).join('');
@@ -805,21 +845,16 @@
     var date = document.getElementById('new-event-date').value;
     if (!date) { toast('Pick a date first'); return; }
     var type = document.getElementById('new-event-type').value;
-    var d = NEW_EVENT_DEFAULTS[type] || {};
     var btn = document.getElementById('event-modal-btn');
     btn.disabled = true;
     try {
-      await db().collection('events').add({
-        date: date, termLabel: getTermLabel(date), type: type,
+      await services();
+      await db().collection('events').add(Object.assign(freshEvent(type, date), {
         description: document.getElementById('new-event-term').value.trim(),
-        teams: d.teams || ['Worship Team', 'AV Team'],
-        startTime: d.startTime || '19:30', endTime: d.endTime || '21:00',
-        roles: d.roles || [],
         videoRoom: document.getElementById('new-event-video').value,
         /* Who set it up: they may start its call as host (functions/video.js). */
-        organiserUid: (global.EGBCAuth && EGBCAuth.user && EGBCAuth.user() && EGBCAuth.user().uid) || '',
-        archived: false
-      });
+        organiserUid: (global.EGBCAuth && EGBCAuth.user && EGBCAuth.user() && EGBCAuth.user().uid) || ''
+      }));
       closeNewEventForm();
       toast('Event created');
     } catch (e) {
@@ -852,8 +887,9 @@
     document.removeEventListener('keydown', addServiceKey);
   }
   function addServiceKey(e) { if (e.key === 'Escape') closeAddService(); }
-  global.addSingleLine = function () {
+  global.addSingleLine = async function () {
     closeAddService();
+    await services();
     var wrap = document.createElement('div');
     wrap.id = 'crAddService'; wrap.setAttribute('data-egbc-overlay', '');
     wrap.style.cssText = 'position:fixed;inset:0;z-index:2000;background:rgba(17,24,39,.4);display:flex;align-items:flex-end;justify-content:center';
@@ -864,7 +900,7 @@
       + '<input id="crAddDate" type="date" style="width:100%;height:46px;box-sizing:border-box;border:1px solid #d1d5db;border-radius:10px;padding:0 10px;font:500 15px Inter,system-ui,sans-serif;margin-bottom:12px">'
       + '<label for="crAddType" style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:4px">What kind</label>'
       + '<select id="crAddType" style="width:100%;height:46px;box-sizing:border-box;border:1px solid #d1d5db;border-radius:10px;padding:0 10px;font:500 15px Inter,system-ui,sans-serif;margin-bottom:16px;background:#fff">'
-      + EVENT_TYPES_LIST.map(function (t) { return '<option' + (t === 'Sunday Morning Worship' ? ' selected' : '') + '>' + t + '</option>'; }).join('') + '</select>'
+      + typeNames().map(function (t) { return '<option' + (t === mainType() ? ' selected' : '') + '>' + escA(t) + '</option>'; }).join('') + '</select>'
       + '<div style="display:flex;gap:8px"><button type="button" data-close="1" style="flex:1;min-height:48px;border:1px solid #d1d5db;border-radius:12px;background:#fff;font:600 14px Inter,system-ui,sans-serif;cursor:pointer">Cancel</button>'
       + '<button type="button" id="crAddGo" style="flex:1;min-height:48px;border:0;border-radius:12px;background:#3d6263;color:#fff;font:600 14px Inter,system-ui,sans-serif;cursor:pointer">Add</button></div>'
       + '<p id="crAddMsg" role="status" style="margin:10px 0 0;font-size:13px;color:#b0392c;min-height:1em"></p></div>';
@@ -878,13 +914,11 @@
       var msg = document.getElementById('crAddMsg');
       if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) { msg.textContent = 'Choose the date first.'; return; }
       var go = document.getElementById('crAddGo'); go.disabled = true; go.textContent = 'Adding\u2026';
-      var service = SERVICE_KINDS.indexOf(type) >= 0;
       var ref = db().collection('events').doc();
       justAdded = ref.id;
       rotaCollapsedTerms.delete(getTermLabel(d));
       try {
-        await ref.set(Object.assign({ date: d, termLabel: getTermLabel(d), type: type, description: '', teams: ['Worship Team', 'AV Team'], startTime: '08:00', endTime: '11:30',
-          roles: service ? MANDATORY_SUNDAY_ROLES.slice() : [], archived: false }, service ? SUNDAY_PUBLIC : {}));
+        await ref.set(freshEvent(type, d));
         closeAddService();
         toast(type + ' added.');
       } catch (e) {
@@ -916,10 +950,11 @@
     if (!term) { toast('Select a term first'); return; }
     var b = termBounds(term), curr = b[0], end = b[1];
     while (curr.getDay() !== 0) curr.setDate(curr.getDate() + 1);
+    await services();
     loader(true, 'Populating ' + term + '...');
     while (curr <= end) {
       var ds = curr.toISOString().split('T')[0];
-      await db().collection('events').add({ date: ds, termLabel: getTermLabel(ds), type: 'Sunday Morning Worship', description: '', teams: ['Worship Team', 'AV Team'], startTime: '08:00', endTime: '11:30', roles: MANDATORY_SUNDAY_ROLES.slice(), archived: false });
+      await db().collection('events').add(freshEvent(mainType(), ds));
       curr.setDate(curr.getDate() + 7);
     }
     loader(false); toast('Term populated');
@@ -945,7 +980,7 @@
     var pd = new Date(practice.date);
     var sunday = cachedEvents.find(function (e) {
       var diff = (new Date(e.date) - pd) / (1000 * 60 * 60 * 24);
-      return e.type === 'Sunday Morning Worship' && diff > 0 && diff <= 3;
+      return e.type === mainType() && diff > 0 && diff <= 3;
     });
     if (!sunday) { toast('No matching Sunday found'); return; }
     var updates = {};
@@ -960,7 +995,7 @@
   global.autoFillAllEvents = async function () {
     if (!confirm('Automatically fill services?')) return;
     loader(true, 'Auto-filling...');
-    var events = cachedEvents.filter(function (e) { return !e.archived && e.type === 'Sunday Morning Worship'; })
+    var events = cachedEvents.filter(function (e) { return !e.archived && e.type === mainType(); })
       .sort(function (a, b) { return new Date(a.date) - new Date(b.date); });
     var mCounts = {};
     for (const ev of events) {
@@ -1219,7 +1254,7 @@
     var avail = members.filter(function (m) { return av[m.id] === 'avail' && shown(m); });
     var declined = members.filter(function (m) { return (av[m.id] === 'unavailable' || av[m.id] === 'not-avail') && shown(m); });
     var pending = members.filter(function (m) { return !av[m.id] && shown(m); });
-    var isSunday = ev.type === 'Sunday Morning Worship';
+    var isSunday = isServiceType(ev.type);
     var sortedRoles = (ev.roles || []).filter(function (r) { return !AV_ROLES.includes(r); })
       .concat((ev.roles || []).filter(function (r) { return AV_ROLES.includes(r); }));
     var isExp = rotaExpandedEvents.has(ev.id) || isSunday;
@@ -1236,12 +1271,19 @@
     /* A type the rota does not list - a team's own meeting, set up on the
        Meetings page - is kept, first and selected, rather than overwritten
        by the first type in the list the next time the row is saved. */
-    if (ev.type && EVENT_TYPES_LIST.indexOf(ev.type) === -1) {
+    if (ev.type && typeNames().indexOf(ev.type) === -1) {
       var ownType = String(ev.type).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; });
       html += '<option value="' + ownType + '" selected>' + ownType + '</option>';
     }
-    EVENT_TYPES_LIST.forEach(function (t) { html += '<option value="' + t + '"' + (ev.type === t ? ' selected' : '') + '>' + t + '</option>'; });
+    typeNames().forEach(function (t) { html += '<option value="' + escA(t) + '"' + (ev.type === t ? ' selected' : '') + '>' + escA(t) + '</option>'; });
     html += '</select>';
+    /* Its building, when the church has more than one (H-11: none = the
+       main building, the first listed). */
+    if (SV.sites.length > 1) {
+      html += '<select onchange="updateField(\'' + ev.id + '\',\'siteId\',this.value)" title="Building" aria-label="Building" style="background:white;border:1px solid #d1dfdf;color:#3d6263;padding:5px 8px;border-radius:8px;font-size:13px;font-weight:500;font-family:Inter, system-ui, sans-serif;">';
+      SV.sites.forEach(function (x, i) { html += '<option value="' + (i ? escA(x.id) : '') + '"' + ((ev.siteId || '') === (i ? x.id : '') || ev.siteId === x.id ? ' selected' : '') + '>' + escA(x.name) + '</option>'; });
+      html += '</select>';
+    }
     html += '<textarea rows="1" onblur="updateField(\'' + ev.id + '\',\'description\',this.value)" placeholder="Notes..." style="flex:1;min-width:80px;background:white;border:1px solid #d1dfdf;border-radius:8px;padding:4px 8px;font-family:Inter, system-ui, sans-serif;font-size:13px;font-weight:500;color:#3d6263;outline:none;resize:none;">' + (ev.description || '') + '</textarea>';
     var vRoom = videoRoomFor(ev);
     html += '<select onchange="updateField(\'' + ev.id + '\',\'videoRoom\',this.value)" title="Video call" style="background:' + (vRoom ? '#3d6263' : 'white') + ';border:1px solid #d1dfdf;color:' + (vRoom ? 'white' : '#3d6263') + ';padding:5px 8px;border-radius:8px;font-size:13px;font-weight:500;font-family:Inter, system-ui, sans-serif;outline:none;"><option value=""' + (vRoom ? '' : ' selected') + '>No call</option>';

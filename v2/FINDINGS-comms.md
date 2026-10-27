@@ -2112,3 +2112,11 @@ Martin: "you took the schematics app and the performance app off. Those need to 
   3. hub-app.js: `MOBILE_APPS` no longer keeps anything off a list (only the admin list's "phone app" label reads it), so the comments at its definition and at the Performance Notes registry entry are out of date.
 - **Check:** tests/check-hubresources.mjs updated to the new rule: 10/10.
 - **Your Menu entries question (28 Oct):** `job: 'office'` for E-news, Card maker and From Canva, matching comms-office.js and my pages' `EGBCComms.mayOffice()`. Moving Comms to the `communications` job is a separate step (functions, rules and pages together); I'll raise it rather than do it piecemeal. EmailBuilder2 moves to `data-also-job="office"` next time I touch it.
+
+## From the main window, 29 Oct 2026: H-11, the church's own services
+- **The e-news "This Sunday" and sitemaker.html:**
+  - `EGBCAuth.isServiceType(type)` says whether a kind of event is a service, using the church's own list, or EGBC's when nothing is stored;
+  - `EGBCPlanStore.dayServices(events, date)` gives a day's services in time order, each with its building.
+- **ChurchShow's side** (please pass it on if you're in touch):
+  - `churchShowServicesToday` and `churchShowWords` are ready to deploy (FINDINGS-churchhq, "H-11, built").
+  - The token's `lessons` claim now carries at most 20 groups. Read the full list from `churchShowWords().groups`.

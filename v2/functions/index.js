@@ -859,5 +859,7 @@ export { raRemindersDaily } from './ra-reminders.js';
 export { loneWorkingCheck } from './lone-working.js';
 /* Pastoral visits' follow-up reminders (F-308). */
 export { pastoralFollowUps } from './pastoral-visits.js';
+/* ChurchShow: today's services in its building, and the church's words (H-11 item 2). */
+export { churchShowServicesToday, churchShowWords } from './churchshow-services.js';
 /* The privacy tools on the information asset register (UK GDPR). */
 export { privacyFind, privacyExport } from './privacy-tools.js';

@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
 <script src="egbc-nosend.js?v=202610212000"></script>
-<script src="egbc-shell.js?v=202610292200" data-title="Rota Planner"></script>
+<script src="egbc-shell.js?v=202610300900" data-title="Rota Planner"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610292200"></script>
+<script src="egbc-auth.js?v=202610300900"></script>
 <script src="egbc-video.js?v=202610272330"></script>
 <script src="egbc-guard.js?v=202610282000" data-team="Worship Team,Kids Church,Youth Worship,Core Team" data-role="leader"></script>
     <meta charset="UTF-8">
@@ -48,6 +48,24 @@
         // ENTER A SUNDAY ONCE: a new Sunday service is in What's On at 10:00
         // unless somebody unticks it or changes the time on its row.
         const SUNDAY_PUBLIC = { whatsOn: true, serviceTime: "10:00" };
+        /* THE CHURCH'S OWN KINDS OF SERVICE AND ITS SERVICE ROLES (H-11,
+           egbc-services.js): EGBC's lists above until they load, and for EGBC
+           after. mainType: the church's first service (Sunday Morning Worship). */
+        const SV = { S: null, cfg: null };
+        const escP = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
+        const svcReady = (window.EGBCAuth && EGBCAuth.services ? EGBCAuth.services() : Promise.resolve({ S: null, cfg: null }))
+            .then(r => { SV.S = r.S; SV.cfg = r.cfg; try { if (typeof renderPlanner === 'function') renderPlanner(); } catch (e) {} return SV; }, () => SV);
+        const typeNames = () => SV.S ? SV.S.types(SV.cfg).map(t => t.name) : EVENT_TYPES;
+        const mainType = () => SV.S ? (SV.S.serviceNames(SV.cfg)[0] || typeNames()[0]) : 'Sunday Morning Worship';
+        const isServiceType = (t) => SV.S ? SV.S.isService(SV.cfg, t) : ['Sunday Morning Worship', 'Evening Carol Service', 'Midnight Service', 'Special Service', 'LOUD Worship'].includes(t);
+        const serviceRoles = () => SV.S ? SV.S.roles(SV.cfg) : [{ id: 'serviceLeader', name: 'Service Leader' }, { id: 'speaker', name: 'Speaker' }];
+        const freshEvent = (type, date) => {
+            const ev = SV.S ? SV.S.newEvent(SV.cfg, type, date, j => EGBCAuth.teamsForJob(j)) : Object.assign({
+                date, type, description: "", teams: ["Worship Team", "AV Team"], startTime: "08:00", endTime: "11:30",
+                roles: isServiceType(type) ? MANDATORY_SUNDAY_ROLES : [], archived: false }, isServiceType(type) ? SUNDAY_PUBLIC : {});
+            ev.termLabel = getTermLabel(date);
+            return ev;
+        };
 
         // Video meetings: the church's own rooms (egbc-video.js, churchSettings/video; Church HQ's
         // Daily account since 21 Oct 2026). No copy of the list or of a Daily address here.
@@ -534,8 +552,9 @@
         const nextSundayIso = () => { const d = new Date(); d.setHours(12, 0, 0, 0); while (d.getDay() !== 0) d.setDate(d.getDate() + 1); return d.toISOString().split('T')[0]; };
         const closeAddService = () => { const s = document.getElementById('ppAddService'); if (s) s.remove(); document.removeEventListener('keydown', addServiceKey); };
         const addServiceKey = (e) => { if (e.key === 'Escape') closeAddService(); };
-        window.addSingleLine = () => {
+        window.addSingleLine = async () => {
             closeAddService();
+            await svcReady;
             const wrap = document.createElement('div');
             wrap.id = 'ppAddService'; wrap.setAttribute('data-egbc-overlay', '');
             wrap.style.cssText = 'position:fixed;inset:0;z-index:2000;background:rgba(17,24,39,.4);display:flex;align-items:flex-end;justify-content:center';
@@ -546,7 +565,7 @@
               + '<input id="ppAddDate" type="date" style="width:100%;height:46px;box-sizing:border-box;border:1px solid #d1d5db;border-radius:10px;padding:0 10px;font:500 15px Inter,system-ui,sans-serif;margin-bottom:12px">'
               + '<label for="ppAddType" style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:4px">What kind</label>'
               + '<select id="ppAddType" style="width:100%;height:46px;box-sizing:border-box;border:1px solid #d1d5db;border-radius:10px;padding:0 10px;font:500 15px Inter,system-ui,sans-serif;margin-bottom:16px;background:#fff">'
-              + EVENT_TYPES.map(t => '<option' + (t === 'Sunday Morning Worship' ? ' selected' : '') + '>' + t + '</option>').join('') + '</select>'
+              + typeNames().map(t => '<option' + (t === mainType() ? ' selected' : '') + '>' + escP(t) + '</option>').join('') + '</select>'
               + '<div style="display:flex;gap:8px"><button type="button" data-close="1" style="flex:1;min-height:48px;border:1px solid #d1d5db;border-radius:12px;background:#fff;font:600 14px Inter,system-ui,sans-serif;cursor:pointer">Cancel</button>'
               + '<button type="button" id="ppAddGo" style="flex:1;min-height:48px;border:0;border-radius:12px;background:#3d6263;color:#fff;font:600 14px Inter,system-ui,sans-serif;cursor:pointer">Add</button></div>'
               + '<p id="ppAddMsg" role="status" style="margin:10px 0 0;font-size:13px;color:#b0392c;min-height:1em"></p></div>';
@@ -561,11 +580,7 @@
                 if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) { msg.textContent = 'Choose the date first.'; return; }
                 const go = document.getElementById('ppAddGo'); go.disabled = true; go.textContent = 'Adding\u2026';
                 try {
-                    await addDoc(collection(db, "events"), Object.assign({
-                        date: dateStr, termLabel: getTermLabel(dateStr), type, description: "",
-                        teams: ["Worship Team", "AV Team"], startTime: "08:00", endTime: "11:30",
-                        roles: SERVICE_KINDS.includes(type) ? MANDATORY_SUNDAY_ROLES : [], archived: false
-                    }, SERVICE_KINDS.includes(type) ? SUNDAY_PUBLIC : {}));
+                    await addDoc(collection(db, "events"), freshEvent(type, dateStr));
                     closeAddService();
                 } catch (e) {
                     console.error('Planner: could not add the service', e);
@@ -582,13 +597,10 @@
             let curr = new Date(`${year}-${term === 'Spring' ? '01' : term === 'Summer' ? '05' : '09'}-01`);
             let end = new Date(`${year}-${term === 'Spring' ? '04' : term === 'Summer' ? '08' : '12'}-31`);
             while (curr.getDay() !== 0) curr.setDate(curr.getDate() + 1);
+            await svcReady;
             while (curr <= end) {
                 const dateStr = curr.toISOString().split('T')[0];
-                await addDoc(collection(db, "events"), {
-                    date: dateStr, termLabel: getTermLabel(dateStr), type: "Sunday Morning Worship", description: "",
-                    teams: ["Worship Team", "AV Team"], startTime: "08:00", endTime: "11:30", roles: MANDATORY_SUNDAY_ROLES, archived: false,
-                    ...SUNDAY_PUBLIC
-                });
+                await addDoc(collection(db, "events"), freshEvent(mainType(), dateStr));
                 curr.setDate(curr.getDate() + 7);
             }
         };
@@ -1448,7 +1460,7 @@
             const respondersAvail = members.filter(m => availability[ev.id]?.[m.id] === 'avail' && (!hideAssigned || !assignedIds.includes(m.id)));
             const declined = members.filter(m => (availability[ev.id]?.[m.id] === 'unavailable' || availability[ev.id]?.[m.id] === 'not-avail') && (!hideAssigned || !assignedIds.includes(m.id)));
             const pending = members.filter(m => !availability[ev.id]?.[m.id] && (!hideAssigned || !assignedIds.includes(m.id)));
-            const isSunday = ev.type === "Sunday Morning Worship";
+            const isSunday = isServiceType(ev.type);
             const mandatoryFilled = isSunday && MANDATORY_SUNDAY_ROLES.every(r => {
                 const raw = ev.assignments?.[r];
                 return Array.isArray(raw) ? raw.length > 0 : !!raw;
@@ -1477,7 +1489,8 @@
             html += '<input type="date" value="' + ev.date + '" onchange="updateField(\'' + ev.id + '\', \'date\', this.value)" class="' + dateBg + ' ' + (!isSunday ? 'text-[#3d6263]' : 'text-white') + ' px-4 py-2 rounded-full font-medium text-[11px] shadow-sm">';
             html += timeGroupHtml;
             html += '<select onchange="updateField(\'' + ev.id + '\', \'type\', this.value)" class="bg-white px-4 py-2 rounded-full font-medium text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none">';
-            EVENT_TYPES.forEach(t => { html += '<option value="' + t + '" ' + (ev.type === t ? 'selected' : '') + '>' + t + '</option>'; });
+            if (ev.type && !typeNames().includes(ev.type)) html += '<option value="' + escP(ev.type) + '" selected>' + escP(ev.type) + '</option>';
+            typeNames().forEach(t => { html += '<option value="' + escP(t) + '" ' + (ev.type === t ? 'selected' : '') + '>' + escP(t) + '</option>'; });
             html += '</select>';
             html += '<textarea rows="1" onblur="updateField(\'' + ev.id + '\', \'description\', this.value)" onclick="event.stopPropagation()" placeholder="Notes..." class="flex-grow bg-white px-5 py-2 rounded-xl text-[12px] font-medium border border-[#d1dfdf] outline-none text-[#3d6263]">' + (ev.description || '') + '</textarea>';
             const vRoom = videoRoomFor(ev);
@@ -1488,11 +1501,10 @@
             });
             html += '</select>';
             if (vRoom && V()) html += '<a href="' + V().link(vRoom, ev) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="bg-green-600 text-white px-4 py-2 rounded-full font-semibold text-[10px] uppercase shadow-sm hover:bg-black transition-all">Join</a>';
-            // ── Service Leader & Speaker quick-fields ──
-            const svcLeaderVal = ev.serviceLeader || '';
-            const speakerVal = ev.speaker || '';
-            html += '<input value="' + svcLeaderVal.replace(/"/g,'&quot;') + '" placeholder="Service Leader" list="ppPeople" autocomplete="off" onblur="updatePerson(\'' + ev.id + '\',\'serviceLeader\',this.value)" onclick="event.stopPropagation()" class="bg-white px-4 py-2 rounded-full font-medium text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none w-36">';
-            html += '<input value="' + speakerVal.replace(/"/g,'&quot;') + '" placeholder="Speaker" list="ppPeople" autocomplete="off" onblur="updatePerson(\'' + ev.id + '\',\'speaker\',this.value)" onclick="event.stopPropagation()" class="bg-white px-4 py-2 rounded-full font-medium text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none w-32">';
+            // ── The church's service roles (H-11; EGBC: Service Leader, Speaker) ──
+            serviceRoles().forEach(r => {
+                html += '<input value="' + escP(SV.S ? SV.S.roleValue(ev, r) : (ev[r.id] || '')) + '" placeholder="' + escP(r.name) + '" list="ppPeople" autocomplete="off" onblur="updatePerson(\'' + ev.id + '\',\'' + (SV.S ? SV.S.roleField(r) : r.id) + '\',this.value)" onclick="event.stopPropagation()" class="bg-white px-4 py-2 rounded-full font-medium text-[#3d6263] text-[11px] border border-[#d1dfdf] outline-none w-36">';
+            });
             // ── ENTER A SUNDAY ONCE (Martin, 15 Oct 2026) ──
             // Ticked, this service is what What's On, the app and the website
             // show (functions/rota-whatson.js copies it): the public title, the

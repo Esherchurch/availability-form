@@ -964,7 +964,8 @@
     /* Service Leader and Speaker are typed into the Rota Planner as fields on
        the event (serviceLeader / speaker), not rota roles, so they are not in
        assignments - bring them in from the event itself. */
-    [['Service Leader', data.serviceLeader], ['Speaker', data.speaker]].forEach(function (pair) {
+    /* The church's own roles (H-11); EGBC's are these two. */
+    EGBCAuth.slideRoles(data).forEach(function (pair) {
       if (pair[1]) teamBody.innerHTML += '<tr><td>' + pair[0] + '</td><td>' + pair[1] + '</td>' + NOTE_CELL + '</tr>';
     });
     spSortAssignments(Object.entries(data.assignments || {}).filter(function (e) { return isWorshipRole(e[0]); })).forEach(function (e) {

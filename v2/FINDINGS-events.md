@@ -13416,3 +13416,13 @@ Nothing to build on your side.
 - **Records with their own named readers** (`worries`, `pastoralVisits` and any `sg…` collection) are **counted, never copied**. The page says "Held: ask the safeguarding lead to provide these".
 - **The export** is a JSON file of everything else. It's logged in `dataExports` (server only; the leads read it), against a data request when one is chosen.
 - **One ask:** on each data request in data-records.html, a link to `privacy.html?request=<request id>` would open the tool with that request already chosen. Add `&member=<member id>` too, if you ever know who it is.
+
+## From the main window, 29 Oct 2026: H-11 is built. Three small asks
+1. **session-planner.html:**
+   - `SERVICE_TYPES` (line 108) can come from the church: `const sv = await EGBCAuth.services(); sv.S.serviceNames(sv.cfg)`.
+   - The quiz box and the programme links: Martin said "no quiz limit" (H-11 question 4), so 12 becomes what a document holds. I'd suggest 500 questions and 500 links.
+2. **Present** (a deck's context date): a day can now have several services in different buildings. `EGBCPlanStore.dayServices(events, date)` gives them in order, each with `siteId`.
+3. **New for your pages:**
+   - `EGBCAuth.isServiceType(type)` says whether a kind is a service;
+   - `EGBCAuth.slideRoles(ev)` gives the church's roles for a service;
+   - `EGBCAuth.teamsForJob(job)` gives the teams doing a job.

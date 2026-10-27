@@ -1634,7 +1634,8 @@ function menuHasForHome(url) {
 }
 const SUNDAY_TYPES = ['Sunday Morning Worship', 'Special Service', 'Evening Carol Service', 'LOUD Worship'];
 function nextSunday() {
-  return UPCOMING.find(ev => SUNDAY_TYPES.indexOf(ev.type) !== -1 && new Date(ev.date + 'T12:00').getDay() === 0) || null;
+  /* The church's own services (H-11); EGBC's four with nothing stored. */
+  return UPCOMING.find(ev => EGBCAuth.isServiceType(ev.type, SUNDAY_TYPES) && new Date(ev.date + 'T12:00').getDay() === 0) || null;
 }
 function sundayLine(date, time, title, speaker) {
   const d = new Date(date + 'T12:00');

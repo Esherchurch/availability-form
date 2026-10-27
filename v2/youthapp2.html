@@ -6,7 +6,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202610292200"></script>
+<script src="egbc-auth.js?v=202610300900"></script>
 <script src="egbc-plan-store.js?v=202610252100"></script>
 
 <meta charset="UTF-8">
@@ -1716,7 +1716,8 @@ async function selectEvent() {
   teamBody.innerHTML = '';
   /* Service Leader and Speaker are fields on the rota event
      (serviceLeader / speaker), not rota roles - bring them in from there. */
-  [['Service Leader', data.serviceLeader], ['Speaker', data.speaker]].forEach(([role, name]) => {
+  /* The church's own roles (H-11); EGBC's are these two. */
+  EGBCAuth.slideRoles(data).forEach(([role, name]) => {
       if (name) teamBody.innerHTML += `<tr><td>${role}</td><td>${name}</td><td><textarea class="instr-note" placeholder="Specific instructions..." rows="1"></textarea></td></tr>`;
   });
   let rows = sortAssignments(Object.entries(worshipOnly(data.assignments)));

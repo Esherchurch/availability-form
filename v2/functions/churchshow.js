@@ -109,13 +109,16 @@ export function jobsOf(d) {
   const j = (d && d.jobs) || {};
   return {
     services: j.services === undefined ? true : j.services === true,
-    lessonGroups: Array.isArray(j.lessonGroups) ? j.lessonGroups.filter(x => typeof x === 'string' && x).slice(0, 20) : []
+    lessonGroups: Array.isArray(j.lessonGroups) ? j.lessonGroups.filter(x => typeof x === 'string' && x).slice(0, 500) : []
   };
 }
 /* churchId: a church's computer (H-5) carries its church, as a person's
    sign-in does, so the church's rules and functions know whose it is. */
+/* lessons: the first 20 only - a sign-in's claims are 1000 bytes at most
+   (Firebase). The full list (up to 500, H-11 item 6) is the device record's
+   jobs.lessonGroups, and churchShowWords' groups. */
 export const claimsFor = (siteId, jobs, churchId) =>
-  Object.assign({ device: 'churchshow', siteId, services: jobs.services, lessons: jobs.lessonGroups }, churchId ? { churches: [churchId] } : {});
+  Object.assign({ device: 'churchshow', siteId, services: jobs.services, lessons: jobs.lessonGroups.slice(0, 20) }, churchId ? { churches: [churchId] } : {});
 /* What the pairing token itself carries: who it is, never the job (F-CS9). */
 export const tokenClaimsFor = (siteId) => ({ device: 'churchshow', siteId });
 
@@ -340,7 +343,7 @@ export async function setJob(db, auth, { uid, deviceId, services, lessonGroups }
   }
   const d = await churchShowDevice(db, deviceId);
   if (!d) return { error: 'not-found', message: 'That computer is not on file any more.' };
-  const groups = [...new Set((Array.isArray(lessonGroups) ? lessonGroups : []).map(String).filter(Boolean))].slice(0, 20);
+  const groups = [...new Set((Array.isArray(lessonGroups) ? lessonGroups : []).map(String).filter(Boolean))].slice(0, 500);  /* no fixed limit (H-9; H-11 item 6): 500 */
   for (const g of groups) {
     const s = await db.collection('planGroups').doc(g).get();
     if (!s.exists) return { error: 'invalid-argument', message: 'One of those groups is not on file.' };

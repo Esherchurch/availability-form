@@ -455,7 +455,8 @@
   }
   /* Alongside this file, with its own stamp, like egbc-core-meetings.js's video loader. */
   function sibling(name, stamp) {
-    if ((name === 'egbc-team-jobs.js' && global.EGBCTeamJobs) || (name === 'egbc-permissions.js' && global.EGBCPermissions)) return Promise.resolve();
+    if ((name === 'egbc-team-jobs.js' && global.EGBCTeamJobs) || (name === 'egbc-permissions.js' && global.EGBCPermissions)
+        || (name === 'egbc-services.js' && global.EGBCServices)) return Promise.resolve();
     return new Promise(function (done) {
       var me = document.querySelector('script[src*="egbc-auth.js"]');
       var base = me ? me.getAttribute('src').split('egbc-auth.js')[0] : '';
@@ -720,6 +721,15 @@
       s.docs.forEach(function (d) { ((d.data() || {}).teams || []).forEach(function (t) { if (kidsTeams.indexOf(t) === -1) kidsTeams.push(t); }); });
       return kidsTeams;
     }).catch(function () { return []; });
+  }
+
+  /* The church's service roles (H-11), for the slides and cards that name
+     them: read with the profile, so a page draws them first time. */
+  var SERVICES = { S: null, cfg: null };
+  function loadServiceRoles() {
+    return sibling('egbc-services.js', '202610300900').then(function () {
+      return global.EGBCServices ? global.EGBCServices.load(db) : null;
+    }).then(function (cfg) { SERVICES = { S: global.EGBCServices || null, cfg: cfg }; }, function () {});
   }
 
   function loadGroupLeadAndDataLead(memberId) {
@@ -1441,7 +1451,7 @@
                Running things tabs are decided before the page draws. */
             return Promise.all([loadBookingsAdmin(profile && profile.memberId), loadBuildingLead(profile && profile.memberId), loadGroupLeadAndDataLead(profile && profile.memberId), loadSermonsAdmin(profile && profile.memberId),
                                 loadCareLead(profile && profile.memberId), loadMoneyTeam(), loadTrusteeTeam(profile), loadFeatures(),
-                                loadEventTeam(profile, user && user.uid), loadPlanGroups(profile), loadKidsTeams(profile)])
+                                loadEventTeam(profile, user && user.uid), loadPlanGroups(profile), loadKidsTeams(profile), loadServiceRoles()])
               .then(function () { return both; });
           }).then(function (both) {
             var profile = both[0];
@@ -1676,6 +1686,31 @@
     onRotaTeam: function () {
       if (EGBCAuth.isMaster()) return true;
       return EGBCAuth.effectiveTeams().some(function (t) { return !!TEAMS[t] && TEAMS[t].rota !== false; });
+    },
+    /* [[role name, who]] for a service's slides and cards (H-11): EGBC's
+       Service Leader and Speaker unless the church has its own roles. */
+    /* Is this kind a service (H-11)? With nothing stored, the page's own
+       EGBC list (egbcList) answers, as it always did. */
+    isServiceType: function (type, egbcList) {
+      if (SERVICES.S && SERVICES.cfg) return SERVICES.S.isService(SERVICES.cfg, type);
+      return (egbcList || (SERVICES.S ? SERVICES.S.serviceNames(null) : [])).indexOf(type) !== -1;
+    },
+    slideRoles: function (ev) {
+      if (SERVICES.S) return SERVICES.S.slideRoles(SERVICES.cfg, ev);
+      return [['Service Leader', (ev && ev.serviceLeader) || ''], ['Speaker', (ev && ev.speaker) || '']];
+    },
+    /* The church's teams for a team job (H-9), once loadPerms() has run;
+       before then, EGBC's defaults. */
+    teamsForJob: function (job) {
+      var TJ = global.EGBCTeamJobs;
+      return TJ ? TJ.teamsFor(PERMS.ready ? PERMS.jobs : null, job, PERMS.ready ? PERMS.set : {}) : [];
+    },
+    /* The church's services and service roles (H-11, egbc-services.js):
+       resolves { S: EGBCServices, cfg }, with the team jobs loaded too. */
+    services: function () {
+      return Promise.all([sibling('egbc-services.js', '202610300900'), loadPerms().catch(function () {})])
+        .then(function () { return global.EGBCServices.load(db); })
+        .then(function (cfg) { return { S: global.EGBCServices, cfg: cfg }; });
     },
     rotaPlannerUser: function () {
       if (EGBCAuth.isMaster()) return true;

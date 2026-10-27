@@ -972,3 +972,33 @@ At St Aidan's with St Hild, the small groups' room set up in Settings works the 
 - **Proposal 4, Team Resources and Team Videos:** for the worship and AV jobs. That's the Menu entries, the pages' guards (`data-job="worship,av"`, `require({ job: 'worship,av' })`) and the hub's pages.
 - **Proposal 5, Availability form:** already done (b9163c0f).
 - **`access-matrix.approved.json` is made** from the table after these changes. check-access-matrix compares every cell with it and passes 15/15. Safeguarding risks' decision now includes group leaders, read only, as events added in F-304.
+
+### H-11, built (29 Oct 2026; Martin's answers of 23 Oct: the recommended ones, no quiz limit)
+- **`egbc-services.js` (new), `EGBCServices`:** the church's kinds of service and meeting, and the roles a service names, from `churchSettings/services`.
+  - **EGBC's lists are the defaults:** the twelve kinds and two roles, as the rota has always made them. With nothing stored, nothing changes for EGBC.
+  - A kind has a name, whether it's a service, its usual times, its building, its teams by job (H-9), and its rota places.
+  - A role has a name, and whether it's on the slides. EGBC's Service Leader and Speaker stay fields on the event; any other role is `serviceRoles.<id>`.
+- **"Your services"** (services-settings.html) is for the office and master admins, and has a Menu entry in Church admin. It's also the setup's "Your services" step.
+  - It offers one-tap ideas in general words (Holy Communion, Choral Evensong, President, Intercessor…).
+  - **Rules:** `churchSettings/services` is written by `raOffice()`; rebuilt. The preaching plan's people may also set `serviceRoles`.
+- **The rota** (egbc-core-rota.js, used by the app and CoreTeamApp) and **Planner.html** now:
+  - offer the church's kinds in "+ Service", the new-event form and each row;
+  - make a new event from its kind (times, building, teams by job, places, What's on);
+  - let "Populate term" and auto-fill use the church's first service;
+  - show a building on each row when the church has more than one.
+- **Planner.html's role inputs** are one input per church role (EGBC: Service Leader and Speaker).
+- **The slides and the app's "Who is on"** take the church's roles (`EGBCAuth.slideRoles`). EGBC's slides and card look as before.
+- **The preaching plan and the hub's Sunday card** list the church's services.
+- **ChurchShow** (functions/churchshow-services.js):
+  - **`churchShowServicesToday`** gives the computer's building's live services today, in time order, each with its own plan by `eventId` (functions/plan-store.cjs, copied from egbc-plan-store.js by tools/plan-store-build.mjs). It also says which is next. A service with no building is at the main building: `churchSettings/details.mainSiteId`, or else the first building by name.
+  - **`churchShowWords`** gives the church's name, the service day and the names of its lesson groups.
+- **Caps (item 6):** a ChurchShow computer's lesson groups go up to 500. A sign-in's claims carry only the first 20, because claims are 1000 bytes at most; the full list is in the device record and `churchShowWords`.
+- **Asked of events:** the quiz box and programme links in session-planner.html, its own service list, and Present.
+- **Not changed:**
+  - SundayServicePlanner.html's four fixed inputs. It's EGBC's own worship planner; a parish plans in Planner.html.
+  - "Add Thursday practices", which is EGBC's own button.
+- **Quick check** (emulator, the synthetic parish), 14/14:
+  - EGBC's defaults: twelve kinds, five services, a Sunday as the rota always made it, the Core Team Meeting, the slides.
+  - A parish's kinds, buildings, teams by job, roles and slides.
+  - PCC counted as a meeting.
+  - ChurchShow: the main building's two services each with its own plan; the chapel's 8am only; the next service; the church's words.
