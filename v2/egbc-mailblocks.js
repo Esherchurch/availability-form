@@ -232,9 +232,14 @@
   /* ---- meetings (Martin, 20 Oct): one from the hub's Meetings list (rota
      events with a video room, egbc-core-meetings.js). Join is the hub's own
      meeting page - knock and the host lets you in - never a host link.
-     Members-only unless the office unticks it; the CMM room always is
-     (EGBCAuth.MEMBERS_ONLY_ROOMS). */
-  var MEMBERS_ONLY_ROOMS = ['CMM'];
+     Members-only unless the office unticks it; a members-only room's
+     meeting always is. Which rooms are members-only is each room's own
+     setting (EGBCAuth.membersRoom), copied onto the block as roomMembers
+     when it is made, so the server's copy of this rule needs no list. */
+  function roomIsMembers(room) {
+    var A = typeof self !== 'undefined' && self.EGBCAuth;
+    return !!(room && A && A.membersRoom && A.membersRoom(room));
+  }
   var KNOCK = 'Type your name and knock; the host lets you in.';
   function clock(hhmm) {
     var m = /^(\d{1,2}):(\d{2})/.exec(String(hhmm || '')); if (!m) return '';
@@ -256,7 +261,7 @@
       title: [ev.type, ev.description].filter(Boolean).join(' · ').slice(0, 160) || 'Meeting',
       date: String(ev.date || ''), startTime: String(ev.startTime || ''), endTime: String(ev.endTime || ''),
       url: String(base || '').replace(/\/+$/, '') + '/meeting.html?room=' + encodeURIComponent(room || '') + (ev.id ? '&event=' + encodeURIComponent(ev.id) : ''),
-      members: true
+      members: true, roomMembers: ev.membersMeeting === true || roomIsMembers(String(room || ''))
     };
   }
 
@@ -626,12 +631,14 @@
     return true;
   }
   /* Members-only: a block ticked so, and a meeting unless the office
-     unticked it - never a members-only room (the CMM), whatever the tick. */
+     unticked it - never a members-only room's, whatever the tick. */
   function membersOnly(b) {
     if (b.members === true) return true;
     if (b.type !== 'meeting') return false;
-    return b.members !== false || MEMBERS_ONLY_ROOMS.indexOf(String(b.room || '')) >= 0;
+    return b.members !== false || roomLocked(b);
   }
+  /* A meeting in a members-only room: its "members only" can't be unticked. */
+  function roomLocked(b) { return !!b && b.type === 'meeting' && (b.roomMembers === true || roomIsMembers(String(b.room || ''))); }
 
   /* opts: { version: 'members'|'everyone', church, unsubscribeUrl, webUrl,
      preview: true in the editor (placeholders shown), year } */
@@ -898,6 +905,6 @@
   return {
     TEMPLATES: TEMPLATES, COLOUR_KEYS: COLOUR_KEYS, PLACEHOLDER: PLACEHOLDER,
     render: render, draft: draft, readyToSend: readyToSend, theme: theme, snippet: snippet,
-    eventShare: eventShare, fillInvite: fillInvite, keep: keep, stripMembers: stripMembers, exposedJoining: exposedJoining, membersWords: membersWords, serviceBlocks: serviceBlocks, palette: palette, styleRules: styleRules, FONTS: FONTS, SIZES: SIZES, LINE_HEIGHTS: LINE_HEIGHTS, LETTER_SPACINGS: LETTER_SPACINGS, HIGHLIGHTS: HIGHLIGHTS, youtubeId: youtubeId, TINTS: TINTS, diaryItems: diaryItems, missing: missing, SOCIAL: SOCIAL, membersOnly: membersOnly, meetingFrom: meetingFrom, meetingWhen: meetingWhen, MEMBERS_ONLY_ROOMS: MEMBERS_ONLY_ROOMS, safeUrl: safeUrl, cleanHtml: cleanHtml, esc: esc
+    eventShare: eventShare, fillInvite: fillInvite, keep: keep, stripMembers: stripMembers, exposedJoining: exposedJoining, membersWords: membersWords, serviceBlocks: serviceBlocks, palette: palette, styleRules: styleRules, FONTS: FONTS, SIZES: SIZES, LINE_HEIGHTS: LINE_HEIGHTS, LETTER_SPACINGS: LETTER_SPACINGS, HIGHLIGHTS: HIGHLIGHTS, youtubeId: youtubeId, TINTS: TINTS, diaryItems: diaryItems, missing: missing, SOCIAL: SOCIAL, membersOnly: membersOnly, meetingFrom: meetingFrom, meetingWhen: meetingWhen, roomLocked: roomLocked, safeUrl: safeUrl, cleanHtml: cleanHtml, esc: esc
   };
 });

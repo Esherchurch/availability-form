@@ -173,7 +173,7 @@ function checks(M) {
   const prayer = M.meetingFrom({ id: 'ev8', type: 'Prayer Meeting', date: '2026-11-04', startTime: '20:00' }, 'Prayer', 'https://example.invalid/v2');
   ok('a meeting is members-only by default: never in everyone else\u2019s copy or the web version', !M.render({ blocks: [prayer, Object.assign({}, prayer, { members: undefined })] }, { version: 'everyone', church: CHURCH }).includes('meeting.html'));
   ok('unticked by the office, an ordinary room\u2019s meeting is for everyone', M.render({ blocks: [Object.assign({}, prayer, { members: false })] }, { version: 'everyone', church: CHURCH }).includes('meeting.html?room=Prayer'));
-  ok('the CMM is always members-only, even unticked', !M.render({ blocks: [Object.assign({}, mt, { members: false })] }, { version: 'everyone', church: CHURCH }).includes('meeting.html'));
+  ok('a members-only room’s meeting is always members-only, even unticked', !M.render({ blocks: [Object.assign({}, mt, { members: false, roomMembers: true })] }, { version: 'everyone', church: CHURCH }).includes('meeting.html'));
   ok('not ready to send until the meeting is picked; "Pick the meeting" in the preview only', !M.readyToSend({ blocks: [{ type: 'meeting', room: 'CMM' }] }).ok && M.render({ blocks: [{ type: 'meeting' }] }, { version: 'members', preview: true }).includes('Pick the meeting') && !M.render({ blocks: [{ type: 'meeting' }] }, { version: 'members' }).includes('Pick the meeting'));
   const snip = M.snippet.meeting(mt);
   ok('the Compiler\u2019s meeting: name, day and time, Join to the meeting page, tables only', snip.includes('Church Members Meeting') && snip.includes('Tuesday 3 November') && snip.includes('href="https://example.invalid/v2/meeting.html?room=CMM&amp;event=ev9"') && /<table/.test(snip) && !/display:\s*(flex|grid)/.test(snip));
@@ -289,8 +289,8 @@ const BREAKS = [
   ['ready to send without a verse', "if (b.type === 'verse' && !String(b.text || '').trim()) missing.push('verse');", '', 'not ready without the verse'],
   ['placeholders sent in the email', "var body = (issue.blocks || [])", "opts = Object.assign({}, opts, { preview: true }); var body = (issue.blocks || [])", 'never in the copy that is sent'],
   ['events drafted without their description', "html: String(ev.description || '').slice(0, 20000),", "html: '',", 'own description'],
-  ['meetings let into everyone’s copy', "return b.members !== false || MEMBERS_ONLY_ROOMS.indexOf(String(b.room || '')) >= 0;", 'return false;', 'members-only by default'],
-  ['the CMM let out when unticked', "return b.members !== false || MEMBERS_ONLY_ROOMS.indexOf(String(b.room || '')) >= 0;", 'return b.members !== false;', 'the CMM is always members-only'],
+  ['meetings let into everyone’s copy', "return b.members !== false || roomLocked(b);", 'return false;', 'members-only by default'],
+  ['a members-only room let out when unticked', "return b.members !== false || roomLocked(b);", 'return b.members !== false;', 'room’s meeting is always members-only'],
   ['card titles left black', "if (!head) body = body.replace(", 'if (false) body = body.replace(', 'first bold line is teal'],
   ['any colour kept on a span', "if (c && t && palette(t).indexOf(c) >= 0) out += ", 'if (c) out += ', 'not in the palette is dropped'],
   ['any letter spacing kept', "    if (LETTER_SPACINGS.indexOf(ls) >= 0) out += 'letter-spacing:' + ls + ';';", "    if (ls) out += 'letter-spacing:' + ls + ';';", 'letter spacing from the list'],

@@ -646,7 +646,7 @@
   }
   function blockPanel() {
     var b = ISSUE.blocks[SEL], L = b.look || {};
-    var locked = b.type === 'meeting' && MB.MEMBERS_ONLY_ROOMS.indexOf(String(b.room || '')) >= 0;
+    var locked = MB.roomLocked(b);
     var sw = [''].concat(MB.TINTS.slice(1), palette());
     var body = TAB === 'style'
       ? '<label>Background</label><div class="sw" data-look="bg">' + sw.map(function (c) { return '<button type="button" data-v="' + c + '" aria-pressed="' + ((L.bg || '') === c) + '" aria-label="' + (c || 'None') + '" title="' + (c || 'None') + '" style="background:' + (c || 'repeating-linear-gradient(45deg,#fff 0 6px,#e5e7eb 6px 8px)') + '"></button>'; }).join('') + '</div>' +
@@ -718,7 +718,7 @@
     var wk = document.getElementById('f-weeks');
     if (wk) wk.onchange = function () { var w = +wk.value || 6, now = Date.now(); EGBCComms.eventsBetween(now - 86400000, now + w * 7 * 86400000).then(function (all) { change(function () { b.weeks = w; b.items = MB.diaryItems({ now: new Date(now), weeks: w, events: all, base: hubBase() }); }); }); };
     var meet = document.getElementById('f-meet');
-    if (meet) meet.onclick = function () { EGBCMeetingPick.open({ base: hubBase(), onPick: function (m) { change(function () { if (b.members === false && MB.MEMBERS_ONLY_ROOMS.indexOf(m.room) < 0) m.members = false; ISSUE.blocks[SEL] = m; }); } }); };
+    if (meet) meet.onclick = function () { EGBCMeetingPick.open({ base: hubBase(), onPick: function (m) { change(function () { if (b.members === false && !MB.roomLocked(m)) m.members = false; ISSUE.blocks[SEL] = m; }); } }); };
     var tl = document.getElementById('f-tolook'); if (tl) tl.onclick = function () { PANEL = 'look'; drawPanel(true); };
     if (b.type === 'verse') wireVerse(b);
     /* Style */

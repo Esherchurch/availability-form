@@ -41,14 +41,13 @@ const REGION = 'europe-west2';
    last "/". Every e-news link and email takes it from there. */
 const hubOf = async db => (await hubUrl(db)).replace(/\/+$/, '');
 const PLACEHOLDER = '{{unsubscribe_url}}';
-const MEMBERS_ONLY_ROOMS = ['CMM'];
-
-/* The same rule as egbc-mailblocks.js membersOnly. */
+/* The same rule as egbc-mailblocks.js membersOnly: a meeting block made
+   from a members-only room carries roomMembers, so no room list is here. */
 export function membersOnly(b) {
   if (!b || typeof b !== 'object') return false;
   if (b.members === true) return true;
   if (b.type !== 'meeting') return false;
-  return b.members !== false || MEMBERS_ONLY_ROOMS.indexOf(String(b.room || '')) >= 0;
+  return b.members !== false || b.roomMembers === true;
 }
 const plain = h => String(h || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&#39;|&rsquo;/g, '’').replace(/\s+/g, ' ').trim();
 

@@ -2249,3 +2249,25 @@ The hub's bar and tab ("EGBC Hub") and the rota calendar entries ("EGBC: Drums")
 **Rules:** `details` also allows `meetingWord` (up to 60) and `shortName` (up to 40), no `< > " &`. Rebuilt, not deployed: they go live when the church goes live.
 
 **Functions to deploy:** membersMeetingSync (+Church), voteOpen, voteClose, castVote (same file), meetingPapers, enewsSignup, enewsConfirm.
+
+## Agreed and not built, now built (28 Oct 2026)
+
+I went through NEXT-BRIEF §26 and §27, GOING-LIVE.md and this file for my areas.
+
+1. **Better group emails** (NEXT-BRIEF "after launch" item 1), in the Email Compiler:
+   - **Small groups** under Send to. The office sees every group, and a leader sees the groups they lead. Under-18s are never included. From `compilerGroups`.
+   - **Household** beside each person (office only), which adds their whole household (`householdId`).
+   - **Also as a notification**: a phone note saying who it's from and the subject, never the email itself. It uses `compilerNotify` and a new notification type, `message`, which people can switch off. It is never emailed.
+   - **Templates**: "Save as a template", and **Use** starts a new copy. The 10-draft cap is gone (C-52); the list shows the latest 100.
+   - **What has been sent**: one row per press of Send, with who it reached (`compilerSent`). Leaders see their own sends; the office sees everyone's.
+   - hubSend's compiler rule now lets a leader reach the small groups they lead.
+2. **Members-only rooms come from each room's own setting**, not a list in code (the any-church list, item 6). A meeting block made from a members-only room carries `roomMembers`, so the server's copy of the rule needs no list. The starter and "New members' meeting" find the next members' meeting by `membersMeeting`, in its own room.
+3. **Sign-ups never confirmed are removed after 14 days** (C-11): `enewsTidyPending`, daily at 03:30, for each church. It only removes a record that has only ever been asked for. Anyone who once agreed, or left the list, is kept.
+4. **EmailBuilder2's guard** is the office job (`data-also-job="office"`), not a team's name.
+5. **A fix to my last commit:** the Menu's stamp lives in egbc-shell.js (`MENU_V` and its fingerprint). It is set now, and the shell's stamp is bumped on its 109 pages. check-stamps 11/11.
+
+**Data map:** enewsSubscribers notes the 14-day rule. **Test, written, not run:** functions/comms-extras.test.mjs.
+
+**For the events window (egbc-notify-core.js is theirs):** one new type, `message` ("Emails from the church office and my leaders"), with `email: false`. functions/notify-core.cjs is the same copy, and the stamp is bumped on its three pages.
+
+**Functions to deploy:** compilerGroups, compilerNotify, compilerSent (new); enewsTidyPending (new, scheduled); hubSend, enewsPreviewWeb, helpAsk (changed).

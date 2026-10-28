@@ -32,7 +32,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { churchOf } from './church-scope.js';
 import { coresMap, coversFor } from './core-teams.js';
 import { makeSender } from './public-mail.js';
-import { decide } from './compiler-send.js';
+import { decide, groupEmailsFor } from './compiler-send.js';
 import { officeTeams, isOfficeIn } from './comms-office.js';
 import * as MailRoute from './mail-route.js';
 import { isUnder18Record } from './under18.js';
@@ -93,12 +93,13 @@ const bookEmails = (people) => new Set(people.filter((m) => m.email).map((m) => 
    { ok:false, why }. The wording is what the page shows. */
 export const SCOPES = {
   /* The Email Compiler: compilerSend's own rule (team leaders: their
-     teams; the office and master admins: anyone). */
+     teams and the small groups they lead; the office and master admins:
+     anyone). */
   async compiler(db, u, d, to) {
-    let people = [];
+    let people = [], extra = [];
     const office = await officeTeams(db);
-    if (!isOfficeIn(u, office)) people = await book(db);
-    const v = decide(u, people, to, office);
+    if (!isOfficeIn(u, office)) { people = await book(db); extra = await groupEmailsFor(db, u); }
+    const v = decide(u, people, to, office, extra, MAX_TO);
     return v.ok ? { ok: true, allowed: null } : { ok: false, why: v.why };
   },
   /* "Send test": to yourself only (it used to go to any typed address). */

@@ -65,7 +65,7 @@
    "owner": "comms",
    "what": "A subscriber's address and the history of how they agreed.",
    "self": "retention",
-   "selfWhy": "Unsubscribing keeps the record of consent; erasing a person goes through the privacy tools.",
+   "selfWhy": "Unsubscribing keeps the record of consent; erasing a person goes through the privacy tools. A sign-up never confirmed, and never on the list before, goes after 14 days (enewsTidyPending).",
    "links": [
     {
      "field": "memberId",

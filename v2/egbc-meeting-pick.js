@@ -34,8 +34,8 @@
     return M && M.videoRoomLabel ? M.videoRoomLabel(room) : room;
   }
   function membersRoom(room) {
-    var list = (global.EGBCAuth && EGBCAuth.MEMBERS_ONLY_ROOMS) || (global.EGBCMailBlocks && EGBCMailBlocks.MEMBERS_ONLY_ROOMS) || ['CMM'];
-    return list.indexOf(room) >= 0;
+    /* Each room's own setting (EGBCAuth.membersRoom), never a list here. */
+    return !!(global.EGBCAuth && EGBCAuth.membersRoom && EGBCAuth.membersRoom(room));
   }
 
   /* Only the meetings this person is invited to (main's H-17, 27 Oct: the

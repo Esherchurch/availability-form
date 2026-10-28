@@ -10,17 +10,17 @@
 <script src="egbc-auth.js?v=202611010900"></script>
 <script src="egbc-help.js?v=202610281800"></script>
 
-<script src="egbc-shell.js?v=202610311800" data-title="Email Compiler"></script>
-<script src="egbc-guard.js?v=202610311900" data-admin="any" data-also-team="Church office"></script>
+<script src="egbc-shell.js?v=202611011100" data-title="Email Compiler"></script>
+<script src="egbc-guard.js?v=202610311900" data-admin="any" data-also-job="office"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Email Compiler</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/omggif@1.0.10/omggif.js"></script>
     <!-- "+ Insert → A meeting": picked from Meetings, with Join (the comms window; FINDINGS-comms C-35) -->
-    <script src="egbc-mailblocks.js?v=202611010900"></script>
+    <script src="egbc-mailblocks.js?v=202611011100"></script>
     <script src="egbc-core-meetings.js?v=202610311600"></script>
-    <script src="egbc-meeting-pick.js?v=202610271500"></script>
+    <script src="egbc-meeting-pick.js?v=202611011100"></script>
 
     <style>
         :root {
@@ -265,6 +265,8 @@
                 <div id="reviewWarn"></div>
                 <div class="rlabel">Reply-to</div>
                 <div style="font-size:12.5px; font-weight:600; color:var(--ink);" id="reviewReplyTo"></div>
+                <label class="list-item" style="margin:10px 0 0"><input type="checkbox" id="alsoNotify"> Also as a notification, to those with the hub app</label>
+                <p style="font-size:12px;color:var(--muted);margin:2px 0 8px">A note on their phone with who it’s from and the subject. People can turn it off in Notifications.</p>
                 <div class="test-row">
                     <input id="testEmail" type="email" placeholder="you@email.com">
                     <button class="btn-ghost" style="width:auto; padding:9px 14px; white-space:nowrap;" onclick="sendTest()">Send test</button>
@@ -300,6 +302,7 @@
         <div id="draftsList"></div>
         <div class="modal-row">
             <button class="btn-primary" style="background:var(--good);" onclick="saveNewDraft()"><i data-lucide="save" style="width:15px;height:15px;vertical-align:-2px"></i> Save current as new draft</button>
+            <button class="btn-ghost" onclick="saveNewDraft(true)"><i data-lucide="layout-template" style="width:15px;height:15px;vertical-align:-2px"></i> Save as a template</button>
             <button class="btn-ghost" onclick="closeDraftsModal()">Close</button>
         </div>
     </div>
@@ -309,13 +312,23 @@
 <div id="peopleModal" class="modal">
     <div class="modal-box">
         <h3>Pick individual people</h3>
-        <p class="sub">Tick anyone to add them to this send — on top of any teams you've selected. People with no email on file can't be picked.</p>
+        <p class="sub">Tick anyone to add them to this send — on top of any teams you've selected. People with no email on file can't be picked.<span id="familyHint"> <b>Household</b> adds everyone in that person’s household.</span></p>
         <input id="peopleSearch" type="text" placeholder="Search name or email…" style="width:100%;border:1.5px solid var(--border);border-radius:9px;padding:10px 13px;font-size:13px;font-family:inherit;outline:none;margin-bottom:12px;">
         <div id="peopleList" style="max-height:340px;overflow-y:auto;"></div>
         <div class="modal-row">
             <button class="btn-ghost" onclick="clearPicked()">Clear all</button>
             <button class="btn-primary" onclick="closePeople()">Done · <span id="pickedCount">0</span> picked</button>
         </div>
+    </div>
+</div>
+
+<!-- What I've sent: the hub's own record (compilerSent) -->
+<div id="sentModal" class="modal">
+    <div class="modal-box">
+        <h3><i data-lucide="history" style="width:15px;height:15px;vertical-align:-2px"></i> Sent</h3>
+        <p class="sub" id="sentSub">What has gone from here, newest first.</p>
+        <div id="sentList" style="max-height:380px;overflow-y:auto;"></div>
+        <div class="modal-row"><button class="btn-ghost" onclick="$('sentModal').classList.remove('active')">Close</button></div>
     </div>
 </div>
 
@@ -445,6 +458,8 @@
             <!-- Filled for the person (WHO MAY, 16 Oct 2026): a team leader's
                  own teams; every team and Everyone for the office. -->
             <div id="teamFilters"></div>
+            <!-- Small groups: the office's every group, a leader's own (compilerGroups). -->
+            <div id="groupFilters"></div>
             <button class="btn-ghost" style="margin-top:11px;" onclick="openPeople()"><i data-lucide="plus" style="width:15px;height:15px;vertical-align:-2px"></i> Pick individual people<span id="pickedBadge" style="margin-left:6px;font-weight:600;color:var(--brand);"></span></button>
             <div class="recip-summary" id="recipSummary"><b>0</b> people selected</div>
         </div>
@@ -460,7 +475,8 @@
 
         <div class="panel">
             <div class="panel-title"><i data-lucide="folder-open" style="width:15px;height:15px;vertical-align:-2px"></i> Drafts</div>
-            <button class="btn-ghost" onclick="openDraftsModal()">Open saved drafts</button>
+            <button class="btn-ghost" onclick="openDraftsModal()">Open saved drafts and templates</button>
+            <button class="btn-ghost" style="margin-top:8px" onclick="openSent()">What has been sent</button>
             <div id="current-draft-info"></div>
         </div>
 
@@ -479,7 +495,8 @@
 const db = EGBCAuth.db;
 const storage = EGBCAuth.storage();
 
-const MAX_DRAFTS = 10;
+/* Shown at a time; saving is never refused for having many. */
+const MAX_DRAFTS = 100;
 const LS_AUTOSAVE = 'egbc-email-autosave';
 let allMembers = [];
 let lastClickedImg = null;
@@ -489,6 +506,7 @@ let activeDraftId = null;
 let dirty = false;
 let lastSendList = [];   // recipients resolved for the current review
 let pickedIds = new Set(); // individually-picked address-book members (by doc id)
+let GROUPS = [];           // the small groups this person may email, with their people
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -555,10 +573,24 @@ function drawTeamFilters() {
         + (mayEmailAnyone() ? row('Everyone', 'Everyone') : '');
     document.querySelectorAll('.team-filter').forEach(cb => cb.addEventListener('change', () => { if (typeof updateRecipSummary === 'function') updateRecipSummary(); }));
 }
+/* Small groups: their people come with them from the hub, so a leader
+   reaches their group even where the address book is not theirs to read. */
+function drawGroupFilters() {
+    const el = $('groupFilters'); if (!el) return;
+    el.innerHTML = GROUPS.length ? '<div style="font-size:12px;font-weight:600;color:var(--muted);margin:10px 0 4px">Small groups</div>' + GROUPS.map(g =>
+        '<label class="list-item"><input type="checkbox" class="group-filter" value="' + escAttr(g.id) + '"> ' + escAttr(g.name)
+        + ' <span class="cnt">' + (g.people.length || '') + '</span></label>').join('') : '';
+    el.querySelectorAll('.group-filter').forEach(cb => cb.addEventListener('change', updateRecipSummary));
+}
+function loadGroups() {
+    return EGBCAuth.call('compilerGroups', {}).then(r => { GROUPS = (r && r.groups) || []; drawGroupFilters(); updateRecipSummary(); }, () => {});
+}
 function escAttr(x) { return String(x == null ? '' : x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 document.addEventListener('egbc-ready', () => Promise.resolve(EGBCAuth.loadPerms && EGBCAuth.loadPerms()).catch(() => {}).then(() => {
     /* Who may email anyone is the office job: read with the permissions. */
     drawTeamFilters();
+    loadGroups();
+    if ($('familyHint')) $('familyHint').hidden = !mayEmailAnyone();
     EGBCAuth.db.collection('churchSettings').doc('details').get()
         .then(d => { CHURCH_NAME = (d.exists && d.data().name) || ''; CHURCH_LOGO = (d.exists && d.data().logoUrl) || ''; }, () => {})
         .then(fillHeaderTitle).then(fillLogo).then(fillFooter);
@@ -836,9 +868,16 @@ function memberInTeams(m, teams) {
     if (teams.includes('Everyone')) return true;
     return m.markers && m.markers.some(r => teams.includes(r));
 }
+function selectedGroups() { const on = Array.from(document.querySelectorAll('.group-filter:checked')).map(cb => cb.value); return GROUPS.filter(g => on.includes(g.id)); }
 function resolveRecipients() {
     const teams = selectedTeams();
     const withEmail = [], noEmail = [], seen = new Set();
+    selectedGroups().forEach(g => g.people.forEach(p => {
+        const key = String(p.email || '').trim().toLowerCase();
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        withEmail.push({ name: p.name || p.email, email: p.email.trim() });
+    }));
     allMembers.forEach(m => {
         const selected = (teams.length && memberInTeams(m, teams)) || pickedIds.has(m.id);
         if (!selected) return;
@@ -882,10 +921,25 @@ function renderPeople() {
             <input type="checkbox" data-id="${escapeHtml(m.id)}" ${pickedIds.has(m.id) ? 'checked' : ''} ${has ? '' : 'disabled'}>
             <span class="pr-name">${escapeHtml(m.name || 'Unnamed')}</span>
             <span class="pr-email">${has ? escapeHtml(email) : 'no email on file'}</span>
+            ${mayEmailAnyone() ? `<button type="button" class="btn-ghost" style="width:auto;padding:4px 10px;font-size:12px" data-household="${escapeHtml(m.id)}">Household</button>` : ''}
         </label>`;
     }).join('') : '<div class="draft-empty">No matches.</div>';
 }
 $('peopleSearch').addEventListener('input', renderPeople);
+/* A household, as the address book keeps it: everyone whose householdId is
+   the same head, and the head. For the office, who may email anyone. */
+function householdOf(id) {
+    const m = allMembers.find(x => x.id === id); if (!m) return [];
+    const head = m.householdId || m.id;
+    return allMembers.filter(x => x.id === head || x.householdId === head);
+}
+$('peopleList').addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('[data-household]');
+    if (!b) return;
+    e.preventDefault();
+    householdOf(b.dataset.household).forEach(x => { if ((x.email || '').trim()) pickedIds.add(x.id); });
+    renderPeople(); updatePickedUi();
+});
 $('peopleList').addEventListener('change', e => {
     const cb = e.target;
     if (cb && cb.dataset && cb.dataset.id) {
@@ -988,6 +1042,14 @@ async function sendAll() {
         : `<div style="text-align:center;color:var(--good);font-weight:600;font-size:13px;"><i data-lucide="party-popper" style="width:15px;height:15px;vertical-align:-2px"></i> Everyone received it.</div>`;
     $('sendResults').style.display = 'block';
 
+    /* The phone note goes once, to those the email reached. */
+    if ($('alsoNotify') && $('alsoNotify').checked && ok) {
+        const reached = list.filter(r => !failed.includes(r)).map(r => r.email);
+        EGBCAuth.call('compilerNotify', { to: reached, subject: meta.subject })
+            .then(n => { $('failList').insertAdjacentHTML('beforeend', '<p style="text-align:center;font-size:12px;color:var(--muted)">' + (n && n.dryRun ? 'Notifications are switched off for the church, so no phone note went.' : 'A note went to ' + ((n && n.phones) || 0) + ' phone' + ((n && n.phones) === 1 ? '' : 's') + '.') + '</p>'); },
+                  err => { $('failList').insertAdjacentHTML('beforeend', '<p style="text-align:center;font-size:12px;color:var(--danger,#b0392c)">The phone note did not go: ' + escapeHtml((err && err.message) || err) + '</p>'); });
+        $('alsoNotify').checked = false;
+    }
     lastSendList = failed;  // allow one-click retry of just the failures
     $('reviewButtons').style.display = 'flex';
     if (failed.length) {
@@ -1015,19 +1077,21 @@ async function renderDraftsList() {
     list.innerHTML = '<div class="draft-empty">Loading…</div>';
     try {
         const snap = await db.collection("emailDrafts").orderBy("updatedAt", "desc").limit(MAX_DRAFTS).get();
-        $('draftSlotCount').textContent = `${snap.docs.length} of ${MAX_DRAFTS} slots used`;
-        if (snap.docs.length === 0) { list.innerHTML = '<div class="draft-empty">No saved drafts yet.</div>'; return; }
-        list.innerHTML = snap.docs.map(d => {
+        $('draftSlotCount').textContent = snap.docs.length >= MAX_DRAFTS ? `Showing the latest ${MAX_DRAFTS}. Delete old ones to see more.` : 'A template starts a new email each time; a draft is the email itself.';
+        if (snap.docs.length === 0) { list.innerHTML = '<div class="draft-empty">No saved drafts or templates yet.</div>'; return; }
+        /* Templates first: they are what people come back to. */
+        const docs = snap.docs.slice().sort((a, b) => (b.data().template === true) - (a.data().template === true));
+        list.innerHTML = docs.map(d => {
             const data = d.data();
             draftNames[d.id] = data.name || 'Untitled Draft';
             const active = d.id === activeDraftId;
             return `<div class="draft-card" style="${active ? 'border-color:#3d6263;background:#f0f6f6;' : ''}">
                 <div class="draft-info">
-                    <div class="draft-name">${escapeHtml(data.name || 'Untitled Draft')}${active ? '<span class="draft-badge">LOADED</span>' : ''}</div>
+                    <div class="draft-name">${escapeHtml(data.name || 'Untitled Draft')}${data.template === true ? '<span class="draft-badge">TEMPLATE</span>' : ''}${active ? '<span class="draft-badge">LOADED</span>' : ''}</div>
                     <div class="draft-meta"><i data-lucide="pencil" style="width:15px;height:15px;vertical-align:-2px"></i> ${escapeHtml(data.createdBy || '?')} · ${formatDate(data.createdAt)}<br><i data-lucide="refresh-cw" style="width:15px;height:15px;vertical-align:-2px"></i> ${escapeHtml(data.updatedBy || '?')} · ${formatDate(data.updatedAt)}</div>
                 </div>
                 <div class="draft-actions">
-                    <button class="btn-load" onclick="loadDraft('${d.id}')">Load</button>
+                    <button class="btn-load" onclick="loadDraft('${d.id}')">${data.template === true ? 'Use' : 'Load'}</button>
                     <button class="btn-del" onclick="deleteDraft('${d.id}')" title="Delete"><i data-lucide="trash-2" style="width:15px;height:15px;vertical-align:-2px"></i></button>
                 </div></div>`;
         }).join('');
@@ -1052,19 +1116,17 @@ function ensureUser() {
     return true;
 }
 
-async function saveNewDraft() {
+async function saveNewDraft(asTemplate) {
     if (!ensureUser()) return;
-    const snap = await db.collection("emailDrafts").orderBy("updatedAt", "desc").limit(MAX_DRAFTS + 1).get();
-    if (snap.size >= MAX_DRAFTS) { alert(`You've reached ${MAX_DRAFTS} drafts. Delete one before saving a new draft.`); return; }
-    const name = prompt("Name this draft:", getMeta().subject || "Team Update");
+    const name = prompt(asTemplate ? "Name this template:" : "Name this draft:", getMeta().subject || "Team Update");
     if (!name) return;
     const now = firebase.firestore.FieldValue.serverTimestamp();
     showLoader('Saving draft…');
     try {
         const ref = await db.collection("emailDrafts").add({
-            ...draftPayload(), name, createdBy: currentUser, createdAt: now, updatedBy: currentUser, updatedAt: now
+            ...draftPayload(), name, template: asTemplate === true, createdBy: currentUser, createdAt: now, updatedBy: currentUser, updatedAt: now
         });
-        activeDraftId = ref.id;
+        activeDraftId = asTemplate === true ? null : ref.id;
         updateCurrentDraftInfo(name, currentUser, currentUser);
         await renderDraftsList();
         markClean();
@@ -1083,8 +1145,9 @@ async function loadDraft(id) {
             $('preheaderInput').value = data.preheader || '';
             $('headerTitle').innerText = data.headerTitle || defaultHeaderTitle();
             $('headerSub').innerText = data.headerSub || 'Team Update';
-            activeDraftId = id;
-            updateCurrentDraftInfo(data.name, data.createdBy, data.updatedBy, data.createdAt, data.updatedAt);
+            /* A template is copied: saving makes a new draft, never changes it. */
+            if (data.template === true) { activeDraftId = null; $('current-draft-info').style.display = 'none'; }
+            else { activeDraftId = id; updateCurrentDraftInfo(data.name, data.createdBy, data.updatedBy, data.createdAt, data.updatedAt); }
             closeDraftsModal();
             markClean();
         }
@@ -1124,6 +1187,23 @@ function updateCurrentDraftInfo(name, createdBy, updatedBy, createdAt, updatedAt
     html += `<div style="margin-top:4px;"><i data-lucide="refresh-cw" style="width:15px;height:15px;vertical-align:-2px"></i> Last edited by <b>${escapeHtml(updatedBy || '?')}</b></div>`;
     html += `<button onclick="overwriteActiveDraft()" class="btn-primary" style="background:var(--good);margin-top:10px;padding:9px;font-size:12px;"><i data-lucide="save" style="width:15px;height:15px;vertical-align:-2px"></i> Save changes to this draft</button>`;
     el.innerHTML = html; el.style.display = 'block';
+}
+
+// ── What has been sent ───────────────────────────────────────────────────────
+/* The hub's record (compilerSent): one row per press of Send, with how many
+   it reached and who. The office sees everyone's; a leader, their own. */
+function openSent() {
+    $('sentModal').classList.add('active');
+    const el = $('sentList');
+    el.innerHTML = '<div class="draft-empty">Loading…</div>';
+    EGBCAuth.call('compilerSent', {}).then(r => {
+        const sends = (r && r.sends) || [];
+        $('sentSub').textContent = mayEmailAnyone() ? 'Everything sent from here, newest first.' : 'What you have sent from here, newest first.';
+        el.innerHTML = sends.length ? sends.map(s => `<details class="draft-card" style="display:block"><summary style="cursor:pointer"><b>${escapeHtml(s.subject || '(no subject)')}</b><br>
+            <span class="draft-meta">${escapeHtml(formatDate(s.at))}${s.by ? ' · ' + escapeHtml(s.by) : ''} · ${s.sent} sent${s.failed ? ', ' + s.failed + ' failed' : ''}</span></summary>
+            <div class="draft-meta" style="margin-top:6px;overflow-wrap:anywhere">${s.to.map(escapeHtml).join(', ')}</div></details>`).join('')
+            : '<div class="draft-empty">Nothing sent yet.</div>';
+    }, e => { el.innerHTML = '<div class="draft-empty">Could not load it: ' + escapeHtml((e && e.message) || e) + '</div>'; });
 }
 
 // ── Autosave (local) + unsaved guard ─────────────────────────────────────────

@@ -1131,3 +1131,8 @@ Your 22 uses are gone. One setting, `churchSettings/details.meetingWord`, on You
 3. **addressbook.html** and **meeting.html:** one line each, with no meeting word ("Members only").
 4. **egbc-team-jobs.js:** the trustees job's description (functions/team-jobs.js rebuilt).
 5. **Short name:** your box is on Your church, saved as `details.shortName`.
+
+### From Comms, 28 Oct 2026 (later): two lines in your files
+1. **functions/hub-send.js** `SCOPES.compiler`: a team leader may also email the small groups they lead (`groupEmailsFor` from compiler-send.js).
+2. **egbc-shell.js:** `MENU_V` 202611010900 and its fingerprint, because my last commit bumped egbc-menu.js's stamp by hand. The shell's own stamp is 202611011100 on every page.
+- `EGBCAuth.MEMBERS_ONLY_ROOMS` (['CMM']) is now read only by your `membersRoom()`. My files ask `membersRoom()`. Once EGBC's CMM room has `members: true` in Video rooms, the list can go.

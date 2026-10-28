@@ -20,6 +20,10 @@
      care        a new prayer request, request for pastoral care, concern or
                  visitor's hello, to the people the church named for it -
                  WHICH KIND, AND NOTHING ELSE
+     message     an email from the church office or my team leader has come
+                 (the Email Compiler's "Also as a notification"): who from and
+                 the subject, never the email's words; never emailed, as the
+                 email is the message
 
    EMAIL IS THE FALLBACK: someone with no phone set up gets the message by
    email instead - except where the page already emails them (a booking),
@@ -46,6 +50,7 @@
     maintJob:   { label: 'A new maintenance job', help: 'For the Maintenance team.', on: true, loud: false, email: true },
     urgent:     { label: 'Urgent notices from the office', help: 'Rare: a service moved, the building closed.', on: true, loud: true, email: true },
     checks:     { label: 'My DBS check or training is running out', help: 'For anyone who helps with under-18s.', on: true, loud: false, email: true },
+    message:    { label: 'Emails from the church office and my leaders', help: 'A note on your phone when they email you, with who it is from and the subject.', on: true, loud: false, email: false },
     care:       { label: 'Something new for me to look after', help: 'A prayer request, a request for care, a concern or a visitor\u2019s hello, if the church has named you for it. It never says who or why.', on: true, loud: false, email: true },
     /* H-14: to the master admin who gave somebody a permission, a week
        before it ends (Martin's answer 3). Only ever them, so not a choice. */
@@ -124,6 +129,7 @@
       var k = CARE_KINDS[d.what] || CARE_KINDS.concern;
       return { title: k[0], body: 'Open it to read it.', url: k[1] };
     },
+    message: function (d) { return { title: cut(d.from ? 'Email from ' + d.from : 'A new email from the church', 60), body: cut(d.title, 160), url: d.url || 'my-messages.html' }; },
     test: function () { return { title: 'Notifications are on', body: 'This is a test from the church hub.', url: 'notifications.html' }; }
   };
   function message(type, data) {

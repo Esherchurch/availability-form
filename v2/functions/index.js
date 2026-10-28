@@ -859,7 +859,7 @@ export { planSend } from './planner.js';
 export { lessonFor } from './lesson.js';
 /* Who may email whom (Martin, 16 Oct 2026): the Email Compiler sends through
    the hub, which checks the sender's teams; logged to emailOutbox. */
-export { compilerSend } from './compiler-send.js';
+export { compilerSend, compilerGroups, compilerNotify, compilerSent } from './compiler-send.js';
 export { videoRoomsEnsure, meetingHostToken, videoRoomsForTeams, videoRoomsForTeamsChurch } from './video.js';
 export { meetingRoom, meetingInvite, meetingGuestJoin, meetingCancel } from './meeting-manage.js';
 /* Two meetings never share a link at the same time (27 Oct 2026). */
@@ -879,7 +879,7 @@ export { peepTodayDaily, peepTodayOnCheckin, peepTodayOnPeep, peepTodayOnRollCal
 /* The e-news's subscribers (comms window, FINDINGS-comms): sign-up, confirm,
    unsubscribe, Resend's bounce webhook, the office's add-by-hand. Sends
    through Church HQ's Resend (hq-mail.js); shut until switch-over (enews-gate.js). */
-export { enewsSignup, enewsConfirm, enewsUnsubscribe, hqMailEvents, enewsSubscriberSave } from './enews.js';
+export { enewsSignup, enewsConfirm, enewsUnsubscribe, hqMailEvents, enewsSubscriberSave, enewsTidyPending } from './enews.js';
 export { enewsSendDue, enewsTest } from './enews-send.js';
 /* Canva: connect once, list designs, import into the picture library (comms window, FINDINGS-comms C-15); shut until switch-over (CANVA_LIVE in canva.js). */
 export { canvaStatus, canvaStart, canvaCallback, canvaDesigns, canvaImport, canvaDisconnect } from './canva.js';

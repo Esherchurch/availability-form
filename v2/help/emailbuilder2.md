@@ -4,7 +4,7 @@ Write an email to a team, or to the church, with words, photos, GIFs and buttons
 
 ## Who can use it
 - Team leaders (anyone who looks after a team), the church office team and master admins can open it.
-- Team leaders can send to the people on their own teams.
+- Team leaders can send to the people on their own teams, and to the small groups they lead.
 - The church office and master admins can send to any team, or to **Everyone** in the address book.
 - Saved drafts are shared: anyone who can use this page can open, change or delete them.
 
@@ -38,23 +38,32 @@ Write an email to a team, or to the church, with words, photos, GIFs and buttons
 
 ## Choose who gets it
 1. Under **Send to**, tick one or more teams (or **Everyone**, if you may).
-2. Press **Pick individual people** to add people one by one, on top of any teams. Search by name or email. People with no email can't be picked.
-3. Under-18s are never emailed: they are left off every team and can't be picked.
-4. The count under it shows how many people are selected, and how many have no email.
+2. Under **Small groups**, tick a group to send to everyone in it who has an email address. The office sees every group; a leader sees the groups they lead.
+3. Press **Pick individual people** to add people one by one, on top of any teams. Search by name or email. People with no email can't be picked. The office also sees **Household** beside each person, which adds everyone in their household.
+4. Under-18s are never emailed: they are left off every team and can't be picked.
+5. The count under it shows how many people are selected, and how many have no email.
 
 ## Send a test, then send
 1. Under **Your details**, type **Your email (reply-to)**. Replies go there. If it is empty, replies go to the church's enquiry address.
 2. Press **Review & Send**. You see the email exactly as it will arrive, and who it goes to.
 3. To test, put your own address in the box and press **Send test**. A test only goes to your own email address, with "[TEST]" before the subject.
-4. Press **Send to ... people**. Each person gets their own copy.
-5. At the end you see how many were delivered and failed. Press **Retry ... failed** to try the failed ones again.
+4. To let people with the hub app know on their phone too, tick **Also as a notification**. Their phone shows who it's from and the subject, never the email itself. People can switch these off in Notifications.
+5. Press **Send to ... people**. Each person gets their own copy.
+6. At the end you see how many were delivered and failed. Press **Retry ... failed** to try the failed ones again.
 
-## Save and open drafts
-1. Press **Open saved drafts**.
-2. **Save current as new draft** and give it a name. There are 10 draft slots for the church; delete one to make room.
-3. **Load** opens a draft. While one is loaded, **Save changes to this draft** saves over it.
-4. The bin button deletes a draft.
+## Save drafts and templates
+1. Press **Open saved drafts and templates**.
+2. **Save current as new draft** and give it a name. Drafts are shared with everyone who can use this page.
+3. **Save as a template** keeps the email as a starting point you can use again and again.
+4. **Load** opens a draft. While one is loaded, **Save changes to this draft** saves over it.
+5. **Use** starts a new email from a template. The template itself stays as it was.
+6. The bin button deletes a draft or template. The list shows the latest 100.
 - Your work is also kept on this device as you type ("Autosaved · unsent"), so it is still there if you reload. That copy is on this device only; save a draft to carry on elsewhere.
+
+## See what has been sent
+1. Press **What has been sent**.
+2. Each send shows its subject, when, who sent it and how many it reached. Open one to see who it went to.
+3. Team leaders see their own sends. The church office sees everything sent from here.
 
 ## Good to know
 - People selected who have no email are listed in Review & Send and won't get it. Add their address in the Address Book.

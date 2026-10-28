@@ -43,8 +43,9 @@ import { featureOn } from './features.js';
 import { isUnder18Email, isUnder18Record } from './under18.js';
 import { hubUrl } from './notify.js';
 import { isOffice } from './comms-office.js';
-import { churchOf, scopedDb } from './church-scope.js';
-import { codeHash, indexCode, dbForCode } from './hq-codes.js';
+import { churchOf, scopedDb, eachChurch } from './church-scope.js';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
+import { codeHash, indexCode, dropCode, dbForCode } from './hq-codes.js';
 import { dbForAddress } from './church-address.js';
 
 const REGION = 'europe-west2';
@@ -384,3 +385,35 @@ export const enewsSubscriberSave = onCall({ region: REGION }, async (req) => {
   if (r.skipped) throw new HttpsError('failed-precondition', 'Not added: ' + r.skipped + '.');
   return { ok: true, id: r.id };
 });
+
+/* ---- sign-ups never confirmed ------------------------------------------ */
+/* Someone typed an address and nobody pressed the confirm link: after 14
+   days the record goes, so the list holds nobody who never agreed. Only a
+   record that has only ever been asked for: anyone who once agreed, or
+   left the list, keeps their record (it is what stops a re-send). */
+export const PENDING_DAYS = 14;
+const onlyAsked = (d) => !d.consent && (d.history || []).every((h) => /^asked to join/.test(String((h && h.what) || '')));
+
+/**
+ * Delete the church's sign-ups that were never confirmed and are older
+ * than PENDING_DAYS, with their link codes.
+ * @param {FirebaseFirestore.Firestore} D the church's database (scoped)
+ * @param {number} [nowMs]
+ * @returns {Promise<number>} how many went
+ */
+export async function tidyPending(D, nowMs = Date.now()) {
+  const before = new Date(nowMs - PENDING_DAYS * DAY).toISOString();
+  const s = await D.collection('enewsSubscribers').where('status', '==', 'pending').get();
+  let n = 0;
+  for (const doc of s.docs) {
+    const d = doc.data();
+    if (!(String(d.createdAt || '') < before) || !onlyAsked(d)) continue;
+    for (const t of [d.token, d.confirmToken]) if (TOKEN.test(String(t || ''))) await dropCode(D, 'enews', codeHash(String(t))).catch(() => {});
+    await doc.ref.delete();
+    n++;
+  }
+  if (n) console.info('[enews] ' + (D.churchId || 'top level') + ': ' + n + ' unconfirmed sign-up(s) removed after ' + PENDING_DAYS + ' days');
+  return n;
+}
+export const enewsTidyPending = onSchedule({ region: REGION, schedule: '30 3 * * *', timeZone: 'Europe/London', retryCount: 0 },
+  async () => { await eachChurch(root(), (ch) => tidyPending(ch.db)); });
