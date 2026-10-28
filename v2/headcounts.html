@@ -68,7 +68,7 @@
 <body>
 <div class="wrap">
   <h1>Headcounts</h1>
-  <p class="sub">A quick count for each Sunday service or event: how many adults, children and people online. Numbers only, no names.</p>
+  <p class="sub">A quick count for each service or event: how many adults, children and people online. Numbers only, no names.</p>
   <div class="card" id="form"></div>
   <div class="card" id="list"><p class="hint">Loading…</p></div>
 </div>
@@ -79,7 +79,10 @@
   'use strict';
   var E = window.EGBCEvents, C = window.EGBCCheckin, esc = E.esc;
   var ALL = [], RECENT = [];
-  var LABELS = ['Sunday morning service', 'Sunday evening service'];
+  /* The church's main service day (Church settings), Sunday unless it says otherwise. */
+  var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  function serviceDay() { var d = EGBCAuth.serviceDay ? EGBCAuth.serviceDay() : 'Sunday'; return DAYS.indexOf(d) >= 0 ? d : 'Sunday'; }
+  function labels() { return [serviceDay() + ' morning service', serviceDay() + ' evening service']; }
 
   function db() { return EGBCAuth.db; }
   function icons() { if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons(); }
@@ -91,9 +94,9 @@
   }
   function n(id) { var v = parseInt(document.getElementById(id).value, 10); return isNaN(v) || v < 0 ? 0 : v; }
 
-  /* Today if it is a Sunday, otherwise the Sunday just gone. */
+  /* Today if it is the service day, otherwise the one just gone. */
   function lastSunday() {
-    var d = new Date(); d.setDate(d.getDate() - d.getDay());
+    var d = new Date(); d.setDate(d.getDate() - ((d.getDay() - DAYS.indexOf(serviceDay()) + 7) % 7));
     var p = function (x) { return (x < 10 ? '0' : '') + x; };
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
   }
@@ -104,7 +107,7 @@
       '<div class="two">' +
         '<div class="field"><label for="hDate">Date</label><input class="inp" id="hDate" type="date" value="' + lastSunday() + '"></div>' +
         '<div class="field" style="flex:2;min-width:200px"><label for="hWhat">What</label><select id="hWhat">' +
-          LABELS.map(function (l) { return '<option value="label:' + esc(l) + '">' + esc(l) + '</option>'; }).join('') +
+          labels().map(function (l) { return '<option value="label:' + esc(l) + '">' + esc(l) + '</option>'; }).join('') +
           RECENT.map(function (e) { return '<option value="event:' + esc(e.id) + '">' + esc(e.title) + ' · ' + esc(E.fmtDateShort(e.startLocal || e.startUtc)) + '</option>'; }).join('') +
           '<option value="other">Something else…</option>' +
         '</select></div>' +

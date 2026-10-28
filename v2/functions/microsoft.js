@@ -39,15 +39,15 @@ import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret, defineString } from 'firebase-functions/params';
 import { getFirestore } from 'firebase-admin/firestore';
 import crypto from 'node:crypto';
-import { EGBC_HUB } from './hub-address.js';
+import { hubAddressOf } from './hub-address.js';
+import { churchOf, scopedDb } from './church-scope.js';
 
 const REGION = 'europe-west2';
 const EMULATOR = !!process.env.FUNCTIONS_EMULATOR;
 const db = () => getFirestore();
 export const MS_HQ_CLIENT_ID = defineString('MS_HQ_CLIENT_ID', { default: '' });
 export const MS_HQ_CLIENT_SECRET = defineSecret('MS_HQ_CLIENT_SECRET');
-/* Where Microsoft sends people back to: EGBC's hub (said once, in hub-address.js). */
-const HUB = EGBC_HUB;
+/* Where Microsoft sends people back to: the church's own hub (hubAddressOf), found from the state. */
 const PROJECT = process.env.GCLOUD_PROJECT || 'egbc-worship-planner';
 const APP_NAME = 'Church HQ slides';
 /* A placeholder is not a secret: the reviewer set MS_HQ_CLIENT_SECRET to
@@ -62,21 +62,25 @@ async function settings() {
       callback: 'http://127.0.0.1:' + (process.env.FUNCTIONS_EMULATOR_PORT || '5102') + '/' + PROJECT + '/' + REGION + '/m365Callback' };
   }
   let secret = ''; try { secret = real(MS_HQ_CLIENT_SECRET.value()); } catch (e) {}
-  return { login: 'https://login.microsoftonline.com', graph: 'https://graph.microsoft.com/v1.0', clientId: real(MS_HQ_CLIENT_ID.value()), secret, back: HUB,
+  return { login: 'https://login.microsoftonline.com', graph: 'https://graph.microsoft.com/v1.0', clientId: real(MS_HQ_CLIENT_ID.value()), secret, back: '',
     callback: 'https://' + REGION + '-' + PROJECT + '.cloudfunctions.net/m365Callback' };
 }
-async function master(uid) {
+/* Each church connects its own Microsoft 365: its master admins, its own
+   privateSettings. The caller's church comes from their sign-in. */
+async function master(D, uid) {
   if (!uid) throw new HttpsError('unauthenticated', 'Please sign in.');
-  const u = (await db().collection('users').doc(uid).get()).data() || {};
+  const u = (await D.collection('users').doc(uid).get()).data() || {};
   if (u.status !== 'active' || u.masterAdmin !== true) throw new HttpsError('permission-denied', 'Only a master admin can connect Microsoft 365.');
   return u;
 }
 
 export const m365Start = onCall({ region: REGION, secrets: [MS_HQ_CLIENT_SECRET] }, async (req) => {
-  const u = await master(req.auth && req.auth.uid), s = await settings();
+  const D = churchOf(req, db()).db;
+  const u = await master(D, req.auth && req.auth.uid), s = await settings();
   if (!s.clientId || !s.secret) throw new HttpsError('failed-precondition', 'Microsoft 365 isn’t set up yet: Church HQ hasn’t finished setting up its app. Until then Present draws PowerPoint slides itself.');
   const state = crypto.randomBytes(24).toString('hex');
-  await db().collection('m365Connect').doc(state).set({ uid: req.auth.uid, name: u.name || '', step: 'consent', at: Date.now() });
+  /* At the top level, server-only: Microsoft brings back only the state, so it says which church. */
+  await db().collection('m365Connect').doc(state).set({ uid: req.auth.uid, name: u.name || '', churchId: D.churchId || '', step: 'consent', at: Date.now() });
   const q = new URLSearchParams({ client_id: s.clientId, scope: 'https://graph.microsoft.com/.default', redirect_uri: s.callback, state });
   return { url: s.login + '/organizations/v2.0/adminconsent?' + q.toString() };
 });
@@ -86,9 +90,12 @@ function why(e) { return String((e && e.message) || e || 'Something went wrong.'
 
 export const m365Callback = onRequest({ region: REGION, secrets: [MS_HQ_CLIENT_SECRET] }, async (req, res) => {
   const s = await settings(), p = req.query || {};
-  const back = (ok, words) => res.redirect(302, s.back + 'church-settings.html?m365=' + (ok ? 'connected' : 'failed') + (words ? '&why=' + encodeURIComponent(words) : '') + '#m365');
   const ref = p.state && /^[a-f0-9]{48}$/.test(String(p.state)) ? db().collection('m365Connect').doc(String(p.state)) : null;
   const st = ref ? (await ref.get()).data() : null;
+  const D = scopedDb(db(), (st && st.churchId) || null);
+  /* back to the church's own hub (the tests' stand-in on the emulator) */
+  const home = s.back || (await hubAddressOf(D)).url;
+  const back = (ok, words) => res.redirect(302, home + 'church-settings.html?m365=' + (ok ? 'connected' : 'failed') + (words ? '&why=' + encodeURIComponent(words) : '') + '#m365');
   if (!st || Date.now() - st.at > 15 * 60 * 1000) return back(false, 'That took too long or did not start here. Press "Connect Microsoft 365" again.');
   try {
     if (p.error) throw new Error(p.error === 'access_denied' ? 'Microsoft 365 was not connected: the permission was declined.' : String(p.error_description || p.error));
@@ -117,7 +124,7 @@ export const m365Callback = onRequest({ region: REGION, secrets: [MS_HQ_CLIENT_S
     const check = aj.access_token ? await fetch(s.graph + '/sites/' + encodeURIComponent(site.id), { headers: { Authorization: 'Bearer ' + aj.access_token } }) : { ok: false, status: a.status };
     if (!check.ok) throw new Error('Connected, but the app cannot reach the site yet (' + check.status + '). Wait a minute and press Connect again.');
     const host = (site.siteCollection && site.siteCollection.hostname) || String(site.webUrl || '').replace(/^https?:\/\//, '').split('/')[0];
-    await db().collection('privateSettings').doc('microsoft365').set({ tenantId: st.tenant, siteId: site.id, siteUrl: String(site.webUrl || ''), domain: host,
+    await D.collection('privateSettings').doc('microsoft365').set({ tenantId: st.tenant, siteId: site.id, siteUrl: String(site.webUrl || ''), domain: host,
       connectedBy: st.uid, connectedByName: st.name || '', connectedAt: new Date().toISOString() });
     await ref.delete();
     return back(true);
@@ -128,15 +135,17 @@ export const m365Callback = onRequest({ region: REGION, secrets: [MS_HQ_CLIENT_S
 });
 
 export const m365Status = onCall({ region: REGION, secrets: [MS_HQ_CLIENT_SECRET] }, async (req) => {
-  await master(req.auth && req.auth.uid);
-  const d = (await db().collection('privateSettings').doc('microsoft365').get()).data();
+  const D = churchOf(req, db()).db;
+  await master(D, req.auth && req.auth.uid);
+  const d = (await D.collection('privateSettings').doc('microsoft365').get()).data();
   const s = await settings();
   return d ? { connected: true, available: !!(s.clientId && s.secret), domain: d.domain || '', siteUrl: d.siteUrl || '', by: d.connectedByName || '', at: d.connectedAt || '' }
     : { connected: false, available: !!(s.clientId && s.secret) };
 });
 
 export const m365Disconnect = onCall({ region: REGION }, async (req) => {
-  await master(req.auth && req.auth.uid);
-  await db().collection('privateSettings').doc('microsoft365').delete();
+  const D = churchOf(req, db()).db;
+  await master(D, req.auth && req.auth.uid);
+  await D.collection('privateSettings').doc('microsoft365').delete();
   return { ok: true };
 });

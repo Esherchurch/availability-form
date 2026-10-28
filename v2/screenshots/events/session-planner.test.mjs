@@ -341,13 +341,19 @@ try {
     return r.idToken;
   };
   const callFn = async (tok, data) => (await fetch('http://127.0.0.1:5102/' + PROJECT + '/europe-west2/lessonFor', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok }, body: JSON.stringify({ data }) })).json();
-  await db.collection('devices').doc('churchshow-site_a').set({ kind: 'churchshow', siteId: 'site_a', active: true });
-  await db.collection('devices').doc('churchshow-site_b').set({ kind: 'churchshow', siteId: 'site_b', active: true });
+  await db.collection('devices').doc('churchshow-site_a').set({ kind: 'churchshow', siteId: 'site_a', active: true, jobs: { services: true, lessonGroups: [grp.id] } });
+  await db.collection('devices').doc('churchshow-site_b').set({ kind: 'churchshow', siteId: 'site_b', active: true, jobs: { services: true, lessonGroups: [grp.id] } });
+  /* paired before computers had jobs: main services only, no lessons */
+  await db.collection('devices').doc('churchshow-site_s').set({ kind: 'churchshow', siteId: 'site_a', active: true });
   const ta = await asDevice('churchshow-site_a', { device: 'churchshow', siteId: 'site_a' });
   const tb = await asDevice('churchshow-site_b', { device: 'churchshow', siteId: 'site_b' });
   const day = (await callFn(ta, { date: SUN })).result || {};
   const les = (day.lessons || [])[0] || {};
   ok('10. CHURCHSHOW: the Main building\u2019s computer gets that Sunday\u2019s lessons of its own groups, as egbc-lesson/1', day.lessons && day.lessons.length === 1 && les.format === 'egbc-lesson/1' && les.group.name === 'Kids Church' && les.lessonCode === 'EJ03' && les.steps[0].type === 'text', J(day).slice(0, 400));
+  ok('    each step says where it is in the plan (stepKey), and the reply says whether a quiz can go on phones', les.steps.every(x => /^p\d+s\d+$/.test(x.stepKey || '')) && typeof day.quizPhones === 'boolean', J(les.steps.map(x => x.stepKey)));
+  const ts = await asDevice('churchshow-site_s', { device: 'churchshow', siteId: 'site_a' });
+  const svc = await callFn(ts, { date: SUN });
+  ok('    A COMPUTER WITH NO LESSON GROUPS (services only) is refused, and told why', svc.error && /PERMISSION_DENIED/.test(svc.error.status) && /not set up for lessons/.test(svc.error.message), J(svc));
   const one = (await callFn(ta, { date: SUN, groupId: grp.id })).result || {};
   ok('    or one group\u2019s, by its id', one.lessons && one.lessons.length === 1);
   const vid = les.steps.find(x => x.type === 'video') || {};

@@ -27,8 +27,18 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { hubUrl } from './notify.js';
 import { makeSender } from './public-mail.js';
 import { paymentsShut } from './payments-gate.js';
+import { churchDb, withChurchDb, forAddress } from './church-context.js';
+import { scopedDb } from './church-scope.js';
+import { indexCode, churchForCode, codeHash } from './hq-codes.js';
 
-const db = () => getFirestore();
+/* GoCardless's messages name a billing request, payment, subscription or
+   mandate; each one this church makes is put in Church HQ's index, so the
+   webhook knows whose it is. */
+const remember = (...ids) => Promise.all(ids.filter((x) => typeof x === 'string' && x).map((x) => indexCode(db(), 'gocardless', codeHash(x))));
+
+/* The church being worked for (church-context.js): each callable, the
+   webhook and the tidy say which, and every helper here follows it. */
+const db = () => churchDb();
 const REGION = 'europe-west2';
 const EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
 
@@ -117,6 +127,7 @@ export async function bankPage(p, key) {
     metadata: { signupKey: key, keys: p.keys.map((x) => x.key).join(',').slice(0, 500) }
   } }, 'tk_' + key + '_' + Date.now());
   const id = br.billing_requests.id;
+  await remember(id);
   const flow = await gc(s.token, 'POST', '/billing_request_flows', { billing_request_flows: {
     redirect_uri: back + '&paid=bank', exit_uri: back, prefilled_customer: p.email ? { email: p.email } : undefined, links: { billing_request: id }
   } });
@@ -155,7 +166,7 @@ async function sendGiftEmail(x, key, changed) {
   } catch (e) { console.warn('[giving] email', e.message); }
 }
 
-export const giveRegularly = onCall({ region: REGION }, async (req) => {
+export const giveRegularly = onCall({ region: REGION }, forAddress(async (req) => {
   if (await shut()) throw new HttpsError('failed-precondition', 'Online giving opens when the hub goes live.', { shut: true });
   const d = req.data || {};
   if (!(await gcReady())) throw new HttpsError('failed-precondition', 'This church does not take Direct Debits online yet.');
@@ -176,6 +187,7 @@ export const giveRegularly = onCall({ region: REGION }, async (req) => {
   if (uid) { const u = await db().collection('users').doc(uid).get(); memberId = u.exists ? (u.data().memberId || '') : ''; }
   const s = await secrets(), hub = await hubUrl(db()), back = hub + 'give-regularly.html?key=' + key;
   const br = await gc(s.token, 'POST', '/billing_requests', { billing_requests: { mandate_request: { scheme: 'bacs' }, metadata: { regularGift: key } } }, 'rg_' + key);
+  await remember(br.billing_requests.id);
   const flow = await gc(s.token, 'POST', '/billing_request_flows', { billing_request_flows: { redirect_uri: back + '&set=1', exit_uri: back, prefilled_customer: { email }, links: { billing_request: br.billing_requests.id } } });
   await db().collection('regularGifts').doc(key).set({
     name, email, memberId, uid, amount: amount / 100, interval, day: interval === 'monthly' ? day : null, giftAid,
@@ -189,7 +201,7 @@ export const giveRegularly = onCall({ region: REGION }, async (req) => {
       declaredAt: FieldValue.serverTimestamp(), paperHeld: false, cancelled: false, cancelledOn: '', recordedBy: uid, updatedAt: FieldValue.serverTimestamp(), updatedBy: uid });
   }
   return { url: flow.billing_request_flows.authorisation_url, key };
-});
+}));
 
 async function giftByKey(key) {
   if (!/^rg_[A-Za-z0-9]{28}$/.test(String(key || ''))) throw new HttpsError('not-found', 'That regular gift could not be found.');
@@ -197,7 +209,7 @@ async function giftByKey(key) {
   if (!s.exists) throw new HttpsError('not-found', 'That regular gift could not be found.');
   return { ref, d: s.data() };
 }
-export const givingChange = onCall({ region: REGION }, async (req) => {
+export const givingChange = onCall({ region: REGION }, forAddress(async (req) => {
   if (await shut()) throw new HttpsError('failed-precondition', 'Online giving opens when the hub goes live.', { shut: true });
   const { ref, d } = await giftByKey(req.data && req.data.key);
   const amount = Math.round(Number(req.data && req.data.amount) * 100);
@@ -220,6 +232,7 @@ export const givingChange = onCall({ region: REGION }, async (req) => {
     } }, 'sub_' + ref.id + '_' + n);
     await gc(token, 'POST', '/subscriptions/' + d.subscriptionId + '/actions/cancel', { data: {} });
     subscriptionId = sub.subscriptions.id;
+    await remember(subscriptionId);
     await ref.update({ interval, day, subscriptionId, subscriptions: n, amount: amount / 100, changedAt: FieldValue.serverTimestamp() });
   } else {
     await gc(token, 'PUT', '/subscriptions/' + d.subscriptionId, { subscriptions: { amount } });
@@ -228,14 +241,14 @@ export const givingChange = onCall({ region: REGION }, async (req) => {
   const now = { ...d, amount: amount / 100, interval, day };
   await sendGiftEmail(now, ref.id, true);
   return { ok: true, amount: amount / 100, interval, day, often: howOften(now) };
-});
-export const givingStop = onCall({ region: REGION }, async (req) => {
+}));
+export const givingStop = onCall({ region: REGION }, forAddress(async (req) => {
   if (await shut()) throw new HttpsError('failed-precondition', 'Online giving opens when the hub goes live.', { shut: true });
   const { ref, d } = await giftByKey(req.data && req.data.key);
   if (d.subscriptionId && d.status === 'active') await gc((await secrets()).token, 'POST', '/subscriptions/' + d.subscriptionId + '/actions/cancel', { data: {} });
   await ref.update({ status: 'stopped', stoppedAt: FieldValue.serverTimestamp() });
   return { ok: true };
-});
+}));
 
 /* --------------------------------------------------------- the webhook */
 
@@ -260,6 +273,7 @@ export async function handleGc(ev) {
   const L = ev.links || {};
   if (ev.resource_type === 'billing_requests' && ev.action === 'fulfilled') {
     const tickets = await ticketsFor('checkoutId', L.billing_request);
+    await remember(L.payment_request_payment, L.mandate_request_mandate);
     for (const d of tickets) await d.ref.set({ paid: true, status: 'paid', method: 'bank-online', paymentRef: L.payment_request_payment || '', paidAt: FieldValue.serverTimestamp() }, { merge: true });
     if (tickets.length) return 'paid ' + tickets.length;
     /* A Direct Debit set up: the mandate is ready, so start the gift. */
@@ -270,6 +284,7 @@ export async function handleGc(ev) {
         amount: Math.round(x.amount * 100), currency: 'GBP', interval_unit: iv.interval_unit, interval: iv.interval,
         day_of_month: x.interval === 'monthly' ? x.day : undefined, name: 'Regular gift', metadata: { regularGift: g.id }, links: { mandate: L.mandate_request_mandate }
       } }, 'sub_' + g.id);
+      await remember(sub.subscriptions.id);
       await g.ref.update({ status: 'active', mandateId: L.mandate_request_mandate, subscriptionId: sub.subscriptions.id, startedAt: FieldValue.serverTimestamp() });
       await sendGiftEmail(x, g.id, false);
       return 'gift started';
@@ -310,21 +325,34 @@ export async function handleGc(ev) {
 export const gocardlessWebhook = onRequest({ region: REGION }, async (req, res) => {
   if (paymentsShut()) { res.status(503).send('Not open yet'); return; }
   if (req.method !== 'POST') { res.status(405).send('POST only'); return; }
-  const s = await secrets();
   const raw = req.rawBody ? req.rawBody.toString('utf8') : '';
-  if (!verifyGc(raw, req.get('webhook-signature'), s.webhookSecret)) { res.status(498).send('signature'); return; }
   let body; try { body = JSON.parse(raw); } catch (e) { res.status(400).send('body'); return; }
-  const out = [];
-  try {
-    for (const ev of (body.events || [])) {
-      const done = db().collection('paymentEvents').doc('gc_' + String(ev.id).replace(/[^A-Za-z0-9_-]/g, ''));
-      if ((await done.get()).exists) { out.push('already'); continue; }
-      const what = await handleGc(ev);
-      await done.set({ type: ev.resource_type + '.' + ev.action, what, at: FieldValue.serverTimestamp() });
-      out.push(what);
+  /* Which church: the first thing its events name that is in Church HQ's
+     index (none: EGBC). Each church has its own GoCardless account and
+     endpoint, so one message is one church's; only that church's signing
+     secret then passes. */
+  let cid = null;
+  for (const ev of (body.events || [])) {
+    const L = ev.links || {};
+    for (const id of [L.billing_request, L.payment_request_payment, L.payment, L.subscription, L.mandate, L.mandate_request_mandate]) {
+      if (!cid && typeof id === 'string' && id) cid = await churchForCode(getFirestore(), 'gocardless', codeHash(id));
     }
-    res.status(200).send(out.join('; '));
-  } catch (e) { console.error('gocardlessWebhook', e); res.status(500).send('error'); }
+  }
+  await withChurchDb(scopedDb(getFirestore(), cid), async () => {
+    const s = await secrets();
+    if (!verifyGc(raw, req.get('webhook-signature'), s.webhookSecret)) { res.status(498).send('signature'); return; }
+    const out = [];
+    try {
+      for (const ev of (body.events || [])) {
+        const done = db().collection('paymentEvents').doc('gc_' + String(ev.id).replace(/[^A-Za-z0-9_-]/g, ''));
+        if ((await done.get()).exists) { out.push('already'); continue; }
+        const what = await handleGc(ev);
+        await done.set({ type: ev.resource_type + '.' + ev.action, what, at: FieldValue.serverTimestamp() });
+        out.push(what);
+      }
+      res.status(200).send(out.join('; '));
+    } catch (e) { console.error('gocardlessWebhook', e); res.status(500).send('error'); }
+  });
 });
 
 /* Bank payments not made in 30 minutes: give the places back (Stripe's

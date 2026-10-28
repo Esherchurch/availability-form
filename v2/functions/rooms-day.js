@@ -21,6 +21,8 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { makeSender } from './public-mail.js';
 import { featureOn } from './features.js';
+import { eachChurch } from './church-scope.js';
+import { twinTriggers } from './church-triggers.js';
 
 const REGION = 'europe-west2';
 const db = () => getFirestore();
@@ -56,10 +58,10 @@ export async function syncCatering(dbi, key, after) {
   await ref.set(o);
   return o;
 }
-export const cateringSync = onDocumentWritten({ document: 'bookings/{key}', region: REGION }, async (event) => {
-  if (!(await featureOn(db(), 'roomBookings'))) return;
+export const [cateringSync, cateringSyncChurch] = twinTriggers(onDocumentWritten, { document: 'bookings/{key}', region: REGION }, async ({ db: dbi }, event) => {
+  if (!(await featureOn(dbi, 'roomBookings'))) return;
   const after = event.data && event.data.after && event.data.after.exists ? event.data.after.data() : null;
-  await syncCatering(db(), event.params.key, after);
+  await syncCatering(dbi, event.params.key, after);
 });
 
 /* ---------------- arrivals ---------------- */
@@ -86,8 +88,10 @@ export async function runArrivalCheck({ db: dbi, send, at = new Date() }) {
   return flagged;
 }
 export const arrivalCheck = onSchedule({ region: REGION, schedule: 'every 15 minutes', timeZone: 'Europe/London', retryCount: 1 }, async () => {
-  if (!(await featureOn(db(), 'roomBookings'))) return;
-  const sender = makeSender({ db: db() });
-  const flagged = await runArrivalCheck({ db: db(), send: (msg, meta) => sender({ to: msg.to, subject: msg.subject, html: msg.html, replyTo: '' }, meta) });
-  if (flagged.length) console.log('arrivals: flagged ' + flagged.join(', '));
+  await eachChurch(db(), async ({ id, db: dbi }) => {
+    if (!(await featureOn(dbi, 'roomBookings'))) return;
+    const sender = makeSender({ db: dbi });
+    const flagged = await runArrivalCheck({ db: dbi, send: (msg, meta) => sender({ to: msg.to, subject: msg.subject, html: msg.html, replyTo: '' }, meta) });
+    if (flagged.length) console.log('arrivals (' + (id || 'egbc') + '): flagged ' + flagged.join(', '));
+  });
 });

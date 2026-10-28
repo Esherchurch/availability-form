@@ -30,6 +30,8 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { getFirestore } from 'firebase-admin/firestore';
 import { featureOn } from './compliance.js';
+import { eachChurch } from './church-scope.js';
+import { twinTriggers } from './church-triggers.js';
 
 const REGION = 'europe-west2';
 const londonDay = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
@@ -126,9 +128,13 @@ export async function rollCallOf(db) {
   return out;
 }
 
-const rebuild = async () => { await runPeepToday({ db: getFirestore() }); };
-export const peepTodayDaily = onSchedule({ region: REGION, schedule: '30 5 * * *', timeZone: 'Europe/London', retryCount: 1 }, rebuild);
-export const peepTodayOnCheckin = onDocumentWritten({ region: REGION, document: 'checkins/{id}' }, rebuild);
-export const peepTodayOnPeep = onDocumentWritten({ region: REGION, document: 'peeps/{id}' }, rebuild);
-export const peepTodayOnRollCall = onDocumentWritten({ region: REGION, document: 'fireRollCall/{id}' }, rebuild);
-export const peepTodayOnRota = onDocumentWritten({ region: REGION, document: 'events/{id}' }, rebuild);
+/* Each church's lists from its own data: the morning run goes church by
+   church, and each change rebuilds the church it happened in. */
+const rebuild = async ({ db }) => { await runPeepToday({ db }); };
+export const peepTodayDaily = onSchedule({ region: REGION, schedule: '30 5 * * *', timeZone: 'Europe/London', retryCount: 1 }, async () => {
+  await eachChurch(getFirestore(), (ch) => rebuild(ch));
+});
+export const [peepTodayOnCheckin, peepTodayOnCheckinChurch] = twinTriggers(onDocumentWritten, { region: REGION, document: 'checkins/{id}' }, rebuild);
+export const [peepTodayOnPeep, peepTodayOnPeepChurch] = twinTriggers(onDocumentWritten, { region: REGION, document: 'peeps/{id}' }, rebuild);
+export const [peepTodayOnRollCall, peepTodayOnRollCallChurch] = twinTriggers(onDocumentWritten, { region: REGION, document: 'fireRollCall/{id}' }, rebuild);
+export const [peepTodayOnRota, peepTodayOnRotaChurch] = twinTriggers(onDocumentWritten, { region: REGION, document: 'events/{id}' }, rebuild);

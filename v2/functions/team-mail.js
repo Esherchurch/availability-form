@@ -44,12 +44,14 @@
 
 import crypto from 'node:crypto';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
+import { churchDb, forCaller } from './church-context.js';
 import { paymentsShut } from './payments-gate.js';
 import { makeSender } from './public-mail.js';
 
 const REGION = 'europe-west2';
-const db = () => getFirestore();
+/* The caller's own church (church-context.js): each callable says which. */
+const db = () => churchDb();
 const EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
 const SHUT_MSG = 'Team emails open when the hub goes live.';
 const MAX_TO = 300;
@@ -107,7 +109,7 @@ async function loadAll() {
   };
 }
 
-export const teamMailMine = onCall({ region: REGION }, async (req) => {
+export const teamMailMine = onCall({ region: REGION }, forCaller(async (req) => {
   const me = await whoAmI(req);
   const { teams, settings } = await loadAll();
   return {
@@ -115,11 +117,11 @@ export const teamMailMine = onCall({ region: REGION }, async (req) => {
     teams: teams.filter((t) => !t.archived && maySend(t, settings, me.memberId)).sort((a, b) => (a.order || 0) - (b.order || 0) || String(a.name).localeCompare(String(b.name)))
       .map((t) => ({ id: t.id, name: t.name, hasAddress: !!t.address, safeguarding: !!t.safeguarding }))
   };
-});
+}));
 
 /* Settings: master admins only, and shut until switch-over. */
 const ids = (v) => (Array.isArray(v) ? v : []).map((x) => String(x || '').trim()).filter((x) => /^[A-Za-z0-9_-]{1,80}$/.test(x)).slice(0, 20);
-export const teamMailSave = onCall({ region: REGION }, async (req) => {
+export const teamMailSave = onCall({ region: REGION }, forCaller(async (req) => {
   if (await shut()) throw new HttpsError('failed-precondition', SHUT_MSG, { shut: true });
   const me = await whoAmI(req);
   if (me.user.masterAdmin !== true) throw new HttpsError('permission-denied', 'Only a master admin sets up team emails.');
@@ -138,7 +140,7 @@ export const teamMailSave = onCall({ region: REGION }, async (req) => {
   if (address && !emailOk(address)) throw new HttpsError('invalid-argument', 'That email address does not look right.');
   await ref.set({ address, leads: ids(t.leads), deputies: ids(t.deputies), safeguarding: t.safeguarding === true, ...by });
   return { ok: true, id: teamId };
-});
+}));
 
 /* The email itself, built here from plain words (nobody's HTML). */
 export function teamEmail({ team, church, senderName, text, about, copy, count }) {
@@ -151,7 +153,7 @@ export function teamEmail({ team, church, senderName, text, about, copy, count }
     '<p style="color:#6b7280;font-size:13px">' + esc(senderName) + ', for the ' + esc(team.name) + ' team. ' + reply + '</p></div>';
 }
 
-export const sendAsTeam = onCall({ region: REGION }, async (req) => {
+export const sendAsTeam = onCall({ region: REGION }, forCaller(async (req) => {
   if (await shut()) throw new HttpsError('failed-precondition', SHUT_MSG, { shut: true });
   const me = await whoAmI(req);
   const d = req.data || {};
@@ -191,4 +193,4 @@ export const sendAsTeam = onCall({ region: REGION }, async (req) => {
     copied = !!out.ok;
   }
   return { ok: true, sent, failed, copied, replyTo: team.address ? 'team' : 'you' };
-});
+}));

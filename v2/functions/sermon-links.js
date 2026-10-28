@@ -20,7 +20,7 @@
    =================================================================== */
 
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
-import { getFirestore } from 'firebase-admin/firestore';
+import { twinTriggers } from './church-triggers.js';
 
 const REGION = 'europe-west2';
 
@@ -30,8 +30,7 @@ export function linkOf(id, s) {
     speakerId: String(s.speakerId || ''), updatedAt: new Date().toISOString() };
 }
 
-export const sermonLinkKeep = onDocumentWritten({ document: 'planSessions/{id}', region: REGION }, async (event) => {
-  const db = getFirestore();
+export const [sermonLinkKeep, sermonLinkKeepChurch] = twinTriggers(onDocumentWritten, { document: 'planSessions/{id}', region: REGION }, async ({ db }, event) => {
   const id = event.params.id;
   const before = event.data && event.data.before && event.data.before.exists ? event.data.before.data() : null;
   const after = event.data && event.data.after && event.data.after.exists ? event.data.after.data() : null;

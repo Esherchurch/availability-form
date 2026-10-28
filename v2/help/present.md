@@ -59,6 +59,7 @@ This page shows a group session's slides, Bible verses, pictures and quiz. A lea
 - If a session has nothing to show yet, add slides, verses or a picture to it in the session planner.
 - **How to present** opens a two-minute guide.
 - Phone quiz nicknames, answers and scores are deleted when you end the quiz. A quiz nobody ends is deleted about a day after it started.
+- A quiz on phones can also be run from ChurchShow in Lesson mode, on the computer in the room. It needs the group's building set in the session planner (**Meets in**), the same as for its lessons.
 
 ## Who to ask
 - The group's leader, if you cannot see a session.

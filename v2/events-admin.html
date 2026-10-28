@@ -235,7 +235,7 @@
       (ev.visibility === 'unlisted' ? '<span class="flag mem">Not listed</span>' :
        ev.visibility === 'public' ? '<span class="flag pub">Public</span>' :
        ev.visibility === 'team' ? '<span class="flag mem">' + esc((ev.teams || []).join(', ')) + '</span>' :
-       ev.visibility === 'churchMembers' ? '<span class="flag mem">Church members only</span>' :
+       ev.visibility === 'churchMembers' ? '<span class="flag mem">' + esc(EGBCAuth.memberWord()) + 's only</span>' :
        '<span class="flag mem">Attenders</span>');
   }
 
@@ -1162,10 +1162,10 @@
   }
 
   function drawRota(ev) {
-    document.getElementById('editor').innerHTML = '<div class="card" id="rotaOnly"><h2><span class="badge"><i data-lucide="calendar-check" style="width:17px;height:17px"></i></span>' + esc(ev.title || 'Sunday service') +
+    document.getElementById('editor').innerHTML = '<div class="card" id="rotaOnly"><h2><span class="badge"><i data-lucide="calendar-check" style="width:17px;height:17px"></i></span>' + esc(ev.title || 'Service') +
       '<span class="spacer"></span><button class="btn ghost sm" id="close" aria-label="Close"><i data-lucide="x" style="width:16px;height:16px"></i></button></h2>' +
       '<p class="m">' + esc(E.fmtWhen(ev)) + (ev.speaker ? ' · Speaker: ' + esc(ev.speaker) : '') + '</p>' +
-      '<p>This is a Sunday service from the rota. Change it in the Rota Planner: anything changed here would be overwritten at the next change there.</p>' +
+      '<p>This is a service from the rota. Change it in the Rota Planner: anything changed here would be overwritten at the next change there.</p>' +
       '<div class="bar"><a class="btn" href="Planner.html">Open the Rota Planner</a></div></div>';
     document.getElementById('close').onclick = function () { document.getElementById('editor').innerHTML = ''; };
     if (window.lucide) lucide.createIcons();

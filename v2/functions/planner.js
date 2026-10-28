@@ -21,6 +21,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { paymentsShut } from './payments-gate.js';
 import { makeSender } from './public-mail.js';
 import { hubUrl } from './notify.js';
+import { churchOf } from './church-scope.js';
 
 const REGION = 'europe-west2';
 const db = () => getFirestore();
@@ -78,16 +79,17 @@ export function planEmail({ group, s, names, link, church }) {
 }
 
 export const planSend = onCall({ region: REGION }, async (req) => {
+  const D = churchOf(req, db()).db;
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Please sign in.');
   if (await shut()) throw new HttpsError('failed-precondition', 'Plans are emailed once the hub goes live.');
   const sid = String((req.data || {}).sessionId || '');
   if (!/^[A-Za-z0-9_-]{1,80}$/.test(sid)) throw new HttpsError('invalid-argument', 'Which plan?');
-  const me = (await db().collection('users').doc(uid).get()).data() || {};
+  const me = (await D.collection('users').doc(uid).get()).data() || {};
   if (me.status && me.status !== 'active') throw new HttpsError('permission-denied', 'Your account is not active.');
-  const s = (await db().collection('planSessions').doc(sid).get()).data();
+  const s = (await D.collection('planSessions').doc(sid).get()).data();
   if (!s) throw new HttpsError('not-found', 'That plan could not be found.');
-  const group = (await db().collection('planGroups').doc(String(s.groupId)).get()).data();
+  const group = (await D.collection('planGroups').doc(String(s.groupId)).get()).data();
   if (!group) throw new HttpsError('not-found', 'That plan\'s group could not be found.');
   /* The group's leaders send it, and master admins (who edit any group's plans; Martin, 19 Oct). */
   if ((group.leaderIds || []).indexOf(String(me.memberId || '-')) < 0 && me.masterAdmin !== true) throw new HttpsError('permission-denied', 'Only the group\'s leaders send its plans.');
@@ -96,18 +98,18 @@ export const planSend = onCall({ region: REGION }, async (req) => {
   const names = {}, emails = {};
   for (let i = 0; i < ids.length; i += 10) {
     const chunk = ids.slice(i, i + 10);
-    const snap = await db().collection('addressBook').where('__name__', 'in', chunk).get();
+    const snap = await D.collection('addressBook').where('__name__', 'in', chunk).get();
     snap.docs.forEach(d => { const x = d.data() || {}; names[d.id] = String(x.name || '').trim(); if (okMail(x.email) && !x.archived) emails[d.id] = String(x.email).toLowerCase(); });
   }
   /* Every leader (on or not), this week's team, and the group's own list - each address once. */
   const to = Array.from(new Set([...(group.leaderIds || []), ...(s.onIds || [])].map(i => emails[i]).filter(Boolean)
     .concat((group.emails || []).map(e => String(e).toLowerCase()).filter(okMail))));
   if (!to.length) throw new HttpsError('failed-precondition', 'Nobody in this group has an email address in the address book.');
-  const church = ((await db().collection('churchSettings').doc('details').get()).data() || {}).name || '';
-  const link = (await hubUrl(db())) + 'session-planner.html?s=' + encodeURIComponent(sid);
+  const church = ((await D.collection('churchSettings').doc('details').get()).data() || {}).name || '';
+  const link = (await hubUrl(D)) + 'session-planner.html?s=' + encodeURIComponent(sid);
   const subject = group.name + ', ' + day(s.date) + ': ' + (s.special === 'none' ? 'no session' : (s.title || 'the plan'));
   const html = planEmail({ group, s, names, link, church });
-  const send = makeSender({ db: db() });
+  const send = makeSender({ db: D });
   let sent = 0;
   for (const addr of to) {
     const out = await send({ to: [addr], subject: subject.slice(0, 150), html, replyTo: String(me.email || '') }, { kind: 'session plan', planSessionId: sid, groupId: s.groupId, by: uid });

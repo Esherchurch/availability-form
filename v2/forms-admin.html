@@ -225,7 +225,7 @@
           SITES.map(function (s) { return '<option value="' + esc(s.id) + '"' + (ED.siteId === s.id ? ' selected' : '') + '>' + esc(s.name) + '</option>'; }).join('') +
         '</select></div>' +
         '<div class="field"><label for="edWho">Who can fill it in</label><select id="edWho">' +
-          [['public', 'Anyone with the link'], ['members', 'Attenders, signed in'], ['churchMembers', 'Church members only'], ['team', ED.team ? 'Its team (' + esc(ED.team) + ')' : 'Its team']].map(function (w) {
+          [['public', 'Anyone with the link'], ['members', 'Attenders, signed in'], ['churchMembers', esc(EGBCAuth.memberWord()) + 's only'], ['team', ED.team ? 'Its team (' + esc(ED.team) + ')' : 'Its team']].map(function (w) {
             return '<option value="' + w[0] + '"' + ((ED.who || 'public') === w[0] ? ' selected' : '') + '>' + w[1] + '</option>'; }).join('') + '</select></div>' +
         '<div class="field"><label for="edValid">An answer lasts</label><select id="edValid">' +
           '<option value="event"' + (v.mode === 'event' ? ' selected' : '') + '>For one event only</option>' +

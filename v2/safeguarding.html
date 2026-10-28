@@ -552,7 +552,7 @@
       var btn = this; btn.disabled = true;
       db().collection('bookingSettings').doc(sid).get().then(function (s) {
         var lead = s.exists ? s.data().safeguardingLead : '';
-        if (!lead) throw new Error('No safeguarding lead is set for ' + siteName(sid) + '. Please speak to the church office or a minister today.');
+        if (!lead) throw new Error('No safeguarding lead is set for ' + siteName(sid) + '. Please speak to the church office or the ' + EGBCAuth.ministerTitle() + ' today.');
         return db().collection('concerns').doc('con_' + E.key(24)).set({
           siteId: sid, calEventId: evId || '', about: document.getElementById('cAbout').value.trim(), concern: text,
           reportedBy: ME.uid, reportedByName: ME.name, createdAt: now(), status: 'new'

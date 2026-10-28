@@ -19,10 +19,11 @@
    =================================================================== */
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { getFirestore } from 'firebase-admin/firestore';
+import { churchDb, forCaller } from './church-context.js';
 
 const REGION = 'europe-west2';
-const db = () => getFirestore();
+/* The caller's own church (church-context.js): each callable says which. */
+const db = () => churchDb();
 
 /* What each kind of email is called, for people. */
 const WHAT = {
@@ -49,14 +50,14 @@ export async function report({ from, to }) {
   });
 }
 
-export const commsReport = onCall({ region: REGION }, async (req) => {
+export const commsReport = onCall({ region: REGION }, forCaller(async (req) => {
   const uid = req.auth && req.auth.uid;
   const u = uid ? await db().collection('users').doc(uid).get() : null;
   const d = u && u.exists ? u.data() : null;
   const admin = !!(d && d.status === 'active' && d.masterAdmin === true);
   if (!admin) throw new HttpsError('permission-denied', 'The list of emails sent is for master admins.'); // Martin, 15 Oct 2026: who was sent what, master admins only
   return { rows: await report({ from: String(req.data && req.data.from || ''), to: String(req.data && req.data.to || '') }) };
-});
+}));
 
 /* ---- "My messages" (R6; ChurchSuite's My Communication; F-206) --------
    What the church's server has emailed ME: the outline only (when, what
@@ -70,7 +71,7 @@ export function mineOf(rows, addresses) {
   return rows.filter((r) => (Array.isArray(r.to) ? r.to : []).some((t) => mine.includes(String(t || '').trim().toLowerCase())))
     .map((r) => ({ at: r.at || '', what: whatOf(r), subject: String(r.subject || '').slice(0, 200), ok: r.ok === true }));
 }
-export const myMessages = onCall({ region: REGION }, async (req) => {
+export const myMessages = onCall({ region: REGION }, forCaller(async (req) => {
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
   const u = await db().collection('users').doc(uid).get();
@@ -84,4 +85,4 @@ export const myMessages = onCall({ region: REGION }, async (req) => {
   const since = new Date(Date.now() - 365 * 864e5).toISOString();
   const snap = await db().collection('emailOutbox').where('at', '>=', since).orderBy('at', 'desc').limit(5000).get();
   return { rows: mineOf(snap.docs.map((x) => x.data()), addresses).slice(0, 300) };
-});
+}));

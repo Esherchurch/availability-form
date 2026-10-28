@@ -846,12 +846,12 @@ export * from './checklist-reminders.js';
 export * from './comms.js';
 export * from './team-mail.js';
 /* Children's counts for the fire roll-call (F-216), the events window's file. */
-export { kidsCountsKeep } from './kids-counts.js';
+export { kidsCountsKeep, kidsCountsKeepChurch } from './kids-counts.js';
 /* Enter a Sunday once: a rota service ticked "In What's On" is copied to
    calEvents/rota_<id> for What's On, the app, the embed and the feed. */
 export { rotaWhatsOn, rotaWhatsOnChurch } from './rota-whatson.js';
 /* For Sunday: the prayer list for the service leader and the Pastor (F-222), the events window's file. */
-export { prayerSundayOnPrayer, prayerSundayOnRota, prayerSundayDaily } from './prayer-sunday.js';
+export { prayerSundayOnPrayer, prayerSundayOnPrayerChurch, prayerSundayOnRota, prayerSundayOnRotaChurch, prayerSundayDaily } from './prayer-sunday.js';
 /* The session planner's Bible (API.Bible, the church's key) and its plan email (F-223), the events window's files. */
 export { bibleKeySave, bibleKeyStatus, bibleFetch } from './bible.js';
 export { planSend } from './planner.js';
@@ -871,11 +871,11 @@ export { castVote, voteOpen, voteClose, proxyAppoint, proxyCancel, proxyPeople, 
 /* A members' meeting keeps a matching meeting, so its votes happen in the call. */
 export { membersMeetingSync, membersMeetingSyncChurch } from './members-meeting.js';
 /* Sermon plans, the other way: sermonLinks for the Preaching plan (F-229), the events window's file. */
-export { sermonLinkKeep } from './sermon-links.js';
+export { sermonLinkKeep, sermonLinkKeepChurch } from './sermon-links.js';
 /* Building compliance: the colour for bookings, reminders and the monthly summary (F-233), the events window's file. */
 export { complianceDaily } from './compliance.js';
 /* Personal evacuation plans on the fire roll-call: today's only, for today's people (F-234), the events window's file. */
-export { peepTodayDaily, peepTodayOnCheckin, peepTodayOnPeep, peepTodayOnRollCall, peepTodayOnRota } from './peeps.js';
+export { peepTodayDaily, peepTodayOnCheckin, peepTodayOnCheckinChurch, peepTodayOnPeep, peepTodayOnPeepChurch, peepTodayOnRollCall, peepTodayOnRollCallChurch, peepTodayOnRota, peepTodayOnRotaChurch } from './peeps.js';
 /* The e-news's subscribers (comms window, FINDINGS-comms): sign-up, confirm,
    unsubscribe, Resend's bounce webhook, the office's add-by-hand. Sends
    through Church HQ's Resend (hq-mail.js); shut until switch-over (enews-gate.js). */
@@ -911,7 +911,7 @@ export { welcomeSubscriber, welcomeSubscriberChurch, welcomeNewcomer, welcomeNew
 export { presentConvert, presentFromLink, presentSweep, presentLeave } from './present.js';
 export { m365Start, m365Callback, m365Status, m365Disconnect } from './microsoft.js';
 export { quizStart, quizOpen, quizReveal, quizPhase, quizKick, quizEnd, quizJoin, quizAnswer, quizSweep } from './quiz.js';
-export { cateringSync, arrivalCheck } from './rooms-day.js';
+export { cateringSync, cateringSyncChurch, arrivalCheck } from './rooms-day.js';
 export { sgWarningsSync, sgWarningsNow, sgTwoAdultsDaily } from './sg-warnings.js';
 export { sgDraftAssessment, sgAiStatus, sgExtractRequirements, sgRequirementsFile, sgRequirementsFromLinks } from './sg-ai.js';
 /* A professional's fire or health and safety report read into the building's own assessment (H&S step 4; the events window's ra-report.js). */

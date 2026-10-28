@@ -6,7 +6,8 @@
                    { date: 'YYYY-MM-DD', groupId? }
                    -> { date, siteId, lessons: [ egbc-lesson/1, ... ] }
 
-   ONLY THE COMPUTER'S OWN BUILDING. A paired computer is one building
+   ONLY THE COMPUTER'S OWN BUILDING, AND ITS OWN LESSON GROUPS (its job,
+   devices/<uid>.jobs.lessonGroups; a computer with none is refused). A paired computer is one building
    (churchshow-<siteId>); it gets that date's plans of the groups that meet
    in that building (planGroups.siteId), and nothing of any other. Asking
    for another building's group by its id is refused.
@@ -33,6 +34,10 @@
        lessonCode, lessonLink, passage: { ref, version, source, text,
        copyright }, steps: [ { part, partId, n, type, ... } ] }
    A song step: { songId, title, ccli, song: { title, artist, ccli, lyrics } }.
+   Every step has stepKey (p<part>s<step>, its place in the plan). The reply
+   has quizPhones: true when a quiz step can be played on phones (the quiz
+   is on for the church and the hub is live); ChurchShow then starts it
+   with quizStart({ sessionId: lesson.id, step: stepKey }) - quiz.js.
    A Bible Gateway passage carries only ref and version (ChurchShow
    fetches it itself).
    =================================================================== */
@@ -42,6 +47,9 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { churchOf } from './church-scope.js';
 import { churchBucket } from './church-files.js';
+import { featureOn } from './features.js';
+import { jobsOf } from './churchshow.js';
+import { launched } from './quiz.js';
 
 const REGION = 'europe-west2';
 /* EVERY CHURCH (H-6): a church's ChurchShow computer carries its church in
@@ -51,7 +59,14 @@ const db = () => getFirestore();
 const LINK_MS = 3 * 60 * 60 * 1000;
 const EMULATOR = !!process.env.FUNCTIONS_EMULATOR;
 
-async function device(req, D) {
+/**
+ * The paired ChurchShow computer making this call, or a refusal: the token
+ * says it is one, and its devices record is still active (read every call).
+ * @param {object} req  the callable request
+ * @param {object} D    the church's db
+ * @returns {Promise<{siteId: string, lessonGroups: string[]}>} its building, and the plan groups it shows lessons for
+ */
+export async function pairedDevice(req, D) {
   const a = req.auth;
   if (!a || !a.token || a.token.device !== 'churchshow') throw new HttpsError('permission-denied', 'Only a paired ChurchShow computer can ask for lessons.');
   const d = await D.collection('devices').doc(a.uid).get();
@@ -59,7 +74,10 @@ async function device(req, D) {
   if (!x || x.active !== true) throw new HttpsError('permission-denied', 'This ChurchShow computer has been disconnected on the hub.');
   const siteId = String(x.siteId || '');
   if (!siteId || (a.token.siteId && String(a.token.siteId) !== siteId)) throw new HttpsError('permission-denied', 'This ChurchShow computer is not paired to a building.');
-  return { siteId };
+  /* its job, read from the record each time, so a change on Connect ChurchShow counts at once */
+  const lessonGroups = jobsOf(x).lessonGroups;
+  if (!lessonGroups.length) throw new HttpsError('permission-denied', 'This ChurchShow computer is not set up for lessons - a master admin can change that on Connect ChurchShow.');
+  return { siteId, lessonGroups };
 }
 
 /* A short-lived link to a file the plan holds (by its Storage path, as the
@@ -122,7 +140,11 @@ export async function step(st, part, n, seen = {}, D = null) {
 export async function lessonOf(id, s, g, D = null) {
   let n = 0;
   const steps = [], seen = {};
-  for (const p of (s.parts || [])) for (const st of (p.show || [])) { const x = await step(st, p, ++n, seen, D); if (x) steps.push(x); }
+  for (const [pi, p] of (s.parts || []).entries()) for (const [si, st] of (p.show || []).entries()) {
+    const x = await step(st, p, ++n, seen, D);
+    /* where the step is in the plan: quizStart({ sessionId, step }) names a quiz by it */
+    if (x) { x.stepKey = 'p' + pi + 's' + si; steps.push(x); }
+  }
   const pa = s.passage || null;
   return {
     format: 'egbc-lesson/1', id, group: { id: s.groupId, name: g.name || '', ages: [g.ageFrom || 0, g.ageTo || 0] },
@@ -135,17 +157,17 @@ export async function lessonOf(id, s, g, D = null) {
 
 export const lessonFor = onCall({ region: REGION }, async (req) => {
   const D = churchOf(req, db()).db;
-  const dev = await device(req, D);
+  const dev = await pairedDevice(req, D);
   const d = req.data || {};
   const date = String(d.date || '');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new HttpsError('invalid-argument', 'A date, as YYYY-MM-DD.');
   /* This building's groups only. */
   const gs = await D.collection('planGroups').where('siteId', '==', dev.siteId).get();
   const groups = {};
-  gs.docs.forEach(x => { if (!x.data().archived) groups[x.id] = x.data(); });
+  gs.docs.forEach(x => { if (!x.data().archived && dev.lessonGroups.includes(x.id)) groups[x.id] = x.data(); });
   if (d.groupId !== undefined && d.groupId !== '') {
     const gid = String(d.groupId);
-    if (!groups[gid]) throw new HttpsError('permission-denied', 'That group does not meet in this computer\'s building.');
+    if (!groups[gid]) throw new HttpsError('permission-denied', 'That group does not meet in this computer\'s building, or is not one of its lesson groups.');
     Object.keys(groups).forEach(k => { if (k !== gid) delete groups[k]; });
   }
   const ids = Object.keys(groups);
@@ -159,5 +181,7 @@ export const lessonFor = onCall({ region: REGION }, async (req) => {
     }
   }
   lessons.sort((a, b) => a.group.name.localeCompare(b.group.name));
-  return { date, siteId: dev.siteId, lessons };
+  /* whether a quiz step can be played on phones today (quiz.js quizStart says the same) */
+  const quizPhones = (await featureOn(D, 'quiz')) && (await launched(D));
+  return { date, siteId: dev.siteId, quizPhones, lessons };
 });

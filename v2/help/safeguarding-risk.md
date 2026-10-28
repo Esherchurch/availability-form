@@ -64,6 +64,7 @@ This is the church's safeguarding risk register. It holds the standing risks of 
 ## Good to know
 - Use general words only. Never name a child, a family or a concern.
 - **Print / save as PDF** on **Standing risks** prints the whole register.
+- Room hazards (trips, stairs, the kitchen) are in the building's own health and safety assessment. **Standing risks** shows its colour and review date, with a link for those who look after health and safety.
 - A risk past its review date shows **Review overdue**.
 - Warnings are counts only. Names stay on the pages that fix them.
 

@@ -97,7 +97,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Sunday check-in</h1>
+  <h1 id="kcTitle">Sunday check-in</h1>
   <p class="sub">Children into their groups, labels with a collection code, and home again only with someone on their list or with that code.</p>
   <div id="main"><div class="card hint">Loading…</div></div>
 </div>
@@ -893,6 +893,8 @@
   }
 
   EGBCAuth.require().then(function (profile) {
+    /* the church's own service day (Church settings) */
+    document.getElementById('kcTitle').textContent = EGBCAuth.serviceDay() + ' check-in';
     ME = E.asSeen(profile || {});   /* view as: the person being viewed */
     /* F-185: print on the church's label size. */
     if (window.EGBCLabels) EGBCLabels.load().then(EGBCLabels.apply);

@@ -27,6 +27,7 @@
      slug is its id), so the server finds the church's quiz from it. EGBC's
      short address is sent on to quiz.html by Cloudflare. */
   var CID = (global.EGBCAuth && EGBCAuth.addressSlug && EGBCAuth.addressSlug()) || (global.EGBCAuth && EGBCAuth.churchId && EGBCAuth.churchId()) || '';
+  /* Until the server's answer (run.join, the church's own address) is there */
   var SHORT = (CID ? CID + '.' : '') + 'churchhq.co.uk/quiz';
   var TEAM_COLOURS = ['#7f1d1d', '#1e3a8a', '#14532d', '#713f12', '#581c87', '#155e75'];
   var TEAM_NAMES = ['Lions', 'Eagles', 'Bears', 'Wolves', 'Foxes', 'Owls'];
@@ -108,8 +109,8 @@
       }
       /* phones mode */
       if (!run || runId !== q.runId) return '<div class="qz" data-quiz style="justify-content:center;text-align:center"><p class="muted">Starting the quiz…</p></div>';
-      var url = 'https://' + SHORT + '?c=' + run.code;
-      if (run.phase === 'join') return '<div class="qz" data-quiz style="display:grid;grid-template-columns:1fr 1fr;gap:4%;align-items:center"><div><p class="muted" style="letter-spacing:.14em;font-weight:700;margin:0 0 .4em">JOIN THE QUIZ</p><p style="margin:0">On your phone go to</p><p style="margin:.2em 0;font-size:1.6em;font-weight:800;color:#fff" data-qshort>' + esc(SHORT) + '</p><p style="margin:0">and type</p><div class="big" data-qcode>' + esc(run.code.slice(0, 3) + ' ' + run.code.slice(3)) + '</div><div class="qr" data-qr="' + esc(url) + '"></div></div>' +
+      var url = 'https://' + (run.join || SHORT) + '?c=' + run.code;
+      if (run.phase === 'join') return '<div class="qz" data-quiz style="display:grid;grid-template-columns:1fr 1fr;gap:4%;align-items:center"><div><p class="muted" style="letter-spacing:.14em;font-weight:700;margin:0 0 .4em">JOIN THE QUIZ</p><p style="margin:0">On your phone go to</p><p style="margin:.2em 0;font-size:1.6em;font-weight:800;color:#fff" data-qshort>' + esc(run.join || SHORT) + '</p><p style="margin:0">and type</p><div class="big" data-qcode>' + esc(run.code.slice(0, 3) + ' ' + run.code.slice(3)) + '</div><div class="qr" data-qr="' + esc(url) + '"></div></div>' +
         '<div><p class="muted" style="font-weight:700;margin:0 0 .4em">Here so far · <span data-qcount>' + (run.count || 0) + '</span></p><div>' + ranked().map(function (p) { return '<span class="pill">' + esc(p.name) + '</span>'; }).join('') + '</div><p class="muted" style="margin-top:1em;font-size:.7em">Nicknames only. Nothing is kept after the quiz.</p></div></div>';
       if ((run.phase === 'question' || run.phase === 'answer') && run.question) {
         var ans = run.phase === 'answer' && run.reveal;
@@ -172,7 +173,7 @@
       var who = '<p class="pz-lbl">Who’s playing · ' + (run.count || 0) + ' · tap a name to remove it</p><div class="names">' + names.map(function (p) { return '<button data-qkick="' + esc(p.pid) + '">' + esc(p.name) + '</button>'; }).join('') + '</div>' +
         (rm ? '<div style="padding:10px;border-radius:12px;background:#2a1414"><b style="color:#fecaca">Remove “' + esc(rm.name) + '”?</b><p class="pz-cap" style="margin:4px 0 8px">Their phone is told to join again with another name.</p><button class="pz-btn stop" data-qkickyes>Remove</button> <button class="pz-btn" data-qkickno>Keep</button></div>' : '');
       var end = '<button class="pz-btn" data-qend>End the quiz and delete everything</button><p class="pz-cap" data-qerr></p></div>';
-      var code = '<p class="pz-lbl">Code ' + esc(run.code.slice(0, 3) + ' ' + run.code.slice(3)) + ' · ' + esc(SHORT) + '</p>';
+      var code = '<p class="pz-lbl">Code ' + esc(run.code.slice(0, 3) + ' ' + run.code.slice(3)) + ' · ' + esc(run.join || SHORT) + '</p>';
       if (run.phase === 'join') return head + code + who + '<button class="pz-btn go" data-qopen="0">Start: question 1 ▶</button>' + end;
       var x2 = qs[run.q] || { q: (run.question || {}).text || '', answers: [] };
       if (run.phase === 'question') return head + code + '<p class="pz-lbl">Question ' + (run.q + 1) + ' of ' + run.total + ' · <span data-qclock="ph' + runId + '_' + run.q + '" data-qsec="' + run.question.seconds + '" data-qopen="' + run.question.openedAt + '">' + left('ph' + runId + '_' + run.q, run.question.seconds, run.question.openedAt) + '</span>s left</p>' +

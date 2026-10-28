@@ -17,9 +17,11 @@ import { createHash } from 'node:crypto';
 import { scopedDb } from './church-scope.js';
 import { validChurchId } from './hq-directory.js';
 
-/* enews: an e-news subscriber's confirm and unsubscribe links; canva: a
+/* stripe, gocardless: the checkouts, payments, subscriptions and mandates a
+   church's own account makes, so their webhooks find the church.
+   enews: an e-news subscriber's confirm and unsubscribe links; canva: a
    church's Canva sign-in on its way back (comms window, batch 8). */
-export const KINDS = ['churchshow', 'youth', 'feed', 'papers', 'enews', 'canva'];
+export const KINDS = ['churchshow', 'youth', 'feed', 'papers', 'enews', 'canva', 'stripe', 'gocardless'];
 export const codeHash = (s) => createHash('sha256').update('hq-code:' + String(s)).digest('hex');
 const ref = (root, kind, hash) => {
   if (!KINDS.includes(kind)) throw new Error('Not a kind of code: ' + kind);

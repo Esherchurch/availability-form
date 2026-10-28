@@ -151,13 +151,16 @@
   }
 
   /* ---- requests ---- */
+  function link(u) { return EGBCAuth.churchLink ? EGBCAuth.churchLink(u) : u; }
   function requestsHtml() {
     if (V.edit && V.edit.kind === 'request') return requestForm(V.edit.x);
     var list = REQUESTS.slice().sort(function (a, b) { return (a.status === 'open' ? 0 : 1) - (b.status === 'open' ? 0 : 1) || String(a.receivedOn).localeCompare(String(b.receivedOn)); });
     return '<div class="card" id="requests"><h2>Data requests</h2><p class="hint" style="margin:0 0 6px">Someone asking to see their data, to correct it, to delete it… Answer within one month of receiving it (three for a complex one, telling them why within the first month). Check who they are first.</p>' +
       (list.length ? list.map(function (r) {
         return '<div class="item" data-request="' + esc(r.id) + '"><div><b>' + esc(r.requester) + '</b>: ' + esc(label(DR.REQUEST_KINDS, r.kind)) + ' ' + rag(DR.requestState(r, TODAY)) + '<div class="hint">Received ' + esc(r.receivedOn) + '</div></div>' +
-          '<button class="btn sec sm" data-editrequest="' + esc(r.id) + '">Open</button></div>';
+          /* the privacy tool (data protection leads and master admins) opens with this request chosen, for its export */
+          '<span class="row" style="margin:0;gap:6px">' + (LEAD ? '<a class="btn sec sm" data-privacy="' + esc(r.id) + '" style="text-decoration:none" href="' + esc(link('privacy.html?request=' + encodeURIComponent(r.id))) + '">What we hold</a>' : '') +
+          '<button class="btn sec sm" data-editrequest="' + esc(r.id) + '">Open</button></span></div>';
       }).join('') : '<p class="hint" id="noRequests">No requests recorded.</p>') + '<div class="row"><button class="btn" id="addRequest">Record a request</button></div></div>';
   }
   function requestForm(r) {

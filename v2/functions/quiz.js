@@ -11,8 +11,11 @@
    quizSecret (the questions with their right answers, and each question's
    mixed order).
 
-   The presenter (a leader of the session's group, or a master admin):
-     quizStart  { sessionId, step }   -> { runId, code }   held until switch-over
+   The presenter (a leader of the session's group, or a master admin), or
+   in ChurchShow's Lesson mode a paired ChurchShow computer in the building
+   the session's group meets in, with that group among its lesson groups
+   (lessonFor gives it the session and step):
+     quizStart  { sessionId, step }   -> { runId, code, join }   held until the hub goes live
      quizOpen   { runId, q }          question q: mixed answers, the clock starts
      quizReveal { runId }             the right answer; points; counts
      quizPhase  { runId, phase }      'board' (the leaderboard) or 'final'
@@ -24,7 +27,8 @@
    quizSweep, hourly: any run older than 24 hours is deleted, whatever.
    Each church's quiz is in its own data: the presenter's church comes from
    their sign-in, a player's from the address they joined at
-   (<slug>.churchhq.co.uk/quiz), never from the request.
+   (<slug>.churchhq.co.uk/quiz), never from the request. The run keeps
+   that address as join, for the screen to show.
    Points: 500 for right, plus up to 500 for speed, timed here.
    =================================================================== */
 import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
@@ -35,10 +39,12 @@ import { mayPresent } from './present.js';
 import { featureOn } from './features.js';
 import { churchOf, eachChurch } from './church-scope.js';
 import { dbForAddress } from './church-address.js';
+import { hubAddressOf } from './hub-address.js';
+import { pairedDevice } from './lesson.js';
 
 const REGION = 'europe-west2';
 const db = () => getFirestore();
-const MAX_PLAYERS = 200, GRACE_MS = 1500, DAY_MS = 24 * 3600 * 1000;
+const MAX_QUESTIONS = 500, MAX_PLAYERS = 200, GRACE_MS = 1500, DAY_MS = 24 * 3600 * 1000;
 const sha = (s) => crypto.createHash('sha256').update(String(s)).digest('hex');
 const rid = (n) => crypto.randomBytes(n).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, n);
 
@@ -55,7 +61,8 @@ export function cleanName(raw) {
 function perm(n) { const a = [...Array(n).keys()]; for (let i = n - 1; i > 0; i--) { const j = crypto.randomInt(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 export function points(right, ms, seconds) { return right ? 500 + Math.round(500 * Math.max(0, 1 - ms / (Math.max(1, seconds) * 1000))) : 0; }
 
-async function launched(D) { const l = await D.collection('churchSettings').doc('launch').get().catch(() => null); return !!(l && l.exists && l.data().rulesLocked === true); }
+/** Whether the church counts as live (its rules are on), so phones may join. */
+export async function launched(D) { const l = await D.collection('churchSettings').doc('launch').get().catch(() => null); return !!(l && l.exists && l.data().rulesLocked === true); }
 async function presenterOf(req, runId) {
   const D = churchOf(req, db()).db;
   const uid = req.auth && req.auth.uid;
@@ -63,8 +70,20 @@ async function presenterOf(req, runId) {
   if (!/^[A-Za-z0-9]{16,40}$/.test(String(runId || ''))) throw new HttpsError('invalid-argument', 'Which quiz?');
   const ref = D.collection('quizRuns').doc(String(runId)), run = (await ref.get()).data();
   if (!run) throw new HttpsError('not-found', 'That quiz has ended.');
-  if (!(await mayPresent(D, uid, run.ctx))) throw new HttpsError('permission-denied', 'Only the people who may present here can run the quiz.');
+  if (!(await mayRun(D, req, run.ctx))) throw new HttpsError('permission-denied', 'Only the people who may present here can run the quiz.');
   return { D, ref, run };
+}
+
+/* A person who may present the session; or a paired ChurchShow computer
+   (Lesson mode) in the building the session's group meets in - the same
+   lessons lessonFor gives it, and no others. */
+async function mayRun(D, req, ctx) {
+  if (req.auth && req.auth.token && req.auth.token.device === 'churchshow') {
+    const dev = await pairedDevice(req, D);
+    const g = (await D.collection('planGroups').doc(String(ctx.groupId || '-')).get()).data();
+    return !!(g && !g.archived && String(g.siteId || '') === dev.siteId && dev.lessonGroups.includes(String(ctx.groupId)));
+  }
+  return mayPresent(D, req.auth.uid, ctx);
 }
 
 export const quizStart = onCall({ region: REGION }, async (req) => {
@@ -75,12 +94,12 @@ export const quizStart = onCall({ region: REGION }, async (req) => {
   const s = (await D.collection('planSessions').doc(String(sessionId || '-')).get()).data();
   if (!s) throw new HttpsError('not-found', 'That session could not be found.');
   const ctx = { type: 'session', groupId: s.groupId, sessionId: String(sessionId) };
-  if (!(await mayPresent(D, uid, ctx))) throw new HttpsError('permission-denied', 'Only the people who may present here can run the quiz.');
+  if (!(await mayRun(D, req, ctx))) throw new HttpsError('permission-denied', 'Only the people who may present here can run the quiz.');
   if (!(await featureOn(D, 'quiz'))) throw new HttpsError('failed-precondition', 'The quiz is switched off for this church (Church settings).');
   if (!(await launched(D))) throw new HttpsError('failed-precondition', 'The quiz on phones can be used when the hub goes live. Play in teams on the TV until then.');
   const m = String(step || '').match(/^p(\d+)s(\d+)$/), st = m && ((s.parts || [])[+m[1]] || {}).show && s.parts[+m[1]].show[+m[2]];
   if (!st || st.type !== 'quiz' || !(st.questions || []).length) throw new HttpsError('not-found', 'That quiz could not be found in the session.');
-  const questions = st.questions.slice(0, 12).map((x) => ({ q: String(x.q || '').slice(0, 160), answers: (x.answers || []).slice(0, 4).map((a) => String(a).slice(0, 60)), seconds: Math.max(5, Math.min(120, +x.seconds || 20)) })).filter((x) => x.q && x.answers.length >= 2);
+  const questions = st.questions.slice(0, MAX_QUESTIONS).map((x) => ({ q: String(x.q || '').slice(0, 160), answers: (x.answers || []).slice(0, 4).map((a) => String(a).slice(0, 60)), seconds: Math.max(5, Math.min(120, +x.seconds || 20)) })).filter((x) => x.q && x.answers.length >= 2);
   if (!questions.length) throw new HttpsError('failed-precondition', 'The quiz has no questions yet.');
   const runId = rid(24);
   let code = '';
@@ -90,9 +109,11 @@ export const quizStart = onCall({ region: REGION }, async (req) => {
   }
   if (!code) throw new HttpsError('resource-exhausted', 'No code free just now; try again.');
   await D.collection('quizSecret').doc(runId).set({ questions, order: {}, step: String(step) });
-  await D.collection('quizRuns').doc(runId).set({ code, ctx, title: String(st.title || 'Quiz').slice(0, 80), total: questions.length, phase: 'join', q: -1,
+  /* where players join: the church's own address, as the screen shows it */
+  const join = (await hubAddressOf(D)).url.replace(/^https:\/\//, '').replace(/\/$/, '') + '/quiz';
+  await D.collection('quizRuns').doc(runId).set({ code, join, ctx, title: String(st.title || 'Quiz').slice(0, 80), total: questions.length, phase: 'join', q: -1,
     question: null, reveal: null, players: {}, scores: {}, last: {}, removed: [], count: 0, answered: 0, createdAt: Date.now(), by: uid });
-  return { runId, code };
+  return { runId, code, join };
 });
 
 export const quizOpen = onCall({ region: REGION }, async (req) => {

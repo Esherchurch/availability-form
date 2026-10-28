@@ -132,7 +132,7 @@
       (SITES.length > 1 ? '<div class="row"><div class="f"><label class="l" for="k-site">Site</label><select id="k-site">' + SITES.map(function (s) {
         return '<option value="' + esc(s.id) + '"' + (s.id === V.site ? ' selected' : '') + '>' + esc(s.name) + '</option>'; }).join('') + '</select></div></div>' : '') +
       '<div class="tabs">' + tabs.map(function (t) { return '<button class="tab' + (V.tab === t[0] ? ' on' : '') + '" data-tab="' + t[0] + '">' + t[1] + (t[2] ? '<span class="n">' + t[2] + '</span>' : '') + '</button>'; }).join('') +
-        '<a class="btn sec" id="k-sunday" href="kids-checkin.html" style="margin-left:auto">Sunday check-in</a></div>' +
+        '<a class="btn sec" id="k-sunday" href="kids-checkin.html" style="margin-left:auto">' + esc(EGBCAuth.serviceDay()) + ' check-in</a></div>' +
       '<div id="body"></div>';
     var ks = document.getElementById('k-site'); if (ks) ks.onchange = function () { V.site = this.value; start(); };
     document.querySelectorAll('[data-tab]').forEach(function (b) { b.onclick = function () { V.tab = b.dataset.tab; draw(); }; });

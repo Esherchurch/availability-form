@@ -47,7 +47,7 @@ This page keeps the church's data protection records: what personal data the chu
 4. Press **Save**. The list shows the date it is due by.
 5. When it is done, press **Open**, set **Where it is** to **Answered** or **Refused**, fill in **Answered on** and **What was done**, and press **Save**.
 - For a complex request, tick **Extended by two months** and fill in why.
-- To find what the church holds about the person, use [What we hold about someone](privacy.html).
+- To find what the church holds about the person, press **What we hold** beside the request (data protection leads and master admins). It opens [What we hold about someone](privacy.html) with the request already chosen, so the export is logged against it.
 
 ## Choose the data protection leads
 1. Open **Who keeps these** (church office and master admins only).

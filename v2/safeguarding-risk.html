@@ -86,7 +86,7 @@
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   function db() { return EGBCAuth.db; }
   var app = document.getElementById('app');
-  var V = { site: '', tab: (location.search.match(/[?&]tab=(\w+)/) || [])[1] || 'dash' }, SITES = [], LEADSITES = [], MASTER = false, TRUSTEE = false, ME = {}, ACTS = [], RISKS = [], SUGG = [], W = null, D = null, SET = {};
+  var V = { site: '', tab: (location.search.match(/[?&]tab=(\w+)/) || [])[1] || 'dash' }, SITES = [], LEADSITES = [], MASTER = false, TRUSTEE = false, ME = {}, ACTS = [], RISKS = [], SUGG = [], W = null, D = null, HS = null, SET = {};
   var DASH = window.EGBCSgDash;
   function weeks() { return Math.round((((SET.register || {}).dueSoonDays) || 42) / 7); }
   function today() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
@@ -100,9 +100,10 @@
       db().collection('sgActivities').where('siteId', '==', V.site).get(),
       db().collection('sgRisks').where('siteId', '==', V.site).get(),
       db().collection('sgWarnings').doc(V.site).get().then(function (d) { return d.exists ? d.data() : null; }, function () { return null; }),
-      db().collection('sgDashboard').doc(V.site).get().then(function (d) { return d.exists ? d.data() : null; }, function () { return null; })
+      db().collection('sgDashboard').doc(V.site).get().then(function (d) { return d.exists ? d.data() : null; }, function () { return null; }),
+      db().collection('raStatus').doc(V.site + '__hs').get().then(function (d) { return d.exists ? d.data() : null; }, function () { return null; })
     ]).then(function (r) {
-      W = r[2]; D = r[3];
+      W = r[2]; D = r[3]; HS = r[4];
       ACTS = r[0].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
       RISKS = r[1].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
       return keeps() ? suggestions() : [];
@@ -137,10 +138,21 @@
       '<div class="f" style="margin:0"><label for="newName">Name</label><input type="text" id="newName" maxlength="80" placeholder="e.g. Transport to the youth weekend" style="width:100%"></div></div>' +
       '<div class="row"><button class="btn" id="newGo">Add it</button></div></div>' : '';
     var printIt = ACTS.length ? '<p style="margin:0 0 12px"><a class="btn sec sm" id="printRisks" style="display:inline-flex;align-items:center;text-decoration:none" target="_blank" rel="noopener" href="sg-print.html?register=' + encodeURIComponent(V.site) + '">Print / save as PDF</a></p>' : '';
-    app.innerHTML = head + printIt + (keeps() && ACTS.length ? '<div id="incLink"></div>' : '') + body + add;
+    app.innerHTML = head + printIt + hsLine() + (keeps() && ACTS.length ? '<div id="incLink"></div>' : '') + body + add;
     wire();
     if (keeps() && ACTS.length) drawIncidents();
   }
+  /* The rooms' hazards (trip hazards, the kitchen, stairs) are in the building's own health and safety assessment, not
+     here. So the activities link to it, with only its date and colour: the assessment itself needs health and safety
+     access, and nothing from safeguarding goes the other way. */
+  function hsLine() {
+    var s = HS, t = today(), r, words;
+    if (!s || s.status !== 'countersigned') { r = 'amber'; words = 'not countersigned yet'; }
+    else if ((s.reviewDue || '') < t) { r = 'red'; words = 'overdue for review since ' + longDate(s.reviewDue); }
+    else { r = 'green'; words = 'countersigned, next review ' + longDate(s.reviewDue); }
+    return '<p class="hint" id="hsLine" style="margin:0 0 12px">Room hazards are in this building’s health and safety assessment: <span class="rag ' + r + '" data-rag="' + r + '"><i aria-hidden="true"></i>' + esc(words) + '</span> · <a href="' + esc(EGBCAuth.churchLink ? EGBCAuth.churchLink('assessment.html?site=' + encodeURIComponent(V.site) + '&kind=hs') : 'assessment.html?site=' + encodeURIComponent(V.site) + '&kind=hs') + '">Open it</a> (for those who look after health and safety)</p>';
+  }
+  function longDate(d) { try { return new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }); } catch (e) { return d; } }
   /* INCIDENTS TO LINK (S5): this year's incidents at this site not yet linked to an activity. Only the date and the event's
      title are shown here - never what happened or who (that stays on the event's own page). Linking one asks for that
      activity's risks to be looked at again. */

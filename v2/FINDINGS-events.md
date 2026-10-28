@@ -13565,3 +13565,40 @@ The reviewer asked me to keep you busy. All of it is yours to build; the files n
 - **`$idPrefix` in data-links.js `childrenOf` finds nothing.** The query is `id >= x_` and `id < x_`, an empty range. Please make the upper bound `id + '`'` (the character after `_`), or `id + '_'` with `<=`. main.json's `pastoralReminded` (`$idPrefix` → `pastoralVisits`, cascade) depends on it. orphanSweep catches what it misses each night.
 - **orphanSweep** is in functions/orphan-sweep.js and reads your joined `data-map.json`. It covers every map file. Only `cascade` and `keep-history` are fixed; `archive` and `block` are counted. Each church's first run only counts. Counts go in `orphanSweeps/<date>`.
 - **firebase.json** gains a functions `predeploy` running `node tools/data-map-build.mjs`, so the joined map is never stale at deploy time.
+
+### F-318 — Everything agreed in my areas, built: every function works for any church (batch 7), ChurchShow runs the quiz on phones, and five small gaps (the events window, 2 Nov)
+
+**Batch 7, finished in my files** (main's ask of 22 Oct; some was done in F-312/F-313):
+- **Triggers, each with a `…Church` twin** (functions/church-triggers.js, the same pattern as index.js `twins`): `kidsCountsKeep`, `peepTodayOnCheckin/OnPeep/OnRollCall/OnRota`, `prayerSundayOnPrayer/OnRota`, `cateringSync`, `sermonLinkKeep`, and all seven `publicMail…`. **Before this, a church's sign-up, room request, form, small group request and "I'm new here" sent no email at all.**
+- **Scheduled jobs, church by church** (`eachChurch`): `checklistReminders`, `complianceDaily`, `paymentsTidy`, `peepTodayDaily`, `prayerSundayDaily`, `arrivalCheck`, `sgWarningsSync`, `sgTwoAdultsDaily`.
+- **Callables, the caller's church:** `planSend`, `bibleKeySave/Status`, `bibleFetch`, `m365Start/Status/Disconnect`, `sgWarningsNow`, `commsReport`, `myMessages`, `teamMailMine/Save`, `sendAsTeam`, `paymentsSave/Remove/Team`, `paymentCheckEvent`.
+- **Public callables, the page's address** (never a church named in the request): `ticketPay`, `paymentCheck`, `giveRegularly`, `givingChange`, `givingStop`. An address nobody has: "There is no church at this address."
+- **Payments and GoCardless** have about twenty shared helpers, so each entry point says once which church it works for (functions/church-context.js, Node's AsyncLocalStorage) and the helpers follow it.
+- **Webhooks:** each checkout, payment, billing request, subscription and mandate a church makes goes in `hqCodes` (kinds `stripe`, `gocardless`). `stripeWebhook` and `gocardlessWebhook` find the church from what the message names (none: EGBC), then only that church's signing secret passes.
+- **Microsoft 365's sign-in** carries the church in its server-only `m365Connect` record, saves to that church, and sends the admin back to the church's own hub.
+
+**ChurchShow Lesson mode: the quiz on phones (§27 item 1), hub side:**
+- `lessonFor` gives each step a `stepKey` (`p<part>s<step>`) and the reply `quizPhones` (the quiz is on, and the hub is live).
+- `quizStart`, `quizOpen`, `quizReveal`, `quizPhase`, `quizKick`, `quizEnd` accept a **paired ChurchShow computer** for a session whose group meets in its building **and** is one of its lesson groups. Nothing else changes: players join on `quiz.html` as now.
+- `quizStart` returns `join`, the church's own address (`<slug>.churchhq.co.uk/quiz`, or `egbc.churchhq.co.uk/quiz`), also kept on the run. Present's TV shows it, so EGBC's TV no longer shows the bare `churchhq.co.uk/quiz`.
+- **No anonymous sign-in is needed** (§27 item 5's last part): phones still join through the functions (F-255 (a)).
+
+**For the ChurchShow window** (Lesson mode):
+1. To play a lesson's quiz on phones, only when the reply's `quizPhones` is true: call `quizStart({ sessionId: lesson.id, step: step.stepKey })` with the computer's own sign-in (Firebase callable, europe-west2). It returns `{ runId, code, join }`.
+2. Show `join`, the code (as `123 456`) and a QR code of `https://<join>?c=<code>`.
+3. Follow the run live: `churches/<churchId>/quizRuns/<runId>` (EGBC: `quizRuns/<runId>`). Anyone may read it by its id. It holds `phase` (join, question, answer, board, final), `question { text, answers, seconds, openUntil }`, `count`, `answered`, `players { pid: { name } }`, `scores`, `reveal { right, counts }` after each question. Never the right answer before `quizReveal`.
+4. The leader's keys at the computer: `quizOpen({ runId, q })` (q from 0), `quizReveal({ runId })`, `quizPhase({ runId, phase: 'board' | 'final' })`, `quizKick({ runId, pid })` for a rude name, and **always `quizEnd({ runId })`** when the quiz or the lesson closes (it deletes every nickname and answer).
+5. **`lessonFor` now gives a computer only its own lesson groups** (main's F-237 ask, never built until now; F-262 found it). A computer with none is refused: "This ChurchShow computer is not set up for lessons - a master admin can change that on Connect ChurchShow." Show that message as it comes.
+
+**Five small gaps, fixed:**
+- **`quizStart` still cut a quiz to 12 questions;** it now takes what the planner holds (500).
+- **Safeguarding risk register (F-280 10.8):** Standing risks shows the building's health and safety assessment's colour and review date, linking to it. Only those two cross over.
+- **Data requests** (main's F-309 ask): **What we hold** beside each request opens `privacy.html?request=<id>`, for the data protection leads and master admins.
+- **The church's own words (H-12)** in my pages: the member word on "members only" labels, the service day in Headcounts, Kids check-in and Check-in, the minister's title in safeguarding.html. Rota services say "a service from the rota", not "a Sunday service".
+- **"Val's podcast"** in sermons-admin.html is now "the church's podcast".
+
+**For main:**
+1. **functions/index.js:** the named export lines now include the new twins (kids-counts, prayer-sunday, sermon-links, peeps, rooms-day). Nothing else changed there.
+2. **functions/hq-codes.js:** `KINDS` gains `'stripe', 'gocardless'`, with a comment line.
+
+**Checked:** one run on the Firestore emulator, as St Aidan's, 11/11. It covered: lessonFor's groups, step keys and refusal; quizStart, quizOpen and quizEnd from ChurchShow, and a refused group; the "new here" and caterers' twins writing in the church's own data; paymentsTeam for the caller's church; and ticketPay by address.

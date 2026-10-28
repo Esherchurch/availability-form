@@ -21,6 +21,7 @@
 import { paymentsShut } from './payments-gate.js';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
+import { churchOf } from './church-scope.js';
 
 const REGION = 'europe-west2';
 const BASE = 'https://api.scripture.api.bible';
@@ -35,21 +36,23 @@ async function keyShut() {
   return !!(c.exists && c.data().shutForTest === true);
 }
 
+/* Each church's own key and leaders: the caller's church, from their sign-in. */
 async function who(req) {
+  const D = churchOf(req, db()).db;
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Please sign in.');
-  const u = (await db().collection('users').doc(uid).get()).data() || {};
+  const u = (await D.collection('users').doc(uid).get()).data() || {};
   if (u.status && u.status !== 'active') throw new HttpsError('permission-denied', 'Your account is not active.');
-  return { uid, memberId: String(u.memberId || ''), master: u.masterAdmin === true, name: String(u.name || '') };
+  return { D, uid, memberId: String(u.memberId || ''), master: u.masterAdmin === true, name: String(u.name || '') };
 }
 async function mayFetch(me) {
   if (me.master) return true;
   if (!me.memberId) return false;
-  const g = await db().collection('planGroups').where('leaderIds', 'array-contains', me.memberId).limit(1).get();
+  const g = await me.D.collection('planGroups').where('leaderIds', 'array-contains', me.memberId).limit(1).get();
   return !g.empty;
 }
-async function key() {
-  const d = (await db().collection('privateSettings').doc('apiBible').get()).data() || {};
+async function key(D) {
+  const d = (await D.collection('privateSettings').doc('apiBible').get()).data() || {};
   if (!d.key) throw new HttpsError('failed-precondition', 'The church has not added an API.Bible key yet. A master admin adds it in Church settings.');
   return d.key;
 }
@@ -81,15 +84,15 @@ export const bibleKeySave = onCall({ region: REGION }, async (req) => {
   if (await keyShut()) throw new HttpsError('failed-precondition', 'The API.Bible key can be saved when the hub goes live.', { shut: true });
   const k = String((req.data || {}).key || '').trim();
   if (k && !/^[A-Za-z0-9_-]{16,128}$/.test(k)) throw new HttpsError('invalid-argument', 'That does not look like an API.Bible key.');
-  if (!k) { await db().collection('privateSettings').doc('apiBible').delete(); return { saved: false }; }
-  await db().collection('privateSettings').doc('apiBible').set({ key: k, savedAt: new Date().toISOString(), savedBy: me.uid, savedByName: me.name });
+  if (!k) { await me.D.collection('privateSettings').doc('apiBible').delete(); return { saved: false }; }
+  await me.D.collection('privateSettings').doc('apiBible').set({ key: k, savedAt: new Date().toISOString(), savedBy: me.uid, savedByName: me.name });
   return { saved: true };
 });
 
 export const bibleKeyStatus = onCall({ region: REGION }, async (req) => {
   const me = await who(req);
   if (!me.master) throw new HttpsError('permission-denied', 'Only a master admin can see this.');
-  const d = (await db().collection('privateSettings').doc('apiBible').get()).data() || {};
+  const d = (await me.D.collection('privateSettings').doc('apiBible').get()).data() || {};
   return { saved: !!d.key, savedAt: d.savedAt || '', savedByName: d.savedByName || '', shut: await keyShut() };   // never the key
 });
 
@@ -97,7 +100,7 @@ export const bibleFetch = onCall({ region: REGION }, async (req) => {
   const me = await who(req);
   if (!(await mayFetch(me))) throw new HttpsError('permission-denied', 'API.Bible is for the leaders who plan sessions.');
   const d = req.data || {};
-  const k = await key();
+  const k = await key(me.D);
   if (d.action === 'versions') {
     const r = await get(k, '/v1/bibles');
     return { bibles: (r.data || []).map(b => ({ id: b.id, name: b.name, abbrev: String(b.abbreviationLocal || b.abbreviation || '').toUpperCase(), lang: (b.language || {}).name || '' }))

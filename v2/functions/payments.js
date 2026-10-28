@@ -37,8 +37,13 @@ import { hubUrl } from './notify.js';
 import { readTeamJobs, teamsFor } from './team-jobs.js';
 import { gcSaveToken, gcSaveWebhook, gcRemove, gcReady, bankPage, checkBank, tidyBank, pollGifts } from './gocardless.js';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
+import { churchDb, withChurchDb, forCaller, forAddress } from './church-context.js';
+import { eachChurch, scopedDb } from './church-scope.js';
+import { indexCode, churchForCode, codeHash } from './hq-codes.js';
 
-const db = () => getFirestore();
+/* The church being worked for: each callable, webhook and tidy run says
+   which (church-context.js), and every helper here follows it. */
+const db = () => churchDb();
 const EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
 import { paymentsShut } from './payments-gate.js';
 const SHUT_MSG = 'Online payments open when the hub goes live.';
@@ -161,7 +166,7 @@ async function priceOf(key, method) {
 
 /* ------------------------------------------------------- the callables */
 
-export const paymentsSave = onCall({ region: REGION }, async (req) => {
+export const paymentsSave = onCall({ region: REGION }, forCaller(async (req) => {
   if (await shut()) throw new HttpsError('failed-precondition', SHUT_MSG, { shut: true });
   const uid = req.auth && req.auth.uid;
   if (!(await isTreasurer(uid))) throw new HttpsError('permission-denied', 'Only a master admin or the church\'s money team can set up payments.');
@@ -194,9 +199,9 @@ export const paymentsSave = onCall({ region: REGION }, async (req) => {
     return { ok: true };
   }
   throw new HttpsError('invalid-argument', 'Save a key or a webhook secret.');
-});
+}));
 
-export const paymentsRemove = onCall({ region: REGION }, async (req) => {
+export const paymentsRemove = onCall({ region: REGION }, forCaller(async (req) => {
   const uid = req.auth && req.auth.uid;
   if (!(await isTreasurer(uid))) throw new HttpsError('permission-denied', 'Only a master admin or the church\'s money team can change payments.');
   const prov = String(req.data && req.data.provider);
@@ -207,9 +212,9 @@ export const paymentsRemove = onCall({ region: REGION }, async (req) => {
   await db().collection('paymentSettings').doc('stripe').set({ connected: false, webhookSet: false, accountName: '', accountLast4: '', mode: '', removedByName: String(u.name || '').slice(0, 120), removedAt: FieldValue.serverTimestamp() });
   await publish();
   return { ok: true };
-});
+}));
 
-export const paymentsTeam = onCall({ region: REGION }, async (req) => {
+export const paymentsTeam = onCall({ region: REGION }, forCaller(async (req) => {
   const u = await userOf(req.auth && req.auth.uid);
   if (!u || u.masterAdmin !== true) throw new HttpsError('permission-denied', 'Only a master admin names the money team.');
   const team = String(req.data && req.data.team || '').trim().slice(0, 60);
@@ -219,7 +224,7 @@ export const paymentsTeam = onCall({ region: REGION }, async (req) => {
      renamed money team still sees Payments in the Menu (da5cc4af). */
   await db().collection('paymentSettings').doc('public').set({ moneyTeam: team }, { merge: true });
   return { ok: true, team };
-});
+}));
 
 /* What every page may know: whether card payments can be taken at all. */
 async function publish() {
@@ -233,7 +238,7 @@ async function publish() {
 
 /* A payment page for a booking. Anyone holding the booking's key (the
    person who just signed up, signed in or not). */
-export const ticketPay = onCall({ region: REGION }, async (req) => {
+export const ticketPay = onCall({ region: REGION }, forAddress(async (req) => {
   if (await shut()) throw new HttpsError('failed-precondition', SHUT_MSG, { shut: true });
   const key = String(req.data && req.data.key || ''), method = String(req.data && req.data.method || '');
   if (!/^[A-Za-z0-9_]{20,64}$/.test(key)) throw new HttpsError('invalid-argument', 'That booking could not be found.');
@@ -279,6 +284,8 @@ export const ticketPay = onCall({ region: REGION }, async (req) => {
     line_items: [{ quantity: 1, price_data: { currency: 'gbp', unit_amount: p.pence, product_data: { name: (p.title + places).slice(0, 200) } } }],
     metadata: { signupKey: key, keys: p.keys.map((x) => x.key).join(',') }
   });
+  /* so Stripe's message about this payment finds this church (stripeWebhook) */
+  await indexCode(db(), 'stripe', codeHash(session.id));
   const batch = db().batch();
   p.keys.forEach((x) => batch.set(db().collection('signupPayments').doc(x.key), {
     calEventId: x.calEventId, paid: false, amount: x.pence / 100, method: 'card-online', status: 'awaiting',
@@ -286,7 +293,7 @@ export const ticketPay = onCall({ region: REGION }, async (req) => {
   }));
   await batch.commit();
   return { url: session.url };
-});
+}));
 
 /* -------------------------------------------------------- the webhook */
 
@@ -314,6 +321,8 @@ export async function handleStripe(event, accountId) {
   const o = (event.data && event.data.object) || {};
   if (event.type === 'checkout.session.completed') {
     const keys = String((o.metadata && o.metadata.keys) || '').split(',').filter(Boolean);
+    /* a later refund or dispute names only the payment: that finds the church too */
+    if (o.payment_intent) await indexCode(db(), 'stripe', codeHash(o.payment_intent));
     for (const k of keys) {
       const ref = db().collection('signupPayments').doc(k), cur = await ref.get();
       await ref.set({ paid: true, status: 'paid', method: 'card-online', paymentRef: o.payment_intent || '', checkoutId: o.id || '', paidAt: FieldValue.serverTimestamp(),
@@ -387,12 +396,12 @@ export async function tidyCard(now) {
   return n;
 }
 export const paymentsTidy = onSchedule({ region: REGION, schedule: 'every 5 minutes', timeZone: 'Europe/London', retryCount: 1 }, async () => {
-  await tidyCard(); await tidyBank(); await pollGifts();
+  await eachChurch(getFirestore(), (ch) => withChurchDb(ch.db, async () => { await tidyCard(); await tidyBank(); await pollGifts(); }));
 });
 
 /* The person back from paying, or opening "my place": anyone holding the
    booking's key, as ticketPay. */
-export const paymentCheck = onCall({ region: REGION }, async (req) => {
+export const paymentCheck = onCall({ region: REGION }, forAddress(async (req) => {
   if (await shut()) throw new HttpsError('failed-precondition', SHUT_MSG, { shut: true });
   const key = String(req.data && req.data.key || '');
   if (!/^[A-Za-z0-9_]{20,64}$/.test(key)) throw new HttpsError('invalid-argument', 'That booking could not be found.');
@@ -401,11 +410,11 @@ export const paymentCheck = onCall({ region: REGION }, async (req) => {
   try { await checkOne(s.data()); } catch (e) { console.warn('[paymentCheck]', e.message); }
   const now = (await ref.get()).data() || {};
   return { status: now.status || '', paid: now.paid === true };
-});
+}));
 
 /* Who is coming: an event's online payments, asked (refunds, disputes,
    still unpaid). The event's admins only. */
-export const paymentCheckEvent = onCall({ region: REGION }, async (req) => {
+export const paymentCheckEvent = onCall({ region: REGION }, forCaller(async (req) => {
   if (await shut()) throw new HttpsError('failed-precondition', SHUT_MSG, { shut: true });
   const u = await userOf(req.auth && req.auth.uid);
   if (!u || u.status !== 'active' || !(u.masterAdmin === true || (u.adminFor || []).length)) throw new HttpsError('permission-denied', 'For the event\'s admins.');
@@ -419,18 +428,26 @@ export const paymentCheckEvent = onCall({ region: REGION }, async (req) => {
     if (((await d.ref.get()).data() || {}).status !== before) changed++;
   }
   return { checked: docs.length, changed };
-});
+}));
 
 export const stripeWebhook = onRequest({ region: REGION }, async (req, res) => {
   if (paymentsShut()) { res.status(503).send('Not open yet'); return; }
   if (req.method !== 'POST') { res.status(405).send('POST only'); return; }
-  const sec = await db().collection('paymentSecrets').doc('stripe').get();
-  const secret = sec.exists ? sec.data().webhookSecret : '';
   const raw = req.rawBody ? req.rawBody.toString('utf8') : '';
-  if (!verifyStripe(raw, req.get('stripe-signature'), secret)) { res.status(400).send('signature'); return; }
   let event; try { event = JSON.parse(raw); } catch (e) { res.status(400).send('body'); return; }
-  const done = eventRef('stripe', event.id);
-  if ((await done.get()).exists) { res.status(200).send('already'); return; }
-  try { const what = await handleStripe(event, sec.data().accountId); await done.set({ type: event.type, what, at: FieldValue.serverTimestamp() }); res.status(200).send(what); }
-  catch (e) { console.error('stripeWebhook', e); res.status(500).send('error'); }
+  /* Which church: the checkout or payment it names, looked up in Church HQ's
+     index (none: EGBC). Only that church's own signing secret then passes,
+     so a message can't be steered to another church. */
+  const o = (event.data && event.data.object) || {};
+  let cid = null;
+  for (const id of [o.id, o.payment_intent].filter((x) => typeof x === 'string' && x)) if (!cid) cid = await churchForCode(getFirestore(), 'stripe', codeHash(id));
+  await withChurchDb(scopedDb(getFirestore(), cid), async () => {
+    const sec = await db().collection('paymentSecrets').doc('stripe').get();
+    const secret = sec.exists ? sec.data().webhookSecret : '';
+    if (!verifyStripe(raw, req.get('stripe-signature'), secret)) { res.status(400).send('signature'); return; }
+    const done = eventRef('stripe', event.id);
+    if ((await done.get()).exists) { res.status(200).send('already'); return; }
+    try { const what = await handleStripe(event, sec.data().accountId); await done.set({ type: event.type, what, at: FieldValue.serverTimestamp() }); res.status(200).send(what); }
+    catch (e) { console.error('stripeWebhook', e); res.status(500).send('error'); }
+  });
 });

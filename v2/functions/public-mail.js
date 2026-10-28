@@ -39,7 +39,7 @@ import vm from 'node:vm';
 import zlib from 'node:zlib';
 import { createRequire } from 'node:module';
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
-import { getFirestore } from 'firebase-admin/firestore';
+import { twinTriggers } from './church-triggers.js';
 import { hubUrl } from './notify.js';
 import * as MailRoute from './mail-route.js';
 import { featureOn } from './features.js';   // the one answer, page and server (F-239)
@@ -378,21 +378,18 @@ async function booking({ db, send, key, doc, hub }, who) {
 
 /* ----------------------------------------------------------- triggers */
 
-let sender = null;
-function deps() {
-  const db = getFirestore();
-  if (!sender) sender = makeSender({ db });
-  return { db, send: sender };
-}
-const created = (doc, fn, idName) => onDocumentCreated({ document: doc, region: REGION }, (e) =>
-  fn({ ...deps(), [idName]: e.params[idName], doc: e.data && e.data.data() }));
-const updated = (doc, fn) => onDocumentUpdated({ document: doc, region: REGION }, (e) =>
-  fn({ ...deps(), key: e.params.key, before: e.data && e.data.before.data(), after: e.data && e.data.after.data() }));
+/* Each pair: EGBC's, and the same for every church (…Church), each sending
+   from its own church's data, so a church's links lead to its own hub. */
+const deps = (db) => ({ db, send: makeSender({ db }) });
+const created = (doc, fn, idName) => twinTriggers(onDocumentCreated, { document: doc, region: REGION }, ({ db }, e) =>
+  fn({ ...deps(db), [idName]: e.params[idName], doc: e.data && e.data.data() }));
+const updated = (doc, fn) => twinTriggers(onDocumentUpdated, { document: doc, region: REGION }, ({ db }, e) =>
+  fn({ ...deps(db), key: e.params.key, before: e.data && e.data.before.data(), after: e.data && e.data.after.data() }));
 
-export const publicMailSignup = created('signups/{key}', handlers.signup, 'key');
-export const publicMailBookingAsked = created('bookings/{key}', handlers.bookingAsked, 'key');
-export const publicMailBookingOffice = created('bookings/{key}', handlers.bookingOffice, 'key');
-export const publicMailCancelAsk = updated('bookings/{key}', handlers.cancelAsk);
-export const publicMailFormDone = updated('formRequests/{key}', handlers.formDone);
-export const publicMailGroupAsk = created('smallGroupRequests/{id}', handlers.groupAsk, 'id');
-export const publicMailNewHere = created('welcomes/{id}', handlers.newHere, 'id');
+export const [publicMailSignup, publicMailSignupChurch] = created('signups/{key}', handlers.signup, 'key');
+export const [publicMailBookingAsked, publicMailBookingAskedChurch] = created('bookings/{key}', handlers.bookingAsked, 'key');
+export const [publicMailBookingOffice, publicMailBookingOfficeChurch] = created('bookings/{key}', handlers.bookingOffice, 'key');
+export const [publicMailCancelAsk, publicMailCancelAskChurch] = updated('bookings/{key}', handlers.cancelAsk);
+export const [publicMailFormDone, publicMailFormDoneChurch] = updated('formRequests/{key}', handlers.formDone);
+export const [publicMailGroupAsk, publicMailGroupAskChurch] = created('smallGroupRequests/{id}', handlers.groupAsk, 'id');
+export const [publicMailNewHere, publicMailNewHereChurch] = created('welcomes/{id}', handlers.newHere, 'id');

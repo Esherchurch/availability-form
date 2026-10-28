@@ -31,6 +31,7 @@ import { featureOn } from './features.js';
 import { readTeamJobs, teamsFor } from './team-jobs.js';
 import { makeSender } from './public-mail.js';
 import { hubUrl } from './notify.js';
+import { churchOf, eachChurch } from './church-scope.js';
 
 const require = createRequire(import.meta.url);
 const Core = require('./sg-warnings-core.cjs');
@@ -184,8 +185,9 @@ export async function runSgWarnings({ db: dbi, at = new Date(), siteIds }) {
 }
 
 export const sgWarningsSync = onSchedule({ region: REGION, schedule: 'every 15 minutes', timeZone: 'Europe/London', retryCount: 1 }, async () => {
-  if (!(await registerOn(db()))) return;
-  await runSgWarnings({ db: db() });
+  await eachChurch(db(), async ({ db: dbi }) => {
+    if (await registerOn(dbi)) await runSgWarnings({ db: dbi });
+  });
 });
 
 /* the register follows its own switch (main's safeguardingRegister, F-268), inside safeguarding's */
@@ -207,9 +209,10 @@ export const sgWarningsNow = onCall({ region: REGION }, async (req) => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Please sign in.');
   const siteId = String((req.data || {}).siteId || '');
   if (!siteId || siteId.includes('/')) throw new HttpsError('invalid-argument', 'Which site?');
-  if (!(await maySee(db(), req.auth.uid, siteId))) throw new HttpsError('permission-denied', 'This is for the safeguarding lead and deputy, and the trustees.');
-  if (!(await registerOn(db()))) throw new HttpsError('failed-precondition', 'Safeguarding, or its risk register, is turned off for this church.');
-  const r = await runSgWarnings({ db: db(), siteIds: [siteId] });
+  const D = churchOf(req, db()).db;
+  if (!(await maySee(D, req.auth.uid, siteId))) throw new HttpsError('permission-denied', 'This is for the safeguarding lead and deputy, and the trustees.');
+  if (!(await registerOn(D))) throw new HttpsError('failed-precondition', 'Safeguarding, or its risk register, is turned off for this church.');
+  const r = await runSgWarnings({ db: D, siteIds: [siteId] });
   return { count: r[0].count };
 });
 
@@ -232,7 +235,7 @@ export async function runTwoAdultsMail({ db: dbi, send, at = new Date(), hub = '
       if ((await dbi.collection('sgMailed').doc(k).get()).exists) sent[k] = true;
     }
     for (const m of Core.twoAdultsMails({ day, settings: st, events, groups, sent })) {
-      const link = (hub || '') + '/' + m.fix;
+      const link = String(hub || '').replace(/\/$/, '') + '/' + m.fix;
       await send({ to, subject: m.subject, html: m.lines.map((l) => '<p>' + l.replace(/[<>&]/g, '') + '</p>').join('') + '<p><a href="' + link + '">' + link + '</a></p>' }, { kind: 'sg-two-adults', key: m.key });
       await dbi.collection('sgMailed').doc(m.key).set({ siteId: site.id, at: at.toISOString(), subject: m.subject });
       mailed.push(m.key);
@@ -241,9 +244,11 @@ export async function runTwoAdultsMail({ db: dbi, send, at = new Date(), hub = '
   return mailed;
 }
 export const sgTwoAdultsDaily = onSchedule({ region: REGION, schedule: 'every day 08:00', timeZone: 'Europe/London', retryCount: 1 }, async () => {
-  if (!(await registerOn(db()))) return;
-  const sender = makeSender({ db: db() });
-  const hub = await hubUrl(db());
-  const sent = await runTwoAdultsMail({ db: db(), hub, send: (msg, meta) => sender({ to: msg.to, subject: msg.subject, html: msg.html, replyTo: '' }, meta) });
-  if (sent.length) console.log('sg two adults: emailed ' + sent.length);
+  await eachChurch(db(), async ({ id, db: dbi }) => {
+    if (!(await registerOn(dbi))) return;
+    const sender = makeSender({ db: dbi });
+    const hub = await hubUrl(dbi);
+    const sent = await runTwoAdultsMail({ db: dbi, hub, send: (msg, meta) => sender({ to: msg.to, subject: msg.subject, html: msg.html, replyTo: '' }, meta) });
+    if (sent.length) console.log('sg two adults (' + (id || 'egbc') + '): emailed ' + sent.length);
+  });
 });

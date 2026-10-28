@@ -736,7 +736,7 @@
       })).then(function () { return lookups; }).then(function (look) {
         var groups = {};
         ins.forEach(function (c) {
-          var ev = c.kind === 'child' ? { title: 'Sunday children\'s groups' } : (evCache[c.calEventId] || {});
+          var ev = c.kind === 'child' ? { title: EGBCAuth.serviceDay() + ' children\'s groups' } : (evCache[c.calEventId] || {});
           var place = c.roomId && look.rooms[c.roomId] ? look.rooms[c.roomId] : (E.locationText(ev, look) || 'Somewhere else');
           (groups[place] = groups[place] || { people: [], leaders: [], events: {} });
           groups[place][c.kind === 'leader' ? 'leaders' : 'people'].push(c);
@@ -753,7 +753,7 @@
           kc.reduce(function (t, c) { return t + (c.total || 0); }, 0);
         var kidsCards = kc.map(function (c) {
           var site = (look.sites && look.sites[c.siteId]) || '';
-          return '<div class="card room" data-kids-count="' + esc(c.siteId) + '"><h2><span class="badge">' + ico('baby', 17) + '</span>Children in Sunday groups' + (site ? ': ' + esc(site) : '') +
+          return '<div class="card room" data-kids-count="' + esc(c.siteId) + '"><h2><span class="badge">' + ico('baby', 17) + '</span>Children in ' + esc(EGBCAuth.serviceDay()) + ' groups' + (site ? ': ' + esc(site) : '') +
             '<span class="spacer"></span><span class="hint">' + c.total + '</span></h2>' +
             '<p class="kidsline" style="font-size:17px;font-weight:600;margin:4px 0">' + (c.groups || []).map(function (g) { return esc(g.name) + ' ' + (+g.n || 0); }).join(' \u00b7 ') + ' \u00b7 total ' + c.total + '</p>' +
             '<p class="hint">Numbers only. The Kids Church leaders have the names.</p></div>';

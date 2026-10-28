@@ -21,6 +21,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getFirestore } from 'firebase-admin/firestore';
 import { makeSender } from './public-mail.js';
 import { hubUrl } from './notify.js';
+import { eachChurch } from './church-scope.js';
 
 const REGION = 'europe-west2';
 const londonDay = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
@@ -72,6 +73,5 @@ export async function runChecklistReminders({ db, send, now }) {
 }
 
 export const checklistReminders = onSchedule({ region: REGION, schedule: '0 8 * * *', timeZone: 'Europe/London', retryCount: 1 }, async () => {
-  const db = getFirestore();
-  await runChecklistReminders({ db, send: makeSender({ db }), now: new Date() });
+  await eachChurch(getFirestore(), ({ db }) => runChecklistReminders({ db, send: makeSender({ db }), now: new Date() }));
 });
