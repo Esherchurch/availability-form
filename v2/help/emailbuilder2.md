@@ -39,7 +39,8 @@ Write an email to a team, or to the church, with words, photos, GIFs and buttons
 ## Choose who gets it
 1. Under **Send to**, tick one or more teams (or **Everyone**, if you may).
 2. Press **Pick individual people** to add people one by one, on top of any teams. Search by name or email. People with no email can't be picked.
-3. The count under it shows how many people are selected, and how many have no email.
+3. Under-18s are never emailed: they are left off every team and can't be picked.
+4. The count under it shows how many people are selected, and how many have no email.
 
 ## Send a test, then send
 1. Under **Your details**, type **Your email (reply-to)**. Replies go there. If it is empty, replies go to the church's enquiry address.

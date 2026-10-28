@@ -175,11 +175,15 @@ export async function blockersOf(dbi, parent, id, map = MAP) {
 
 /* One trigger pair per parent the map tidies, and per child that holds a
    parent: grouped exports, deployed as tidyAfterDelete-<name> and
-   holdParent-<name>. */
+   holdParent-<name>. Google allows only plain letters and digits in that
+   name, so a subcollection's is joined up: a meeting's votes give
+   churchMeetingsVotes. */
+export const exportName = (name) => name.split('/').filter((s) => s !== '*')
+  .map((s, i) => (i ? s.charAt(0).toUpperCase() + s.slice(1) : s)).join('');
 const pairs = (names, on, make) => Object.fromEntries(names.flatMap((name) => {
   const path = name.replace(/\/\*\//g, '/{p}/') + '/{id}';
-  return [[name.replace(/\W/g, '_'), on({ document: path, region: REGION }, make(name))],
-    [name.replace(/\W/g, '_') + 'Church', on({ document: 'churches/{cid}/' + path, region: REGION }, make(name))]];
+  return [[exportName(name), on({ document: path, region: REGION }, make(name))],
+    [exportName(name) + 'Church', on({ document: 'churches/{cid}/' + path, region: REGION }, make(name))]];
 }));
 const PARENTS = [...new Set(Object.values(MAP).flatMap((c) => (c.links || [])
   .filter((l) => l.rule !== 'archive').map((l) => l.to)))].filter((p) => MAP[p]).sort();

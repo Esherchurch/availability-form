@@ -15,7 +15,7 @@
 <script src="egbc-help.js?v=202610281800"></script>
 <!-- MEMBERS' MEETINGS (21 Oct 2026; design-mocks/members-meeting, Martin's
      answers). For church members (the address book's tick) and whoever runs
-     them: master admins, the Church office and the Elders. The page refuses
+     them: master admins and the teams doing the office and trustees jobs. The page refuses
      anyone else itself (below); the rules (meetingMember/meetingRunner) and
      the hub's vote functions (functions/meetings.js) are what hold. -->
 <script src="egbc-guard.js?v=202610282000" data-feature="meetings"></script>
@@ -84,9 +84,14 @@
   function today() { var d = new Date(), p = function (x) { return (x < 10 ? '0' : '') + x; }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
   function dayWords(ymd) { if (!ymd) return ''; return new Date(ymd + 'T12:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); }
 
-  /* WHO: a church member votes; whoever runs it (master admins, the Church
-     office, the Elders) runs it. The same answer as firestore.rules. */
-  function isRunner() { return !!(A.isMaster() || A.inTeam('Church office') || A.inTeam('Elders')); }
+  /* WHO: a church member votes; master admins and the teams doing the
+     office and trustees jobs (each church names its own) run it. The same
+     answer as firestore.rules' meetingRunner(). */
+  function isRunner() {
+    if (A.isMaster()) return true;
+    var jobs = A.myJobs ? A.myJobs() : [];
+    return jobs.indexOf('office') !== -1 || jobs.indexOf('trustees') !== -1;
+  }
   function isMember() { return !!(A.isChurchMember && A.isChurchMember()); }
   var ME = {}, MEETINGS = [], CUR = null, VOTES = [], MINE = {}, JOIN = null, LAUNCH = { locked: false, opensOn: '' };
   var stopVotes = null;
@@ -96,8 +101,12 @@
   var GIVEN = null, HELD = [], PROXIES = [], DONE_FOR = {}, PEOPLE = null, stopProxies = null;
   function votingStarted() { return VOTES.some(function (v) { return v.status === 'open' || v.status === 'closed'; }); }
 
+  /* The team jobs are read before anyone is turned away or shown the controls. */
   function start(profile) {
     ME = profile || {};
+    A.loadPerms().catch(function () {}).then(function () { begin(profile); });
+  }
+  function begin(profile) {
     if (!isMember() && !isRunner()) {
       A._blockPage('Church members only', 'Members’ meetings are for church members. If you have joined the church and this is wrong, ask the church office to tick it against your record.', profile);
       return;

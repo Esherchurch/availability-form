@@ -563,9 +563,13 @@ document.addEventListener('egbc-ready', () => Promise.resolve(EGBCAuth.loadPerms
         .then(d => { CHURCH_NAME = (d.exists && d.data().name) || ''; CHURCH_LOGO = (d.exists && d.data().logoUrl) || ''; }, () => {})
         .then(fillHeaderTitle).then(fillLogo).then(fillFooter);
     if ($('senderEmail')) $('senderEmail').addEventListener('input', fillFooter);
+    /* Under-18s are never emailed: they are left off every list here, and
+       the hub refuses a whole send that names one (functions/under18.js
+       reads the same two ticks). */
     db.collection("addressBook").onSnapshot(snap => {
         const anyone = mayEmailAnyone(), mine = myEmailTeams();
         allMembers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(m => m.isMinor !== true && m.under18 !== true)
             .filter(m => anyone || (m.markers || []).some(t => mine.includes(t)));
         updateTeamCounts();
         updateRecipSummary();
