@@ -19,6 +19,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="egbc-auth.js?v=202610311700"></script>
 <script src="egbc-present.js?v=202610311200"></script>
+<script src="egbc-vote.js?v=202610282200"></script>
 <script src="egbc-video.js?v=202610311600"></script>
 <script src="https://unpkg.com/@daily-co/daily-js"></script>
 <style>
@@ -254,6 +255,11 @@ async function lobby(profile) {
       (mine ? mine.docs : []).forEach(d => {
         if (!all.some(ev => ev.id === d.id) && (d.data().date || '') >= today) all.push(Object.assign({ id: d.id, meeting: true }, d.data()));
       });
+    }
+    /* Members' meetings (functions/members-meeting.js), for a member on no team too. */
+    if (EGBCAuth.isChurchMember()) {
+      const mm = await EGBCAuth.db.collection('meetings').where('membersMeeting', '==', true).get().catch(() => null);
+      (mm ? mm.docs : []).forEach(d => { if (!all.some(ev => ev.id === d.id) && (d.data().date || '') >= today) all.push(Object.assign({ id: d.id, meeting: true }, d.data())); });
     }
     SHOWN = {};
     all.forEach(ev => { SHOWN[ev.id] = ev; });
@@ -601,6 +607,8 @@ async function start(profile) {
   if (window.EGBCVideo) await EGBCVideo.load();
   /* The Permissions screen's answers, before "which meetings are mine". */
   if (EGBCAuth.loadPerms) await EGBCAuth.loadPerms().catch(() => {});
+  /* In the room, voting on a phone (egbc-vote.js): no video. */
+  if (params.get('vote') && eventId && window.EGBCVote) { document.getElementById('copyBtn').style.display = 'none'; document.getElementById('mtTitle').textContent = 'Voting'; EGBCVote.voteOnly({ eventId, mount: document.getElementById('stage') }); return; }
   if (!room) { lobby(profile); return; }
   if (!roomExists(room)) {
     showMsg('Meeting room not found', 'This link does not point to one of the church’s meeting rooms. If the meeting was cancelled, its room has closed.', '<a class="btn" href="hub.html">Back to hub</a>');
@@ -732,6 +740,8 @@ function join(profile) {
     el: document.getElementById('present'), call: document.getElementById('stage'), host: !!hostToken,
     /* Daily's call, so leaving it ends a host's say-so (F-264) even before the page closes. */
     frame });
+  /* Votes (egbc-vote.js): they pop up for everyone; the chair has "Votes". */
+  if (window.EGBCVote && eventId) EGBCVote.attachMeeting({ eventId, host: !!hostToken });
 
   /* LEAVING OR ENDING (Martin's test, 28 Oct 2026: in full screen, when
      the meeting ended nothing worked). Out of full screen first, the call

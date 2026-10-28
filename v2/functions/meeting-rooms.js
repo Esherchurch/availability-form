@@ -45,6 +45,7 @@
    =================================================================== */
 
 import { dailyName, londonMs } from './video.js';
+import { readTeamJobs, teamsFor } from './team-jobs.js';
 
 export const roomOf = (ev, byType) => (ev.videoRoom !== undefined ? ev.videoRoom : ((byType || {})[ev.type] || ''));
 export const OWN = (id) => 'm-' + id;
@@ -142,8 +143,12 @@ export async function makeOwnRoom({ db, daily, cid, id, ev }) {
   for (let n = 0; daily && !made && n < 6; n++) made = await daily.room(ownRoomName(churchId, ev, id, n), { exp }, true);
   if (daily && !made) throw new Error('Daily would not make a room for meeting ' + id);
   const from = (v0.rooms || []).find((r) => r.key === ev.roomFrom && !r.meeting) || {};
+  /* A members' meeting (functions/members-meeting.js) needs no standing
+     room: church members only, hosted by whoever runs members' meetings. */
+  const runners = ev.membersMeeting === true ? await readTeamJobs(db).then((tj) => teamsFor(tj.map, 'office', tj.set).concat(teamsFor(tj.map, 'trustees', tj.set))) : [];
   const entry = { key, label: titleOf(ev).slice(0, 80), teams: Array.from(new Set((ev.teams || []).concat(from.teams || []))),
-    hostTeams: from.hostTeams || [], members: from.members === true, meeting: id, until: ev.date || '' };
+    hostTeams: Array.from(new Set((from.hostTeams || []).concat(runners))), members: from.members === true || ev.membersMeeting === true,
+    meeting: id, until: ev.date || '' };
   if (ev.roomFrom) entry.from = String(ev.roomFrom);
   if (made) { entry.daily = made.name; entry.url = made.url; }
   /* The page and this trigger may both have made one: the other is closed. */

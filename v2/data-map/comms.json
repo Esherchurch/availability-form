@@ -108,6 +108,24 @@
       "self": "delete",
       "links": [ { "field": "$parent", "to": "churchMeetings/*/votes", "rule": "cascade", "why": "The count is for one vote." } ]
     },
+    "meetings/*/quickVotes": {
+      "what": "A quick vote a host put to a video meeting.",
+      "self": "delete",
+      "links": [ { "field": "$parent", "to": "meetings", "rule": "cascade", "why": "A quick vote is only for its meeting; a cancelled meeting takes its votes, ballots and counts." } ]
+    },
+    "meetings/*/quickVotes/*/ballots": {
+      "what": "Who voted in a quick vote, and how on an open one; keyed by sign-in.",
+      "self": "delete",
+      "links": [
+        { "field": "$parent", "to": "meetings/*/quickVotes", "rule": "cascade", "why": "A ballot is for one vote." },
+        { "field": "$id", "to": "users", "rule": "keep-history", "why": "The vote happened; the count must still add up after an account closes." }
+      ]
+    },
+    "meetings/*/quickVotes/*/tally": {
+      "what": "A quick vote's running count.",
+      "self": "delete",
+      "links": [ { "field": "$parent", "to": "meetings/*/quickVotes", "rule": "cascade", "why": "The count is for one vote." } ]
+    },
     "meetingPaperLinks": {
       "what": "A member's own link to a meeting's papers, kept as its hash.",
       "self": "delete",

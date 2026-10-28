@@ -197,21 +197,37 @@ function meetingInvited(d) {
 return active() && (isMaster() || (hasPerm('meetingsAll') && d.get('teams', []).size() > 0)
 || d.get('organiserUid', '') == request.auth.uid
 || me().get('memberId', '-') in d.get('invitees', [])
-|| myTeams().hasAny(d.get('teams', [])));
+|| myTeams().hasAny(d.get('teams', []))
+|| (d.get('membersMeeting', false) == true && isChurchMember()));
 }
 match /meetings/{meetingId} {
 allow get: if meetingInvited(resource.data);
-allow list: if active() && me().get('memberId', '-') in resource.data.get('invitees', []);
+allow list: if active() && (me().get('memberId', '-') in resource.data.get('invitees', [])
+|| (resource.data.get('membersMeeting', false) == true && isChurchMember()));
 allow create, update: if (isAdmin() || onAnyTeam(request.resource.data.get('teams', []))
 || (resource != null && resource.data.get('organiserUid', '') == request.auth.uid)
 || (resource == null && request.resource.data.get('organiserUid', '') == request.auth.uid))
 && request.resource.data.keys().hasOnly(['description', 'organiserUid', 'invitees', 'teams', 'date', 'startTime', 'endTime',
-'videoRoom', 'type', 'updatedAt', 'updatedBy'])
+'videoRoom', 'type', 'updatedAt', 'updatedBy', 'membersMeeting', 'churchMeeting'])
 && request.resource.data.get('description', '') is string && request.resource.data.get('description', '').size() <= 2000
 && request.resource.data.get('invitees', []) is list && request.resource.data.get('invitees', []).size() <= 500
 && request.resource.data.get('teams', []) is list && request.resource.data.get('teams', []).size() <= 100
 && (resource == null || request.resource.data.get('organiserUid', '') == resource.data.get('organiserUid', ''));
 allow delete: if isAdmin() || (resource != null && resource.data.get('organiserUid', '') == request.auth.uid);
+match /quickVotes/{vid} {
+allow read: if meetingInvited(get(/databases/$(database)/documents/churches/$(cid)/meetings/$(meetingId)).data);
+allow write: if false;
+match /ballots/{uid} {
+allow get: if request.auth != null && request.auth.uid == uid;
+allow read: if meetingInvited(get(/databases/$(database)/documents/churches/$(cid)/meetings/$(meetingId)).data)
+&& get(/databases/$(database)/documents/churches/$(cid)/meetings/$(meetingId)/quickVotes/$(vid)).data.secret == false
+&& get(/databases/$(database)/documents/churches/$(cid)/meetings/$(meetingId)/quickVotes/$(vid)).data.status == 'closed';
+allow write: if false;
+}
+match /tally/{t} {
+allow read, write: if false;
+}
+}
 }
 match /meetingGuests/{id} {
 allow read, write: if false;

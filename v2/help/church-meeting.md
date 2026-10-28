@@ -1,6 +1,6 @@
 # Members' meetings
 
-Everything for the church's members' meetings in one place: when and where the meeting is, how to join, the papers, and the votes. Members vote here, and can ask another member to vote for them.
+Everything for the church's members' meetings in one place: when and where the meeting is, how to join, the papers, proxies, and afterwards the results. The meeting itself, and its votes, happen in the meeting's own video call; people there in person vote on their phone.
 
 ## Who can use it
 - **Church members** can open the page, join the meeting, read the papers and vote. You are a church member on the hub when the church office has ticked "church member" against your record. If you have joined the church and can't get in, ask the church office.
@@ -15,8 +15,9 @@ Everything for the church's members' meetings in one place: when and where the m
 4. A link in an email from the church opens that meeting straight away.
 
 ## Join the meeting
-- If the meeting uses the church's own online room, press **Join the meeting**. You knock, and the chair lets you in.
+- If the meeting uses the church's own online room, press **Join the meeting**. You knock, and the chair lets you in. It also shows under Meetings and on the hub's meetings card.
 - If it uses Zoom, press **Join on Zoom**. The meeting ID and passcode are shown underneath. If it says "The Zoom details are not in yet", check again nearer the time.
+- There in person? Press **Vote on your phone**, or scan the QR code the chair shows. It opens a page with no video, just the votes.
 
 ## Read the papers
 1. Go to **Papers**.
@@ -24,10 +25,9 @@ Everything for the church's members' meetings in one place: when and where the m
 3. If it says "No papers yet", they haven't been added.
 
 ## Vote
-1. When a vote opens, a **Vote now** box appears at the top of the page. You don't need to reload; it appears by itself.
-2. Read the question and press your choice.
-3. You see "✓ You have voted." when it's done.
-4. When the vote closes, the **Results** appear on the page.
+1. When the chair opens a vote, it pops up on your screen in the call (or on the phone page). You don't need to reload.
+2. Read the question and press your choice. Press **Later** to vote a little later: a green **A vote is open** button brings it back.
+3. When the chair closes the vote, the result pops up for everyone. The results also stay on this page afterwards.
 
 ## Give someone your proxy
 If you can't be there, you can ask another church member to vote for you at this meeting.
@@ -38,7 +38,7 @@ If you can't be there, you can ask another church member to vote for you at this
 
 ## Vote for someone else
 - If someone has given you their proxy, the page says "You are voting for ..." in **Can't be there?**.
-- When a vote opens, you see your own choices and, underneath, **Voting for** with their name and their own choices. Cast both.
+- When a vote opens, the pop-up shows your own choices and, underneath, **Voting for** with their name and their own choices. Cast both.
 
 ## Plan a meeting (for whoever runs it)
 1. In **The meeting** (or **Plan the next meeting**), fill in **Title**, **Date**, **Time** and **Where**.
@@ -52,15 +52,19 @@ If you can't be there, you can ask another church member to vote for you at this
 3. Papers can be PDFs or pictures, up to 20 MB each.
 4. Papers can only be added once the hub has gone live, because until then its files aren't yet private. Before then the page says so.
 
-## Hold a vote (for whoever runs it)
+## Prepare the votes (for whoever runs it)
 1. In **A new vote**, type **The question**.
 2. Type the **Choices, separated by commas**. It starts as "Yes, No, Abstain". You need at least two and can have up to six.
 3. Choose **Secret** or **Open**.
 4. Press **Save the vote**. It waits as **Ready to open**. You can **Remove** it until it opens.
-5. When the meeting reaches it, press **Open the vote**. Members see it straight away.
-6. While it is live you see how many have voted (and how many by proxy). Press **Who has voted** to see the names.
-7. Press **Close the vote and show the results**. The counts appear for everyone.
-8. Type **The outcome (as the chair announces it)** and press **Save the outcome**. Members see it under the results.
+
+## Run the votes in the meeting (for whoever runs it)
+1. Join the meeting and start as host. A **Votes** button sits in the bottom corner.
+2. Press **Votes** to see the prepared votes. When the meeting reaches one, press **Open the vote**. It pops up for everyone.
+3. You see how many have voted (and how many by proxy). Press **Close it and show the result**: the result pops up for everyone.
+4. A vote that wasn't prepared: type it under **A vote not prepared beforehand** and press **Start the vote**.
+5. For people in the room, press **People in the room: show the QR code** and share your screen or show it on the projector.
+6. Afterwards, on this page, type **The outcome (as the chair announces it)** and press **Save the outcome**. Members see it under the results. **Who has voted** shows the names.
 
 ## Good to know
 - One vote each. A vote can't be changed once it is cast.

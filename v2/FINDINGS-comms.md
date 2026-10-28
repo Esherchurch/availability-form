@@ -2197,3 +2197,33 @@ Martin: "you took the schematics app and the performance app off. Those need to 
 **Functions to deploy:**
 - helpAsk;
 - tidyAfterDelete (it now includes churchMeetings, churchMeetings___votes, emailTemplates, enewsIssues and enewsSubscribers, and calEvents now also tidies socialPosts).
+
+## 28 Oct 2026: votes inside the meeting
+
+**A members' meeting is a meeting.**
+- `membersMeetingSync` (+ Church twin, functions/members-meeting.js) keeps `events/cm-<id>` and `meetings/cm-<id>` in line with each members' meeting.
+- Each has its own room `m-cm-<id>`: church members only, hosted by the office and trustees jobs.
+- It is removed when the members' meeting is cancelled or archived.
+- An existing members' meeting gets its meeting the next time it is saved.
+
+**Votes in the call** (egbc-vote.js, loaded by meeting.html):
+- The chair's **Votes** button opens and closes the prepared votes, and starts unprepared ones.
+- A vote pops up for everyone, and the result pops up when it closes. Proxy holders cast both votes there.
+- A QR code takes people in the room to `meeting.html?event=cm-<id>&vote=1`, which has no video.
+- It uses the same castVote, voteOpen and voteClose, so secret stays secret.
+
+**Quick vote, any video meeting:**
+- `voteQuick` starts one; `castVote` and `voteClose` take `quick: true`.
+- Stored in `meetings/<id>/quickVotes`. The host runs it; the invited vote, one ballot per sign-in.
+
+**church-meeting.html** is now the before and after: prepare votes, papers and proxies, then results and outcomes. Its ballot buttons are gone; it links into the meeting and the phone view.
+
+- **Data map:** `meetings/*/quickVotes`, its ballots and tally (cascade with the meeting).
+- **Test:** functions/votes-in-meetings.test.mjs.
+
+**Functions to deploy:**
+- membersMeetingSync and membersMeetingSyncChurch (new);
+- voteQuick (new);
+- castVote, voteOpen, voteClose (changed);
+- meetingOwnRoom and meetingOwnRoomChurch (changed);
+- tidyAfterDelete: new meetings, meetingsChurch, meetingsQuickVotes and meetingsQuickVotesChurch.

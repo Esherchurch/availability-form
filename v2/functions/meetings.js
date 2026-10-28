@@ -30,12 +30,22 @@
    WHO RUNS A MEETING: master admins, and the teams doing the office or
    the trustees job (Martin, 21 Oct 2026; by job, H-9). firestore.rules
    says the same (meetingRunner(): raOffice() || onTrustees()).
+
+   QUICK VOTES: any video meeting can hold a vote too, with the same
+   functions given `quick: true` and the meeting's event id. It lives in
+   meetings/{id}/quickVotes/{vote}, its host (organiser, an admin of its
+   teams, a master admin) starts and closes it, and its voters are the
+   people invited, one ballot each, keyed by their sign-in. No proxies.
+   Secret works the same way: the choice only ever reaches the tally.
+
+     voteQuick  { meeting, question, choices, secret }  starts one, open
    =================================================================== */
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { churchOf } from './church-scope.js';
 import { readTeamJobs, teamsFor } from './team-jobs.js';
+import { mayManage } from './meeting-manage.js';
 
 const REGION = 'europe-west2';
 /* The teams running meetings: the office job's and the trustees job's. */
@@ -57,11 +67,74 @@ async function who(db, uid) {
 function refs(db, data) {
   const m = String((data && data.meeting) || ''), v = String((data && data.vote) || '');
   if (!ID.test(m) || !ID.test(v)) throw new HttpsError('invalid-argument', 'Which vote?');
-  const vote = db.collection('churchMeetings').doc(m).collection('votes').doc(v);
+  const vote = data.quick === true
+    ? db.collection('meetings').doc(m).collection('quickVotes').doc(v)
+    : db.collection('churchMeetings').doc(m).collection('votes').doc(v);
   return { vote, tally: vote.collection('tally').doc('count'), ballots: vote.collection('ballots') };
 }
 
+/* The same answer as the rules' meetingInvited(): who may see a meeting
+   may vote in its quick votes. */
+export function invitedTo(u, part, uid) {
+  if (!u || u.status !== 'active' || !part) return false;
+  const mine = (u.teams || []).concat(u.covers || []);
+  return u.masterAdmin === true || part.organiserUid === uid
+    || (!!u.memberId && (part.invitees || []).includes(u.memberId))
+    || (part.teams || []).some((t) => mine.includes(t))
+    || (part.membersMeeting === true && u.churchMember === true);
+}
+async function meetingPart(db, data) {
+  const m = String((data && data.meeting) || '');
+  if (!ID.test(m)) throw new HttpsError('invalid-argument', 'Which meeting?');
+  const [e, p] = await Promise.all([db.collection('events').doc(m).get(), db.collection('meetings').doc(m).get()]);
+  if (!e.exists || !p.exists) throw new HttpsError('not-found', 'That meeting is not there any more.');
+  return { ev: e.data(), part: p.data() };
+}
+const HOSTS = 'Only the person who set up this meeting, a leader of its team or a master admin can do that.';
+async function mayHost(db, uid, data) {
+  const { ev, part } = await meetingPart(db, data);
+  if (!(await mayManage(db, uid, ev, part))) throw new HttpsError('permission-denied', HOSTS);
+}
+
+async function castQuick({ db, uid, data }) {
+  const u = await who(db, uid);
+  const { part } = await meetingPart(db, data);
+  if (!invitedTo(u, part, uid)) throw new HttpsError('permission-denied', 'Only the people invited to this meeting can vote.');
+  const r = refs(db, data);
+  const choice = String((data && data.choice) || '');
+  const ballot = r.ballots.doc(uid);
+  await db.runTransaction(async (tx) => {
+    const [v, b] = await Promise.all([tx.get(r.vote), tx.get(ballot)]);
+    if (!v.exists) throw new HttpsError('not-found', 'There is no such vote.');
+    const vd = v.data();
+    if (vd.status !== 'open') throw new HttpsError('failed-precondition', 'This vote has closed.');
+    if (!Array.isArray(vd.choices) || !vd.choices.includes(choice)) throw new HttpsError('invalid-argument', 'That is not one of the choices.');
+    if (b.exists) throw new HttpsError('already-exists', 'You have already voted.');
+    const rec = { at: new Date().toISOString(), name: String(u.name || '').slice(0, 80) };
+    if (vd.secret === false) rec.choice = choice;
+    tx.create(ballot, rec);
+    tx.set(r.tally, { [choice]: FieldValue.increment(1) }, { merge: true });
+    tx.update(r.vote, { voters: FieldValue.increment(1) });
+  });
+  return { ok: true };
+}
+
+/* A host's question, open at once (the meeting is happening). */
+export async function startQuick({ db, uid, data }) {
+  await mayHost(db, uid, data);
+  const question = String((data && data.question) || '').trim().slice(0, 300);
+  const choices = Array.from(new Set((Array.isArray(data.choices) ? data.choices : []).map((c) => String(c || '').trim().slice(0, 80)).filter(Boolean))).slice(0, 6);
+  if (!question) throw new HttpsError('invalid-argument', 'Type the question first.');
+  if (choices.length < 2) throw new HttpsError('invalid-argument', 'At least two choices.');
+  const now = new Date().toISOString();
+  const ref = await db.collection('meetings').doc(String(data.meeting)).collection('quickVotes').add({
+    question, choices, secret: data.secret !== false, status: 'open', voters: 0,
+    createdAt: now, createdBy: uid, openedAt: now, openedBy: uid });
+  return { ok: true, vote: ref.id };
+}
+
 export async function cast({ db, uid, data }) {
+  if (data && data.quick === true) return castQuick({ db, uid, data });
   const u = await who(db, uid);
   if (!isVoter(u)) throw new HttpsError('permission-denied', 'Only church members can vote. If you have joined the church, ask the office to tick it against your record.');
   const r = refs(db, data);
@@ -148,8 +221,14 @@ export async function unappoint({ db, uid, data }) {
   return { ok: true };
 }
 
-export async function open({ db, uid, data }) {
+/* A members' meeting's runner, or a quick vote's host. */
+async function mayRun(db, uid, data) {
+  if (data && data.quick === true) return mayHost(db, uid, data);
   if (!isRunner(await who(db, uid), await runnerTeams(db))) throw new HttpsError('permission-denied', RUNS);
+}
+
+export async function open({ db, uid, data }) {
+  await mayRun(db, uid, data);
   const r = refs(db, data);
   await db.runTransaction(async (tx) => {
     const v = await tx.get(r.vote);
@@ -161,7 +240,7 @@ export async function open({ db, uid, data }) {
 }
 
 export async function close({ db, uid, data }) {
-  if (!isRunner(await who(db, uid), await runnerTeams(db))) throw new HttpsError('permission-denied', RUNS);
+  await mayRun(db, uid, data);
   const r = refs(db, data);
   await db.runTransaction(async (tx) => {
     const [v, t] = await Promise.all([tx.get(r.vote), tx.get(r.tally)]);
@@ -187,3 +266,4 @@ export const voteClose = call(close);
 export const proxyAppoint = call(appoint);
 export const proxyCancel = call(unappoint);
 export const proxyPeople = call(people);
+export const voteQuick = call(startQuick);

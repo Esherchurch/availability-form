@@ -17,7 +17,12 @@
      answers). For church members (the address book's tick) and whoever runs
      them: master admins and the teams doing the office and trustees jobs. The page refuses
      anyone else itself (below); the rules (meetingMember/meetingRunner) and
-     the hub's vote functions (functions/meetings.js) are what hold. -->
+     the hub's vote functions (functions/meetings.js) are what hold.
+     THE BEFORE AND THE AFTER: the agenda's votes, papers and proxies
+     beforehand; the results and outcomes afterwards. The meeting itself,
+     and its voting, happen in the meeting (meeting.html with egbc-vote.js):
+     each members' meeting has a matching meeting, "cm-<id>", in its own
+     room (functions/members-meeting.js). -->
 <script src="egbc-guard.js?v=202610282000" data-feature="meetings"></script>
 <script src="egbc-launch.js?v=202610141700"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -97,8 +102,10 @@
   var stopVotes = null;
   /* PROXIES (PROXIES.md): GIVEN is my own proxy for this meeting, if I gave
      my vote to someone; HELD the votes I hold; PROXIES everyone's, for the
-     chair; DONE_FOR[vote|giver] the proxy ballots I have cast. */
-  var GIVEN = null, HELD = [], PROXIES = [], DONE_FOR = {}, PEOPLE = null, stopProxies = null;
+     chair. Proxy ballots are cast in the meeting (egbc-vote.js). */
+  var GIVEN = null, HELD = [], PROXIES = [], PEOPLE = null, stopProxies = null;
+  function callLink(m) { return 'meeting.html?room=' + encodeURIComponent('m-cm-' + m.id) + '&event=' + encodeURIComponent('cm-' + m.id); }
+  function voteLink(m) { return 'meeting.html?event=' + encodeURIComponent('cm-' + m.id) + '&vote=1'; }
   function votingStarted() { return VOTES.some(function (v) { return v.status === 'open' || v.status === 'closed'; }); }
 
   /* The team jobs are read before anyone is turned away or shown the controls. */
@@ -143,7 +150,7 @@
      Zoom details if it uses Zoom. */
   function watch() {
     if (stopVotes) { stopVotes(); stopVotes = null; }
-    VOTES = []; MINE = {}; JOIN = null; GIVEN = null; HELD = []; PROXIES = []; DONE_FOR = {};
+    VOTES = []; MINE = {}; JOIN = null; GIVEN = null; HELD = []; PROXIES = [];
     if (stopProxies) { stopProxies(); stopProxies = null; }
     if (!CUR) { draw(); return; }
     var mid = CUR.id;
@@ -156,7 +163,7 @@
         if (!memberId) return null;
         return db().collection('churchMeetings').doc(mid).collection('votes').doc(v.id).collection('ballots').doc(memberId).get()
           .then(function (b) { MINE[v.id] = b.exists; }, function () {});
-      })).then(heldBallots).then(draw);
+      })).then(draw);
     }, function () { draw(); });
     if (CUR.joinKind === 'zoom') {
       db().collection('churchMeetings').doc(mid).collection('private').doc('join').get()
@@ -174,19 +181,7 @@
     P.doc(memberId).get().then(function (d) { GIVEN = d.exists ? d.data() : null; draw(); }, function () {});
     P.where('holderId', '==', memberId).get().then(function (s) {
       HELD = s.docs.map(function (d) { var x = d.data(); x.id = d.id; return x; });
-      return heldBallots();
     }).then(draw, function () {});
-  }
-  /* Which of the votes I hold have I cast already? */
-  function heldBallots() {
-    if (!CUR || !HELD.length) return Promise.resolve();
-    var mid = CUR.id;
-    return Promise.all(VOTES.filter(function (v) { return v.status === 'open'; }).map(function (v) {
-      return Promise.all(HELD.map(function (h) {
-        return db().collection('churchMeetings').doc(mid).collection('votes').doc(v.id).collection('ballots').doc(h.id).get()
-          .then(function (b) { DONE_FOR[v.id + '|' + h.id] = b.exists; }, function () {});
-      }));
-    }));
   }
   function proxyCard() {
     if (!isMember() || !ME.memberId) return '';
@@ -201,7 +196,7 @@
       html += '<label for="pr-who">Who will vote for you?</label><select class="inp" id="pr-who"><option value="">Choose a church member</option>'
         + PEOPLE.map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>'; }).join('') + '</select>'
         + '<div class="btns"><button class="btn" data-proxy-appoint="1">Ask them to vote for me</button></div>'
-        + '<p class="hint">They vote for you at this meeting only, as well as for themselves. On a secret vote nobody, them included afterwards, can see how your vote was cast.</p>';
+        + '<p class="hint">They vote for you at this meeting only, as well as for themselves, in the meeting or on their phone. On a secret vote nobody, them included afterwards, can see how your vote was cast.</p>';
     } else {
       html += '<p class="hint">Ask another church member to vote for you at this meeting.</p><div class="btns"><button class="btn sec" data-proxy-choose="1">Choose someone</button></div>';
     }
@@ -222,23 +217,12 @@
     $('mm-sub').textContent = [dayWords(CUR.date), CUR.time, CUR.place].filter(Boolean).join(' · ');
     var html = '';
     VOTES.filter(function (v) { return v.status === 'open'; }).forEach(function (v) {
-      html += '<div class="card" data-vote="' + esc(v.id) + '"><h2>Vote now <span class="pill open">Open</span></h2>'
+      html += '<div class="card" data-vote="' + esc(v.id) + '"><h2>A vote is open <span class="pill open">Open</span></h2>'
         + '<div class="q">' + esc(v.question) + '</div>'
-        + '<p class="hint">' + (v.secret ? 'A secret vote: who has voted is kept, how they voted is never shown to anyone.'
-            : 'An open vote: once it closes, members can see who voted which way.') + '</p>'
         + (GIVEN ? '<div class="done">You asked ' + esc(GIVEN.holderName || 'someone') + ' to vote for you at this meeting.</div>'
-          : MINE[v.id] ? '<div class="done">✓ You have voted.' + (v.secret ? ' Nobody, the office included, can see how.' : '') + ' Results show here when the vote closes.</div>'
-          : (isMember() ? (v.choices || []).map(function (c) {
-              return '<button type="button" class="choice" data-cast="' + esc(c) + '">' + esc(c) + '</button>';
-            }).join('') + '<p class="hint">One vote each. You can’t change it once cast.</p>'
-            : '<p class="hint">Only church members vote.</p>'))
-        + HELD.map(function (h) {
-            return '<div class="pfor" data-for="' + esc(h.id) + '" style="margin-top:12px;border-top:1px solid var(--line-2);padding-top:10px">'
-              + '<p style="margin:0 0 6px;font-weight:600">Voting for ' + esc(h.giverName || 'a member') + '</p>'
-              + (DONE_FOR[v.id + '|' + h.id] ? '<div class="done">✓ Their vote is in.</div>'
-                : (v.choices || []).map(function (c) { return '<button type="button" class="choice" data-cast="' + esc(c) + '" data-cast-for="' + esc(h.id) + '">' + esc(c) + '</button>'; }).join(''))
-              + '</div>';
-          }).join('')
+          : MINE[v.id] ? '<div class="done">✓ You have voted. Results show here when the vote closes.</div>'
+          : '<p class="hint">Votes happen in the meeting. Join it, or if you are there in person, vote on your phone.</p>'
+            + '<div class="btns"><a class="btn" href="' + esc(callLink(CUR)) + '">Join the meeting</a><a class="btn sec" href="' + esc(voteLink(CUR)) + '">Vote on my phone</a></div>')
         + '</div>';
     });
     html += proxyCard();
@@ -250,9 +234,10 @@
           + '<p class="hint">' + (JOIN.zoomId ? 'Meeting ID ' + esc(JOIN.zoomId) : '') + (JOIN.passcode ? ' · Passcode ' + esc(JOIN.passcode) : '') + '</p>'
         : '<p class="hint">The Zoom details are not in yet.</p>';
     } else {
-      html += '<div class="btns"><a class="btn" href="meeting.html?room=' + encodeURIComponent(CUR.room || 'CMM') + '">Join the meeting</a></div>'
-        + '<p class="hint">You knock; the chair lets you in.</p>';
+      html += '<div class="btns"><a class="btn" href="' + esc(callLink(CUR)) + '">Join the meeting</a></div>'
+        + '<p class="hint">Votes pop up in the call when the chair opens them.</p>';
     }
+    html += '<p class="hint">There in person? <a href="' + esc(voteLink(CUR)) + '">Vote on your phone</a> (no video), or scan the QR code the chair shows.</p>';
     html += '</div>';
     /* Papers. */
     var papers = Array.isArray(CUR.papers) ? CUR.papers : [];
@@ -320,7 +305,7 @@
         + '<div><label>Secret or open?</label><div class="tog" role="group" aria-label="Secret or open">'
         + '<button type="button" id="v-secret" aria-pressed="true">Secret</button><button type="button" id="v-open" aria-pressed="false">Open</button></div>'
         + '<p class="hint">Secret: who voted is kept, how they voted is never shown, to anyone. Open: members see each person’s vote once it closes.</p></div>'
-        + '<div class="btns"><button class="btn" id="v-add">Save the vote</button></div></div>';
+        + '<div class="btns"><button class="btn" id="v-add">Save the vote</button></div><p class="hint">The chair opens each vote in the meeting.</p></div>';
       html += '<div class="card" id="run-proxies"><h2>Proxies <span class="hint">(' + PROXIES.length + ')</span></h2>'
         + (PROXIES.length ? PROXIES.map(function (p) {
             return '<div class="row"><span>' + esc(p.holderName || '?') + ' is voting for ' + esc(p.giverName || '?') + '</span></div>';
@@ -329,10 +314,10 @@
         html += '<div class="card" data-run="' + esc(v.id) + '"><h2>' + (v.status === 'open' ? 'Live' : v.status === 'closed' ? 'Closed' : 'Ready to open')
           + ' <span class="pill ' + (v.status === 'open' ? 'open' : '') + '">' + (v.secret ? 'Secret' : 'Open vote') + '</span></h2>'
           + '<div class="q">' + esc(v.question) + '</div>';
-        if (v.status === 'draft') html += '<div class="btns"><button class="btn" data-open="' + esc(v.id) + '">Open the vote</button><button class="btn sec" data-del="' + esc(v.id) + '">Remove</button></div>';
+        if (v.status === 'draft') html += '<p class="hint">The chair opens it in the meeting, with the Votes button.</p><div class="btns"><button class="btn sec" data-del="' + esc(v.id) + '">Remove</button></div>';
         if (v.status === 'open') html += '<div class="big">' + (v.voters || 0) + ' <span class="hint" style="font-size:14px">voted so far' + (v.byProxy ? ', ' + v.byProxy + ' by proxy' : '') + '</span></div>'
-          + '<p class="hint">' + (v.secret ? 'How anyone voted is never shown.' : 'How people voted shows once you close it.') + '</p>'
-          + '<div class="btns"><button class="btn" data-close="' + esc(v.id) + '">Close the vote and show the results</button></div>'
+          + '<p class="hint">' + (v.secret ? 'How anyone voted is never shown.' : 'How people voted shows once it closes.') + ' The chair closes it in the meeting.</p>'
+          + '<div class="btns"><a class="btn" href="' + esc(callLink(CUR)) + '">Go to the meeting</a></div>'
           + '<button type="button" class="past" data-who="' + esc(v.id) + '">Who has voted</button><div data-who-for="' + esc(v.id) + '"></div>';
         if (v.status === 'closed') html += '<div><label for="o-' + esc(v.id) + '">The outcome (as the chair announces it)</label>'
           + '<input class="inp" id="o-' + esc(v.id) + '" maxlength="200" value="' + esc(v.outcome || '') + '"></div>'
@@ -348,16 +333,6 @@
     var t = e.target.closest && e.target.closest('button,a');
     if (!t) return;
     var mid = CUR && CUR.id;
-    if (t.dataset.cast) {
-      var card = t.closest('[data-vote]'), vid = card && card.dataset.vote, forId = t.dataset.castFor || '';
-      card.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
-      var ask = { meeting: mid, vote: vid, choice: t.dataset.cast };
-      if (forId) ask.for = forId;
-      return A.call('castVote', ask).then(function () {
-        if (forId) { DONE_FOR[vid + '|' + forId] = true; toast('Their vote is in.'); } else { MINE[vid] = true; toast('Your vote is in.'); }
-        draw();
-      }, function (err) { toast((err && err.message) || 'Could not vote.'); draw(); });
-    }
     if (t.dataset.proxyChoose) {
       t.disabled = true;
       return A.call('proxyPeople', {}).then(function (r) { r = r && r.data !== undefined ? r.data : r; PEOPLE = (r && r.people) || []; draw(); },
@@ -405,8 +380,6 @@
     if (t.id === 'r-save') return saveMeeting(t);
     if (t.id === 'r-upload') return upload(t);
     if (t.id === 'v-add') return addVote(t);
-    if (t.dataset.open) { t.disabled = true; return A.call('voteOpen', { meeting: mid, vote: t.dataset.open }).then(function () { toast('The vote is open.'); }, function (err) { t.disabled = false; toast(err.message || 'Could not open it.'); }); }
-    if (t.dataset.close) { t.disabled = true; return A.call('voteClose', { meeting: mid, vote: t.dataset.close }).then(function () { toast('Closed. The results are showing.'); }, function (err) { t.disabled = false; toast(err.message || 'Could not close it.'); }); }
     if (t.dataset.del) { return db().collection('churchMeetings').doc(mid).collection('votes').doc(t.dataset.del).delete().catch(function (err) { toast(err.message); }); }
     if (t.dataset.who) {
       var w = document.querySelector('[data-who-for="' + t.dataset.who + '"]');
@@ -429,11 +402,12 @@
     var date = $('r-date').value;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { toast('Choose the date first.'); return; }
     var body = { title: $('r-title').value.trim() || 'Church Members’ Meeting', date: date, time: $('r-time').value,
-      place: $('r-place').value.trim(), joinKind: zoom ? 'zoom' : 'room', room: 'CMM', updatedAt: new Date().toISOString(), updatedBy: u.uid || '' };
+      place: $('r-place').value.trim(), joinKind: zoom ? 'zoom' : 'room', updatedAt: new Date().toISOString(), updatedBy: u.uid || '' };
     var zurl = zoom ? $('r-zurl').value.trim() : '';
     if (zurl && !/^https:\/\/\S+$/.test(zurl)) { toast('The Zoom link should start with https://'); return; }
     btn.disabled = true;
     var ref = CUR ? db().collection('churchMeetings').doc(CUR.id) : db().collection('churchMeetings').doc();
+    body.room = 'm-cm-' + ref.id;
     if (!CUR) { body.papers = []; body.status = 'planned'; body.createdAt = body.updatedAt; body.createdBy = body.updatedBy; }
     ref.set(body, { merge: true }).then(function () {
       return zoom ? ref.collection('private').doc('join').set({ zoomUrl: zurl, zoomId: $('r-zid').value.trim(), passcode: $('r-zpass').value.trim(),

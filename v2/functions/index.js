@@ -838,7 +838,9 @@ export { meetingOwnRoom, meetingOwnRoomChurch } from './meeting-rooms.js';
 import { dbForAddress } from './church-address.js';
 import { splitOne as splitMeeting, serviceKinds as meetingServiceKinds } from './meeting-split.js';
 export { orphanSweep } from './orphan-sweep.js';
-export { castVote, voteOpen, voteClose, proxyAppoint, proxyCancel, proxyPeople } from './meetings.js';
+export { castVote, voteOpen, voteClose, proxyAppoint, proxyCancel, proxyPeople, voteQuick } from './meetings.js';
+/* A members' meeting keeps a matching meeting, so its votes happen in the call. */
+export { membersMeetingSync, membersMeetingSyncChurch } from './members-meeting.js';
 /* Sermon plans, the other way: sermonLinks for the Preaching plan (F-229), the events window's file. */
 export { sermonLinkKeep } from './sermon-links.js';
 /* Building compliance: the colour for bookings, reminders and the monthly summary (F-233), the events window's file. */

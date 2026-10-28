@@ -654,24 +654,46 @@ service cloud.firestore {
       return active() && (isMaster() || (hasPerm('meetingsAll') && d.get('teams', []).size() > 0)
              || d.get('organiserUid', '') == request.auth.uid
              || me().get('memberId', '-') in d.get('invitees', [])
-             || myTeams().hasAny(d.get('teams', [])));
+             || myTeams().hasAny(d.get('teams', []))
+             // A members' meeting (functions/members-meeting.js): its members.
+             || (d.get('membersMeeting', false) == true && isChurchMember()));
     }
     match /meetings/{meetingId} {
       allow get: if meetingInvited(resource.data);
       // Somebody invited by name lists the meetings that name them, and
       // nothing else (a query on invitees with their own record's id).
       // Every other list is refused.
-      allow list: if active() && me().get('memberId', '-') in resource.data.get('invitees', []);
+      allow list: if active() && (me().get('memberId', '-') in resource.data.get('invitees', [])
+                                  || (resource.data.get('membersMeeting', false) == true && isChurchMember()));
       allow create, update: if (isAdmin() || onAnyTeam(request.resource.data.get('teams', []))
                                 || (resource != null && resource.data.get('organiserUid', '') == request.auth.uid)
                                 || (resource == null && request.resource.data.get('organiserUid', '') == request.auth.uid))
                    && request.resource.data.keys().hasOnly(['description', 'organiserUid', 'invitees', 'teams', 'date', 'startTime', 'endTime',
-                        'videoRoom', 'type', 'updatedAt', 'updatedBy'])
+                        'videoRoom', 'type', 'updatedAt', 'updatedBy', 'membersMeeting', 'churchMeeting'])
                    && request.resource.data.get('description', '') is string && request.resource.data.get('description', '').size() <= 2000
                    && request.resource.data.get('invitees', []) is list && request.resource.data.get('invitees', []).size() <= 500
                    && request.resource.data.get('teams', []) is list && request.resource.data.get('teams', []).size() <= 100
                    && (resource == null || request.resource.data.get('organiserUid', '') == resource.data.get('organiserUid', ''));
       allow delete: if isAdmin() || (resource != null && resource.data.get('organiserUid', '') == request.auth.uid);
+      // QUICK VOTES (functions/meetings.js): seen by the people invited;
+      // only the hub writes them, a ballot or a count. Your own ballot is
+      // yours to see; on an open vote, once it has closed, the invited see
+      // everyone's. The count is nobody's: for a secret vote it is the only
+      // place a choice exists.
+      match /quickVotes/{vid} {
+        allow read: if meetingInvited(get(/databases/$(database)/documents/meetings/$(meetingId)).data);
+        allow write: if false;
+        match /ballots/{uid} {
+          allow get: if request.auth != null && request.auth.uid == uid;
+          allow read: if meetingInvited(get(/databases/$(database)/documents/meetings/$(meetingId)).data)
+                      && get(/databases/$(database)/documents/meetings/$(meetingId)/quickVotes/$(vid)).data.secret == false
+                      && get(/databases/$(database)/documents/meetings/$(meetingId)/quickVotes/$(vid)).data.status == 'closed';
+          allow write: if false;
+        }
+        match /tally/{t} {
+          allow read, write: if false;
+        }
+      }
     }
     // A meeting's guest links (only their hashes) and who was emailed about
     // it (functions/meeting-manage.js): the server's alone. No page reads or

@@ -1115,14 +1115,19 @@ async function loadMeetings() {
   /* The Permissions screen's answers first: "meetingsAll" reaches somebody
      on no team too (27 Oct 2026). */
   if (EGBCAuth.loadPerms) await EGBCAuth.loadPerms().catch(() => {});
-  if (!isVolunteer() && !EGBCAuth.seesAllMeetings()) { UPCOMING = []; MEETINGS = []; renderPinBoardCard().catch(e => console.error('Pin board card failed', e && e.message)); return; }
+  const rota = isVolunteer() || EGBCAuth.seesAllMeetings();
+  if (!rota && !EGBCAuth.isChurchMember()) { UPCOMING = []; MEETINGS = []; renderPinBoardCard().catch(e => console.error('Pin board card failed', e && e.message)); return; }
   try {
     if (window.EGBCVideo) await EGBCVideo.load();
     const today = new Date().toISOString().split('T')[0];
-    const snap = await db.collection('events').where('date', '>=', today).orderBy('date').limit(150).get();
+    const snap = rota ? await db.collection('events').where('date', '>=', today).orderBy('date').limit(150).get() : { docs: [] };
     /* A meeting's title and organiser from its own part (the meetings split). */
     UPCOMING = (await EGBCAuth.meetingDetails(snap.docs.map(d => ({ id: d.id, ...d.data() })))).filter(ev => !ev.archived);
-    MEETINGS = UPCOMING.slice()
+    /* Members' meetings (functions/members-meeting.js), for a member on no team too. */
+    const mm = EGBCAuth.isChurchMember() ? await db.collection('meetings').where('membersMeeting', '==', true).get().catch(() => null) : null;
+    const extra = (mm ? mm.docs : []).filter(d => (d.data().date || '') >= today && !UPCOMING.some(ev => ev.id === d.id))
+      .map(d => Object.assign({ id: d.id, meeting: true }, d.data()));
+    MEETINGS = UPCOMING.concat(extra)
       /* Section 21: a members' meeting does not appear for an Attender. */
       .filter(ev => !ev.archived && videoRoomFor(ev) && meetingForMe(ev)
                     && EGBCAuth.mayJoinRoom(videoRoomFor(ev)))

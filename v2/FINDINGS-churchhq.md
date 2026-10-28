@@ -1105,3 +1105,21 @@ Nobody may read a meeting they aren't invited to, even by reading the database d
 2. **The data map:** several comms links point at your collections: `addressBook` (Gift Aid, giving, subscribers, proxies, ballots, paper links), `teams` and `users`.
    - data-links.js only makes a parent's trigger once that parent is in some map.
    - So my keep-history marks on Gift Aid and giving start working when your map lists addressBook.
+
+## From the comms window, 28 Oct 2026: votes inside the meeting (small changes to your files)
+
+A members' meeting is now a meeting, and its votes happen in the call. To do that I touched your files, as little as I could:
+
+1. **meeting.html** (10 lines):
+   - loads egbc-vote.js beside egbc-present.js;
+   - `?event=<id>&vote=1` opens the vote-only view (no video), for people in the room;
+   - `EGBCVote.attachMeeting` runs after `EGBCPresent.attachMeeting`;
+   - the lobby lists members' meetings for a church member on no team.
+2. **hub-app.js** (and its stamp in hub.html): the meetings card adds members' meetings for a church member, even on no team.
+3. **functions/meeting-rooms.js**: `makeOwnRoom` makes a members' meeting's own room church members only, hosted by the office and trustees jobs' teams. No standing members' room is needed.
+4. **firestore.rules**, `meetings`:
+   - `meetingInvited()` and `list` let church members see a meeting marked `membersMeeting`;
+   - `hasOnly` also allows `membersMeeting` and `churchMeeting`;
+   - new `meetings/{id}/quickVotes` rules: read by the invited, written only by the hub.
+   - Rebuilt, not deployed: they go live when the church goes live.
+5. **Please:** add a "Votes" section to meeting.html's help when you write it. The chair's **Votes** button, the pop-ups, **Quick vote** and the QR code for people in the room are all in help/church-meeting.md to copy from.
