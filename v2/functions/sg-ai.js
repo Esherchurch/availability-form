@@ -41,6 +41,8 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { londonDay, registerOn, maySee } from './sg-warnings.js';
 /* the key, the caps, the log, set-up problems and the call itself: the shared engine's (H&S step 1), with this register's own records */
+import { churchOf } from './church-scope.js';
+import { churchBucket } from './church-files.js';
 import { aiPlumbing, callModel as callOnce, setupProblem as setupProblemOf } from './ra-ai.js';
 
 const require = createRequire(import.meta.url);
@@ -222,8 +224,9 @@ export async function extractRequirements({ db: dbi, uid, data, api, bucket }) {
 }
 export const sgExtractRequirements = onCall({ region: REGION, secrets: [CHQ_ANTHROPIC_API_KEY], timeoutSeconds: 180 }, async (req) => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Please sign in.');
-  if (!(await registerOn(db()))) throw new HttpsError('failed-precondition', 'Safeguarding, or its risk register, is turned off for this church.');
-  return extractRequirements({ db: db(), uid: req.auth.uid, data: req.data });
+  const ch = churchOf(req, db()), D = ch.db, B = churchBucket(getStorage().bucket(), ch.id);
+  if (!(await registerOn(D))) throw new HttpsError('failed-precondition', 'Safeguarding, or its risk register, is turned off for this church.');
+  return extractRequirements({ db: D, uid: req.auth.uid, data: req.data, bucket: B });
 });
 /* ---- THE HOST'S REQUIREMENTS FROM THEIR WEB PAGES, OR PASTED TEXT (S6, F-280 10.6) ----
    Newday has no single document, only help pages. The pages are read by
@@ -337,39 +340,43 @@ export async function extractFromWeb({ db: dbi, uid, data, api, bucket, deps }) 
 }
 export const sgRequirementsFromLinks = onCall({ region: REGION, secrets: [CHQ_ANTHROPIC_API_KEY], timeoutSeconds: 180 }, async (req) => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Please sign in.');
-  if (!(await registerOn(db()))) throw new HttpsError('failed-precondition', 'Safeguarding, or its risk register, is turned off for this church.');
-  return extractFromWeb({ db: db(), uid: req.auth.uid, data: req.data });
+  const ch = churchOf(req, db()), D = ch.db, B = churchBucket(getStorage().bucket(), ch.id);
+  if (!(await registerOn(D))) throw new HttpsError('failed-precondition', 'Safeguarding, or its risk register, is turned off for this church.');
+  return extractFromWeb({ db: D, uid: req.auth.uid, data: req.data, bucket: B });
 });
 /* the original file back, for those who can see the assessment */
 export const sgRequirementsFile = onCall({ region: REGION }, async (req) => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Please sign in.');
+  const ch = churchOf(req, db()), D = ch.db, B = churchBucket(getStorage().bucket(), ch.id);
   const calEventId = String((req.data || {}).calEventId || '');
   if (!calEventId || calEventId.includes('/')) throw new HttpsError('invalid-argument', 'Which event?');
-  const a = (await db().collection('sgAssessments').doc(calEventId).get()).data();
+  const a = (await D.collection('sgAssessments').doc(calEventId).get()).data();
   if (!a || !a.host || !a.host.file) throw new HttpsError('not-found', 'No file has been added.');
-  const w = await whoFor(db(), req.auth.uid, calEventId);
-  if (!w.ok && !(await maySee(db(), req.auth.uid, a.siteId))) throw new HttpsError('permission-denied', 'This is for those who can see the assessment.');
-  const [buf] = await getStorage().bucket().file(a.host.file.path).download();
+  const w = await whoFor(D, req.auth.uid, calEventId);
+  if (!w.ok && !(await maySee(D, req.auth.uid, a.siteId))) throw new HttpsError('permission-denied', 'This is for those who can see the assessment.');
+  const [buf] = await B.file(a.host.file.path).download();
   return { name: a.host.file.name, type: a.host.file.type, data: buf.toString('base64') };
 });
 
 export const sgDraftAssessment = onCall({ region: REGION, secrets: [CHQ_ANTHROPIC_API_KEY], timeoutSeconds: 180 }, async (req) => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Please sign in.');
-  if (!(await registerOn(db()))) throw new HttpsError('failed-precondition', 'Safeguarding, or its risk register, is turned off for this church.');
-  return draftAssessment({ db: db(), uid: req.auth.uid, data: req.data });
+  const ch = churchOf(req, db()), D = ch.db, B = churchBucket(getStorage().bucket(), ch.id);
+  if (!(await registerOn(D))) throw new HttpsError('failed-precondition', 'Safeguarding, or its risk register, is turned off for this church.');
+  return draftAssessment({ db: D, uid: req.auth.uid, data: req.data });
 });
 
 export const sgAiStatus = onCall({ region: REGION, secrets: [CHQ_ANTHROPIC_API_KEY] }, async (req) => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Please sign in.');
+  const ch = churchOf(req, db()), D = ch.db, B = churchBucket(getStorage().bucket(), ch.id);
   const calEventId = String((req.data || {}).calEventId || '');
   if (!calEventId || calEventId.includes('/')) throw new HttpsError('invalid-argument', 'Which event?');
-  const w = await whoFor(db(), req.auth.uid, calEventId);
+  const w = await whoFor(D, req.auth.uid, calEventId);
   if (!w.ok) return { state: 'notallowed' };
-  if (!(await registerOn(db()))) return { state: 'off', message: 'AI drafting is part of the safeguarding risk register, which is turned off for this church. Write the assessment from a template instead.' };
-  const api = await apiOf(db());
+  if (!(await registerOn(D))) return { state: 'off', message: 'AI drafting is part of the safeguarding risk register, which is turned off for this church. Write the assessment from a template instead.' };
+  const api = await apiOf(D);
   if (!api.apiKey) return { state: 'notset', message: Core.WORDS.notSet };
-  if (await broken(db(), api.apiKey)) return { state: 'broken', message: Core.WORDS.broken };
-  const st = (await db().collection('safeguardingSettings').doc('defaults').get()).data() || {}, cap = Core.caps(st);
-  if (await usedUp(db(), req.auth.uid, cap)) return { state: 'capped', message: Core.WORDS.capped };
+  if (await broken(D, api.apiKey)) return { state: 'broken', message: Core.WORDS.broken };
+  const st = (await D.collection('safeguardingSettings').doc('defaults').get()).data() || {}, cap = Core.caps(st);
+  if (await usedUp(D, req.auth.uid, cap)) return { state: 'capped', message: Core.WORDS.capped };
   return { state: 'ready' };
 });

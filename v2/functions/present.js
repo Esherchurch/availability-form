@@ -30,14 +30,18 @@ import { getStorage } from 'firebase-admin/storage';
 import { GoogleAuth } from 'google-auth-library';
 import { postJson } from './longpost.js';
 import { mayHost, EGBC_ROOMS, EGBC_BY_TYPE } from './video.js';
+import { churchOf, eachChurch } from './church-scope.js';
+import { churchBucket } from './church-files.js';
 /* how long a function waits for the converter: its 900 s, and a little over */
 const CONVERTER_WAIT_MS = 960 * 1000;
 
 const REGION = 'europe-west2';
 const EMULATOR = !!process.env.FUNCTIONS_EMULATOR;
+/* EVERY CHURCH (H-6): a call works in its sign-in's church (churchOf), its
+   decks and notes in the church's own data and its files under
+   churches/<id>/present/ (church-files.js); the converter is told which
+   church. EGBC's, with no church: the top level, exactly as before. */
 const db = () => getFirestore();
-
-async function me(uid) { const d = await db().collection('users').doc(uid).get(); return d.exists ? d.data() : {}; }
 
 /* May this person present in this context? The rules say the same. */
 export async function mayPresent(dbi, uid, ctx) {
@@ -87,7 +91,8 @@ async function converterUrl(dbi) {
 async function callConverter(dbi, deckId, link) {
   const url = await converterUrl(dbi);
   if (!url) throw new HttpsError('failed-precondition', 'The slide converter is not set up yet (CONVERTER_URL).');
-  const payload = link ? { deckId, link } : { deckId };
+  /* the church from the sign-in, never from the page: only these functions may call the converter */
+  const payload = Object.assign(link ? { deckId, link } : { deckId }, dbi.churchId ? { churchId: dbi.churchId } : {});
   /* one request that may take the converter's whole 900 s (a long video):
      not fetch, which gives up at 300 s (longpost.js, F-259) */
   const headers = {};
@@ -103,22 +108,23 @@ async function callConverter(dbi, deckId, link) {
   return r.json;
 }
 
-async function deckFor(uid, deckId) {
+async function deckFor(D, uid, deckId) {
   if (!/^[A-Za-z0-9_-]{6,60}$/.test(String(deckId || ''))) throw new HttpsError('invalid-argument', 'Which deck?');
-  const ref = db().collection('presentDecks').doc(deckId), d = (await ref.get()).data();
+  const ref = D.collection('presentDecks').doc(deckId), d = (await ref.get()).data();
   if (!d) throw new HttpsError('not-found', 'That deck could not be found.');
-  if (!(await mayPresent(db(), uid, d.context))) throw new HttpsError('permission-denied', 'Only the people who may present here can add slides.');
-  if (!(await launched(db()))) throw new HttpsError('failed-precondition', 'Slides can be added when the hub goes live.');
+  if (!(await mayPresent(D, uid, d.context))) throw new HttpsError('permission-denied', 'Only the people who may present here can add slides.');
+  if (!(await launched(D))) throw new HttpsError('failed-precondition', 'Slides can be added when the hub goes live.');
   return { ref, d };
 }
 
 export const presentConvert = onCall({ region: REGION, timeoutSeconds: 1000, memory: '256MiB' }, async (req) => {
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Please sign in.');
-  const { ref, d } = await deckFor(uid, (req.data || {}).deckId);
+  const D = churchOf(req, db()).db;
+  const { ref, d } = await deckFor(D, uid, (req.data || {}).deckId);
   if (d.sourceDeletedAt) throw new HttpsError('failed-precondition', 'The PowerPoint file itself was cleared 30 days after the session; the slides and video are still here to show. To make new slides, add the file again.');
   await ref.update({ status: 'converting', why: '' });
-  return callConverter(db(), ref.id);
+  return callConverter(D, ref.id);
 });
 
 /* A OneDrive or SharePoint share link -> the file itself. "Anyone with the
@@ -138,11 +144,12 @@ export function directLink(url) {
 export const presentFromLink = onCall({ region: REGION, timeoutSeconds: 1000, memory: '256MiB' }, async (req) => {
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Please sign in.');
-  const { ref } = await deckFor(uid, (req.data || {}).deckId);
+  const D = churchOf(req, db()).db;
+  const { ref } = await deckFor(D, uid, (req.data || {}).deckId);
   const url = String((req.data || {}).url || '').trim();
   if (!directLink(url)) throw new HttpsError('invalid-argument', 'Paste a OneDrive or SharePoint link to the PowerPoint.');
   await ref.update({ status: 'fetching', why: '', source: 'onedrive', link: url.slice(0, 500) });
-  return callConverter(db(), ref.id, url);
+  return callConverter(D, ref.id, url);
 });
 
 /* A meeting's deck goes 30 days after the meeting, unless kept (Martin, 20 Oct). */
@@ -200,13 +207,16 @@ export const presentLeave = onRequest({ region: REGION, invoker: 'public', memor
   if (req.method !== 'POST') { res.status(405).end(); return; }
   try {
     const raw = typeof req.body === 'string' ? req.body : (req.rawBody ? req.rawBody.toString('utf8') : JSON.stringify(req.body || {}));
-    const { idToken, key } = JSON.parse(raw || '{}');
+    const { idToken, key, churchId } = JSON.parse(raw || '{}');
     const t = await getAuth().verifyIdToken(String(idToken || ''));
-    const r = await leaveMeeting({ db: db(), uid: t.uid, key: String(key || '') });
+    /* the page's church, checked against the sign-in as a call's is */
+    const D = churchOf({ auth: { uid: t.uid, token: t }, data: churchId ? { churchId } : {} }, db()).db;
+    const r = await leaveMeeting({ db: D, uid: t.uid, key: String(key || '') });
     res.status(r.done ? 204 : 400).end();
   } catch (e) { res.status(401).end(); }
 });
 
 export const presentSweep = onSchedule({ region: REGION, schedule: '15 4 * * *', timeZone: 'Europe/London', retryCount: 1 }, async () => {
-  await runPresentSweep({ db: db(), bucket: getStorage().bucket() });
+  const bucket = getStorage().bucket();
+  await eachChurch(db(), (ch) => runPresentSweep({ db: ch.db, bucket: churchBucket(bucket, ch.id) }));
 });

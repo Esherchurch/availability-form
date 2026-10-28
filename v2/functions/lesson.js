@@ -40,16 +40,21 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
+import { churchOf } from './church-scope.js';
+import { churchBucket } from './church-files.js';
 
 const REGION = 'europe-west2';
+/* EVERY CHURCH (H-6): a church's ChurchShow computer carries its church in
+   its sign-in (churchshow.js claimsFor), so its lessons come from that
+   church's own data and files (churches/<id>/planner/...). */
 const db = () => getFirestore();
 const LINK_MS = 3 * 60 * 60 * 1000;
 const EMULATOR = !!process.env.FUNCTIONS_EMULATOR;
 
-async function device(req) {
+async function device(req, D) {
   const a = req.auth;
   if (!a || !a.token || a.token.device !== 'churchshow') throw new HttpsError('permission-denied', 'Only a paired ChurchShow computer can ask for lessons.');
-  const d = await db().collection('devices').doc(a.uid).get();
+  const d = await D.collection('devices').doc(a.uid).get();
   const x = d.exists ? d.data() : null;
   if (!x || x.active !== true) throw new HttpsError('permission-denied', 'This ChurchShow computer has been disconnected on the hub.');
   const siteId = String(x.siteId || '');
@@ -57,10 +62,15 @@ async function device(req) {
   return { siteId };
 }
 
-/* A short-lived link to a file the plan holds (by its Storage path). */
-async function link(path) {
+/* A short-lived link to a file the plan holds (by its Storage path, as the
+   page stored it: under the church's folder for a church). */
+async function link(path, churchId) {
+  const pre = churchId ? 'churches/' + churchId + '/' : '';
+  path = String(path || '');
+  if (pre && path.startsWith(pre)) path = path.slice(pre.length);
   if (!path || !/^planner\//.test(path)) return '';
-  const file = getStorage().bucket().file(path);
+  const file = churchBucket(getStorage().bucket(), churchId).file(path);
+  path = pre + path;
   const expires = Date.now() + LINK_MS;
   if (EMULATOR) {
     /* The Storage emulator cannot sign; it serves the file by its path. The
@@ -86,32 +96,33 @@ const KEEP = {
   link: ['url', 'label']
 };
 /* A song's words, read once per call however many steps use it. */
-async function songOf(id, seen) {
+async function songOf(id, seen, D) {
   id = String(id || '');
   if (!id || id.indexOf('/') >= 0) return null;
-  if (!(id in seen)) seen[id] = db().collection('songs').doc(id).get().then(d => {
+  if (!(id in seen)) seen[id] = (D || db()).collection('songs').doc(id).get().then(d => {
     if (!d.exists) return null;
     const x = d.data();
     return { title: String(x.title || ''), artist: String(x.artist || ''), ccli: String(x.ccli || ''), lyrics: String(x.lyrics || '') };
   });
   return seen[id];
 }
-export async function step(st, part, n, seen = {}) {
+export async function step(st, part, n, seen = {}, D = null) {
+  const cid = D && D.churchId ? D.churchId : null;
   const keep = KEEP[st.type]; if (!keep) return null;
   const out = { part: String(part.title || part.kind || ''), partId: String(part.id || ''), n, type: st.type };
   keep.forEach(k => { if (st[k] !== undefined && st[k] !== null && st[k] !== '') out[k] = st[k]; });
   /* Bible Gateway: the reference only, never text. */
   if ((st.type === 'verses' || st.type === 'memory') && st.source === 'biblegateway') { delete out.text; delete out.copyright; }
   /* Files and video: a fresh short-lived link, never the stored one. */
-  if (st.type === 'video' || st.type === 'picture') { out.url = await link(st.path); out.expiresInMinutes = LINK_MS / 60000; }
-  if (st.type === 'pptx' && st.path) out.fileUrl = await link(st.path);
-  if (st.type === 'song') { const w = await songOf(st.songId, seen); if (w) out.song = w; }
+  if (st.type === 'video' || st.type === 'picture') { out.url = await link(st.path, cid); out.expiresInMinutes = LINK_MS / 60000; }
+  if (st.type === 'pptx' && st.path) out.fileUrl = await link(st.path, cid);
+  if (st.type === 'song') { const w = await songOf(st.songId, seen, D); if (w) out.song = w; }
   return out;
 }
-export async function lessonOf(id, s, g) {
+export async function lessonOf(id, s, g, D = null) {
   let n = 0;
   const steps = [], seen = {};
-  for (const p of (s.parts || [])) for (const st of (p.show || [])) { const x = await step(st, p, ++n, seen); if (x) steps.push(x); }
+  for (const p of (s.parts || [])) for (const st of (p.show || [])) { const x = await step(st, p, ++n, seen, D); if (x) steps.push(x); }
   const pa = s.passage || null;
   return {
     format: 'egbc-lesson/1', id, group: { id: s.groupId, name: g.name || '', ages: [g.ageFrom || 0, g.ageTo || 0] },
@@ -123,12 +134,13 @@ export async function lessonOf(id, s, g) {
 }
 
 export const lessonFor = onCall({ region: REGION }, async (req) => {
-  const dev = await device(req);
+  const D = churchOf(req, db()).db;
+  const dev = await device(req, D);
   const d = req.data || {};
   const date = String(d.date || '');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new HttpsError('invalid-argument', 'A date, as YYYY-MM-DD.');
   /* This building's groups only. */
-  const gs = await db().collection('planGroups').where('siteId', '==', dev.siteId).get();
+  const gs = await D.collection('planGroups').where('siteId', '==', dev.siteId).get();
   const groups = {};
   gs.docs.forEach(x => { if (!x.data().archived) groups[x.id] = x.data(); });
   if (d.groupId !== undefined && d.groupId !== '') {
@@ -139,11 +151,11 @@ export const lessonFor = onCall({ region: REGION }, async (req) => {
   const ids = Object.keys(groups);
   const lessons = [];
   for (let i = 0; i < ids.length; i += 10) {
-    const snap = await db().collection('planSessions').where('date', '==', date).where('groupId', 'in', ids.slice(i, i + 10)).get();
+    const snap = await D.collection('planSessions').where('date', '==', date).where('groupId', 'in', ids.slice(i, i + 10)).get();
     for (const doc of snap.docs) {
       const s = doc.data();
       if (s.special === 'none') continue;
-      lessons.push(await lessonOf(doc.id, s, groups[s.groupId] || {}));
+      lessons.push(await lessonOf(doc.id, s, groups[s.groupId] || {}, D));
     }
   }
   lessons.sort((a, b) => a.group.name.localeCompare(b.group.name));

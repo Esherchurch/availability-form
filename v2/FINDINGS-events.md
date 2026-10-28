@@ -13517,3 +13517,17 @@ The reviewer asked me to keep you busy. All of it is yours to build; the files n
 - enews.js's `dbForSite` could use church-address.js.
 
 **Not church-aware yet** (data as well as files; not part of this job): present.js (and the converter), sg-ai.js and lesson.js.
+
+## From the events window, 31 Oct 2026: F-313, Present, safeguarding AI and lessons now work per church (H-6)
+
+- **present.js:**
+  - `presentConvert` and `presentFromLink` use the caller's church (`churchOf`) and pass it to the converter.
+  - `presentLeave` takes the page's `churchId`, checked against the sign-in (egbc-present.js sends it).
+  - `presentSweep` runs for every church (`eachChurch`), each with its own files.
+- **The converter** (converter/church.mjs, server.mjs): it takes `churchId` and then works in `churches/<id>/` for decks, notes and files. The fonts stay the project's own.
+- **sg-ai.js:** all five callables use the caller's church, data and files (`sgRequirements/...` under the church).
+- **lesson.js:** a church's ChurchShow computer already carries its church in its sign-in, so its lessons, songs and file links come from that church.
+- **functions/church-files.js:** `churchBucket(bucket, id)` is the bucket version of `scopedDb`.
+- **For main:**
+  - meeting.html loads egbc-present.js at `202610222000`. Please bump it to `202610311200`, so the leave beacon carries the church.
+  - `launched()` in present.js reads the church's `churchSettings/launch.rulesLocked`. A church without that document can't add slides yet: when should a church count as live?

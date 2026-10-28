@@ -712,7 +712,7 @@
     var left = false;
     var onLeave = function () {
       if (left) return; left = true;
-      if (tok && navigator.sendBeacon) { try { navigator.sendBeacon(leaveUrl(), new Blob([JSON.stringify({ idToken: tok, key: key })], { type: 'text/plain' })); } catch (e) {} }
+      if (tok && navigator.sendBeacon) { try { navigator.sendBeacon(leaveUrl(), new Blob([JSON.stringify({ idToken: tok, key: key, churchId: (EGBCAuth.churchId && EGBCAuth.churchId()) || '' })], { type: 'text/plain' })); } catch (e) {} }
       var b = db.batch(), stopping = S && S.presenterUid === me.uid;
       /* the host's say-so ends with them, and so does that person's presenting */
       if (m.host) allowed.filter(function (a) { return a.by === me.uid; }).forEach(function (a) {
