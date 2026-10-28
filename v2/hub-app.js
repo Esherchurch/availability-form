@@ -1120,7 +1120,8 @@ async function loadMeetings() {
     if (window.EGBCVideo) await EGBCVideo.load();
     const today = new Date().toISOString().split('T')[0];
     const snap = await db.collection('events').where('date', '>=', today).orderBy('date').limit(150).get();
-    UPCOMING = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(ev => !ev.archived);
+    /* A meeting's title and organiser from its own part (the meetings split). */
+    UPCOMING = (await EGBCAuth.meetingDetails(snap.docs.map(d => ({ id: d.id, ...d.data() })))).filter(ev => !ev.archived);
     MEETINGS = UPCOMING.slice()
       /* Section 21: a members' meeting does not appear for an Attender. */
       .filter(ev => !ev.archived && videoRoomFor(ev) && meetingForMe(ev)
@@ -2553,7 +2554,7 @@ const REGISTRY = [
     description: 'Watch your team\'s videos, and search inside them' },
   { url: 'data-tools.html', title: 'Backup & Restore', icon: '\u{1F4BE}', team: 'Core Team', adminOnly: true,
     description: 'Take a copy of everything, or put one back' },
-  { url: 'meeting.html', title: 'Meetings', icon: '\u{1F4F9}', team: 'Core Team', everyone: true,
+  { url: 'meeting.html', title: 'Meetings', icon: '\u{1F4F9}', team: 'Core Team',
     description: 'Video meetings - your upcoming calls and your meeting rooms' }
 ];
 

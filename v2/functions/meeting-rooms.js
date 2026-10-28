@@ -32,7 +32,10 @@ import { dailyName, londonMs } from './video.js';
 export const roomOf = (ev, byType) => (ev.videoRoom !== undefined ? ev.videoRoom : ((byType || {})[ev.type] || ''));
 export const OWN = (id) => 'm-' + id;
 export const isOwn = (key) => /^m-/.test(String(key || ''));
-export const titleOf = (ev) => String(ev.type || 'Meeting') + (ev.description ? ' · ' + ev.description : '');
+/* Only the kind: a room's label (churchSettings/video) and an event's
+   ownRoom are read by the whole church, and a meeting's own words are not
+   theirs to read (the meetings split, 28 Oct 2026). */
+export const titleOf = (ev) => String(ev.type || 'Meeting');
 
 /* A meeting's time, London wall-clock: start to end, an hour if it has no end. */
 export function span(ev) {

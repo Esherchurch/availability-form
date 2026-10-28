@@ -1,6 +1,6 @@
 # Who sees what: the access matrix
 
-Made from the code by `node tools/access-matrix.mjs` on 2026-10-27, signed in as made-up people on the emulator (FINDINGS-churchhq H-16). The Menu counts only where the hub gives the person a way to open it.
+Made from the code by `node tools/access-matrix.mjs` on 2026-10-28, signed in as made-up people on the emulator (FINDINGS-churchhq H-16). The Menu counts only where the hub gives the person a way to open it.
 
 **✓** in their Menu, and the page lets them in · **–** not in their Menu · **⚠ in their Menu, but the page refuses them (always a bug)** · **◐ not in their Menu, but the page would let them in** (reached from somewhere else, or a gap)
 
@@ -24,6 +24,7 @@ Martin's decisions first; "(reviewer)" marks the reviewer's findings of 27 Oct, 
 - (reviewer) **Payments: the money team (EGBC: Finance) and master admins** (payments.html): matches
 - (reviewer) **Connect ChurchShow: admins of AV or Worship (an admin of the core team covering them too, H-15), and master admins** (churchshow.html): matches
 - (reviewer) **Check-in: core team admins, the event's own team, master admins** (checkin.html): matches
+- **Meetings: anybody on or leading a team, whoever may see every meeting, and master admins (each sees only the meetings they are invited to)** (meeting.html): Kids Ch should not, Kids lead should not, Worship should not, Wor lead should not, Wor admin should not, Kids admin should not, Core admin should not, AV should not, Wor core should not, K&Y core should not, Office should not, Elders should not, Finance should not, Pastoral should not, Master should not
 - (reviewer) **Your church: master admins** (your-church.html): matches
 - **Performance Notes (and the Schematic and Performance apps on Apps and downloads): the Worship and AV teams, their admins, the core teams covering them, master admins** (Performancenotes.html): matches
 - (reviewer) **Registers: core team admins, the event's own team, master admins** (attendance.html): matches
@@ -69,7 +70,7 @@ Martin's decisions first; "(reviewer)" marks the reviewer's findings of 27 Oct, 
 | E-news <small>(enews.html)</small> | no guard | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | ✓ |
 | Card maker <small>(cardmaker.html)</small> | no guard | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | ✓ |
 | From Canva <small>(canva.html)</small> | no guard | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | ✓ |
-| Meetings <small>(meeting.html)</small> | no guard | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Meetings <small>(meeting.html)</small> | no guard | – | – | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – | – | – | – | ✓ |
 
 ## Events and rooms
 

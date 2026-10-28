@@ -138,7 +138,15 @@ export const rotaFeed = onRequest({ cors: false, invoker: 'public' }, async (req
     } else {
       const memberSnap = await fdb.collection('addressBook').doc(memberId).get();
       const member = memberSnap.exists ? memberSnap.data() : null;
-      body = buildFeed({ events, memberId, member });
+      /* The person's own feed lists only what they are invited to, so a
+         meeting's title comes back from its own part (the meetings split);
+         the household and full feeds never carry it. */
+      const withTitles = await Promise.all(events.map(async (ev) => {
+        if (!ev || ev.meeting !== true || !ev.id) return ev;
+        const m = await fdb.collection('meetings').doc(ev.id).get().catch(() => null);
+        return m && m.exists ? Object.assign({}, ev, { description: m.data().description || '', organiserUid: m.data().organiserUid || '' }) : ev;
+      }));
+      body = buildFeed({ events: withTitles, memberId, member });
     }
 
     /* text/calendar is what makes a browser offer to add it rather than show
@@ -443,19 +451,30 @@ function orThrow(result) {
   return result;
 }
 
-export const findMe = onCall(async (request) => orThrow(await findMeIn(db, {
+/* THE CHURCH FROM THE ADDRESS (H-6 step 4; events' church-address.js): the
+   form on <church>.churchhq.co.uk is that church's, signed in or not - its
+   address book, its dates, its answers. EGBC's address, and every address
+   today, is EGBC's top level, as before. A church address nobody has is
+   refused. The token findMe gives is checked in the same church. */
+async function formDb(request) {
+  const cdb = await dbForAddress(db, request.rawRequest);
+  if (!cdb) throw new HttpsError('not-found', 'This church’s address isn’t on Church HQ.');
+  return cdb;
+}
+
+export const findMe = onCall(async (request) => orThrow(await findMeIn(await formDb(request), {
   email: (request.data || {}).email,
   ip: callerIp(request.rawRequest),
   nowMs: Date.now()
 })));
 
-export const myDates = onCall(async (request) => orThrow(await myDatesIn(db, {
+export const myDates = onCall(async (request) => orThrow(await myDatesIn(await formDb(request), {
   token: (request.data || {}).token,
   memberId: (request.data || {}).memberId,
   nowMs: Date.now()
 })));
 
-export const saveAnswer = onCall(async (request) => orThrow(await saveAnswerIn(db, {
+export const saveAnswer = onCall(async (request) => orThrow(await saveAnswerIn(await formDb(request), {
   token: (request.data || {}).token,
   memberId: (request.data || {}).memberId,
   eventId: (request.data || {}).eventId,
@@ -664,6 +683,12 @@ export const [under18OnTeam, under18OnTeamChurch] = makeUnder18Triggers(twins).t
 /* WHO MAY DO WHAT (H-14): each person's permissions on their sign-in, for
    the Storage rules (functions/permissions.js). */
 const permsToday = () => londonDay(new Date());
+/* THE MEETINGS SPLIT (Martin, 28 Oct 2026): a meeting's own words never
+   stay on its rota event (functions/meeting-split.js). */
+export const [meetingSplit, meetingSplitChurch] = twins(onDocumentWritten, 'events/{id}', async (ch, event) => {
+  if (!event.data.after.exists) return dropMeeting(ch.db, event.params.id);
+  return splitMeeting(ch.db, event.params.id, event.data.after.data(), await meetingServiceKinds(ch.db));
+});
 export const [permsOnSettings, permsOnSettingsChurch] = twins(onDocumentWritten, 'churchSettings/{id}', async (ch, event) => {
   if (!['permissions', 'teamJobs'].includes(event.params.id)) return;
   return Perms.syncAll({ db: ch.db, auth: getAuth(), cid: ch.id, today: permsToday() });
@@ -808,6 +833,8 @@ export { compilerSend } from './compiler-send.js';
 export { videoRoomsEnsure, meetingHostToken } from './video.js';
 /* Two meetings never share a link at the same time (27 Oct 2026). */
 export { meetingOwnRoom, meetingOwnRoomChurch } from './meeting-rooms.js';
+import { dbForAddress } from './church-address.js';
+import { splitOne as splitMeeting, dropOne as dropMeeting, serviceKinds as meetingServiceKinds } from './meeting-split.js';
 export { castVote, voteOpen, voteClose, proxyAppoint, proxyCancel, proxyPeople } from './meetings.js';
 /* Sermon plans, the other way: sermonLinks for the Preaching plan (F-229), the events window's file. */
 export { sermonLinkKeep } from './sermon-links.js';

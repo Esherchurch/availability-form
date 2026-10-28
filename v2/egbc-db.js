@@ -53,7 +53,7 @@
 import './egbc-nosend.js';
 
 import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, connectFirestoreEmulator, doc as docRef } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, connectFirestoreEmulator, doc as docRef, getDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 import { getStorage, connectStorageEmulator, ref as storageRef } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
 import { getAuth, connectAuthEmulator, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 import { getFunctions, connectFunctionsEmulator, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js';
@@ -89,11 +89,22 @@ export const firestore = (function () {
   }
 })();
 
-/* WHICH CHURCH (H-6 step 2), by the same rule as egbc-auth.js: ?church=<id>
+/* WHICH CHURCH (H-6 steps 2 and 4), by the same rules as egbc-auth.js. On
+   <slug>.churchhq.co.uk the address decides (the slug first; `ready` then
+   asks hqSlugs and corrects it - events' F-312). Otherwise ?church=<id>
    chooses it and is remembered on this device, ?church=egbc forgets it, and
-   egbc-auth.js forgets one the sign-in does not carry. */
-export const churchId = (function () {
+   egbc-auth.js forgets one the sign-in does not carry. On a local test,
+   ?address=<slug> stands in for the address. */
+const NOT_CHURCH_HOSTS = ['egbc', 'www', 'account', 'hub', 'hq', 'app'];
+export const address = (function () {
+  const h = String(location.hostname || '').toLowerCase(), m = /^([a-z0-9][a-z0-9-]{0,40}).churchhq.co.uk$/.exec(h);
+  let s = m ? m[1] : '';
+  if (!s && (h === 'localhost' || h === '127.0.0.1')) { try { s = new URLSearchParams(location.search).get('address') || ''; } catch (e) {} }
+  return /^[a-z0-9][a-z0-9-]{0,40}$/.test(s) && !NOT_CHURCH_HOSTS.includes(s) ? s : '';
+})();
+export let churchId = (function () {
   const ok = (v) => /^[a-z0-9][a-z0-9-]{1,40}$/.test(String(v || '')) && v !== 'egbc';
+  if (address) return address;
   let asked = null;
   try { asked = new URLSearchParams(location.search).get('church'); } catch (e) {}
   try {
@@ -110,7 +121,19 @@ export const churchId = (function () {
    collection() and doc() take a document as the parent. writeBatch,
    runTransaction and collectionGroup need the database itself: use
    `firestore` for those (no modular page does today). */
-export const db = churchId ? docRef(firestore, 'churches', churchId) : firestore;
+export let db = churchId ? docRef(firestore, 'churches', churchId) : firestore;
+
+/* The church the address names, from Church HQ's directory (a live binding:
+   a page that imported db sees the corrected one). Asked by `ready`, after
+   the emulator hook below, never at import. */
+let addressAnswer = null;
+export const churchFromAddress = () => addressAnswer || (addressAnswer = !address ? Promise.resolve('')
+  : getDoc(docRef(firestore, 'hqSlugs', address)).then((s) => {
+      const id = s.exists() ? String((s.data() || {}).churchId || '') : '';
+      if (!/^[a-z0-9][a-z0-9-]{1,40}$/.test(id)) { const e = new Error('This church’s address isn’t on Church HQ.'); e.code = 'not-found'; throw e; }
+      if (id !== churchId) { churchId = id; db = docRef(firestore, 'churches', id); }
+      return id;
+    }));
 /* THE PAGES' storage, the same way: a church's is the folder churches/<id>,
    because the modular ref() takes a reference as the parent, so
    ref(storage, 'pdfs/a.pdf') reaches churches/<id>/pdfs/a.pdf with no change
@@ -157,9 +180,10 @@ if (usingEmulator) {
 
 /* Resolves once the session has been restored, with the user or null. Await
    it before the first read or write. */
-export const ready = new Promise(resolve => {
-  const stop = onAuthStateChanged(auth, user => { stop(); resolve(user); });
-});
+export const ready = Promise.all([
+  new Promise(resolve => { const stop = onAuthStateChanged(auth, user => { stop(); resolve(user); }); }),
+  churchFromAddress().catch(() => '')
+]).then(r => r[0]);
 
 /* So a page, or a test, can say which database it is actually talking to. */
 export function connectionInfo() {

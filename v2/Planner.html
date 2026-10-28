@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
 <script src="egbc-nosend.js?v=202610212000"></script>
-<script src="egbc-shell.js?v=202610302000" data-title="Rota Planner"></script>
+<script src="egbc-shell.js?v=202610311400" data-title="Rota Planner"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610302200"></script>
+<script src="egbc-auth.js?v=202610311400"></script>
 <script src="egbc-video.js?v=202610272330"></script>
 <script src="egbc-guard.js?v=202610282000" data-team="Worship Team,Kids Church,Youth Worship,Core Team" data-role="leader"></script>
     <meta charset="UTF-8">
@@ -312,6 +312,11 @@
         onSnapshot(query(collection(db, "events"), orderBy("date")), (snap) => {
             cachedEvents = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             renderPlanner();
+            /* A meeting's notes from its own part, for the invited (the meetings split). */
+            if (cachedEvents.some(e => e.meeting === true)) {
+                const asOf = cachedEvents;
+                EGBCAuth.meetingDetails(asOf).then(m => { if (cachedEvents === asOf) { cachedEvents = m; renderPlanner(); } });
+            }
             populateSendTermSelect();
             loadSignoffs().then(renderPlanner);
         });
@@ -370,6 +375,9 @@
         };
 
         window.updateField = async (id, field, value) => {
+            /* A meeting's notes go to its own part (the meetings split). */
+            const evM = cachedEvents.find(e => e.id === id);
+            if (field === 'description' && evM && evM.meeting === true) { await EGBCAuth.setMeetingField(id, 'description', value); return; }
             const updates = { [field]: value };
             if (field === 'date') updates.termLabel = getTermLabel(value);
             await updateDoc(doc(db, "events", id), updates);

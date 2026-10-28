@@ -199,6 +199,11 @@ export async function hostToken({ db, daily, uid, data, now, churchId }) {
   if (eventId && !eventId.includes('/')) {
     const e = await db.collection('events').doc(eventId).get();
     event = e.exists ? e.data() : null;
+    /* The organiser is on the meeting's own part (the meetings split). */
+    if (event && event.meeting === true) {
+      const m = await db.collection('meetings').doc(eventId).get();
+      if (m.exists && m.data().organiserUid) event = Object.assign({}, event, { organiserUid: m.data().organiserUid });
+    }
   }
   if (!mayHost({ user, uid, room, event, byType: v.byType })) {
     throw new HttpsError('permission-denied', 'Only the person who set up this meeting, a leader of its team, or a master admin can start it as host.');

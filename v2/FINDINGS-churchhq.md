@@ -1054,3 +1054,37 @@ At St Aidan's with St Hild, the small groups' room set up in Settings works the 
   - an address the church doesn't hold writes nothing;
   - an archived record lets nobody in;
   - the mirror's rule.
+
+## The meetings split (31 Oct 2026, main; Martin: "fix it properly")
+Nobody may read a meeting they aren't invited to, even by reading the database directly; the rota still reads every event.
+- **The split:**
+  - **`events/{id}`, `meeting: true`:** what the rota needs, which is the date, times, kind, teams and room.
+  - **`meetings/{id}`, the same id:** its title and notes (`description`), organiser and invitees, plus a copy of the teams, date, times and room.
+- **Rules:**
+  - Reading `meetings/{id}` is one `get` at a time for the invited, as `EGBCAuth.invitedTo` already decides: master admins, the `meetingsAll` permission, its organiser, anyone named, and anyone on or covering one of its teams. Nobody can list the collection.
+  - Writes follow its event's rule, or come from its organiser, who can't be changed.
+  - A meeting's event may not carry `description`, `organiserUid`, `invitees` or `publicTitle`.
+  - Rules rebuilt.
+- **What counts as a meeting** (functions/meeting-split.js): an event marked `meeting: true`, or one with a video room whose kind isn't a service (the church's kinds, H-11). A Sunday with a livestream room is a service.
+- **The server:**
+  - The `meetingSplit` / `meetingSplitChurch` trigger moves anything private off a meeting's event on every write, keeps the copy in step, and deletes the private part with its event.
+  - `tools/split-meetings.mjs` (dry run, then `--apply`) does the meetings already there, printing what each held.
+  - `meetingHostToken` reads the organiser from the private part.
+  - A taken room's own-room label, and an event's `ownRoom.because`, carry the kind only.
+  - The personal calendar feed gets its titles back from the private part. The household and full feeds never carry them.
+- **The pages:**
+  - `EGBCAuth.saveMeeting` writes both parts in one batch, from meeting.html and from the rota's new-event form when the kind is a meeting with a room.
+  - `EGBCAuth.meetingDetails` merges the private part for whoever may read it, and marks the rest `private`. It's used by meeting.html, the shared meetings list and today's meetings, the hub, the rota and Planner.
+  - `EGBCAuth.setMeetingField` saves a meeting's notes from the rota and Planner.
+- **Access matrix, proposal 1:** Meetings on the Menu for anyone on or leading a team, `meetingsAll` holders and master admins. The hub's pages no longer mark it "everyone". check-access-matrix 18/18 against the remade approved copy.
+- **Folded in (events' F-312):**
+  - **egbc-db.js:** on a church's address the address decides, as in egbc-auth.js. The slug is the first guess, `ready` corrects it from `hqSlugs`, and `db` is a live binding.
+  - **The availability form:** `findMe`, `myDates` and `saveAnswer` take their church from the address (`dbForAddress`), with EGBC's top level everywhere else, and refuse an unknown church.
+  - **Stamps:** auth bumped on every page; app.html's events and church stamps brought current.
+- **Quick check** (emulator), 12/12:
+  - the rota still reads a meeting's event;
+  - the team reads its title, an outsider can't, a master admin can, and nobody lists them;
+  - an event can't carry a meeting's title;
+  - a member makes both parts at once;
+  - nobody takes over as organiser;
+  - the dry run writes nothing; the split moves the title and organiser; running it again does nothing; a livestreamed Sunday is left alone.

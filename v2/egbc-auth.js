@@ -645,6 +645,8 @@
      Menu can offer them "Care & support: what has come in". Unread means
      "not one". */
   var careLead = false, sgLead = false;
+  /* Meetings' own parts already read this page (the meetings split). */
+  var MEETING_CACHE = {};
   /* Pastoral visits (F-308): named in Who gets told for pastoral concerns
      (keeps the visitors' list), and on that list (reads the visits). */
   var pastoralLead = false, pastoralVisitor = false;
@@ -2062,6 +2064,45 @@
        is the Permissions screen's "meetingsAll", never on by default; a
        master admin sees all. A members' meeting keeps its own rule. */
     seesAllMeetings: function () { return EGBCAuth.isMaster() || EGBCAuth.may('meetingsAll'); },
+    /* THE MEETINGS SPLIT (Martin, 28 Oct 2026; functions/meeting-split.js):
+       a meeting's event holds what the rota needs; its title and notes,
+       organiser and invitees are in meetings/{id}, which only the invited
+       may read. */
+    isMeetingKind: function (type, room) {
+      return !!room && !EGBCAuth.isServiceType(type, ['Sunday Morning Worship', 'Evening Carol Service', 'Midnight Service', 'Special Service', 'LOUD Worship']);
+    },
+    /* events (with ids) -> the same, each meeting's own part merged in where
+       this person may read it; ev.private = true where they may not. */
+    meetingDetails: function (events) {
+      return Promise.all((events || []).map(function (ev) {
+        if (!ev || ev.meeting !== true) return ev;
+        return MEETING_CACHE[ev.id] ? Object.assign({}, ev, MEETING_CACHE[ev.id])
+          : db.collection('meetings').doc(ev.id).get().then(function (s) {
+              var m = s.exists ? s.data() : {};
+              MEETING_CACHE[ev.id] = { description: m.description || '', organiserUid: m.organiserUid || '', invitees: m.invitees || [] };
+              return Object.assign({}, ev, MEETING_CACHE[ev.id]);
+            }, function () { return Object.assign({}, ev, { private: true }); });
+      }));
+    },
+    /* A new meeting, both parts at once: fields as an event's, description
+       and organiserUid included. Resolves its id. */
+    saveMeeting: function (fields) {
+      var ref = db.collection('events').doc(), ev = Object.assign({}, fields, { meeting: true }), mine = {};
+      ['description', 'organiserUid', 'invitees'].forEach(function (k) { if (ev[k] !== undefined) { mine[k] = ev[k]; delete ev[k]; } });
+      ['teams', 'date', 'startTime', 'endTime', 'videoRoom'].forEach(function (k) { if (ev[k] !== undefined) mine[k] = ev[k]; });
+      mine.updatedAt = new Date().toISOString(); mine.updatedBy = (currentUser && currentUser.uid) || '';
+      var b = db.batch();
+      b.set(db.collection('meetings').doc(ref.id), mine);
+      b.set(ref, ev);
+      return b.commit().then(function () { MEETING_CACHE[ref.id] = mine; return ref.id; });
+    },
+    /* A meeting's title or notes changed. */
+    setMeetingField: function (id, field, value) {
+      var p = {}; p[field] = value; p.updatedAt = new Date().toISOString(); p.updatedBy = (currentUser && currentUser.uid) || '';
+      return db.collection('meetings').doc(id).set(p, { merge: true }).then(function () {
+        MEETING_CACHE[id] = Object.assign(MEETING_CACHE[id] || {}, p);
+      });
+    },
     invitedTo: function (ev) {
       if (!ev || ev.archived) return false;
       var room = global.EGBCVideo ? global.EGBCVideo.roomFor(ev) : (ev.videoRoom || '');

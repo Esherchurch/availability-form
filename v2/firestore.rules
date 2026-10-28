@@ -597,7 +597,13 @@ service cloud.firestore {
       // service and not only read it. Same helper as onTeam, same cover.
       allow write: if (isAdmin()
                        || onAnyTeam(request.resource.data.get('teams', ['Worship Team'])))
-                   && safeguardingOk();
+                   && safeguardingOk()
+                   // A MEETING'S OWN WORDS ARE NEVER HERE (Martin, 28 Oct 2026:
+                   // "fix it properly"): the rota reads every event, so a
+                   // meeting keeps its title, notes and organiser in
+                   // meetings/{id}, which only the people invited read.
+                   && !(request.resource.data.get('meeting', false) == true
+                        && request.resource.data.keys().hasAny(['description', 'organiserUid', 'invitees', 'publicTitle']));
       // THE PREACHING PLAN (Martin, 15 Oct 2026): the Pastor - the one named
       // in Team emails (teamMailSettings/main.pastor; isPastor() is with
       // For Sunday, under EVENTS) - reads the services and
@@ -616,6 +622,35 @@ service cloud.firestore {
                     && request.resource.data.get('readers', []).size() <= 12;
     }
 
+
+    // ---- A MEETING'S PRIVATE PART (Martin, 28 Oct 2026; FINDINGS-churchhq
+    // "The meetings split") ----------------------------------------------
+    // events/{id} (meeting: true) is what the rota needs: date, times, kind,
+    // teams and room. meetings/{id}, the same id, is the rest: its title and
+    // notes (description), its organiser and anyone named (invitees). Read
+    // by the people invited, as EGBCAuth.invitedTo says: master admins, the
+    // meetingsAll permission, its organiser, anyone named, and anyone on or
+    // covering one of its teams. Written as its event is, or by its organiser.
+    function meetingInvited(d) {
+      return active() && (isMaster() || hasPerm('meetingsAll')
+             || d.get('organiserUid', '') == request.auth.uid
+             || me().get('memberId', '-') in d.get('invitees', [])
+             || myTeams().hasAny(d.get('teams', [])));
+    }
+    match /meetings/{meetingId} {
+      allow get: if meetingInvited(resource.data);
+      allow list: if false;
+      allow create, update: if (isAdmin() || onAnyTeam(request.resource.data.get('teams', []))
+                                || (resource != null && resource.data.get('organiserUid', '') == request.auth.uid)
+                                || (resource == null && request.resource.data.get('organiserUid', '') == request.auth.uid))
+                   && request.resource.data.keys().hasOnly(['description', 'organiserUid', 'invitees', 'teams', 'date', 'startTime', 'endTime',
+                        'videoRoom', 'updatedAt', 'updatedBy'])
+                   && request.resource.data.get('description', '') is string && request.resource.data.get('description', '').size() <= 2000
+                   && request.resource.data.get('invitees', []) is list && request.resource.data.get('invitees', []).size() <= 500
+                   && request.resource.data.get('teams', []) is list && request.resource.data.get('teams', []).size() <= 100
+                   && (resource == null || request.resource.data.get('organiserUid', '') == resource.data.get('organiserUid', ''));
+      allow delete: if isAdmin() || (resource != null && resource.data.get('organiserUid', '') == request.auth.uid);
+    }
 
     // ---- "I'M WORRIED ABOUT SOMEONE" (NEXT-BRIEF §24) ------------------
     // Martin: "We are not tracking it, but if someone notices that X has

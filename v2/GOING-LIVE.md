@@ -122,8 +122,9 @@ site still reads and writes the same database without signing in.
 
 ## Known gaps, to accept or fix before the day
 
-- **Meetings are readable by anyone on a team** (the rota needs the events). Each page shows only the meetings a person is invited to, and the `meetingsAll` permission shows more (FINDINGS-churchhq H-17). A direct read of the database would show all of them, titles and times, never a host token.
-  - **Who decides:** Martin. Accept it, or split meetings out of the rota's events later.
+- **Meetings: fixed (the meetings split, FINDINGS-churchhq).** A meeting's title, notes and organiser are in `meetings/{id}`, which only the people invited read. Two steps:
+  - **Deploy** `meetingSplit` and `meetingSplitChurch` any time; from then on nothing private stays on a meeting's rota event.
+  - **Then run** `node ../tools/split-meetings.mjs` (dry run) and `--apply` from v2/functions, for the meetings already there. **Who:** the reviewer or Martin (a live write).
 - **Before the day, deploy `meetingOwnRoom` and `meetingOwnRoomChurch`** (H-17), so two meetings at once never share a room.
   - **Who:** the reviewer or Martin.
 - **An insurance answer of "£5,000,000: " with nothing after it** passes the database. The rules can't test an answer's shape cheaply. The page refuses it, but a direct write wouldn't be (FINDINGS-events F-282).

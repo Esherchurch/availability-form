@@ -153,9 +153,9 @@
     if (CACHE) return Promise.resolve(CACHE);
     if (!db()) return Promise.resolve([]);
     return db().collection('events').get().then(function (snap) {
-      CACHE = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
-      return CACHE;
-    }, function () { return []; });
+      /* Meetings' titles from their own parts (the meetings split). */
+      return global.EGBCAuth.meetingDetails(snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }));
+    }).then(function (evs) { CACHE = evs; return CACHE; }, function () { return []; });
   }
 
   /* The church's rooms (egbc-video.js), fetched by this file when the page
@@ -221,7 +221,10 @@
     if (!db()) return Promise.resolve([]);
     var day = localDay(now);
     return perms().then(function () { return db().collection('events').where('date', '==', day).get(); }).then(function (snap) {
-      return snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })
+      /* A meeting's title and organiser are on its own part (the meetings split). */
+      return global.EGBCAuth.meetingDetails(snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }));
+    }).then(function (evs) {
+      return evs
         .filter(isForMe)
         .sort(function (a, b) { return (a.startTime || '').localeCompare(b.startTime || ''); })
         .map(function (ev) {

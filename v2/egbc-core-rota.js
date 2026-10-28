@@ -459,6 +459,12 @@
       cachedEvents = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
       renderPlanner();
       if (H.onEvents) H.onEvents(cachedEvents);
+      /* A meeting's notes are on its own part, for the invited (the
+         meetings split): drawn again once they are read. */
+      if (global.EGBCAuth && EGBCAuth.meetingDetails && cachedEvents.some(function (e) { return e.meeting === true; })) {
+        var asOf = cachedEvents;
+        EGBCAuth.meetingDetails(asOf).then(function (m) { if (cachedEvents === asOf) { cachedEvents = m; renderPlanner(); } });
+      }
     });
   }
 
@@ -470,6 +476,9 @@
   global.toggleBucket = function (id) { rotaOpenBuckets.has(id) ? rotaOpenBuckets.delete(id) : rotaOpenBuckets.add(id); renderPlanner(); };
 
   global.updateField = async function (id, field, value) {
+    /* A meeting's notes go to its own part (the meetings split). */
+    var ev = cachedEvents.find(function (e) { return e.id === id; });
+    if (field === 'description' && ev && ev.meeting === true) { await EGBCAuth.setMeetingField(id, 'description', value); return; }
     var updates = {}; updates[field] = value;
     if (field === 'date') updates.termLabel = getTermLabel(value);
     await db().collection('events').doc(id).update(updates);
@@ -849,12 +858,16 @@
     btn.disabled = true;
     try {
       await services();
-      await db().collection('events').add(Object.assign(freshEvent(type, date), {
+      var fields = Object.assign(freshEvent(type, date), {
         description: document.getElementById('new-event-term').value.trim(),
         videoRoom: document.getElementById('new-event-video').value,
         /* Who set it up: they may start its call as host (functions/video.js). */
         organiserUid: (global.EGBCAuth && EGBCAuth.user && EGBCAuth.user() && EGBCAuth.user().uid) || ''
-      }));
+      });
+      /* A meeting (a room, and not a service): its notes and organiser on
+         its own part, for the invited (the meetings split). */
+      if (EGBCAuth.isMeetingKind(type, fields.videoRoom)) await EGBCAuth.saveMeeting(fields);
+      else await db().collection('events').add(fields);
       closeNewEventForm();
       toast('Event created');
     } catch (e) {

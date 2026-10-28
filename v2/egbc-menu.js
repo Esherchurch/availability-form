@@ -145,7 +145,10 @@
         description: 'Event cards in every size, from What’s On' },
       { title: 'From Canva', url: 'canva.html', job: 'office', icon: 'palette', feature: 'canva',
         description: 'Bring finished Canva designs into the picture library' },
-      { title: 'Meetings', url: 'meeting.html', icon: 'video', feature: 'meetings',
+      /* Not offered to everyone (the access matrix, proposal 1, approved by
+         Martin 27 Oct 2026): anybody on a team or leading one, whose
+         meetings these are, and whoever may see every meeting (meetingsAll). */
+      { title: 'Meetings', url: 'meeting.html', icon: 'video', feature: 'meetings', meetingsList: true,
         description: 'Your meetings: set one up, join a call' }
     ] },
 
@@ -459,6 +462,7 @@
            && [].concat(node.leaderOf).some(function (t) { return EGBCAuth.isLeaderOf(t); })))) return false;
     /* On any team, administering one, or a master admin. */
     if (node.anyTeam && !who.isMaster && !(who.teams || []).length && !(who.adminFor || []).length) return false;
+    if (node.meetingsList && !who.isMaster && !who.seesAllMeetings && !(who.teams || []).length && !(who.adminFor || []).length) return false;
     if (node.planGroup && !who.isPlanGroup) return false;
     if (node.rotaTeam && !who.onRotaTeam) return false;
     /* On a team that does this job (Teams & groups, "Who does each job"),
@@ -1067,6 +1071,7 @@
         isBuildingLead: !!(A && A.isBuildingLead && A.isBuildingLead()),
         isGroupLeader: !!(A && A.isGroupLeader && A.isGroupLeader()),
         isDataLead: !!(A && A.isDataLead && A.isDataLead()),
+        seesAllMeetings: !!(A && A.seesAllMeetings && A.seesAllMeetings()),
         isKidsLead: !!(A && A.isKidsLead && A.isKidsLead()),
         /* sermonShow/access, read with the profile by egbc-auth.js. */
         isSermons: !previewing && !!(A && A.isSermonsAdmin && A.isSermonsAdmin()),
