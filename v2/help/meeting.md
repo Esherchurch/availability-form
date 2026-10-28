@@ -23,12 +23,12 @@ This is where the church's video meetings happen. Opened from the Menu, it lists
 
 ## Set up a new meeting
 1. On the Meetings list, press **New meeting**.
-2. Choose the **Meeting** type. Pick plain **Meeting** for a one-to-one or an interview.
+2. Choose the **Meeting** type. Pick plain **Meeting** for a one-to-one or an interview. The other types are the church's own meeting kinds (from Services and roles), then a meeting for each of your teams.
 3. Add **Title or notes (optional)**, the **Date**, **Start** and **End**.
 4. **Video call**: leave **Yes, in a room of its own**, or choose **No video call**.
 5. Under **People**, type a name from the address book and press **Add**.
 6. Under **Someone not in the address book**, type their name and email and press **Add**.
-7. Tick **Whole teams (optional)** only if a whole team should come.
+7. Tick **Whole teams (optional)** only if a whole team should come. The teams are the church's own, from Teams & groups.
 8. Press **Create meeting**. Everyone you added is emailed, and the page says who was.
 
 ## Invite someone to a meeting

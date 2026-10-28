@@ -7,14 +7,13 @@
     <meta name="theme-color" content="#3d6263">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="EGBC Availability">
+    <meta name="apple-mobile-web-app-title" content="Availability">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EGBC Member Availability</title>
+    <title>Availability</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
-        import { storage, ready, call, db } from './egbc-db.js';
-        import { ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+        import { ready, call, db, firestore, address, usingEmulator } from './egbc-db.js';
         import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         /* THIS PAGE NO LONGER READS FIRESTORE - except churchSettings/details,
@@ -48,23 +47,22 @@
         let displayedEvents = [];
         let loginMatches = [];
 
-        async function loadLogo() {
-            try {
-                const logoRef = ref(storage, '1774936285076.png');
-                const url = await getDownloadURL(logoRef);
-                document.querySelectorAll('.egbc-logo').forEach(img => img.src = url);
-            } catch (error) {
-                /* The logo is a nicety: missing, the form still works. */
-                console.warn("Logo fetch failed:", error);
-            }
-        }
-        loadLogo();
-
-        /* The church's own name, and its logo if Church settings has one. */
-        getDoc(doc(db, 'churchSettings', 'details')).then(snap => {
+        /* The church's own name and logo, from the same church the answers are
+           saved to. The form's functions choose the church by the web address
+           (a church's own address, or the original site's records); a
+           ?church= choice off a church's address only counts on the emulator,
+           so outside it the page reads the original site's records too, and
+           never shows one church's name over another church's dates. */
+        const formChurch = (address || usingEmulator) ? db : firestore;
+        getDoc(doc(formChurch, 'churchSettings', 'details')).then(snap => {
             const d = snap.exists() ? (snap.data() || {}) : {};
-            if (d.name) document.querySelectorAll('.egbc-church-name').forEach(el => { el.textContent = d.name; });
-            if (d.logoUrl) document.querySelectorAll('.egbc-logo').forEach(img => { img.src = d.logoUrl; });
+            if (d.name) {
+                document.querySelectorAll('.egbc-church-name').forEach(el => { el.textContent = d.name; });
+                document.title = 'Availability - ' + d.name;
+            }
+            document.querySelectorAll('.egbc-logo').forEach(img => {
+                if (d.logoUrl) img.src = d.logoUrl; else img.remove();
+            });
         }).catch(() => { /* the form works without it */ });
 
         function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -138,16 +136,28 @@
             loadResponses();
         }
 
+        /* The name and the date are not sent: the function reads them off
+           the records, so the only thing this page decides is the answer. */
+        function saveAnswer(eventId, status) {
+            return call('saveAnswer', { token: formToken, memberId: currentUser.id, eventId: eventId, status: status });
+        }
+
+        /* The button changes the moment it is pressed, and the answer counts
+           for Confirm straight away. If the save fails, the old answer comes
+           back and the person is told, so the screen never shows an answer
+           the church doesn't have. */
         window.setStatus = async (eventId, dateKey, newStatus) => {
-            /* The name and the date are no longer sent: the function reads
-               them off the records, so the only thing this page decides is
-               the answer itself. */
-            await call('saveAnswer', {
-                token: formToken,
-                memberId: currentUser.id,
-                eventId: eventId,
-                status: newStatus
-            });
+            const before = availabilityData[eventId];
+            availabilityData[eventId] = newStatus;
+            renderDates();
+            try {
+                await saveAnswer(eventId, newStatus);
+            } catch (err) {
+                console.error("Answer not saved:", err);
+                if (before) availabilityData[eventId] = before; else delete availabilityData[eventId];
+                renderDates();
+                alert((err && err.message) || "That answer wasn't saved. Please check your internet connection and try again.");
+            }
         };
 
         window.submitAll = async () => {
@@ -168,7 +178,7 @@
                 // Re-save the answered choices so a submit also recovers from any earlier
                 // per-click write that silently failed. Unanswered dates are left untouched.
                 for (const ev of displayedEvents) {
-                    if (availabilityData[ev.id]) await setStatus(ev.id, ev.date, availabilityData[ev.id]);
+                    if (availabilityData[ev.id]) await saveAnswer(ev.id, availabilityData[ev.id]);
                 }
                 alert("Availability submitted — thank you!");
                 location.reload();
@@ -244,15 +254,15 @@
                                     <div class="text-lg font-bold text-[#1e2e2e]">${dateDisplay}</div>
                                     <div class="text-[12px] font-medium text-gray-400 italic">${escapeHtml(ev.description || '')}</div>
                                 </div>
-                                <div class="text-[10px] font-semibold text-gray-400 mt-0.5">${ev.startTime || '08:00'} - ${ev.endTime || '11:30'}</div>
+                                ${ev.startTime ? `<div class="text-[10px] font-semibold text-gray-400 mt-0.5">${escapeHtml(ev.startTime)}${ev.endTime ? ' - ' + escapeHtml(ev.endTime) : ''}</div>` : ''}
                             </div>
                             <div class="flex gap-2 w-full sm:w-auto">
-                                <button onclick="setStatus('${ev.id}', '${ev.date}', 'avail')" 
+                                <button onclick="setStatus('${ev.id}', '${ev.date}', 'avail')" aria-pressed="${status === 'avail'}"
                                     class="flex-1 sm:flex-none px-7 py-4 rounded-2xl font-black text-[11px] uppercase transition-all 
                                     ${status === 'avail' ? 'bg-green-600 text-white shadow-lg shadow-green-100' : 'bg-[#f0f6f6] text-[#3d6263] opacity-40 hover:opacity-100 hover:bg-green-50 hover:text-green-600'}">
                                     ✓ Available
                                 </button>
-                                <button onclick="setStatus('${ev.id}', '${ev.date}', 'not-avail')" 
+                                <button onclick="setStatus('${ev.id}', '${ev.date}', 'not-avail')" aria-pressed="${status === 'not-avail'}"
                                     class="flex-1 sm:flex-none px-7 py-4 rounded-2xl font-black text-[11px] uppercase transition-all 
                                     ${status === 'not-avail' ? 'bg-red-500 text-white shadow-lg shadow-red-100' : 'bg-[#f0f6f6] text-[#3d6263] opacity-40 hover:opacity-100 hover:bg-red-50 hover:text-red-500'}">
                                     ✗ Unavailable
@@ -358,7 +368,7 @@
                     <p class="text-[11px] font-extrabold text-[#6b8281] uppercase tracking-[0.2em]">TEAM MEMBER</p>
                     <h2 id="userName" class="text-2xl font-extrabold"></h2>
                 </div>
-                <button onclick="location.reload()" class="bg-gray-100 text-gray-400 p-3 rounded-full hover:bg-gray-200 transition-all shadow-sm">
+                <button onclick="location.reload()" aria-label="Not you? Start again" title="Not you? Start again" class="flex items-center gap-2 bg-gray-100 text-gray-500 px-4 py-3 rounded-full hover:bg-gray-200 transition-all shadow-sm text-[12px] font-bold">Not you?
                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
                 </button>
             </header>

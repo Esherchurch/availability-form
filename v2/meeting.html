@@ -17,7 +17,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202610311700"></script>
+<script src="egbc-auth.js?v=202610311800"></script>
 <script src="egbc-present.js?v=202610311200"></script>
 <script src="egbc-vote.js?v=202610282200"></script>
 <script src="egbc-video.js?v=202610311600"></script>
@@ -401,30 +401,37 @@ function invRemove(who) {
    The rules let admins, or members of one of the meeting's teams, write
    it - so non-admins are only offered their teams.
    EVERY TEAM'S OWN MEETING (reviewing window, 22 Oct 2026: a Kids Church
-   leader could not set up a Kids Church meeting). The rota's four types
-   and five teams stay as they were; after them come "<team> Meeting" and
-   the team itself for every other team the church has (Teams & groups),
-   in its order. The rota keeps a type it does not list rather than
-   overwriting it (egbc-core-rota.js). */
-const ROTA_MEETING_TYPES = ['Core Team Meeting', 'Worship and AV Team Meeting', 'Worship Team Meeting', 'AV Team Meeting'];
-const ROTA_TEAMS = ['Core Team', 'Worship Team', 'AV Team', 'Choir', 'Youth'];
-const ROTA_TEAMS_BY_TYPE = {
-  'Core Team Meeting': ['Core Team'], 'Worship and AV Team Meeting': ['Worship Team', 'AV Team'],
-  'Worship Team Meeting': ['Worship Team'], 'AV Team Meeting': ['AV Team'],
-};
+   leader could not set up a Kids Church meeting). The church's own meeting
+   kinds come first (Services and roles: a kind that is not a service and
+   says "meeting" - practices and workshops are rota kinds, not meetings),
+   each with the teams it is for; after them "<team> Meeting" for every
+   other team the church has (Teams & groups), in its order. The rota keeps
+   a type it does not list rather than overwriting it (egbc-core-rota.js). */
+let SERVICES = null;   /* { S, cfg } from EGBCAuth.services(), read in start() */
+function rotaTeamsByType() {
+  const out = {};
+  if (!SERVICES) return out;
+  const S = SERVICES.S, cfg = SERVICES.cfg;
+  S.types(cfg).filter(k => !k.service && /meeting/i.test(k.name)).forEach(k => {
+    out[k.name] = S.newEvent(cfg, k.name, '', EGBCAuth.teamsForJob).teams;
+  });
+  return out;
+}
 const escAttr = s => esc(s).replace(/"/g, '&quot;');
 const teamLabel = t => ((EGBCAuth.TEAMS || {})[t] || {}).label || t;
-/* The church's teams, in its order, nothing archived. Youth Worship is
-   the rota's "Youth" already, so it is not offered twice. */
+/* The church's teams, in its order, nothing archived. */
 function churchTeams() {
-  return (EGBCAuth.viewAsChoices ? EGBCAuth.viewAsChoices() : []).filter(t => t !== 'Youth Worship');
+  return EGBCAuth.viewAsChoices ? EGBCAuth.viewAsChoices() : [];
 }
+/* The teams the meeting kinds name first, then the rest of the church's. */
 function meetingTeams() {
-  return ROTA_TEAMS.concat(churchTeams().filter(t => !ROTA_TEAMS.includes(t)));
+  const by = rotaTeamsByType(), first = [];
+  Object.keys(by).forEach(type => by[type].forEach(t => { if (!first.includes(t)) first.push(t); }));
+  return first.concat(churchTeams().filter(t => !first.includes(t)));
 }
 function teamsByType() {
-  const out = Object.assign({}, ROTA_TEAMS_BY_TYPE);
-  churchTeams().filter(t => !ROTA_TEAMS.includes(t)).forEach(t => {
+  const out = rotaTeamsByType(), named = [].concat(...Object.values(out));
+  churchTeams().filter(t => !named.includes(t)).forEach(t => {
     const name = teamLabel(t) + ' Meeting';
     if (!out[name]) out[name] = [t];
   });
@@ -485,7 +492,7 @@ function openNewMeeting() {
     <div id="nmChips" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"></div>
     <label style="${label}">Whole teams (optional)</label>
     <div id="nmTeams" style="display:flex;gap:14px;flex-wrap:wrap;font-size:13px;font-weight:700;color:var(--ink)">
-      ${teams.map(t => `<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" value="${escAttr(t)}" onchange="nmCheck()" style="width:18px;height:18px;accent-color:#3d6263">${esc(ROTA_TEAMS.includes(t) ? t : teamLabel(t))}</label>`).join('')}
+      ${teams.map(t => `<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" value="${escAttr(t)}" onchange="nmCheck()" style="width:18px;height:18px;accent-color:#3d6263">${esc(teamLabel(t))}</label>`).join('')}
     </div>
     <div style="font-size:13px;color:var(--muted);margin-top:8px">With no team ticked, only you, the people you add and master admins can see it.</div>
     <div style="display:flex;gap:10px;justify-content:flex-end;align-items:center;flex-wrap:wrap;margin-top:16px">
@@ -609,6 +616,8 @@ async function start(profile) {
   if (EGBCAuth.loadPerms) await EGBCAuth.loadPerms().catch(() => {});
   /* In the room, voting on a phone (egbc-vote.js): no video. */
   if (params.get('vote') && eventId && window.EGBCVote) { document.getElementById('copyBtn').style.display = 'none'; document.getElementById('mtTitle').textContent = 'Voting'; EGBCVote.voteOnly({ eventId, mount: document.getElementById('stage') }); return; }
+  /* The church's meeting kinds, for + New meeting. */
+  if (EGBCAuth.services) SERVICES = await EGBCAuth.services().catch(() => null);
   if (!room) { lobby(profile); return; }
   if (!roomExists(room)) {
     showMsg('Meeting room not found', 'This link does not point to one of the church’s meeting rooms. If the meeting was cancelled, its room has closed.', '<a class="btn" href="hub.html">Back to hub</a>');

@@ -46,11 +46,16 @@ if (typeof EGBCAuth === 'undefined' || !EGBCAuth.db) {
 const db = EGBCAuth.db;
 const storage = EGBCAuth.storage();
 
-const LOGO = 'https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/copilot_image_1775806874083.jpeg?alt=media&token=7e9040a5-1d29-47e1-8f31-6e003db53ec8';
+/* The church's logo (churchSettings/details.logoUrl), set when the
+   details are read below; none set = no picture, never another church's. */
+let LOGO = '';
+function showLogo(img) {
+  if (!img) return;
+  if (LOGO) { img.src = LOGO; img.style.display = ''; } else img.style.display = 'none';
+}
 
 let ME = null, PAGES = [], NEWS = [], ACKED = new Set();
 
-document.getElementById('logo').src = LOGO;
 
 /* ---- WHICH TEAM ----------------------------------------------------
    People on one team never see a choice. People on several land on
@@ -81,7 +86,7 @@ function teamLook(t) {
 function openTeamPicker() {
   closeTools();
   const teams = availableTeams();
-  document.getElementById('pickLogo').src = LOGO;
+  showLogo(document.getElementById('pickLogo'));
   document.getElementById('pickTitle').textContent = TEAM ? 'Switch team' : 'Which team today?';
   document.getElementById('pickSub').textContent = TEAM
     ? 'Notices from all your teams show either way.'
@@ -348,21 +353,39 @@ function htmlToText(h) {
    The charter is what the team is expected to do, so it belongs on the page
    people land on. Behind a link it becomes "I have never seen that". */
 
-/* Every team gets a charter on its own hub landing page - the hub IS the
-   landing page. Four already have a standalone page; the rest do not need
-   one, because the charter lives here. */
-const CHARTER_PAGE = {
-  /* Worship and AV share one - it is the "Worship & AV Team Charter", which
-     is why AVteamlandingpage.html carries no text of its own. Choir folds
-     into Worship, so it never lands here under its own name. */
-  'Worship Team': { id: 'wider-worship-charter', url: 'Worshipteamcharter.html' },
-  'AV Team':      { id: 'wider-worship-charter', url: 'Worshipteamcharter.html' },
-  'Youth Worship':{ id: 'youth-charter',         url: 'Youthcharter.html' },
-  'Core Team':    { id: 'core-team-charter',     url: 'Coreteamcharter.html' },
-  'Kids Church':  { id: 'kids-church-charter' },
-  'Lazers':       { id: 'lazers-charter' },
-  'ReNu':         { id: 'renu-charter' }
+/* The hub IS the landing page, so a team's charter lives here; a few also
+   have a standalone page, and the rest do not need one. */
+/* WHICH TEAMS HAVE A CHARTER, AND WHERE IT IS KEPT - from the church's own
+   teams, not a list of names. A charter belongs to a team that works as a
+   team: one with its own pin board (Teams & groups, "Pin board"). Teams
+   sharing a board share a charter - which is how Worship and AV share the
+   "Worship & AV Team Charter" - and a sub-team folds into its parent, so
+   it never lands here under its own name. A group with no board has none.
+
+   The charter is pageContent/<board>-charter. The one exception is the
+   first board the hub ever had (document 'state', from before boards had
+   names), whose charter was already stored as 'wider-worship-charter'. */
+const CHARTER_DOC_FOR_BOARD = { state: 'wider-worship-charter' };
+/* The standalone charter pages in this code base, by the charter they
+   show: a fact about those files, so the card can link to a full page. */
+const CHARTER_FILE = {
+  'wider-worship-charter': 'Worshipteamcharter.html',
+  'youth-charter': 'Youthcharter.html',
+  'core-team-charter': 'Coreteamcharter.html'
 };
+
+/**
+ * The charter a team's landing page shows.
+ * @param {string} team a team id
+ * @returns {{id: string, url?: string}|null} the pageContent document and
+ *   any standalone page; null for a team with no charter
+ */
+function charterFor(team) {
+  const T = window.EGBCAuth && EGBCAuth.TEAMS[team];
+  if (!T || T.archived || T.parent || !T.board) return null;
+  const id = CHARTER_DOC_FOR_BOARD[T.board] || (T.board + '-charter');
+  return CHARTER_FILE[id] ? { id, url: CHARTER_FILE[id] } : { id };
+}
 
 let CHARTER_OPEN = false;
 
@@ -381,7 +404,7 @@ let CHARTER_TEAM = null;
 function myCharters() {
   const out = [], seen = {};
   availableTeams().forEach(t => {
-    const cfg = CHARTER_PAGE[t];
+    const cfg = charterFor(t);
     if (!cfg || seen[cfg.id]) return;
     seen[cfg.id] = true;
     out.push({ team: t, id: cfg.id });
@@ -422,15 +445,15 @@ function renderCharterSwitch() {
 const CHARTER_DEFAULTS = {
  "wider-worship-charter": {
   "title": "Worship & AV Team Charter",
-  "html": "<h2>Worship &amp; AV Team Charter</h2>\n<blockquote>We are worshippers first, team members second, musicians and technicians third.</blockquote>\n\n<h3>Who We Are</h3>\n<p>We are a family of worshippers who serve together with humility, joy, and unity. Every person â€” musician, vocalist, or AV â€” plays a vital role in helping the church encounter God.</p>\n\n<h3>When We Disagree</h3>\n<p>We understand that we may not always share the same theological views or ways of doing things. When differences arise, we commit to talking with love, respect, and humility, keeping Jesus at the centre. Unity is not about agreeing on everything â€” it's about choosing love in everything.</p>\n\n<h3>Living as Followers of Jesus</h3>\n<p>As people who serve visibly, our lives should reflect the way of Jesus â€” not perfectly, but sincerely. We aim to honour Him in our relationships, decisions, and behaviour.</p>\n<p>We recognise that lifestyle choices shaped by a hedonistic or self-centred approach to life do not align with the calling of serving in worship ministry. This applies to choices, not to identity or things people cannot control.</p>\n<p>We choose to grow, to be accountable, and to live lives that point others to Jesus.</p>\n\n<h3>How We Serve Together</h3>\n<ul>\n<li><strong>We prepare well</strong> â€” learning our parts, listening to the set, and arriving ready</li>\n<li><strong>We stay flexible</strong> â€” songs and arrangements may change</li>\n<li><strong>We honour one another</strong> â€” with kindness and encouragement</li>\n<li><strong>We communicate early</strong> â€” about availability or challenges</li>\n<li><strong>We follow the worship leader's direction</strong> â€” with unity and trust</li>\n<li><strong>We partner with AV as one team</strong> â€” not two</li>\n<li><strong>We pray together</strong> â€” because worship is spiritual before it is musical</li>\n</ul>\n\n<h3>Sunday Expression</h3>\n<ul>\n<li>We arrive prepared, prayerful, and ready to bless the church</li>\n<li>We support the worship leader and each other with unity</li>\n<li>We respond to the Holy Spirit with sensitivity and trust</li>\n<li>We serve with cheerful hearts, remembering our goal is to help others see Jesus</li>\n</ul>"
+  "html": "<h2>Worship &amp; AV Team Charter</h2>\n<blockquote>We are worshippers first, team members second, musicians and technicians third.</blockquote>\n\n<h3>Who We Are</h3>\n<p>We are a family of worshippers who serve together with humility, joy, and unity. Every person — musician, vocalist, or AV — plays a vital role in helping the church encounter God.</p>\n\n<h3>When We Disagree</h3>\n<p>We understand that we may not always share the same theological views or ways of doing things. When differences arise, we commit to talking with love, respect, and humility, keeping Jesus at the centre. Unity is not about agreeing on everything — it's about choosing love in everything.</p>\n\n<h3>Living as Followers of Jesus</h3>\n<p>As people who serve visibly, our lives should reflect the way of Jesus — not perfectly, but sincerely. We aim to honour Him in our relationships, decisions, and behaviour.</p>\n<p>We recognise that lifestyle choices shaped by a hedonistic or self-centred approach to life do not align with the calling of serving in worship ministry. This applies to choices, not to identity or things people cannot control.</p>\n<p>We choose to grow, to be accountable, and to live lives that point others to Jesus.</p>\n\n<h3>How We Serve Together</h3>\n<ul>\n<li><strong>We prepare well</strong> — learning our parts, listening to the set, and arriving ready</li>\n<li><strong>We stay flexible</strong> — songs and arrangements may change</li>\n<li><strong>We honour one another</strong> — with kindness and encouragement</li>\n<li><strong>We communicate early</strong> — about availability or challenges</li>\n<li><strong>We follow the worship leader's direction</strong> — with unity and trust</li>\n<li><strong>We partner with AV as one team</strong> — not two</li>\n<li><strong>We pray together</strong> — because worship is spiritual before it is musical</li>\n</ul>\n\n<h3>Sunday Expression</h3>\n<ul>\n<li>We arrive prepared, prayerful, and ready to bless the church</li>\n<li>We support the worship leader and each other with unity</li>\n<li>We respond to the Holy Spirit with sensitivity and trust</li>\n<li>We serve with cheerful hearts, remembering our goal is to help others see Jesus</li>\n</ul>"
  },
  "core-team-charter": {
   "title": "Core Team Charter",
-  "html": "<h2>Core Team Charter</h2>\n<blockquote>We lead not by talent or title, but by character, humility, and a servant heart.</blockquote>\n\n<h3>Our Identity &amp; How We Carry Ourselves</h3>\n<p>The Core Team exists to set the culture of the Worship &amp; AV Ministry. We model what we want the whole team to become: worshippers first, musicians second, servants always.</p>\n\n<h3>When We Disagree</h3>\n<p>We recognise that we may not always share the same theological views or ministry preferences. When differences arise, we commit to speaking with love, humility, and respect, keeping Jesus at the centre of every conversation. Our unity is not built on sameness, but on Christ-like love (John 13:35).</p>\n\n<h3>Visible Lives of Discipleship</h3>\n<p>Because we serve in a visible ministry, our lives should reflect the character and way of Jesus â€” not perfectly, but sincerely. We commit to living in a way that honours Christ in our relationships, choices, and conduct.</p>\n<p>We recognise that certain lifestyle choices that reflect a hedonistic or self-centred way of living are not compatible with the calling of leading others in worship. This applies to behaviours we choose, not to aspects of identity or circumstances people cannot control.</p>\n<p>We choose integrity, accountability, and holiness, seeking to grow in Christ.</p>\n\n<h3>How We Lead</h3>\n<ul>\n<li><strong>Servant leadership</strong> â€” we lead by example, not position</li>\n<li><strong>Visible support on Sundays</strong> â€” present, engaged, and encouraging</li>\n<li><strong>Teachable spirits</strong> â€” always willing to learn and grow</li>\n<li><strong>Culture carriers</strong> â€” we set the tone for the whole team</li>\n<li><strong>Spiritual sensitivity</strong> â€” attuned to God and to one another</li>\n</ul>\n\n<h3>Our Commitment</h3>\n<ul>\n<li>We lead by example</li>\n<li>We protect unity</li>\n<li>We champion others</li>\n<li>We communicate clearly</li>\n<li>We honour AV as equal partners</li>\n<li>We steward Sundays with prayer</li>\n</ul>"
+  "html": "<h2>Core Team Charter</h2>\n<blockquote>We lead not by talent or title, but by character, humility, and a servant heart.</blockquote>\n\n<h3>Our Identity &amp; How We Carry Ourselves</h3>\n<p>The Core Team exists to set the culture of the Worship &amp; AV Ministry. We model what we want the whole team to become: worshippers first, musicians second, servants always.</p>\n\n<h3>When We Disagree</h3>\n<p>We recognise that we may not always share the same theological views or ministry preferences. When differences arise, we commit to speaking with love, humility, and respect, keeping Jesus at the centre of every conversation. Our unity is not built on sameness, but on Christ-like love (John 13:35).</p>\n\n<h3>Visible Lives of Discipleship</h3>\n<p>Because we serve in a visible ministry, our lives should reflect the character and way of Jesus — not perfectly, but sincerely. We commit to living in a way that honours Christ in our relationships, choices, and conduct.</p>\n<p>We recognise that certain lifestyle choices that reflect a hedonistic or self-centred way of living are not compatible with the calling of leading others in worship. This applies to behaviours we choose, not to aspects of identity or circumstances people cannot control.</p>\n<p>We choose integrity, accountability, and holiness, seeking to grow in Christ.</p>\n\n<h3>How We Lead</h3>\n<ul>\n<li><strong>Servant leadership</strong> — we lead by example, not position</li>\n<li><strong>Visible support on Sundays</strong> — present, engaged, and encouraging</li>\n<li><strong>Teachable spirits</strong> — always willing to learn and grow</li>\n<li><strong>Culture carriers</strong> — we set the tone for the whole team</li>\n<li><strong>Spiritual sensitivity</strong> — attuned to God and to one another</li>\n</ul>\n\n<h3>Our Commitment</h3>\n<ul>\n<li>We lead by example</li>\n<li>We protect unity</li>\n<li>We champion others</li>\n<li>We communicate clearly</li>\n<li>We honour AV as equal partners</li>\n<li>We steward Sundays with prayer</li>\n</ul>"
  },
  "youth-charter": {
   "title": "Youth Worship & AV Charter",
-  "html": "<h2>Youth Worship &amp; AV Team Charter</h2>\n<blockquote>We are a team of young worshippers who want to help our church meet with God.</blockquote>\n\n<h3>Who We Are</h3>\n<p>We serve with love, joy, and unity â€” on instruments, with our voices, or on the AV team. Every one of us matters.</p>\n\n<h3>When We Don't Agree</h3>\n<p>Sometimes we might see things differently about faith or worship. That's okay. What matters is that we talk kindly, listen well, and treat each other with respect, keeping Jesus at the centre.</p>\n\n<h3>Living Like Jesus Outside of Sundays</h3>\n<p>Because we're on a team that people can see, our lives should show that we follow Jesus â€” not perfectly, but honestly. We choose to live in ways that honour Him, including the choices we make and the things we do when no one is watching.</p>\n<p>A lifestyle that's all about pleasure, partying, or doing whatever we want doesn't fit with being part of a worship team. This is about choices, not identity or things people cannot control.</p>\n<p>We choose to grow, to ask for help when we need it, and to live in a way that points people to Jesus.</p>\n\n<h3>How We Serve</h3>\n<ul>\n<li><strong>We show up ready</strong> â€” prepared and on time</li>\n<li><strong>We stay flexible</strong> â€” things change, and that's okay</li>\n<li><strong>We encourage each other</strong> â€” words build up, not tear down</li>\n<li><strong>We follow the leader</strong> â€” with trust and unity</li>\n<li><strong>We work with AV as one team</strong> â€” everyone counts</li>\n<li><strong>We pray together</strong> â€” because this is about more than music</li>\n</ul>\n\n<h3>Sundays</h3>\n<ul>\n<li>We arrive early</li>\n<li>We support the leader</li>\n<li>We help create a joyful atmosphere</li>\n<li>We worship wholeheartedly</li>\n<li>We serve visibly and kindly</li>\n</ul>"
+  "html": "<h2>Youth Worship &amp; AV Team Charter</h2>\n<blockquote>We are a team of young worshippers who want to help our church meet with God.</blockquote>\n\n<h3>Who We Are</h3>\n<p>We serve with love, joy, and unity — on instruments, with our voices, or on the AV team. Every one of us matters.</p>\n\n<h3>When We Don't Agree</h3>\n<p>Sometimes we might see things differently about faith or worship. That's okay. What matters is that we talk kindly, listen well, and treat each other with respect, keeping Jesus at the centre.</p>\n\n<h3>Living Like Jesus Outside of Sundays</h3>\n<p>Because we're on a team that people can see, our lives should show that we follow Jesus — not perfectly, but honestly. We choose to live in ways that honour Him, including the choices we make and the things we do when no one is watching.</p>\n<p>A lifestyle that's all about pleasure, partying, or doing whatever we want doesn't fit with being part of a worship team. This is about choices, not identity or things people cannot control.</p>\n<p>We choose to grow, to ask for help when we need it, and to live in a way that points people to Jesus.</p>\n\n<h3>How We Serve</h3>\n<ul>\n<li><strong>We show up ready</strong> — prepared and on time</li>\n<li><strong>We stay flexible</strong> — things change, and that's okay</li>\n<li><strong>We encourage each other</strong> — words build up, not tear down</li>\n<li><strong>We follow the leader</strong> — with trust and unity</li>\n<li><strong>We work with AV as one team</strong> — everyone counts</li>\n<li><strong>We pray together</strong> — because this is about more than music</li>\n</ul>\n\n<h3>Sundays</h3>\n<ul>\n<li>We arrive early</li>\n<li>We support the leader</li>\n<li>We help create a joyful atmosphere</li>\n<li>We worship wholeheartedly</li>\n<li>We serve visibly and kindly</li>\n</ul>"
  }
 };
 
@@ -486,7 +509,7 @@ async function importCharter() {
   /* The charter the CARD is showing, not the team the page is on. Leaving
      these as TEAM would have written one team's charter into another's
      document the moment somebody switched the card and pressed Edit. */
-  const cfg = CHARTER_PAGE[CHARTER_TEAM];
+  const cfg = charterFor(CHARTER_TEAM);
   if (!cfg) return;
   if (!EGBCAuth.isAdminOf(CHARTER_TEAM)) { alert('That is not one of your teams.'); return; }
 
@@ -508,11 +531,11 @@ async function loadCharter() {
      has no charter - but another of this person's teams does, show that one
      rather than an empty space where the card was. */
   const mine = myCharters();
-  if (!CHARTER_TEAM || !CHARTER_PAGE[CHARTER_TEAM] || !mine.some(m => m.team === CHARTER_TEAM)) {
-    CHARTER_TEAM = CHARTER_PAGE[TEAM] ? TEAM : (mine[0] ? mine[0].team : null);
+  if (!CHARTER_TEAM || !charterFor(CHARTER_TEAM) || !mine.some(m => m.team === CHARTER_TEAM)) {
+    CHARTER_TEAM = charterFor(TEAM) ? TEAM : (mine[0] ? mine[0].team : null);
   }
 
-  const cfg = CHARTER_PAGE[CHARTER_TEAM];
+  const cfg = charterFor(CHARTER_TEAM);
   if (!cfg) { card.style.display = 'none'; return; }
   renderCharterSwitch();
 
@@ -676,7 +699,7 @@ function closeCharterEditor() {
 }
 
 async function saveCharter() {
-  const cfg = CHARTER_PAGE[CHARTER_TEAM];
+  const cfg = charterFor(CHARTER_TEAM);
   if (!cfg) return;
   const title = document.getElementById('chTitle').value.trim();
   const html = textToHtml(document.getElementById('chBody').value);
@@ -1000,8 +1023,13 @@ function noticeWhen(n) {
    the same, firestore.rules match /news): the church office and master
    admins, to anyone; a team leader (adminFor), to their own teams only;
    nobody else sees the button. */
+/* On a team doing the office job (the rules' raOffice asks the same), so
+   a church whose office is called something else is still the office. */
+function onOfficeJob() {
+  return EGBCAuth.teamsForJob('office').some(t => EGBCAuth.inTeam(t));
+}
 function mayNoticeEveryone() {
-  return !!window.EGBCAuth && (EGBCAuth.isMaster() || EGBCAuth.inTeam('Church office'));
+  return !!window.EGBCAuth && (EGBCAuth.isMaster() || onOfficeJob());
 }
 function canPostNotice() {
   if (!window.EGBCAuth) return false;
@@ -1353,7 +1381,7 @@ function canEditNews(n) {
   return teams.every(t => EGBCAuth.isAdminOf(t));
 }
 
-/* â”€â”€ My events â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ── My events ──────────────────────────────────────────────────────
    The events brief says every chunk that gives a person something of
    their own adds it to this one dashboard rather than building a "my
    something" page of its own. This is that slot for sign-ups.
@@ -1366,7 +1394,7 @@ function canEditNews(n) {
    Sorted here rather than in the query. An orderBy drops every document
    missing the field, silently, and these are written by a public page
    that has changed twice already. */
-/* â”€â”€ Getting about â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ── Getting about ──────────────────────────────────────────────────
    Home, Calendar, Meet, My serving, More - as a tab bar on a phone and a
    sidebar on a computer, from one list so they cannot drift apart.
 
@@ -1471,13 +1499,13 @@ function renderNavigation() {
 }
 window.addEventListener('resize', () => { try { renderNavigation(); } catch (e) {} });
 
-/* â”€â”€ Waiting for you â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ── Waiting for you ────────────────────────────────────────────────
    The top card of the personal home: the things that need this person
    rather than the things that exist.
 
    Today there is one kind of item - a notice that has to be confirmed as
    read. Rota accept/decline was in the brief for this card and Martin has
-   since said not to build it (NEXT-BRIEF Â§10), so it is not here. Forms,
+   since said not to build it (NEXT-BRIEF §10), so it is not here. Forms,
    approvals and payments arrive with their own chunks; each adds to the
    list below rather than to a page of its own. */
 /* NO SAFEGUARDING LEAD SET (Martin, 14 Oct 2026): concerns and requests
@@ -1554,7 +1582,7 @@ function renderWaiting() {
   if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons();
 }
 
-/* â”€â”€ My serving â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ── My serving ─────────────────────────────────────────────────────
    The next dates this person is on the rota for, with the role and the
    time, and a way through to the whole rota.
 
@@ -1623,11 +1651,37 @@ function welcomeLine() {
   return (window.EGBCChurch && EGBCChurch.name && EGBCChurch.name()) || CHURCH_NAME || '';
 }
 let CHURCH_NAME = '';
+/* The church's enquiry address (churchSettings/details): what a youth-code
+   email replies to, so a parent's answer reaches the church and no address
+   is written into the code. '' = no reply-to. */
+let CHURCH_EMAIL = '';
 db.collection('churchSettings').doc('details').get().then(s => {
   CHURCH_NAME = (s.exists && s.data().name) || '';
+  CHURCH_EMAIL = (s.exists && s.data().enquiryEmail) || '';
+  LOGO = (s.exists && s.data().logoUrl) || '';
+  showLogo(document.getElementById('logo'));
+  /* The church's name under the hub's name in the bar; blank when unset. */
+  const k = document.querySelector('.bar .brand .k');
+  if (k) k.textContent = CHURCH_NAME;
   const h = document.getElementById('heroTitle');
   if (h && !h.textContent.trim()) h.textContent = welcomeLine();
-}).catch(() => {});
+  return shortName(s.exists ? s.data() : {});
+}).then(hubName).catch(() => {});
+
+/* The church's short name ("EGBC"): Your church's, else the e-news
+   footer's (which only the office can read; anyone else simply gets none). */
+function shortName(d) {
+  if (d && d.shortName) return Promise.resolve(String(d.shortName));
+  return db.collection('enewsSettings').doc('main').get()
+    .then(s => String(((s.exists && s.data().church) || {}).shortName || ''), () => '');
+}
+/* "EGBC Hub" in the bar and the tab: the short name in front of "Hub". */
+function hubName(short) {
+  if (!short) return;
+  const n = document.querySelector('.bar .brand .n');
+  if (n) n.textContent = short + ' Hub';
+  document.title = short + ' Hub';
+}
 function menuHas(url, who) {
   let found = false;
   (function walk(nodes) { nodes.forEach(n => { if (n.url === url) found = true; if (n.children) walk(n.children); }); })(EGBCMenu.forPerson(who || EGBCMenu.who()));
@@ -2201,7 +2255,7 @@ function applySwitches() {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
   try { new MutationObserver(go).observe(document.documentElement, { childList: true, subtree: true }); } catch (e) {}
 })();
-function mayMarkUrgent() { return EGBCAuth.isMaster() || EGBCAuth.inTeam('Church office'); }
+function mayMarkUrgent() { return EGBCAuth.isMaster() || onOfficeJob(); }
 function closeNewsEditor() { document.getElementById('newsModal').classList.remove('on'); }
 
 /* Notices are written in a proper editor (egbc-editor.js): toolbar buttons,
@@ -2313,10 +2367,9 @@ const MOBILE_APPS = ['coreteamapp.html', 'worshiphubapp.html', 'youthapp2.html',
 function isCharterPage(url) {
   const u = (url || '').toLowerCase();
   if (!u) return false;
-  /* Choir, Kids Church, Lazers and ReNu have a charter but no standalone
-     page, so their entries carry no url. */
-  if (Object.values(CHARTER_PAGE).some(c => c.url && c.url.toLowerCase() === u)) return true;
-  /* AVteamlandingpage is the AV charter page. It is not in CHARTER_PAGE,
+  /* Most charters have no standalone page; these are the ones that do. */
+  if (Object.values(CHARTER_FILE).some(f => f.toLowerCase() === u)) return true;
+  /* AVteamlandingpage is the AV charter page. It is not in CHARTER_FILE,
      because AV point at the shared Worship & AV charter - which left it as
      the one charter that still showed as a tile, leading to a page with no
      text on it. */
@@ -2458,6 +2511,13 @@ async function importOldMenu() {
 
 const WORSHIP_AV = ['Worship Team', 'AV Team'];
 
+/* The teams doing the worship and AV jobs, for a page "seen by" both: the
+   church's own teams, each once (EGBC's: Worship Team and AV Team). The
+   seed list above keeps its fixed pair because it is the original site's
+   menu brought across, page by page. */
+function worshipPairTeams() { return jobTeams(['worship', 'av']); }
+function worshipPairLabels() { return jobTeamLabels(['worship', 'av']); }
+
 const REGISTRY = [
 
   /* -- the live menu, as it actually is ------------------------------
@@ -2485,7 +2545,7 @@ const REGISTRY = [
     description: 'When something is not working' },
   { url: 'Youthcharter.html', title: 'Youth', icon: '\u{1F4DC}', team: 'Youth Worship',
     description: 'How the youth team serve' },
-  { url: 'youthserviceplanner.html', title: 'Youth Service Planner', icon: 'â›ª', team: 'Youth Worship',
+  { url: 'youthserviceplanner.html', title: 'Youth Service Planner', icon: '⛪', team: 'Youth Worship',
     description: 'Planning a youth-led service' },
   { url: 'stickynotes.html', title: "Idea's pin board", icon: '\u{1F4CC}', team: 'Worship Team',
     description: 'Song suggestions and ideas' },
@@ -2497,7 +2557,7 @@ const REGISTRY = [
 
   { url: 'Coreteamcharter.html', title: 'Core Team', icon: '\u{1F4DC}', team: 'Core Team',
     description: 'How the core team work' },
-  { url: 'EmailBuilder2.html', title: 'Email Compiler', icon: 'âœ‰', team: 'Core Team',
+  { url: 'EmailBuilder2.html', title: 'Email Compiler', icon: '✉', team: 'Core Team',
     description: 'Write and send to a team' },
   /* One file holds every department's rota, so it belongs to all of them.
      adminOnly keeps it off an ordinary member's hub - it sends email. */
@@ -2617,7 +2677,7 @@ async function checkRegistryLinks() {
     if (btn) btn.textContent = was;
     if (!bad.length) { alert(`All ${urls.length} links work.`); return; }
     alert(`${bad.length} of ${urls.length} do not load:\n\n` +
-      bad.map(u => 'â€¢ ' + u).join('\n') +
+      bad.map(u => '• ' + u).join('\n') +
       '\n\nUsually the filename is spelt or capitalised differently in the repo. ' +
       'Edit the entry rather than deleting it.');
   } catch (e) {
@@ -2659,7 +2719,7 @@ async function seedRegistry() {
   let msg = `${missing.length} page${missing.length === 1 ? '' : 's'} not yet registered.\n\n`;
   if (bad.length) {
     msg += `${bad.length} of them did not load and will be SKIPPED:\n` +
-           bad.map(u => 'â€¢ ' + u).join('\n') +
+           bad.map(u => '• ' + u).join('\n') +
            '\n\nThat is almost always a filename spelt differently in the repo.\n\n';
   }
   if (!good.length) { alert(msg + 'Nothing left to add.'); return; }
@@ -2789,19 +2849,49 @@ const FUNCTIONS_REGION = 'europe-west2';
 
    The ids match FEEDS in functions/index.js. They are what is stored, so
    renaming one stops every link of that kind working. */
-const CALENDAR_FEEDS = [
+const CALENDAR_FEEDS_BASE = [
   { id: 'me', title: 'Just me',
     blurb: 'The services and meetings you are on. Nobody else is named in it.' },
   { id: 'household', title: 'My household',
     blurb: 'Everyone in your house, with who is doing what: "Oliver: Drums". ' +
            'It follows the household, so somebody joining or leaving changes it by itself.' },
-  { id: 'full:worship', title: 'The full rota \u2014 Worship & AV', full: true,
-    blurb: 'Every service, with the whole Worship and AV team on each one.' },
-  { id: 'full:kids', title: 'The full rota \u2014 Kids Church', full: true,
-    blurb: 'Every service, with the whole Kids Church team on each one.' },
+  /* A team rota is named by the jobs it covers, in the church's own team
+     names, so the words are never one church's. */
+  { id: 'full:worship', jobs: ['worship', 'av'], full: true },
+  { id: 'full:kids', jobs: ['children'], full: true },
   { id: 'full:all', title: 'The full rota \u2014 Everything', full: true,
     blurb: 'Every service, with everybody you are allowed to see on the rota.' }
 ];
+
+/* The church's teams doing these jobs, each once, in job order, leaving
+   out archived ones. Empty when nobody does any of them. */
+function jobTeams(jobs) {
+  const out = [];
+  jobs.forEach(j => EGBCAuth.teamsForJob(j).forEach(t => {
+    const T = EGBCAuth.TEAMS[t];
+    if (T && T.archived) return;
+    if (!out.includes(t)) out.push(t);
+  }));
+  return out;
+}
+/* Their names as the church calls them: ['Worship', 'AV'] for EGBC. */
+function jobTeamLabels(jobs) {
+  return jobTeams(jobs).map(t => (EGBCAuth.TEAMS[t] || {}).label || t);
+}
+
+/* The choices as this church words them. A team rota whose jobs nobody
+   does is left out: a link to a rota with no team on it says nothing. */
+function calendarFeeds() {
+  return CALENDAR_FEEDS_BASE.map(f => {
+    if (!f.jobs) return f;
+    const names = jobTeamLabels(f.jobs);
+    if (!names.length) return null;
+    return Object.assign({}, f, {
+      title: 'The full rota \u2014 ' + names.join(' & '),
+      blurb: 'Every service, with the whole ' + names.join(' and ') + ' team on each one.'
+    });
+  }).filter(Boolean);
+}
 
 /* Which links this person already has. Asked for once when the panel opens:
    a link is made only when somebody asks for one, because every address that
@@ -2853,7 +2943,7 @@ function showCalendarChoices() {
       Add one of these once and it stays up to date in your calendar. When the
       rota changes, your calendar follows, with no new email.
     </p>
-    ${CALENDAR_FEEDS.map(f => calendarChoiceRow(f)).join('')}
+    ${calendarFeeds().map(f => calendarChoiceRow(f)).join('')}
     <p style="font-size:12px;color:var(--muted);line-height:1.6;margin-top:16px">
       Treat these addresses like passwords: anyone who has one can see that
       rota. Each has its own link, so resetting one leaves the others working.
@@ -2901,7 +2991,7 @@ window.makeCalendarLink = async function (feedId) {
 };
 
 window.resetCalendarLink = async function (feedId) {
-  const f = CALENDAR_FEEDS.find(x => x.id === feedId) || { title: 'this' };
+  const f = calendarFeeds().find(x => x.id === feedId) || { title: 'this' };
   /* Said plainly, because no server can reach into somebody's phone: the old
      address stops working at once, but entries already downloaded stay until
      they remove the old subscription themselves. */
@@ -3128,7 +3218,7 @@ const GRANT_WEEKS=6;
 
 async function loadPeople(){
   const list=document.getElementById('peopleList');
-  list.innerHTML='<div class="text-sm opacity-50 italic py-4">Loadingâ€¦</div>';
+  list.innerHTML='<div class="text-sm opacity-50 italic py-4">Loading…</div>';
   try{
     const [users,book]=await Promise.all([
       db.collection('users').orderBy('email').get(),
@@ -3154,10 +3244,13 @@ function renderPeople(){
   const bits=[];
   if(unmatched.length)bits.push(`${unmatched.length} sign-${unmatched.length===1?'in is':'ins are'} not linked to an address book record`);
   if(noTeams.length)bits.push(`${noTeams.length} ${noTeams.length===1?'person has':'people have'} no teams ticked`);
+  /* Shown and hidden with style.display, like everything else on the hub:
+     the hub has no stylesheet for a `hidden` class, so toggling one left
+     this display:none for good. */
   if(bits.length){
-    banner.classList.remove('hidden');
-    banner.querySelector('span').textContent=bits.join(' Â· ')+'.';
-  }else banner.classList.add('hidden');
+    banner.style.display='';
+    banner.querySelector('span').textContent=bits.join(' · ')+'.';
+  }else banner.style.display='none';
 
   const shown=PEOPLE
     .filter(p=>!q||(p.name||'').toLowerCase().includes(q)||(p.email||'').toLowerCase().includes(q))
@@ -3197,8 +3290,8 @@ function renderPeople(){
         : 'They signed in with an address the address book does not hold. Pick their record and it will be remembered.'}</div>
       <div class="flex gap-2 flex-wrap">
         <select id="link-${p.id}" class="flex-grow min-w-[200px] px-4 py-2.5 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-semibold text-[12px]">
-          <option value="">Choose a personâ€¦</option>
-          ${BOOK.map(m=>`<option value="${m.id}">${esc(m.name||'(no name)')}${Array.isArray(m.markers)&&m.markers.includes('Core Team')?' [ADMIN]':''}${m.email?' â€” '+esc(m.email):''}</option>`).join('')}
+          <option value="">Choose a person…</option>
+          ${BOOK.map(m=>`<option value="${m.id}">${esc(m.name||'(no name)')}${recordGrants(m)?' [ADMIN]':''}${m.email?' — '+esc(m.email):''}</option>`).join('')}
         </select>
         <button onclick="linkPerson('${p.id}',document.getElementById('link-${p.id}').value)" class="bg-[#3d6263] text-white px-6 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">Link</button>
       </div>
@@ -3264,15 +3357,31 @@ async function savePerson(p,teams,roles){
 }
 
 
+/* WHAT LINKING TO THIS RECORD WOULD HAND OVER, BEYOND ITS OWN TEAMS: a
+   master admin's everything, or a core team's reach over the teams it
+   covers (the church's own core teams, Teams & groups "core team for").
+   The words finish "WARNING: <name> ..."; '' = nothing beyond its teams. */
+function recordGrants(m){
+  if(m.masterAdmin===true)return 'is a master admin, so linking gives this sign-in FULL ADMINISTRATOR access to the address book and every tool.';
+  const T=EGBCAuth.TEAMS, lab=t=>(T[t]&&T[t].label)||t;
+  const cores=(Array.isArray(m.markers)?m.markers:[]).filter(t=>EGBCAuth.isCoreTeam(t));
+  if(!cores.length){
+    const admin=Array.isArray(m.adminFor)?m.adminFor:[];
+    return admin.length?`administers ${admin.map(lab).join(', ')}, so linking gives this sign-in admin rights there.`:'';
+  }
+  const covered=[...new Set(cores.flatMap(t=>T[t].coreFor||[]))].map(lab);
+  return `is on ${cores.map(lab).join(' and ')}, a core team, so linking gives this sign-in that team's reach over ${covered.join(', ')} as well.`;
+}
+
 async function linkPerson(uid,memberId){
   if(!memberId)return;
   const u=PEOPLE.find(x=>x.id===uid);
   const m=BOOK.find(x=>x.id===memberId);
   if(!u||!m)return;
 
-  const isAdminRecord=Array.isArray(m.markers)&&m.markers.includes('Core Team');
-  const warn=isAdminRecord
-    ? `\n\nWARNING: ${m.name||'this person'} is Core Team, so linking gives this sign-in FULL ADMINISTRATOR access to the address book and every tool. Only do this if you are certain ${u.email} belongs to them.`
+  const grants=recordGrants(m);
+  const warn=grants
+    ? `\n\nWARNING: ${m.name||'this person'} ${grants} Only do this if you are certain ${u.email} belongs to them.`
     : '\n\nThey will get whatever teams are ticked against that record.';
   if(!confirm(`Link the sign-in ${u.email} to ${m.name||'this record'}?`+warn))return;
 
@@ -3357,14 +3466,14 @@ function renderPagesList(){
       : (Array.isArray(p.teams) && p.teams.length>1
           ? p.teams.map(t=>(EGBCAuth.TEAMS[t]||{label:t}).label).join(' + ')
           : cfg.label);
-    const why = p.helpFor ? ` Â· help for ${p.helpFor}`
-      : (isCharterPage(p.url) ? ' Â· on the landing page'
-      : (MOBILE_APPS.includes((p.url||'').toLowerCase()) ? ' Â· phone app' : ''));
+    const why = p.helpFor ? ` · help for ${p.helpFor}`
+      : (isCharterPage(p.url) ? ' · on the landing page'
+      : (MOBILE_APPS.includes((p.url||'').toLowerCase()) ? ' · phone app' : ''));
     return `<div class="flex items-center gap-3 flex-wrap bg-[#f0f6f6] rounded-[1rem] px-5 py-3 border border-[#dde7e6] ${p.enabled===false?'opacity-50':''}">
       <span class="text-lg">${esc(p.icon||'ðŸ“„')}</span>
       <div class="flex-grow min-w-0">
         <div class="font-bold text-sm truncate">${esc(p.title)}</div>
-        <div class="text-[10px] opacity-50">${esc(p.url)} Â· ${esc(seen)}${p.adminOnly?' Â· admin only':''}${esc(why)}${p.enabled===false?' Â· hidden':''}</div>
+        <div class="text-[10px] opacity-50">${esc(p.url)} · ${esc(seen)}${p.adminOnly?' · admin only':''}${esc(why)}${p.enabled===false?' · hidden':''}</div>
       </div>
       <button onclick="editPage('${p.id}')" class="bg-white border border-[#dde7e6] px-4 py-2 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-[#3d6263] hover:text-white transition-all">Edit</button>
     </div>`;
@@ -3379,8 +3488,8 @@ function newPage(){
   document.getElementById('pgEnabled').checked=true;
   document.getElementById('pgAdminOnly').checked=false;
   document.getElementById('pgSeenBy').value='team';
-  document.getElementById('pgDelete').classList.add('hidden');
-  document.getElementById('pageEditor').classList.remove('hidden');
+  document.getElementById('pgDelete').style.display='none';
+  document.getElementById('pageEditor').style.display='';
 }
 
 
@@ -3397,12 +3506,14 @@ function editPage(id){
   document.getElementById('pgEnabled').checked=p.enabled!==false;
   document.getElementById('pgSeenBy').value =
     p.everyone ? 'all' : ((Array.isArray(p.teams) && p.teams.length>1) ? 'pair' : 'team');
-  document.getElementById('pgDelete').classList.remove('hidden');
-  document.getElementById('pageEditor').classList.remove('hidden');
+  /* Delete for whoever may change this entry (the rules: an admin of its
+     team). The list only offers Edit on those, so this is a second guard. */
+  document.getElementById('pgDelete').style.display=EGBCAuth.isAdminOf(p.team)?'':'none';
+  document.getElementById('pageEditor').style.display='';
 }
 
 
-function cancelPage(){document.getElementById('pageEditor').classList.add('hidden');}
+function cancelPage(){document.getElementById('pageEditor').style.display='none';}
 
 /* This was defined twice, identically. The second won, so an edit to the
    first did nothing at all - which is the sort of thing that eats an
@@ -3425,7 +3536,7 @@ async function savePage(){
   /* Written every time, including the empty case, so narrowing an entry back
      to one team actually takes. update() merges, so a field left out here
      keeps whatever it had - which is why this cannot be conditional. */
-  data.teams = seen==='pair' ? WORSHIP_AV : [];
+  data.teams = seen==='pair' ? worshipPairTeams() : [];
 
   if(!data.title||!data.url||!data.team){alert('Title, filename and team are required.');return;}
   try{
@@ -3450,9 +3561,25 @@ function youngPeople(){
 }
 
 
+/* THE TEAMS WHOSE ADMINS SEND YOUTH CODES: the teams doing the children's
+   and youth jobs, and the other teams a core team over them covers - the
+   church's own grouping of its young people's work, so a group with no job
+   of its own (a midweek club) is still in, and no team is named here. */
+function youthCodeTeams(){
+  const T=EGBCAuth.TEAMS;
+  const out=[];
+  const add=t=>{if(T[t]&&!T[t].archived&&!out.includes(t))out.push(t);};
+  const doing=jobTeams(['children','youth']);
+  doing.forEach(add);
+  Object.keys(T).forEach(c=>{
+    const covers=T[c].coreFor||[];
+    if(covers.some(t=>doing.includes(t)))covers.forEach(add);
+  });
+  return out;
+}
+
 function canIssueCodes(){
-  return EGBCAuth.isMaster()||['Kids Church','Youth Worship','Lazers','ReNu']
-    .some(t=>EGBCAuth.isAdminOf(t));
+  return EGBCAuth.isMaster()||youthCodeTeams().some(t=>EGBCAuth.isAdminOf(t));
 }
 
 
@@ -3464,7 +3591,7 @@ function parentFor(member){
 
 async function loadYouth(){
   const list=document.getElementById('youthList');
-  list.innerHTML='<div class="text-sm opacity-50 italic py-4">Loadingâ€¦</div>';
+  list.innerHTML='<div class="text-sm opacity-50 italic py-4">Loading…</div>';
   if(!BOOK.length)await loadPeople();
 
   try{
@@ -3491,9 +3618,9 @@ function fillYouthPicker(){
     document.getElementById('youthTo').innerHTML='Tick <strong>Under 16</strong> against young people in the address book and they will appear here.';
     return;
   }
-  sel.innerHTML='<option value="">Choose a young personâ€¦</option>'+people.map(m=>{
+  sel.innerHTML='<option value="">Choose a young person…</option>'+people.map(m=>{
     const p=parentFor(m);
-    return `<option value="${m.id}"${p?'':' disabled'}>${esc(m.name||'(no name)')}${p?'':' â€” no parent email'}</option>`;
+    return `<option value="${m.id}"${p?'':' disabled'}>${esc(m.name||'(no name)')}${p?'':' — no parent email'}</option>`;
   }).join('');
   sel.onchange=()=>{
     const m=BOOK.find(x=>x.id===sel.value);
@@ -3518,9 +3645,9 @@ function renderYouth(){
   const soon=YOUTH.filter(g=>{const d=daysLeft(g);return g.active!==false&&d!==null&&d>0&&d<=14;});
   const box=document.getElementById('youthExpiring');
   if(soon.length){
-    box.classList.remove('hidden');
+    box.style.display='';
     box.querySelector('div').textContent=`${soon.length} ${soon.length===1?'code expires':'codes expire'} within two weeks.`;
-  }else box.classList.add('hidden');
+  }else box.style.display='none';
 
   list.innerHTML=YOUTH.map(g=>{
     const d=daysLeft(g);
@@ -3534,7 +3661,7 @@ function renderYouth(){
     return `<div class="flex items-center gap-3 flex-wrap bg-[#f0f6f6] rounded-[1rem] px-5 py-3 border border-[#dde7e6] ${g.active===false?'opacity-50':''}">
       <div class="flex-grow min-w-0">
         <div class="font-bold text-sm truncate">${esc(g.memberName||'(unknown)')}</div>
-        <div class="text-[10px] opacity-50">${g.redeemedAt?'Used':'Sent'} Â· to ${esc(g.sentTo||'')}</div>
+        <div class="text-[10px] opacity-50">${g.redeemedAt?'Used':'Sent'} · to ${esc(g.sentTo||'')}</div>
       </div>
       <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${tone}">${badge}</span>
       ${g.active!==false?`<button onclick="revokeGrant('${g.code}')" class="text-[9px] font-black uppercase tracking-widest text-red-400 hover:text-red-600 transition-colors">Revoke</button>`:''}
@@ -3554,7 +3681,7 @@ function makeCode(){
 
 function codeEmail(name,code,parentName){
   return `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px">
-    <p style="font-size:12px;font-weight:600;color:#3d6263;margin:0 0 18px">Esher Green Baptist Church</p>
+    ${CHURCH_NAME?`<p style="font-size:12px;font-weight:600;color:#3d6263;margin:0 0 18px">${esc(CHURCH_NAME)}</p>`:''}
     <p style="font-size:15px;color:#3a4d4c;line-height:1.6">Hi${parentName?' '+esc(parentName):''},</p>
     <p style="font-size:15px;color:#3a4d4c;line-height:1.6">Here is an access code so ${esc(name)} can use the Youth Hub on their phone. It works once, on one device, and lasts six weeks - we will send a new one after that.</p>
     <div style="background:#f0f6f6;border:1px solid #dde7e6;border-radius:16px;padding:24px;text-align:center;margin:24px 0">
@@ -3565,8 +3692,25 @@ function codeEmail(name,code,parentName){
       <a href="${location.origin + location.pathname.replace(/[^/]*$/, '')}youth-access.html" style="background:#5f7a4a;color:#fff;padding:14px 32px;border-radius:8px;font-size:12px;font-weight:600;text-decoration:none">Enter the code</a>
     </p>
     <p style="font-size:13px;color:#6b8281;line-height:1.6">Please pass this to ${esc(name)} rather than forwarding the email. If you would rather they did not have access, simply do not use it - and let us know.</p>
-    <p style="font-size:12px;color:#93a8a6;line-height:1.6;margin-top:24px;border-top:1px solid #dde7e6;padding-top:16px">Sent by the youth team at Esher Green Baptist Church.</p>
+    <p style="font-size:12px;color:#93a8a6;line-height:1.6;margin-top:24px;border-top:1px solid #dde7e6;padding-top:16px">Sent by the youth team${CHURCH_NAME?' at '+esc(CHURCH_NAME):''}.</p>
   </div>`;
+}
+
+/**
+ * Emails a youth code to a parent: one place for the send and resend, so
+ * the two cannot drift apart. Replies go to the church's enquiry address
+ * when it has one set; with none, the email simply has no reply-to.
+ * @param {string} to the parent's address
+ * @param {string} name the young person's name
+ * @param {string} code the access code
+ * @param {string} parentName the parent's name, or ''
+ * @returns {Promise<void>} rejects if the email did not send
+ */
+async function emailCode(to,name,code,parentName){
+  const msg={ source:'youthCode', to:[to], subject:`Youth Hub access code for ${name}`, html:codeEmail(name,code,parentName) };
+  if(CHURCH_EMAIL)msg.replyTo=CHURCH_EMAIL;
+  const r=await EGBCAuth.sendEmail(msg);
+  if(!r.ok)throw new Error(r.error||'The email did not send');
 }
 
 
@@ -3588,13 +3732,7 @@ async function issueCode(member,parent,silent){
     active:true
   });
 
-  const r = await EGBCAuth.sendEmail(Object.assign({ source: 'youthCode' }, {
-      to:[parent.email],
-      subject:`Youth Hub access code for ${member.name||'your child'}`,
-      html:codeEmail(member.name||'your child',code,parent.name),
-      replyTo:'youth@esherchurch.org'
-    }));
-  if(!r.ok)throw new Error(r.error||'The email did not send');
+  await emailCode(parent.email,member.name||'your child',code,parent.name);
   return code;
 }
 
@@ -3608,7 +3746,7 @@ async function sendCode(){
 
   if(!confirm(`Email an access code for ${member.name} to ${parent.email}?`))return;
 
-  const btn=document.getElementById('sendCodeBtn');btn.disabled=true;btn.textContent='Sendingâ€¦';
+  const btn=document.getElementById('sendCodeBtn');btn.disabled=true;btn.textContent='Sending…';
   try{
     await issueCode(member,parent);
     sel.value='';document.getElementById('youthTo').innerHTML='';
@@ -3623,8 +3761,7 @@ async function resendCode(code){
   if(!g)return;
   if(!confirm(`Resend the same code to ${g.sentTo}?`))return;
   try{
-    const r = await EGBCAuth.sendEmail(Object.assign({ source: 'youthCode' }, {to:[g.sentTo],subject:`Youth Hub access code for ${g.memberName||'your child'}`,html:codeEmail(g.memberName||'your child',code,''),replyTo:'youth@esherchurch.org'}));
-    if(!r.ok)throw new Error(r.error||'The email did not send');
+    await emailCode(g.sentTo,g.memberName||'your child',code,'');
     alert('Sent again.');
   }catch(e){alert('Could not resend: '+e.message);}
 }
@@ -3700,7 +3837,7 @@ function renderAdminPages(){
           <button class="btn" onclick="importOldMenu()">Bring across the old menu</button>
           <button class="btn" onclick="importAllCharters()">Bring across all charters</button>
           <button class="btn" onclick="markSharedPages()">Open shared pages to everyone</button>
-          <button class="btn" onclick="newPage()">+ Add</button>
+          <button class="btn" id="btnAddPage" onclick="newPage()">+ Add</button>
         </div>
       </div>
       <div id="pageEditor" style="display:none;background:var(--surface-2);border:2px solid var(--brand);border-radius:18px;padding:20px;margin-bottom:18px">
@@ -3717,7 +3854,7 @@ function renderAdminPages(){
         </div>
         <select class="fld" id="pgSeenBy">
           <option value="team">Seen by that team only</option>
-          <option value="pair">Seen by Worship and AV</option>
+          <option value="pair" id="pgSeenPair"></option>
           <option value="all">Seen by everyone signed in</option>
         </select>
         <label style="display:flex;gap:9px;align-items:center;cursor:pointer;margin:4px 0 12px">
@@ -3737,12 +3874,23 @@ function renderAdminPages(){
       <div id="pagesList"></div>`;
   }
   fillTeamSelect(); renderPagesList();
+  /* "Seen by" the teams doing the Sunday worship and AV jobs together, in
+     the church's names; not offered when that is one team or none. */
+  const pair=worshipPairLabels(), opt=document.getElementById('pgSeenPair');
+  opt.textContent='Seen by '+pair.join(' and ');
+  opt.hidden=opt.disabled=pair.length<2;
+  /* + Add only for somebody with a team to put a page under: an entry
+     needs one, and the rules let an admin write only their own teams'. */
+  document.getElementById('btnAddPage').style.display=document.getElementById('pgTeam').options.length?'':'none';
 }
 
 function renderAdminYouth(){
   const el=document.getElementById('tab-youth');
   if(!canIssueCodes()){
-    el.innerHTML='<div class="empty"><div class="t">Codes are issued by whoever administers Kids Church, Youth, Lazers or ReNu</div></div>';
+    const names=youthCodeTeams().map(t=>EGBCAuth.TEAMS[t].label||t);
+    el.innerHTML=`<div class="empty"><div class="t">${names.length
+      ?'Codes are issued by whoever administers '+esc(names.length>1?names.slice(0,-1).join(', ')+' or '+names[names.length-1]:names[0])
+      :'Codes are issued by whoever administers the children&rsquo;s or youth teams'}</div></div>`;
     return;
   }
   if(!el.dataset.built){

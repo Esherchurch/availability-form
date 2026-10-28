@@ -22,8 +22,23 @@ import { getAuth } from 'firebase-admin/auth';
 import { randomBytes } from 'node:crypto';
 import {
   buildFeed, buildHouseholdFeed, buildFullFeed,
-  householdIds, visibleRoleTeams, FULL_SCOPES
+  householdIds, visibleRoleTeams, fullScopes
 } from './rota-feed.js';
+import { readTeamJobs } from './team-jobs.js';
+
+/**
+ * What a church's feeds are called and cover: its short name (Your church,
+ * else the e-news footer's, else its name) and its full-rota choices.
+ * @param {object} cdb one church's database
+ */
+async function feedChurch(cdb) {
+  const get = (c, d) => cdb.collection(c).doc(d).get().then((s) => (s.exists ? s.data() || {} : {}), () => ({}));
+  const [details, enews, jobs, teams] = await Promise.all([get('churchSettings', 'details'), get('enewsSettings', 'main'),
+    readTeamJobs(cdb), cdb.collection('teams').get().then((s) => s.docs, () => [])]);
+  const labels = Object.fromEntries(teams.map((d) => [d.id, (d.data() || {}).label || d.id]));
+  const church = String(details.shortName || (enews.church || {}).shortName || details.name || '').trim();
+  return { church, scopes: fullScopes(jobs, (t) => labels[t] || t) };
+}
 import {
   findMe as findMeIn, myDates as myDatesIn, saveAnswer as saveAnswerIn,
   whoAmI as whoAmIIn, callerIp
@@ -37,7 +52,8 @@ import { myFamily as myFamilyIn, onBookChange as onBookChangeIn } from './family
 import { myYouthHub as myYouthHubIn } from './youth-hub.js';
 /* Which church a call is for: the sign-in's claim, never the page (multi-
    church step 3, FINDINGS-churchhq H-5). No claim is EGBC, as before. */
-import { churchOf, churchFromPath, eachChurch } from './church-scope.js';
+import { churchOf, churchFromPath, eachChurch, scopedDb } from './church-scope.js';
+import { validChurchId } from './hq-directory.js';
 /* Codes and links that come with no sign-in: which church (hq-codes.js). */
 import { codeHash, indexCode, dropCode, dbForCode } from './hq-codes.js';
 import { hashCode as churchShowHash, normalise as churchShowNormalise } from './churchshow.js';
@@ -123,7 +139,7 @@ export const rotaFeed = onRequest({ cors: false, invoker: 'public' }, async (req
       const book = await addressBook(fdb);
       const ids = householdIds(book, memberId);
       const members = book.filter(m => ids.includes(m.id));
-      body = buildHouseholdFeed({ events, members });
+      body = buildHouseholdFeed({ events, members, church: (await feedChurch(fdb)).church });
 
     } else if (kind === 'full') {
       /* AND SO IS WHAT THEY MAY SEE. The teams come from their record as it
@@ -133,7 +149,8 @@ export const rotaFeed = onRequest({ cors: false, invoker: 'public' }, async (req
       const userSnap = uid ? await fdb.collection('users').doc(uid).get() : null;
       const user = userSnap && userSnap.exists ? userSnap.data() : null;
       if (!user || user.status !== 'active') return no();
-      body = buildFullFeed({ events, allowedTeams: visibleRoleTeams(user), scope });
+      const { church, scopes } = await feedChurch(fdb);
+      body = buildFullFeed({ events, allowedTeams: visibleRoleTeams(user), scope, scopes, church });
 
     } else {
       const memberSnap = await fdb.collection('addressBook').doc(memberId).get();
@@ -146,14 +163,14 @@ export const rotaFeed = onRequest({ cors: false, invoker: 'public' }, async (req
         const m = await fdb.collection('meetings').doc(ev.id).get().catch(() => null);
         return m && m.exists ? Object.assign({}, ev, { description: m.data().description || '', organiserUid: m.data().organiserUid || '' }) : ev;
       }));
-      body = buildFeed({ events: withTitles, memberId, member });
+      body = buildFeed({ events: withTitles, memberId, member, church: (await feedChurch(fdb)).church });
     }
 
     /* text/calendar is what makes a browser offer to add it rather than show
        it as a page; the filename is what the calendar app shows while it is
        being added. */
     res.set('Content-Type', 'text/calendar; charset=utf-8');
-    res.set('Content-Disposition', 'inline; filename="egbc-rota.ics"');
+    res.set('Content-Disposition', 'inline; filename="rota.ics"');
     /* Four hours, matching REFRESH-INTERVAL in the file, so a client that
        honours one and not the other still behaves. */
     res.set('Cache-Control', 'public, max-age=14400');
@@ -203,10 +220,11 @@ export const myCalendarLink = onCall(async (request) => {
      handing them an empty calendar. */
   if (cfg.kind === 'full' && cfg.scope !== 'all') {
     const allowed = visibleRoleTeams(user);
-    const wanted = FULL_SCOPES[cfg.scope].teams || [];
+    const scope = (await feedChurch(cdb)).scopes[cfg.scope];
+    const wanted = scope.teams || [];
     if (allowed && !wanted.some(t => allowed.includes(t))) {
       throw new HttpsError('permission-denied',
-        'The ' + FULL_SCOPES[cfg.scope].label + ' rota is not one you can see.');
+        'The ' + (scope.label || 'full') + ' rota is not one you can see.');
     }
   }
 
@@ -457,6 +475,11 @@ function orThrow(result) {
    today, is EGBC's top level, as before. A church address nobody has is
    refused. The token findMe gives is checked in the same church. */
 async function formDb(request) {
+  /* Live, only the web address chooses the church. The emulator has no
+     church addresses, so a test page's ?church= choice (sent by egbc-db.js)
+     stands in for one there, letting a test church's form be tried. */
+  const asked = String((request.data || {}).churchId || '');
+  if (process.env.FUNCTIONS_EMULATOR === 'true' && asked && validChurchId(asked)) return scopedDb(db, asked);
   const cdb = await dbForAddress(db, request.rawRequest);
   if (!cdb) throw new HttpsError('not-found', 'This church’s address isn’t on Church HQ.');
   return cdb;

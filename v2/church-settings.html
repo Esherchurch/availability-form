@@ -11,16 +11,13 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202610311700"></script>
+<script src="egbc-auth.js?v=202610311800"></script>
 <script src="egbc-church.js?v=202610192330"></script>
-<!-- An admin, OR the Church office. The office are the people who know
-     the church's bank details, which now live on this page, and they are
-     not necessarily admins of anything. Each half of the page is drawn
-     only for whoever may actually save it - see mayDetails()/mayGive(). -->
+<!-- Master admins only. The office keeps the bank details on Giving
+     details (giving-details.html). -->
 <script src="egbc-guard.js?v=202610282000" data-master></script>
 <script src="egbc-giving-form.js?v=202610211200"></script>
 <script src="egbc-microsoft-connect.js?v=202610211700"></script>
-<script src="egbc-events-rooms.js?v=202610081800"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -70,7 +67,7 @@
 <div class="wrap">
   <h1>Church details</h1>
   <p class="sub">Your church's name, email, logo and words are kept on <a href="your-church.html" id="yc-link" style="color:#3d6263;font-weight:600">Your church</a>; the rest of the church's settings are here.</p>
-  <p class="sub"><a href="permissions.html" style="color:#3d6263;font-weight:600">Permissions ›</a> who may do what, section by section (H-14).</p>
+  <p class="sub"><a href="permissions.html" style="color:#3d6263;font-weight:600">Permissions ›</a> who may do what, section by section.</p>
   <div class="card" id="form"><p class="hint">Loading…</p></div>
 
   <h1 style="font-size:18px;margin:22px 0 4px" id="give-h" hidden>Giving</h1>
@@ -127,7 +124,7 @@
        page can read) and never shown again. Saving is held until
        switch-over, like payments (functions/hq-mail-key.js). -->
   <h1 style="font-size:18px;margin:22px 0 4px" id="keys-h" hidden>Email and Canva keys</h1>
-  <p class="sub" id="keys-sub" hidden>Church HQ's email (Resend) keys are kept in Google Secret Manager; this says whether they are set. Canva's keys are pasted here once; the hub's server keeps them and never shows them again.</p>
+  <p class="sub" id="keys-sub" hidden>Church HQ keeps its own email keys safely; this says whether they are set up. Canva's keys are pasted here once; the hub's server keeps them and never shows them again.</p>
   <div class="card" id="keys-form" hidden></div>
   <!-- ── end COMMS ── -->
 </div>
@@ -187,7 +184,7 @@
      NO VALUES IN THIS FILE. The repository is public. The fields start
      empty and Martin or Val type the real ones in once it is live. */
   function mayGive() {
-    return !!(EGBCAuth.isMaster() || EGBCAuth.inTeam('Church office'));
+    return !!EGBCAuth.isMaster();
   }
 
   /* The form itself is egbc-giving-form.js, shared with Giving details
@@ -457,13 +454,7 @@
 
   function mayDetails() { return !!EGBCAuth.isAdmin(); }
 
-  EGBCAuth.require({ adminAny: true, alsoTeam: 'Church office' }).then(function () {
-    if (!mayDetails()) {
-      document.querySelector('.sub').textContent =
-        'The church’s giving details. The name, enquiry email and logo are '
-        + 'changed by a team admin.';
-      document.getElementById('form').hidden = true;
-    }
+  EGBCAuth.require({ adminAny: true }).then(function () {
     return db().collection('churchSettings').doc('details').get();
   }).then(function (s) {
     D = s.exists ? s.data() : {};
@@ -507,9 +498,9 @@
     el.innerHTML = '<p class="hint" id="ky-state">Checking…</p>';
     EGBCAuth.call('hqMailKeyStatus', {}).then(data, function () { return { error: true }; }).then(function (st) {
       st = st || {};
-      var resend = st.error ? '' : '<div id="ky-resend" style="margin:0 0 12px"><b style="color:var(--ink)">Church HQ email (Resend)</b>' +
-        '<p class="hint" style="margin:4px 0 0">Kept in Google Secret Manager, not pasted here. The API key (HQ_RESEND_API_KEY): ' + (st.saved ? '<b>set</b>' : '<b>not set yet</b>') +
-        '. The webhook signing secret (HQ_RESEND_WEBHOOK_SECRET): ' + (st.hookSaved ? '<b>set</b>' : '<b>not set yet</b>') + '.</p></div>';
+      var resend = st.error ? '' : '<div id="ky-resend" style="margin:0 0 12px"><b style="color:var(--ink)">Church HQ email</b>' +
+        '<p class="hint" style="margin:4px 0 0">These are kept safely by Church HQ, not typed in here. Sending email: ' + (st.saved ? '<b>set up</b>' : '<b>not set up yet</b>') +
+        '. Knowing when an email is delivered or bounces: ' + (st.hookSaved ? '<b>set up</b>' : '<b>not set up yet</b>') + '.</p></div>';
       if (st.shut) {
         el.innerHTML = resend + '<p class="hint" id="ky-state" style="margin:0"><b style="color:var(--ink)">Canva\u2019s keys can be saved when the hub goes live.</b> Until then the database can be read by anybody, so a key saved now would not be safe. Nothing needs doing yet.</p>';
         return;

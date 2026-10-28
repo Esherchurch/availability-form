@@ -14,7 +14,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610311700"></script>
+<script src="egbc-auth.js?v=202610311800"></script>
 <script src="egbc-church.js?v=202610192330"></script>
 <script src="egbc-events.js?v=202610262000"></script>
 <script src="egbc-rota-reports.js?v=202610152200"></script>
@@ -52,7 +52,7 @@
   var E = window.EGBCEvents, R = window.EGBCRotaReports, esc = E.esc;
   var TABS = [['overview', 'Overview'], ['gaps', 'Unfilled slots'], ['clash', 'Clashes'], ['often', 'How often people serve'], ['person', 'One person\'s serving'], ['none', 'Not on the rota']];
   var S = { tab: 'gaps', from: '', to: '', team: '', practices: false, person: '' };
-  var DATA = null, MINE = null, ROWS = null;
+  var DATA = null, MINE = null, ROWS = null, ROTA = [];
   function db() { return EGBCAuth.db; }
   function ymd(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
   function fmt(day) { var d = new Date(day + 'T12:00:00'); return isNaN(d) ? day : E.fmtDateShort(d); }
@@ -62,7 +62,10 @@
     return R.load({ db: db(), from: S.from, to: S.to }).then(function (d) { DATA = d; draw(); })
       .catch(function (e) { document.getElementById('out').innerHTML = '<p class="gap">' + esc(e.message || e) + '</p>'; });
   }
-  function teamsShown() { return S.team ? [S.team] : MINE; }
+  /* Always a list: the reports' own default is a fixed set of teams, so
+     the page passes the church's rota teams itself. */
+  function teamsShown() { return S.team ? [S.team] : (MINE || ROTA); }
+  function label(t) { return (EGBCAuth.TEAMS[t] && EGBCAuth.TEAMS[t].label) || t; }
   function draw() {
     document.querySelectorAll('.tabs button').forEach(function (b) { b.setAttribute('aria-selected', String(b.getAttribute('data-tab') === S.tab)); });
     document.getElementById('personBox').style.display = S.tab === 'person' ? '' : 'none';
@@ -113,22 +116,25 @@
   }
 
   EGBCAuth.require().then(function () {
-    var master = EGBCAuth.isMaster && EGBCAuth.isMaster(), areas = (EGBCAuth.adminAreas && EGBCAuth.adminAreas()) || [];
-    if (!master && !areas.length) { document.getElementById('wrap').innerHTML = '<div class="card"><h1>Rota reports</h1><p>This page is for master admins and the leaders of rota teams.</p></div>'; return; }
+    var master = EGBCAuth.isMaster && EGBCAuth.isMaster();
+    /* The church's rota teams (Teams & groups: top-level, not archived, not
+       a group without a rota), in the church's own order. */
+    ROTA = EGBCAuth.viewAsChoices().filter(function (t) { return EGBCAuth.TEAMS[t].rota !== false; });
+    /* A leader (leader, admin, or a core team covering it) sees only the
+       rota teams they lead. */
+    MINE = master ? null : ROTA.filter(function (t) { return EGBCAuth.isLeaderOf(t); });
+    if (MINE && !MINE.length) { document.getElementById('wrap').innerHTML = '<div class="card"><h1>Rota reports</h1><p>This page is for master admins and the leaders of rota teams.</p></div>'; return; }
     if (window.EGBCChurch && EGBCChurch.uses && EGBCChurch.uses('rotaReports') === false) { document.getElementById('wrap').innerHTML = '<div class="card"><h1>Rota reports</h1><p>Rota reports are switched off for this church.</p></div>'; return; }
-    /* An area leader: only the rota teams they lead. */
-    MINE = master ? null : areas.filter(function (t) { return R.ROTA_TEAMS.indexOf(t) >= 0; });
-    if (MINE && !MINE.length) { document.getElementById('wrap').innerHTML = '<div class="card"><h1>Rota reports</h1><p>You lead no team with a rota, so there is nothing to show.</p></div>'; return; }
     var now = new Date(), back = new Date(); back.setMonth(back.getMonth() - 3);
     var ahead = new Date(); ahead.setMonth(ahead.getMonth() + 3);
     S.from = ymd(back); S.to = ymd(ahead);
-    var teams = MINE || R.ROTA_TEAMS;
-    document.getElementById('wrap').innerHTML = '<h1>Rota reports</h1><p class="sub">Who serves, how often, and the gaps' + (MINE ? ': ' + esc(MINE.join(', ')) : '') + '. From the rotas as they are saved; nothing else.</p>' +
+    var teams = MINE || ROTA;
+    document.getElementById('wrap').innerHTML = '<h1>Rota reports</h1><p class="sub">Who serves, how often, and the gaps' + (MINE ? ': ' + esc(MINE.map(label).join(', ')) : '') + '. From the rotas as they are saved; nothing else.</p>' +
       '<div class="tabs" role="tablist">' + TABS.map(function (t) { return '<button role="tab" data-tab="' + t[0] + '">' + esc(t[1]) + '</button>'; }).join('') + '</div>' +
       '<div class="card"><div class="bar">' +
         '<div><label for="from">From</label><input type="date" id="from" value="' + S.from + '"></div>' +
         '<div><label for="to">To</label><input type="date" id="to" value="' + S.to + '"></div>' +
-        (teams.length > 1 ? '<div><label for="team">Team</label><select id="team"><option value="">' + (MINE ? 'All my teams' : 'All teams') + '</option>' + teams.map(function (t) { return '<option>' + esc(t) + '</option>'; }).join('') + '</select></div>' : '') +
+        (teams.length > 1 ? '<div><label for="team">Team</label><select id="team"><option value="">' + (MINE ? 'All my teams' : 'All teams') + '</option>' + teams.map(function (t) { return '<option value="' + esc(t) + '">' + esc(label(t)) + '</option>'; }).join('') + '</select></div>' : '') +
         '<div id="personBox" style="display:none"><label for="person">Who</label><select id="person"></select></div>' +
         '<label class="tick"><input type="checkbox" id="practices">Include practices</label>' +
       '</div></div><div class="card" id="out"></div>';

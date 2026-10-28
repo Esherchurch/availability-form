@@ -461,7 +461,9 @@ service cloud.firestore {
 
     match /hubPages/{pageId} {
       allow read: if active();
-      allow write: if isAdmin() && adminOf(request.resource.data.team);
+      // A delete has no new data, so it is checked against the page as it is.
+      allow create, update: if isAdmin() && adminOf(request.resource.data.team);
+      allow delete: if isAdmin() && adminOf(resource.data.team);
     }
 
     // ---- address book -----------------------------------------------
@@ -742,7 +744,8 @@ service cloud.firestore {
       return exists(/databases/$(database)/documents/safeguardingSettings/defaults)
              && sgLeadOf(get(/databases/$(database)/documents/safeguardingSettings/defaults).data.get('leadSiteId', ''));
     }
-    function onPastoral() { return onTeam('Pastoral'); }
+    // The pastoral job's teams (churchSettings/teamJobs), as every other job.
+    function onPastoral() { return raOnJob('pastoral', ['Pastoral']); }
 
     // WHO GETS TOLD (Martin, 14 Oct 2026; NEXT-BRIEF §24): the people the
     // church names for each kind (careRouting/main, a master admin's), and

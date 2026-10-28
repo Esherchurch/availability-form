@@ -63,7 +63,7 @@ This is the hub's home page, where you land after signing in. It shows the churc
 
 ## Put your rota in your calendar
 1. Press your initials and choose **Add to my calendar**. Or open **Menu** and press **My rota**.
-2. Choose **Just me**, **My household**, or one of the full rotas.
+2. Choose **Just me**, **My household**, or one of the full rotas. The full rotas are named after the church's own worship and AV teams and its children's team; one whose team the church does not have is not offered.
 3. Press **Add to my calendar**, then **Google**, **Apple / iPhone** or **Outlook**. Or **Copy link**.
 4. If a link has got out, press **Reset this link**. The old one stops working at once.
 
@@ -75,6 +75,7 @@ This is the hub's home page, where you land after signing in. It shows the churc
 1. The charter card shows what your team is expected to do, folded into sections.
 2. Press a heading to open it, or **Open them all** (or **Read it all**).
 3. If you are on more than one team, use the buttons above it to read another team's charter.
+4. A team has a charter when it has its own pin board. Teams that share a pin board share one charter; a group with no pin board has none.
 
 ## Change the banner
 For team admins and master admins.
@@ -97,9 +98,12 @@ For team admins and master admins. Press the cog (on a phone, it is in your init
 - **People**: everyone who has signed in. Someone marked **Needs linking** signed in with an email the address book does not hold. Choose who they are and press **Link**.
 - On a linked person, tick their teams and choose **Member**, **Leader** or **Admin**. This updates the address book too. A team admin can only change their own teams.
 - **Wrong person?** or **Unlink** takes a sign-in off the record it was linked to.
+- At the top of **People**, a gold box says how many sign-ins need linking and how many people have no teams ticked. It goes when there are none.
+- When you link a sign-in to a record that is a master admin, administers a team, or is on a core team, you are warned what that sign-in will be able to do before you say yes.
 - **Notices**: every notice you can manage, with **Edit** and **Remove**, and **+ New notice**.
-- **Youth codes**: for admins of the children's and youth teams. Under 16s cannot sign in, so a code is emailed to their parent. Choose the young person and press **Send**. Use **Resend** or **Revoke** on a code.
-- **Pages**: what appears in the menu, and who sees it.
+- **Youth codes**: for admins of the teams doing the church's children's and youth work, and of the other groups their core team looks after. Under 16s cannot sign in, so a code is emailed to their parent, with the church's name on it. A parent's reply goes to the church's enquiry email (set in the church's details). Choose the young person and press **Send**. Use **Resend** or **Revoke** on a code.
+- When codes run out within two weeks, a gold box says how many. Press **Send renewals** to send each family a new one.
+- **Pages**: what appears in the menu, and who sees it. Press **+ Add** for a new entry, or **Edit** on one of your teams' entries. Choose who sees it: that team only, the church's worship and AV teams together, or everyone signed in. **Delete** (when editing) removes the entry.
 
 ## Other cards you may see
 - **Watch live** or **Watch again**: the service, on the day.
@@ -115,6 +119,7 @@ For team admins and master admins. Press the cog (on a phone, it is in your init
 - An urgent phone message is sent once and cannot be called back.
 - Treat calendar links like passwords: anyone with one can see that rota.
 - A card with nothing in it does not show.
+- The church's name and logo at the top come from the church's details. If none are set, the space is left blank.
 - If the page says "Half of this page is out of date", press Ctrl and F5 together, or **Reload**.
 
 ## Who to ask

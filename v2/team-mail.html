@@ -16,7 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610311700"></script>
+<script src="egbc-auth.js?v=202610311800"></script>
 <script src="egbc-church.js?v=202610192330"></script>
 <script src="egbc-events.js?v=202610262000"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -55,15 +55,13 @@
   'use strict';
   var E = window.EGBCEvents, esc = E.esc;
   var PEOPLE = [], TEAMS = [], MAIL = {}, WHO = {}, SHUT = false;
-  /* Until Teams & Groups lands (an empty `teams` collection): the hub's
-     built-in teams plus Martin's ten (15 Oct). */
-  var USUAL = ['Safeguarding', 'Worship Team', 'Pastoral', 'Church office', 'Admin', 'Hospitality', 'Kids Church', 'Youth Worship', 'Welcome team', 'Maintenance'];
   function teamList(snap) {
     if (snap.size) return snap.docs.map(function (d) { var x = d.data() || {}; return { id: d.id, name: x.label || x.name || d.id, archived: x.archived === true, order: typeof x.order === 'number' ? x.order : 999 }; })
       .filter(function (t) { return !t.archived; });
-    var T = EGBCAuth.TEAMS || {}, out = Object.keys(T).filter(function (id) { return !T[id].archived; }).map(function (id) { return { id: id, name: T[id].label || id, order: typeof T[id].order === 'number' ? T[id].order : 500 }; });
-    USUAL.forEach(function (n, i) { if (!out.some(function (t) { return t.id === n; })) out.push({ id: n, name: n, order: 900 + i }); });
-    return out;
+    /* Nothing stored, or not readable: the teams the hub already knows.
+       Never a list of names written here - those are one church's. */
+    var T = EGBCAuth.TEAMS || {};
+    return Object.keys(T).filter(function (id) { return !T[id].archived; }).map(function (id) { return { id: id, name: T[id].label || id, order: typeof T[id].order === 'number' ? T[id].order : 500 }; });
   }
   function db() { return EGBCAuth.db; }
   function nameOf(id) { var p = PEOPLE.filter(function (x) { return x.id === id; })[0]; return p ? p.name : '(not in the address book)'; }
@@ -111,12 +109,13 @@
     document.getElementById('wrap').innerHTML = '<h1>Team emails</h1>' +
       '<p class="sub">A team can send emails as itself: the email says it is from the team, replies go to the team\'s own address (or to the sender, if it has none), and the team\'s mailbox gets a copy. Emails still leave from the hub\'s one sending address.</p>' +
       (SHUT ? '<div class="shut" id="shut">Team emails open when the hub goes live. Until then nothing here can be saved, and nobody can send as a team.</div>' : '') +
-      '<div class="card" id="whoCard"><h2>The Pastor and the office admin</h2><p class="m" style="margin:0">They may send as any team except Safeguarding.</p>' +
+      '<div class="card" id="whoCard"><h2>The Pastor and the office admin</h2><p class="m" style="margin:0">They may send as any team except a safeguarding team.</p>' +
         '<div class="two"><div><label for="pastor">Pastor</label><select id="pastor">' + options('Nobody chosen') + '</select></div>' +
         '<div><label for="office">Office admin</label><select id="office">' + options('Nobody chosen') + '</select></div></div>' +
         '<div class="row"><button class="btn" id="saveWho">Save</button><span class="m" id="whoMsg" role="status"></span></div></div>' +
       '<h2 style="margin-top:20px">Teams</h2><p class="m" id="teamsFrom">The teams come from Teams &amp; Groups: add, rename or archive a team there, and it shows here.</p>' +
-      '<div id="teams">' + TEAMS.map(teamCard).join('') + '</div>';
+      '<div id="teams">' + (TEAMS.length ? TEAMS.map(teamCard).join('')
+        : '<div class="card m" id="noTeams">No teams yet. Add them in <a href="teams-admin.html">Teams &amp; groups</a>.</div>') + '</div>';
     document.getElementById('pastor').value = WHO.pastor || '';
     document.getElementById('office').value = WHO.officeAdmin || '';
     document.getElementById('saveWho').onclick = function () {

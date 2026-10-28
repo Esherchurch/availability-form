@@ -2291,8 +2291,11 @@
     isPastoralVisitor: function () { return !(EGBCAuth.viewingAs && EGBCAuth.viewingAs()) && pastoralVisitor; },
     isPastoralLead: function () { return !(EGBCAuth.viewingAs && EGBCAuth.viewingAs()) && pastoralLead; },
     isCareReader: function () {
-      if (EGBCAuth.viewingAs && EGBCAuth.viewingAs()) return (EGBCAuth.effectiveTeams() || []).indexOf('Pastoral') !== -1;
-      return careLead || (EGBCAuth.effectiveTeams() || []).indexOf('Pastoral') !== -1;
+      /* The pastoral job's teams, as firestore.rules' onPastoral() has them. */
+      var pastoral = EGBCAuth.teamsForJob('pastoral');
+      var onIt = (EGBCAuth.effectiveTeams() || []).some(function (t) { return pastoral.indexOf(t) !== -1; });
+      if (EGBCAuth.viewingAs && EGBCAuth.viewingAs()) return onIt;
+      return careLead || onIt;
     },
 
     runsTabs: function () {

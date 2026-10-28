@@ -22,13 +22,15 @@ This page shows the church's rota, so you can see who is serving and when. You c
 2. You get every upcoming date for your teams.
 
 ## Download your own rota
-1. Pick your name in the list at the top (**Select Member...**).
+1. Pick your name in the list at the top (**Choose a name**).
 2. Press **Individual PDF** for the dates you are on.
 3. Press **Household PDF** for the dates anyone in your household is on.
 4. Press **Wall Planner** for a calendar, one month per page, for your household. Good for the fridge.
 
 ## Good to know
 - The PDFs only show dates from today onwards.
+- The PDFs carry the church's logo from Church settings. If no logo is set, they have none. The full rota's file is named after the church.
+- A date with no start time set shows no time.
 - The PDFs are the same as the ones sent out with the term's rota email.
 - The name list shows people on your teams, and you.
 - The rota updates by itself when a leader changes it.

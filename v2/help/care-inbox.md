@@ -3,7 +3,7 @@
 This page lists the requests for pastoral care and the concerns people have raised through Care & support. It is the one place to read them and mark them as dealt with.
 
 ## Who can use it
-- The pastoral team can read requests for pastoral care and pastoral concerns.
+- The pastoral team can read requests for pastoral care and pastoral concerns. This is whichever team does the care and support job, under "Who does each job" in Teams & groups. If no team does it, nobody reads them as the pastoral team.
 - People named under "Who gets told" in Church settings can read the kinds they are named for.
 - The safeguarding lead and deputy can read everything, including safeguarding concerns.
 - Nobody else can read them. Not master admins, not the person who raised it, and not the person it is about.

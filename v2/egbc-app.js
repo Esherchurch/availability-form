@@ -147,6 +147,28 @@
     });
   }
 
+  /* THE CHURCH'S OWN MARK in the header, from its name (churchSettings/
+     details, through egbc-church.js): the initials of the name's capitalised
+     words in the logo square, and "<initials> Hub" as the title. Initials,
+     because the bar has room for a few letters, not a whole name. With no
+     name set, a plain "Hub" and a house: a blank is honest, a guess is not.
+     The name arrives after the first draw, so the app redraws once it has. */
+  /* The church's own short name (Your church), the same one the website's
+     hub bar uses; the initials only stand in when it has none. */
+  var SHORT = '';
+  function churchShort() {
+    if (SHORT) return SHORT.slice(0, 12);
+    var n = (global.EGBCChurch && EGBCChurch.name && EGBCChurch.name()) || '';
+    return n.split(/\s+/).filter(function (w) { return /^[A-Z0-9]/.test(w); })
+      .map(function (w) { return w.charAt(0); }).join('').slice(0, 5);
+  }
+  function brand() {
+    var s = churchShort(), title = s ? s + ' Hub' : 'Hub';
+    var meta = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+    if (meta) meta.setAttribute('content', title);
+    return '<span class="logo">' + (s ? esc(s) : ic('house', 16)) + '</span><span class="top-title">' + esc(title) + '</span>';
+  }
+
   /* A Lucide name, or nothing. Not escaped - validated, because it goes
      into an attribute the browser acts on. */
   function icName(n) {
@@ -652,11 +674,10 @@
          in ink, then the buttons. Mine was letter-spaced small caps and a
          muted 13px title, which read as a website strip. */
       + '<div class="top-row">'
-      + (coloured ? '<span class="mode-ic">' + ic(mode.icon, 18) + '</span>' : '<span class="logo">EGBC</span>')
-      /* "EGBC Hub", as the mock-up has it. The space is named in the
-         pills below; putting it in the title too said the same thing
-         twice and lost the app's name. */
-      + '<span class="top-title">' + (coloured ? esc(mode.label) : 'EGBC Hub') + '</span>'
+      /* The church's "<initials> Hub", as the mock-up has it. The space is
+         named in the pills below; putting it in the title too said the same
+         thing twice and lost the app's name. */
+      + (coloured ? '<span class="mode-ic">' + ic(mode.icon, 18) + '</span><span class="top-title">' + esc(mode.label) + '</span>' : brand())
       /* "I'M WORRIED ABOUT SOMEONE", on EVERY space (NEXT-BRIEF §24):
          Me and my family, every team space, and Running things. It sits in
          the top bar rather than on a screen for exactly that reason - a
@@ -806,8 +827,7 @@
     var p = prefs();
     var always = p.always && modeByKey(p.always);
     ssPut(MODES_KEY, { current: null, list: modes.map(function (m) { return { key: m.key, label: m.label, icon: m.icon }; }) });
-    var html = '<div class="top"><div class="top-row"><span class="logo">EGBC</span>'
-      + '<span class="top-title">EGBC Hub</span>'
+    var html = '<div class="top"><div class="top-row">' + brand()
       + (!uses('notices') ? '' : '<button class="icon-btn" data-act="sheet:notices" aria-label="Notices'
       + (unseenNotices() ? ', ' + unseenNotices() + ' you have not seen' : '') + '">' + ic('bell', 17)
       + (unseenNotices() ? '<span class="badge">' + (unseenNotices() > 9 ? '9+' : unseenNotices()) + '</span>' : '')
@@ -1018,6 +1038,11 @@
        still has it; one choice only, straight into it; otherwise the
        tiles. */
     start: function () {
+      if (global.EGBCChurch && EGBCChurch.load && !churchShort()) EGBCChurch.load().then(function () { if (churchShort()) draw(); });
+      if (global.EGBCAuth && EGBCAuth.db) EGBCAuth.db.collection('churchSettings').doc('details').get().then(function (s) {
+        var v = String(((s.exists && s.data()) || {}).shortName || '').trim();
+        if (v && v !== SHORT) { SHORT = v; draw(); }
+      }, function () { /* the initials stand */ });
       if (fromHash()) return;
       var mine = spacesFor(who()), modes = modesFor(mine), p = prefs();
       var teams = modes.filter(function (m) { return m.key !== 'me'; });

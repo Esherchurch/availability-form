@@ -8,7 +8,7 @@ This is where the worship leader plans a Sunday service: the songs, the keys, th
 
 ## Choose the service
 1. At the top, pick the date from the list of coming services. Use **◀** and **▶** to move between them, or **Pick another date**.
-2. Choose the service in **Select Service...**. The main Sunday service is chosen for you.
+2. Choose the service in **Select Service...**. A service (not a practice or meeting) is chosen for you, by the church's kinds of service in Your services.
 3. **Leader** shows the worship leader from the rota.
 4. If a plan was saved for that service, it opens. If not, you get a starting order of songs, **Welcome and Notices** and **Message**.
 
@@ -44,10 +44,11 @@ This is where the worship leader plans a Sunday service: the songs, the keys, th
 
 ## Email the plan
 1. Press **Email Team**. This saves the plan first.
-2. In **Your Email (reply-to)**, type your email. Replies come to you.
-3. Press **Email Whole Team**. It goes to everyone on the service and the church's leadership team.
+2. In **Your Email (reply-to)**, type your email. Replies come to you. Leave it empty and replies go to the church's enquiry email (Church settings).
+3. Press **Email Whole Team**. It goes to everyone on the service (each person, when a slot has several) and to the worship core team: the core team set for the worship teams in Teams and groups.
 4. Or choose a name under **Or email one person:** and press **Email This Person**.
 5. It says "Sent" when it has gone.
+- The email carries the church's name and logo from Church settings. If none is set, they are left off.
 
 ## Good to know
 - Nothing is saved until you press **Save Schedule** or **Email Team**. If you leave first, your changes are lost.

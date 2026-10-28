@@ -6,8 +6,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610311700"></script>
-<script src="egbc-guard.js?v=202610282000" data-admin="any" data-also-team="Church office"></script>
+<script src="egbc-auth.js?v=202610311800"></script>
+<script src="egbc-guard.js?v=202610282000" data-admin="any" data-also-job="office"></script>
 <!-- "Gets the e-news" on each person, for the office (the comms window's add-on; FINDINGS-comms C-30) -->
 <script src="egbc-enews-ab.js?v=202610272000"></script>
     <meta charset="UTF-8">
@@ -166,7 +166,7 @@
                sees the people on THEIR teams; the church office and master
                admins see everyone. Changing a record follows the same line in
                the rules (firestore.rules, bookLeaderOk). */
-            const seesAll = EGBCAuth.isMaster() || EGBCAuth.inTeam('Church office');
+            const seesAll = EGBCAuth.isMaster() || onOfficeJob();
             const mine = EGBCAuth.adminAreas ? EGBCAuth.adminAreas() : [];
             snapshot.forEach((d) => {
                 const m = {id: d.id, ...d.data()};
@@ -188,8 +188,11 @@
                     if (head) householdDisplay = head.name + " Family";
                 }
 
+                /* The person's teams in the church's words, for the search
+                   box: the row does not show them, so the row carries them. */
+                const teamWords = (member.markers || []).map(t => ((window.EGBCAuth && EGBCAuth.TEAMS || {})[t] || {}).label || t).join(' ');
                 const row = `
-                    <tr style="border-bottom:1px solid #e5e7eb" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background=''">
+                    <tr data-teams="${escapeHtml(teamWords)}" style="border-bottom:1px solid #e5e7eb" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background=''">
                         <td class="p-4">
                           <div style="display:flex;align-items:center;gap:12px">
                             <span style="width:36px;height:36px;border-radius:8px;background:#eef5f4;color:#3d6263;
@@ -285,9 +288,15 @@
    stays visible, because households and families cross teams and hiding half
    of them would break those links - but Edit and Delete are withheld on
    records outside their areas. */
+/* The church office by its team job, never a team's name: whichever teams
+   the church gives the office job. */
+function onOfficeJob(){
+  return typeof EGBCAuth!=='undefined'&&EGBCAuth.teamsForJob('office').some(t=>EGBCAuth.inTeam(t));
+}
+
 function canEditMember(m){
   if(typeof EGBCAuth==='undefined'||!EGBCAuth.profile())return true;
-  if(EGBCAuth.isMaster()||EGBCAuth.inTeam('Church office'))return true;
+  if(EGBCAuth.isMaster()||onOfficeJob())return true;
   const mine=EGBCAuth.adminAreas();
   const theirs=Array.isArray(m.markers)?m.markers:[];
   // On nobody's team yet: the office's to set up (the rules agree, 16 Oct 2026).
@@ -303,7 +312,7 @@ function applyAdminScope(){
 
   document.querySelectorAll('.marker').forEach(cb=>{
     /* The church office ticks any team (16 Oct 2026); a leader, their own. */
-    const allowed=master||EGBCAuth.inTeam('Church office')||mine.includes(cb.value);
+    const allowed=master||onOfficeJob()||mine.includes(cb.value);
     cb.disabled=!allowed;
     const l=cb.closest('label');
     if(l){l.style.opacity=allowed?'':'0.35';l.title=allowed?'':'You do not administer this team';}
@@ -368,14 +377,24 @@ function fillTeamTicks(alsoShow) {
      person - and offering it would imply there is. */
   const a = document.getElementById('adminForTicks');
   if (a) a.innerHTML = teams.map(n => box('adminfor', n, T[n].label || n)).join('');
+
+  /* "Most per team": the church's rota teams, a cap each. */
+  const caps = document.getElementById('teamCapTicks');
+  if (caps) caps.innerHTML = teams.map(n => '<div class="flex items-center gap-2"><span class="text-[10px] font-medium text-gray-500 uppercase flex-grow">'
+    + esc(T[n].label || n) + '</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-medium outline-none" data-team="'
+    + esc(n) + '" placeholder="&mdash;"></div>').join('');
 }
 
 document.addEventListener('egbc-ready',()=>{
   fillTeamTicks();
-  applyAdminScope();
-  // The list is drawn before auth resolves, so redraw it now that we know
-  // whose records this person may touch.
-  if(typeof window.redrawMembers==='function')window.redrawMembers();
+  // The team jobs say who the office is, so they are read before deciding
+  // what this person may touch.
+  EGBCAuth.loadPerms().catch(()=>{}).then(()=>{
+    applyAdminScope();
+    // The list is drawn before auth resolves, so redraw it now that we know
+    // whose records this person may touch.
+    if(typeof window.redrawMembers==='function')window.redrawMembers();
+  });
 });
 
     </script>
@@ -580,14 +599,8 @@ document.addEventListener('egbc-ready',()=>{
                 <details class="pt-1">
                     <summary class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-[#3d6263]">Most per team &mdash; optional</summary>
                     <p class="text-[9px] text-gray-400 font-semibold leading-relaxed mt-2 mb-3">Max / Mo above is the total across everything. Use these to stop one team taking all of it &mdash; three a month with a cap of two on each means two and one, either way round. Blank means no separate limit.</p>
-                    <div class="space-y-2">
-                        <div class="flex items-center gap-2"><span class="text-[10px] font-medium text-gray-500 uppercase flex-grow">Worship</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-medium outline-none" data-team="Worship Team" placeholder="&mdash;"></div>
-                        <div class="flex items-center gap-2"><span class="text-[10px] font-medium text-gray-500 uppercase flex-grow">AV Team</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-medium outline-none" data-team="AV Team" placeholder="&mdash;"></div>
-                        <div class="flex items-center gap-2"><span class="text-[10px] font-medium text-gray-500 uppercase flex-grow">Choir</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-medium outline-none" data-team="Choir" placeholder="&mdash;"></div>
-                        <div class="flex items-center gap-2"><span class="text-[10px] font-medium text-gray-500 uppercase flex-grow">Youth</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-medium outline-none" data-team="Youth Worship" placeholder="&mdash;"></div>
-                        <div class="flex items-center gap-2"><span class="text-[10px] font-medium text-gray-500 uppercase flex-grow">Kids Church</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-medium outline-none" data-team="Kids Church" placeholder="&mdash;"></div>
-                        <div class="flex items-center gap-2"><span class="text-[10px] font-medium text-gray-500 uppercase flex-grow">Lazers</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-medium outline-none" data-team="Lazers" placeholder="&mdash;"></div>
-                        <div class="flex items-center gap-2"><span class="text-[10px] font-medium text-gray-500 uppercase flex-grow">ReNu</span><input type="number" min="0" class="teamcap w-16 bg-[#f8fafc] border border-[#d1dfdf] p-2 rounded-full text-center text-xs font-medium outline-none" data-team="ReNu" placeholder="&mdash;"></div>
+                    <!-- One box per rota team, the church's own, built by fillTeamTicks(). -->
+                    <div class="space-y-2" id="teamCapTicks">
                     </div>
                 </details>
 
@@ -766,7 +779,7 @@ document.addEventListener('egbc-ready',()=>{
   function apply() {
     var body = document.getElementById('memberListBody'); if (!body) return;
     var shown = 0, rows = body.querySelectorAll(':scope > tr');
-    rows.forEach(function (tr) { var hit = !q || (tr.textContent || '').toLowerCase().indexOf(q) !== -1; tr.style.display = hit ? '' : 'none'; if (hit) shown++; });
+    rows.forEach(function (tr) { var hit = !q || ((tr.textContent || '') + ' ' + (tr.getAttribute('data-teams') || '')).toLowerCase().indexOf(q) !== -1; tr.style.display = hit ? '' : 'none'; if (hit) shown++; });
     var none = document.getElementById('abNone'); if (none) none.style.display = q && rows.length && !shown ? '' : 'none';
   }
   document.addEventListener('input', function (e) { if (e.target && e.target.id === 'abSearch') { q = e.target.value.trim().toLowerCase(); apply(); } });

@@ -45,7 +45,7 @@ This is where master admins choose who may do what in the hub, section by sectio
 ## Good to know
 - Changes reach people the next time a page opens.
 - An exception can only add a permission. It never takes one away.
-- Some actions are marked "Set in code today: moves here later". They are shown so you know who can do them, but cannot be changed here yet.
+- Some actions are marked "Set in code today: moves here later". They are shown so you know who can do them, but cannot be changed here yet. The teams they name are the ones doing the matching jobs (such as worship, children and youth) under "Who does each job" in Teams & groups, with the church's own team names.
 - **Safeguarding** and **Pastoral care** are not set here. Use the link on each card to go to [Safeguarding settings](safeguarding-settings.html) or [Teams & groups](teams-admin.html).
 - Every change, exception added and exception removed goes into the history.
 - If an action has no ticks, only master admins (and any exceptions) may do it.

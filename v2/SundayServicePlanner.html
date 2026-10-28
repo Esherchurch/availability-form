@@ -8,7 +8,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-plan-audience.js?v=202610131430"></script>
 <script src="egbc-plan-store.js?v=202610252100"></script>
-<script src="egbc-auth.js?v=202610311700"></script>
+<script src="egbc-auth.js?v=202610311800"></script>
+<script src="egbc-church.js?v=202610311000"></script>
 <script src="egbc-guard.js?v=202610282000" data-team="Worship Team" data-role="leader"></script>
 <meta charset="UTF-8">
     <link rel="manifest" href="./manifest-service.json">
@@ -16,9 +17,9 @@
     <meta name="theme-color" content="#3d6263">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="EGBC Service Planner">
+    <meta name="apple-mobile-web-app-title" content="Service Planner">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EGBC Sunday Worship Planner</title>
+<title>Sunday Worship Planner</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <style>
@@ -126,8 +127,10 @@ const startPage = async () => {
     setupDefaultOrder();
     /* Service date: the coming services from the rota, in UK words, with the
        date box underneath (Martin, 14 Oct 2026). */
-    EGBCUKDates.attach(document.getElementById('serviceDate'), { eventSelect: 'eventSelect', preferred: ev => ev.type === 'Sunday Morning Worship',
-        load: () => getDocs(collection(db, "events")).then(s => s.docs.map(d => d.data())) });
+    /* The date list opens on a service, by the church's own kinds (Your
+       services), once they have loaded. */
+    EGBCUKDates.attach(document.getElementById('serviceDate'), { eventSelect: 'eventSelect', preferred: ev => !!SVC && SVC.S.isService(SVC.cfg, ev.type),
+        load: () => rolesReady.then(() => getDocs(collection(db, "events"))).then(s => s.docs.map(d => d.data())) });
     autoFitTextAreas();
     document.getElementById('service-order').addEventListener('input', (e) => { if (e.target.tagName.toLowerCase() === 'textarea') { autoFitTextAreas(); } });
     try {
@@ -411,8 +414,9 @@ window.addItem = (val="") => {
    services" (churchSettings/services.roles), one box each, saved in the
    plan's roles under the role's id and read from the service's own field
    first. With nothing stored, EGBC's four boxes, exactly as they were. */
-let CHURCH_ROLES = null, SVC_S = null;
+let CHURCH_ROLES = null, SVC_S = null, SVC = null;
 const rolesReady = (window.EGBCAuth && EGBCAuth.services ? EGBCAuth.services() : Promise.resolve(null)).then(sv => {
+    if (sv && sv.S) SVC = sv;
     if (!sv || !sv.cfg || !Array.isArray(sv.cfg.roles) || !sv.cfg.roles.length) return;
     SVC_S = sv.S; CHURCH_ROLES = sv.S.roles(sv.cfg);
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
@@ -712,6 +716,20 @@ window.emailSchedule = async () => {
     const introText = document.getElementById('introBox').value || "";
     const outroText = document.getElementById('outroBox').value || "";
     const summaryUrl = await saveSongSummaryToFirestore(date);
+    /* The church's name, logo and reply address (churchSettings/details) and
+       its worship teams' names, never typed in here; blanks are left out. */
+    const church = await (window.EGBCChurch ? EGBCChurch.load() : Promise.resolve({ name: '', enquiryEmail: '', logoUrl: '' }));
+    await rolesReady;
+    const escH = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    /* Replies go to "Sending as" (remembered on this device), else the
+       church's enquiry address. */
+    const replyAddr = () => {
+        let saved = '';
+        try { saved = localStorage.getItem('egbc-sender-email') || ''; } catch (e) { /* private window */ }
+        return document.getElementById('senderEmail').value.trim() || saved.trim() || church.enquiryEmail || '';
+    };
+    const teamWords = [...new Set(['worship', 'av'].flatMap(j => EGBCAuth.teamsForJob(j)))].map(t => (EGBCAuth.TEAMS[t] || {}).label || t).join(' & ');
+    const footLine = [church.name, teamWords ? teamWords + ' Team' : ''].filter(Boolean).map(escH).join(' &bull; ');
 
     let htmlEmail = `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -725,11 +743,11 @@ window.emailSchedule = async () => {
         <p style="margin:0 0 10px;font-family:Arial,sans-serif;font-size:26px;font-weight:800;color:#ffffff;line-height:1.2;">Sunday Worship Plan</p>
         <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#a8c5c5;font-weight:700;text-transform:uppercase;letter-spacing:2.5px;">${EGBCUKDates.long(date)}${worshipLeaderName && worshipLeaderName !== "None" ? " &nbsp;&bull;&nbsp; " + worshipLeaderName : ""}</p>
       </td>
-      <td style="vertical-align:top;text-align:right;padding-left:20px;">
+      ${church.logoUrl ? `<td style="vertical-align:top;text-align:right;padding-left:20px;">
         <div style="display:inline-block;background:#ffffff;border-radius:10px;padding:8px 12px;">
-          <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" height="44" style="display:block;height:44px;border:0;" alt="EGBC">
+          <img src="${escH(church.logoUrl)}" height="44" style="display:block;height:44px;border:0;" alt="${escH(church.name)}">
         </div>
-      </td>
+      </td>` : ''}
     </tr></table>
   </td></tr>
   <tr><td style="padding:36px 40px 0;">
@@ -813,7 +831,8 @@ window.emailSchedule = async () => {
     const rowsForEmail = teamRows.map(r => [r.children[0].innerText, r.children[1].innerText, r.querySelector('.instr-note').value]);
     const sortedForEmail = sortAssignments(rowsForEmail);
     sortedForEmail.forEach(([role, name, note]) => {
-        if(name && name !== "None") rosterNames.push(name.trim());
+        /* A slot with several people lists them "A, B": each is on the team. */
+        if(name && name !== "None") name.split(", ").forEach(n => { if (n.trim()) rosterNames.push(n.trim()); });
         let roleColor = "#3d6263";
         if (["Sound","Words","Camera","Cameras"].includes(role)) roleColor = "#3B7D23";
         htmlEmail += `<tr>
@@ -836,8 +855,8 @@ window.emailSchedule = async () => {
   <tr><td bgcolor="#3d6263" style="padding:24px 40px;">
     <p style="margin:0 0 10px;font-family:Arial,sans-serif;font-size:13px;color:#c8dede;font-style:italic;line-height:1.6;">&ldquo;By this everyone will know that you are my disciples, if you love one another.&rdquo; &mdash; John 13:35</p>
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #4d7475;padding-top:10px;margin-top:4px;"><tr>
-      <td style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:10px;">Esher Green Baptist Church &bull; Worship &amp; AV Team</td>
-      <td align="right" style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:10px;">worship@esherchurch.org</td>
+      <td style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:10px;">${footLine}</td>
+      <td align="right" style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:10px;">${escH(replyAddr())}</td>
     </tr></table>
   </td></tr>
 </table></td></tr></table>
@@ -853,9 +872,15 @@ window.emailSchedule = async () => {
         const found = addressBook.find(p => p.name?.trim() === name);
         if (found && found.email) { const opt = document.createElement('option'); opt.value = found.email; opt.textContent = `${name} (${found.email})`; individualSelect.appendChild(opt); }
     });
+    /* "Email Whole Team" also copies the worship core team: the church's
+       core teams covering the teams that do the worship job (Teams & groups,
+       "core team for"). */
+    const worshipTeams = EGBCAuth.teamsForJob('worship');
+    const coreTeams = Object.keys(EGBCAuth.TEAMS || {}).filter(t => !EGBCAuth.TEAMS[t].archived
+        && (EGBCAuth.TEAMS[t].coreFor || []).some(c => worshipTeams.includes(c)));
     let teamRecipients = [];
     addressBook.forEach(p => {
-        const isCore = p.markers && p.markers.includes("Core Team");
+        const isCore = (p.markers || []).some(m => coreTeams.includes(m));
         if ((rosterNames.includes(p.name?.trim()) || isCore) && p.email) teamRecipients.push(p.email);
     });
     teamRecipients = [...new Set(teamRecipients)];
@@ -864,7 +889,8 @@ window.emailSchedule = async () => {
         statusEl.textContent = "Sending…";
         statusEl.style.color = "#3d6263";
         try {
-            const result = await EGBCAuth.sendEmail(Object.assign({ source: 'servicePlan' }, { to: toAddresses, subject: emailSubject, html: emailHtml, replyTo: document.getElementById('senderEmail').value || "worship@esherchurch.org" }));
+            const reply = replyAddr();
+            const result = await EGBCAuth.sendEmail(Object.assign({ source: 'servicePlan' }, { to: toAddresses, subject: emailSubject, html: emailHtml }, reply ? { replyTo: reply } : {}));
             if (result.ok) { statusEl.textContent = "Sent"; statusEl.style.color = "#3B7D23"; setTimeout(() => modal.classList.remove('active'), 1800); }
             else { statusEl.textContent = "Could not send: " + (result.error || "unknown error"); statusEl.style.color = "#e05555"; }
         } catch (e) { statusEl.textContent = "Could not send: no connection (" + e.message + ")"; statusEl.style.color = "#e05555"; }

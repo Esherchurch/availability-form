@@ -11,7 +11,7 @@
      the phone's own navigation. Martin tapped Groups in the mock-up and closed
      the app instead (APP-DESIGN-BRIEF §7). -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>EGBC Hub</title>
+<title>Hub</title>
 
 <!-- INSTALLABLE (§7c). Without a manifest this opened in the browser and
      could not be added to a home screen - Martin: "thats not the app.
@@ -29,7 +29,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="EGBC Hub">
+<!-- The church's "<initials> Hub", set by egbc-app.js from the church's name. -->
+<meta name="apple-mobile-web-app-title" content="Hub">
 
 <script src="egbc-nosend.js?v=202610212000"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -43,7 +44,7 @@
      one-time offer on Home, and Kids Church Today's "Call on their phone". -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <script src="egbc-plan-audience.js?v=202610131430"></script>
-<script src="egbc-auth.js?v=202610311700"></script>
+<script src="egbc-auth.js?v=202610311800"></script>
 <script src="egbc-orientation.js?v=202610160500"></script>
 <!-- No team on the door: everyone in the address book has this app. Somebody
      signed in who is not in the book is turned away by the guard with the
@@ -415,7 +416,7 @@
 <script src="egbc-notify-core.js?v=202610262100"></script>
 <script src="egbc-notify.js?v=202610141700"></script>
 <script src="egbc-menu.js?v=202610311400"></script>
-<script src="egbc-app.js?v=202610281400"></script>
+<script src="egbc-app.js?v=202610311800"></script>
 <!-- The one service worker on the v2 scope, so a phone that has only ever
      opened the app can receive (N-5). -->
 <script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').catch(function () {}); }</script>
@@ -1011,10 +1012,12 @@ A.screen('me', 'home', function (me) {
      children are in, to read. From familyGroups on their own record,
      which the server writes and the rules read. */
   var fam = ((window.EGBCAuth && EGBCAuth.profile && EGBCAuth.profile()) || {}).familyGroups || [];
-  var FAM_BOARD = { 'Youth Worship': ['youth', 'Youth'], 'Lazers': ['lazers', 'Lazers'], 'ReNu': ['renu', 'ReNu'] };
-  var famRows = fam.filter(function (g) { return FAM_BOARD[g]; }).map(function (g) {
-    return row('sticky-note', FAM_BOARD[g][1] + ' board', 'Your family\u2019s group · to read', null,
-      'open:stickynotes.html?board=' + FAM_BOARD[g][0]);
+  /* Each group's board and name are the church's own (Teams & groups:
+     the team's board and label), never a list written here. */
+  var TT = (window.EGBCAuth && EGBCAuth.TEAMS) || {};
+  var famRows = fam.filter(function (g) { return TT[g] && TT[g].board && !TT[g].archived; }).map(function (g) {
+    return row('sticky-note', (TT[g].label || g) + ' board', 'Your family\u2019s group · to read', null,
+      'open:stickynotes.html?board=' + encodeURIComponent(TT[g].board));
   });
   if (famRows.length) out += sec('Your family\u2019s groups', card(famRows.join('')));
 
@@ -1504,8 +1507,7 @@ A.screen('me', 'me', function (me) {
     + (EGBCAuth.isReallyMaster && EGBCAuth.isReallyMaster()
         ? (A.sheet('viewas', viewAsSheet()), card(row('eye', 'View as somebody else', 'See what Everyone or a team sees', null, 'sheet:viewas')))
         : '')
-    + card(row('log-out', 'Sign out', 'You stay signed in until you do', null, 'open:login.html'))
-    + A.empty('hammer', 'My details and my household arrive in the next stages.');
+    + card(row('log-out', 'Sign out', 'You stay signed in until you do', null, 'open:login.html'));
 });
 
 /* ---- a team space -------------------------------------------------- */
@@ -2133,7 +2135,12 @@ A.screen('core', 'team', function () {
   var spaceOf = function (team) {
     return Object.keys(A.SPACES).filter(function (s) { return !A.SPACES[s].coreTeam && (A.SPACES[s].teams || []).indexOf(team) !== -1; })[0] || '';
   };
-  var CHARTERS = { 'Worship Team': 'Worshipteamcharter.html', 'Youth Worship': 'Youthcharter.html' };
+  /* The charter pages, by team job: the code names a job, never a team, so
+     whichever teams the church gives the worship or youth job are offered
+     that job's charter. */
+  var CHARTERS = { worship: 'Worshipteamcharter.html', youth: 'Youthcharter.html' };
+  var onJob = function (t, job) { return !!(window.EGBCAuth && EGBCAuth.teamsForJob) && EGBCAuth.teamsForJob(job).indexOf(t) !== -1; };
+  var charterOf = function (t) { return Object.keys(CHARTERS).filter(function (j) { return onJob(t, j); }).map(function (j) { return CHARTERS[j]; })[0] || ''; };
 
   C.plan = function (k) {
     var rows = '';
@@ -2143,7 +2150,7 @@ A.screen('core', 'team', function () {
         rows += row('notebook-pen', 'Session planner', "Plan this week's sessions", null, 'open:session-planner.html')
           + row('presentation', 'Present', 'Show a session on every screen, from your phone', null, 'open:present.html');
       }
-      if (covers(k).indexOf('Youth Worship') !== -1) rows += row('list-ordered', 'Youth service plan', "The youth service's order", null, 'open:youthserviceplanner.html');
+      if (covers(k).some(function (t) { return onJob(t, 'youth'); })) rows += row('list-ordered', 'Youth service plan', "The youth service's order", null, 'open:youthserviceplanner.html');
     }
     if (adult(k)) rows += row('list-music', "Sunday's service plan", 'The order of service', null, 'open:SundayServicePlanner.html');
     return head('Plan', 'What your teams are planning')
@@ -2164,7 +2171,7 @@ A.screen('core', 'team', function () {
   C.team = function (k) {
     var rows = '';
     covers(k).forEach(function (t) {
-      if (CHARTERS[t]) rows += row('scroll-text', (T()[t] && T()[t].label || t) + "'s charter", 'What the team is for, and how it works', null, 'open:' + CHARTERS[t]);
+      if (charterOf(t)) rows += row('scroll-text', (T()[t] && T()[t].label || t) + "'s charter", 'What the team is for, and how it works', null, 'open:' + charterOf(t));
     });
     covers(k).forEach(function (t) {
       var s = spaceOf(t);
@@ -2410,24 +2417,13 @@ A.screen('office', 'people', function () {
 });
 
 A.screen('office', 'send', function () {
-  /* NEITHER OF THESE OPENS FROM THE PHONE YET, and saying so is better
-     than dropping somebody onto a page that fights them (Martin, 11 Oct).
-
-     An email: EmailBuilder2.html is the worst page in the app's list at
-     375px - +321px of sideways scroll, a 696px dialog, the toolbar cut
-     off (APP-PARITY part 2). CoreTeamApp already has a phone email
-     compiler; this row becomes that one when Core Team > Team is built
-     (§7b), and until then it does not pretend.
-
-     A notice: the notice editor lives inside hub.html, and §7d says the
-     app never opens the website's home. It needs a phone screen of its
-     own, which is a later stage. */
+  /* The real pages, opened in app mode the way every other row opens one:
+     the email compiler the Core Team space already opens, and the notice
+     editor that office Home's "Post a notice" opens. */
   return head('Send something')
     + card(
-        row('mail', 'An email', 'Easier on a computer for now', null, 'toast:The email compiler needs a big screen. It comes to the app with the Core Team space.') +
-        row('megaphone', 'A notice', 'Easier on a computer for now', null, 'toast:Writing a notice needs a big screen for now. Open the full website from Me.'))
-    + A.empty('monitor', 'Both of these are easier on a computer today. '
-        + 'They get phone screens of their own in a later stage.');
+        row('mail', 'An email', 'To a team, or everyone', null, 'open:EmailBuilder2.html') +
+        row('megaphone', 'A notice', 'On Home and in the app', null, 'open:hub.html?notice=new'));
 });
 
 A.screen('office', 'bookings', function () {

@@ -3,14 +3,14 @@
 This is the church's list of people. Here you add someone, change their details, put them on teams and groups, and archive them when they leave.
 
 ## Who can use it
-- The church office and master admins can open it, see everyone and change anyone.
+- The church office and master admins can open it, see everyone and change anyone. The church office is whichever team does the office job in Teams & groups.
 - Anyone who is an admin for a team can open it too. They see only the people on the teams they look after, and can only change those people.
 - A team admin can only tick or untick their own teams. Other teams' boxes are greyed out.
 - Only a master admin can change **Admin for**, **Master admin**, **UNDER 16** and **UNDER 18**.
 - Anyone else is told they cannot open the page.
 
 ## Find someone
-1. Type in the search box (**Search by name, email or team**).
+1. Type in the search box (**Search by name, email or team**). Typing a team's name finds the people on it.
 2. The list shows only the people who match. If nobody does, it says "Nobody matches that."
 3. Tick **Show archived** to see people who have been archived as well.
 
@@ -32,7 +32,7 @@ This is the church's list of people. Here you add someone, change their details,
 - **Teams** puts someone on a team's rota and pages.
 - **Groups** appears only when the church has groups. A person joins a group the same way as a team.
 - **Admin for** says which teams a person looks after: its pages, resources and people. Leave it blank for most people.
-- **Most per team — optional** lets you limit how often one team can use someone. **Max / Mo** is still the total across everything. Blank means no separate limit.
+- **Most per team — optional** lets you limit how often one team can use someone. It lists the church's teams that have a rota. **Max / Mo** is still the total across everything. Blank means no separate limit.
 
 ## Ticks about the person
 - **Church member**: they have formally joined the church. This opens members' meetings and members-only documents.

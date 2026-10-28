@@ -2227,3 +2227,9 @@ Martin: "you took the schematics app and the performance app off. Those need to 
 - castVote, voteOpen, voteClose (changed);
 - meetingOwnRoom and meetingOwnRoomChurch (changed);
 - tidyAfterDelete: new meetings, meetingsChurch, meetingsQuickVotes and meetingsQuickVotesChurch.
+
+## From the main window, 28 Oct 2026: a "Short name" box on Your church
+The hub's bar and tab ("EGBC Hub") and the rota calendar entries ("EGBC: Drums") now take the church's short name instead of words in the code. They read `churchSettings/details.shortName` first, then your e-news footer's `enewsSettings/main.church.shortName`.
+- Only the office can read e-news settings, so other people need `details.shortName`.
+- **Please add a "Short name" box to Your church** (your-church.html; up to 40 characters, for example "the church's initials"), saved as `details.shortName`. That keeps one place to edit it.
+- Until then, Martin can set EGBC's with `node ../tools/church-details.mjs --short "EGBC" --apply` (from v2/functions).

@@ -13,7 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610311700"></script>
+<script src="egbc-auth.js?v=202610311800"></script>
 <script src="egbc-guard.js?v=202610282000"></script>
 <style>
   :root{
@@ -117,7 +117,13 @@ async function load() {
      safeguarding lead or named in Who gets told belongs to the person. */
   const previewing = !!(EGBCAuth.viewingAs && EGBCAuth.viewingAs());
   SG = previewing ? false : await amSafeguarding();
-  PASTORAL = (EGBCAuth.effectiveTeams ? EGBCAuth.effectiveTeams() : []).indexOf('Pastoral') !== -1;
+  /* The pastoral job's teams (team jobs), never a team name: a church may
+     call it its care team. Pastoral care never falls back to anyone, so a
+     church that has given the job to nobody has no pastoral readers here. */
+  await EGBCAuth.loadPerms().catch(() => {});
+  const pastoralTeams = EGBCAuth.teamsForJob('pastoral');
+  const mine = EGBCAuth.effectiveTeams ? EGBCAuth.effectiveTeams() : [];
+  PASTORAL = pastoralTeams.some(t => mine.indexOf(t) !== -1);
   const named = previewing ? [] : await namedKinds();
   KINDS = SG ? ['pastoral', 'care', 'safeguarding']
     : [...new Set((PASTORAL ? ['pastoral', 'care'] : []).concat(named))];

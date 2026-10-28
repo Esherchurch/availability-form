@@ -2352,6 +2352,19 @@
     }
    ]
   },
+  "hubPages": {
+   "owner": "main",
+   "what": "A page on the hub's menu: its title, link and the team it belongs to.",
+   "self": "delete",
+   "links": [
+    {
+     "field": "team",
+     "to": "teams",
+     "rule": "archive",
+     "why": "Teams are archived, never deleted."
+    }
+   ]
+  },
   "careRouting": {
    "owner": "main",
    "what": "Where care, pastoral and prayer messages go.",

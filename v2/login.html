@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sign in — EGBC</title>
+<title>Sign in</title>
 <link rel="manifest" href="./manifest-hub.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="theme-color" content="#3d6263">
@@ -15,7 +15,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610311700"></script>
+<script src="egbc-auth.js?v=202610311800"></script>
+<script src="egbc-church.js?v=202610311000"></script>
 <style>
   :root{--canvas:#eef4f3;--ink:#14201f;--body:#3a4d4c;--muted:#6b8281;--hairline:#dde7e6;--brand:#3d6263;--brand-dark:#2e4c4d;--brand-tint:#e7f0ef}
   body{background:var(--canvas);font-family:'Montserrat',sans-serif;color:var(--brand);-webkit-font-smoothing:antialiased}
@@ -29,8 +30,11 @@
 <div class="w-full max-w-md">
 
   <div class="text-center mb-8">
-    <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/copilot_image_1775806874083.jpeg?alt=media&token=7e9040a5-1d29-47e1-8f31-6e003db53ec8" alt="EGBC" class="w-20 h-20 rounded-full object-cover mx-auto mb-5 shadow-lg" style="border:3px solid #fff">
-    <h1 class="text-2xl font-black tracking-tight text-[#14201f]">Esher Green Baptist Church</h1>
+    <!-- The church's own name and logo (churchSettings/details, readable
+         before sign-in). Nothing shows until they arrive, and nothing if
+         the church has not set them: a blank is honest, a guess is not. -->
+    <img id="churchLogo" src="" alt="" class="hidden w-20 h-20 rounded-full object-cover mx-auto mb-5 shadow-lg" style="border:3px solid #fff">
+    <h1 id="churchName" class="text-2xl font-black tracking-tight text-[#14201f]"></h1>
     <p class="text-sm font-semibold opacity-50 mt-1">Team Hub</p>
   </div>
 
@@ -48,7 +52,9 @@
       <button onclick="route('adult')"
         class="w-full text-left bg-white border border-[#dde7e6] rounded-2xl px-5 py-4 mb-3 hover:border-[#3d6263] transition-all">
         <div class="font-black text-sm mb-1">I'm on a team</div>
-        <div class="text-[12px] opacity-55 leading-relaxed">Worship, AV, Choir, Kids Church, Youth or Core Team. Sign in with your email.</div>
+        <!-- Plain words, not the church's team names: the teams list can
+             only be read once signed in, and this is before. -->
+        <div class="text-[12px] opacity-55 leading-relaxed">You serve on one of the church's teams or groups. Sign in with your email.</div>
       </button>
 
       <button onclick="route('young')"
@@ -227,7 +233,7 @@ function sendLink(){
   }).catch(e=>{
     msg(friendly(e),false);
   }).finally(()=>{
-    btn.disabled=false;btn.textContent='Send me a link';
+    btn.disabled=false;btn.textContent='Email me a sign-in link';
   });
 }
 
@@ -284,13 +290,21 @@ function signInGoogle(){
 function friendly(e){
   const map={
     'auth/invalid-email':'That email address does not look right.',
-    'auth/unauthorized-domain':'This site is not yet authorised for sign-in. Add it under Authentication → Settings → Authorised domains in Firebase.',
-    'auth/operation-not-allowed':'This sign-in method is not switched on yet in Firebase.',
+    /* The person signing in cannot fix the set-up, so they are told who can. */
+    'auth/unauthorized-domain':"Sign-in isn't set up for this address yet. Ask the church office.",
+    'auth/operation-not-allowed':"Sign-in isn't set up for this address yet. Ask the church office.",
     'auth/invalid-action-code':'That link has expired or has already been used. Request a new one.',
     'auth/network-request-failed':'No connection. Check your network and try again.'
   };
   return map[e.code]||e.message;
 }
+</script>
+<script>
+/* The heading shows the church's own name and logo. */
+EGBCChurch.load().then(function(d){
+  document.getElementById('churchName').textContent=d.name||'';
+  if(d.logoUrl){const i=document.getElementById('churchLogo');i.src=d.logoUrl;i.alt=d.name||'';i.classList.remove('hidden');}
+});
 </script>
 <script src="egbc-poweredby.js?v=202610081518"></script>
 <script>EGBCPoweredBy.mount(document.getElementById("poweredBy"), { padding: "18px 12px 0" });</script>

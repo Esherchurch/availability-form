@@ -103,6 +103,8 @@ async function seed() {
   /* OLIVER POINTS AT KAREN, which is how the address book records a
      household, and is what makes the household feed worth having: Karen's
      reason for wanting it is to know when Oliver is on. */
+  /* The church's short name goes in front of each entry ("EGBC: Guitar"). */
+  await put('churchSettings/details', { name: 'Synthetic Church', shortName: 'EGBC' });
   await put('addressBook/' + KAREN.member, {
     name: KAREN.name, email: KAREN.email, markers: ['Worship Team'], adminFor: [],
     churchMember: false, archived: false, isMinor: false });

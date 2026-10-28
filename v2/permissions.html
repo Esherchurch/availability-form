@@ -9,7 +9,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610311700"></script>
+<script src="egbc-auth.js?v=202610311800"></script>
 <script src="egbc-guard.js?v=202610282000" data-master></script>
 <script src="egbc-team-jobs.js?v=202610261800"></script>
 <script src="egbc-permissions.js?v=202610272330"></script>
@@ -134,6 +134,23 @@ const jobName = (j) => j.charAt(0).toUpperCase() + j.slice(1);
 const jobTeams = (j) => TJ.teamsFor(JOBS, j, SET);
 const coresCovering = (j) => Object.keys(TEAMS).filter(t => !TEAMS[t].archived && (TEAMS[t].coreFor || []).some(c => jobTeams(j).includes(c)));
 const rule = (id) => P.ruleFor(DRAFT, id);
+/* WHAT IS STILL SET IN CODE, IN THE CHURCH'S WORDS. The list of such
+   things says who today in one church's team names; the code itself asks
+   for team jobs (EGBCAuth.rotaPlannerUser: the leaders of the worship,
+   children's and youth jobs' teams, and the core teams covering them; the
+   music uploader and Sunday's plan: the worship job's leaders). So the
+   words are built from those jobs, with this church's labels. */
+const LATER_JOBS = { 'Rota planner': ['worship', 'children', 'youth'], 'Music uploader': ['worship'], 'Sunday service plan': ['worship'] };
+function laterToday(l) {
+  const jobs = LATER_JOBS[l.where];
+  if (!jobs) return l.today;
+  const teams = [...new Set(jobs.flatMap(jobTeams))];
+  const cores = l.where === 'Rota planner' ? [...new Set(jobs.flatMap(coresCovering))].filter(t => !teams.includes(t)) : [];
+  const names = teams.concat(cores).map(label);
+  if (!names.length) return 'Master admins only: no team does this job yet';
+  const list = names.length === 1 ? names[0] : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
+  return 'Master admins, and the leaders of ' + list;
+}
 const changed = () => JSON.stringify(DRAFT.actions || {}) !== JSON.stringify(PERMS.actions || {});
 const matches = (s) => { const q = $('q').value.trim().toLowerCase(); return !q || String(s).toLowerCase().includes(q); };
 
@@ -202,7 +219,7 @@ function draw() {
     const open = !!(OPEN[s.id] || q);
     html += `<div class="card" data-section="${s.id}"><button type="button" class="sh" data-open="${s.id}" aria-expanded="${open}">
       <b>${esc(s.label)}</b><small>${n ? n + ' action' + (n === 1 ? '' : 's') : 'Nothing to set here yet'}${nx ? ' · ' + nx + ' exception' + (nx === 1 ? '' : 's') : ''}</small><span aria-hidden="true">${open ? '⌃' : '⌄'}</span></button>
-      ${open ? acts.map(actionHtml).join('') + later.map(l => `<div class="act"><h3>${esc(l.words)}</h3><p class="why">${esc(l.where)}. <span class="pill soon">Set in code today: moves here later</span></p><p class="why">Today: ${esc(l.today)}.</p></div>`).join('') : ''}
+      ${open ? acts.map(actionHtml).join('') + later.map(l => `<div class="act"><h3>${esc(l.words)}</h3><p class="why">${esc(l.where)}. <span class="pill soon">Set in code today: moves here later</span></p><p class="why">Today: ${esc(laterToday(l))}.</p></div>`).join('') : ''}
     </div>`;
   });
   P.READ_ONLY.forEach(r => {

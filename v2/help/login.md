@@ -1,6 +1,6 @@
 # Sign in
 
-This is the page where you sign in to the church's hub. There is no password: the hub emails you a link, or you sign in with Google.
+This is the page where you sign in to the church's hub. It shows the church's name and logo at the top, as the church office set them in Church settings. There is no password: the hub emails you a link, or you sign in with Google.
 
 ## Who can use it
 - Anyone can open this page.
@@ -36,6 +36,7 @@ This is the page where you sign in to the church's hub. There is no password: th
 - A sign-in link can only be used once, and it runs out. If it says the link has expired or has already been used, ask for a new one.
 - "No connection" means your phone or computer is offline. Check your network and try again.
 - If a Google sign-in did not finish, the page says so. Try **Continue with Google** again.
+- "Sign-in isn't set up for this address yet" means the hub's address has not been set up for signing in. Ask the church office.
 
 ## Who to ask
 - Your team leader, if you have trouble signing in or the church does not have your email address.

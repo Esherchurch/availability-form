@@ -6,11 +6,13 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610311700"></script>
+<script src="egbc-auth.js?v=202610311800"></script>
 <script src="egbc-guard.js?v=202610282000" data-any-team></script>
+<script src="egbc-church.js?v=202610311000"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EGBC Live Rota</title>
+    <!-- egbc-church.js adds the church's name to the tab. -->
+    <title>Live Rota</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
@@ -19,9 +21,8 @@
     <script src="egbc-rota-pdf.js?v=202610121800"></script>
     
     <script type="module">
-        import { db, storage, ready } from './egbc-db.js';
+        import { db, ready } from './egbc-db.js';
         import { collection, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-        import { ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
 
 
@@ -74,7 +75,7 @@
             const select = document.getElementById('memberPdfSelect');
             if (!select) return;
             const was = select.value;
-            select.innerHTML = '<option value="">Select Member...</option>';
+            select.innerHTML = '<option value="">Choose a name</option>';
             visibleMembers()
                 .slice()
                 .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
@@ -93,7 +94,10 @@
             return new Promise(async (resolve) => {
                 if (logoBase64) return resolve(logoBase64);
                 try {
-                    const url = await getDownloadURL(ref(storage, '1774936285076.png'));
+                    /* The church's own logo (Church settings), never a file
+                       named here. None set: the PDFs simply have no logo. */
+                    const url = window.EGBCChurch ? (await EGBCChurch.load()).logoUrl : '';
+                    if (!url) return resolve(null);
                     const img = new Image();
                     img.setAttribute('crossOrigin', 'anonymous');
                     img.onload = () => {
@@ -104,7 +108,8 @@
                         logoBase64 = canvas.toDataURL("image/png");
                         resolve(logoBase64);
                     };
-                    img.src = url + "?c=" + new Date().getTime();
+                    img.onerror = () => resolve(null);
+                    img.src = url + (url.indexOf('?') === -1 ? '?' : '&') + "c=" + new Date().getTime();
                 } catch (e) { resolve(null); }
             });
         };
@@ -155,7 +160,7 @@
            maintain, left the time column out, and had no wall planner. */
         window.generatePDF = async (type, memberId) => {
             if (type !== 'full' && !addressBook.find(m => m.id === memberId)) {
-                return alert('Select your name first.');
+                return alert('Choose your name first.');
             }
 
             const today = new Date().toISOString().split('T')[0];
@@ -177,8 +182,11 @@
 
             if (!doc) return alert('No upcoming dates found.');
 
-            const who = (addressBook.find(m => m.id === memberId) || {}).name || 'EGBC';
-            const name = type === 'full' ? 'EGBC_full_rota'
+            /* Named from the church's name (Church settings), never one
+               written here; with none set, just "full_rota". */
+            const church = ((window.EGBCChurch && EGBCChurch.name()) || '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
+            const who = (addressBook.find(m => m.id === memberId) || {}).name || 'rota';
+            const name = type === 'full' ? (church ? church + '_' : '') + 'full_rota'
                        : who.replace(/[^A-Za-z0-9]+/g, '_') + '_' +
                          (type === 'wall' ? 'wall_planner' : type + '_rota');
             doc.save(name + '.pdf');
@@ -230,7 +238,7 @@
                                 <span class="bg-[#eef5f4] text-[#3d6263] px-2 py-1 rounded-[6px] font-medium text-[13px]">
                                     ${new Date(ev.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
                                 </span>
-                                <span class="text-[#6b7280] text-[13px]">${ev.startTime || '08:00'}</span>
+                                <span class="text-[#6b7280] text-[13px]">${ev.startTime || ''}</span>
                                 <span class="text-[#111827] font-semibold text-[14px]">${ev.type}</span>
                                 <span class="text-[#6b7280] text-[13px] flex-grow text-right">${ev.description || ''}</span>
                             </div>

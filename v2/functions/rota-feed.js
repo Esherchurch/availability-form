@@ -135,15 +135,27 @@ export function visibleRoleTeams(user) {
 
 /* The team choice on a full-rota link. "Everything" still means everything
    THIS PERSON may see, not everything there is. */
-export const FULL_SCOPES = {
-  worship: { label: 'Worship & AV', teams: ['Worship Team', 'AV Team', 'Choir'] },
-  kids: { label: 'Kids Church', teams: ['Kids Church'] },
-  all: { label: 'Everything', teams: null }
-};
+/**
+ * The full-rota choices, from the church's own team jobs: "worship" is the
+ * teams doing the worship, AV and choir jobs, "kids" the children's job.
+ * @param {{ map?: object, set?: object }} [jobs] readTeamJobs' answer (none: the job defaults)
+ * @param {(team: string) => string} [labelOf] a team's label
+ */
+export function fullScopes(jobs = {}, labelOf = (t) => t) {
+  const of = (...js) => [...new Set(js.flatMap((j) => teamsFor(jobs.map || null, j, jobs.set || {})))];
+  const named = (teams) => teams.map(labelOf).join(' & ');
+  const worship = of('worship', 'av', 'choir'), kids = of('children');
+  return {
+    worship: { label: named(of('worship', 'av')) || named(worship), teams: worship },
+    kids: { label: named(kids), teams: kids },
+    all: { label: 'Everything', teams: null }
+  };
+}
+export const FULL_SCOPES = fullScopes();
 
 /* The roles of an event this person may be shown, after both filters. */
-export function rolesVisible(ev, allowedTeams, scope) {
-  const wanted = (FULL_SCOPES[scope] || FULL_SCOPES.all).teams;
+export function rolesVisible(ev, allowedTeams, scope, scopes = FULL_SCOPES) {
+  const wanted = (scopes[scope] || scopes.all).teams;
   return (ev.roles || Object.keys(ev.assignments || {})).filter(r => {
     const t = roleTeam(r);
     if (allowedTeams && allowedTeams.indexOf(t) === -1) return false;
@@ -158,6 +170,11 @@ export function rolesVisible(ev, allowedTeams, scope) {
 export const firstName = (n) => String(n || '').trim().split(/\s+/)[0] || '';
 
 import { EGBC_BY_TYPE, HUB } from './video.js';
+import { teamsFor } from './team-jobs.js';
+
+/* The church's short name in front of each entry, so it stands out in a
+   calendar that holds other things; nothing when it is unknown. */
+const tag = (church) => (church ? church + ': ' : '');
 
 /* The meeting's page on the hub, not a Daily address (21 Oct 2026: every
    church's rooms are Church HQ's now, made per church, and the hub page is
@@ -217,10 +234,10 @@ function calendarHead(calName) {
   return [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//EGBC Worship & AV//Rota//EN',
+    'PRODID:-//Church HQ//Rota//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
-    'X-WR-CALNAME:' + esc(calName || 'EGBC Rota'),
+    'X-WR-CALNAME:' + esc(calName || 'Rota'),
     'X-WR-TIMEZONE:Europe/London',
     /* How often a calendar should come back. Both spellings, because Apple
        reads one and Google the other. */
@@ -246,7 +263,7 @@ function liveEvents(events) {
    a UID. */
 function vevent({ ev, dtstamp, summary, description, uidSuffix }) {
   const out = [];
-  const uid = 'egbc-rota-' + ev.id + (uidSuffix ? '-' + uidSuffix : '') + '@esherchurch.org';
+  const uid = 'rota-' + ev.id + (uidSuffix ? '-' + uidSuffix : '') + '@churchhq.co.uk';
   const video = videoLinkFor(ev);
   const full = video ? (description ? description + '\n\n' : '') + 'Join the video call: ' + video : description;
 
@@ -273,7 +290,7 @@ function namesIn(raw) {
   return people.slice(0, -1).join(', ') + ' and ' + people[people.length - 1];
 }
 
-export function buildFeed({ events, memberId, member, calName = 'My EGBC rota', now = new Date() }) {
+export function buildFeed({ events, memberId, member, church = '', calName = 'My ' + (church ? church + ' ' : '') + 'rota', now = new Date() }) {
   const dtstamp = now.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
   const lines = calendarHead(calName);
 
@@ -281,7 +298,7 @@ export function buildFeed({ events, memberId, member, calName = 'My EGBC rota', 
 
   for (const ev of mine) {
     const roles = rolesFor(ev, memberId);
-    const summary = 'EGBC: ' + (roles.length ? roles.join(', ') : (ev.type || 'Rota'));
+    const summary = tag(church) + (roles.length ? roles.join(', ') : (ev.type || 'Rota'));
     const description = (String(ev.type || '') +
       (ev.description ? ' \u2014 ' + ev.description : '')).trim();
     /* Keyed on the event id ALONE. The email attachment puts the date in the
@@ -314,7 +331,7 @@ export function buildFeed({ events, memberId, member, calName = 'My EGBC rota', 
 
    members: the address book records of the household, in book order.
 */
-export function buildHouseholdFeed({ events, members, calName = 'Our household rota', now = new Date() }) {
+export function buildHouseholdFeed({ events, members, church = '', calName = 'Our household rota', now = new Date() }) {
   const dtstamp = now.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
   const lines = calendarHead(calName);
   const people = (members || []).filter(m => m && m.id);
@@ -331,7 +348,7 @@ export function buildHouseholdFeed({ events, members, calName = 'Our household r
     }).filter(Boolean);
     if (!on.length) continue;
 
-    const summary = 'EGBC: ' + on
+    const summary = tag(church) + on
       .map(x => firstName(x.m.name) + (x.roles.length ? ': ' + x.roles.join(', ') : ''))
       .join(' \u00b7 ');
 
@@ -371,20 +388,20 @@ export function buildHouseholdFeed({ events, members, calName = 'Our household r
    An event where nothing is visible is left out altogether, rather than
    appearing as an empty entry that says a Kids Church service happened.
 */
-export function buildFullFeed({ events, allowedTeams, scope = 'all',
+export function buildFullFeed({ events, allowedTeams, scope = 'all', scopes = FULL_SCOPES, church = '',
                                 calName, now = new Date() }) {
   const dtstamp = now.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-  const cfg = FULL_SCOPES[scope] || FULL_SCOPES.all;
-  const lines = calendarHead(calName || ('EGBC rota \u2014 ' + cfg.label));
+  const cfg = scopes[scope] || scopes.all;
+  const lines = calendarHead(calName || ((church ? church + ' rota' : 'Rota') + ' \u2014 ' + cfg.label));
 
   for (const ev of liveEvents(events)) {
-    const roles = rolesVisible(ev, allowedTeams, scope);
+    const roles = rolesVisible(ev, allowedTeams, scope, scopes);
     const filled = roles
       .map(r => ({ role: r, names: namesIn((ev.assignments || {})[r]) }))
       .filter(x => x.names);
     if (!filled.length) continue;
 
-    const summary = 'EGBC: ' + (ev.type || 'Rota') +
+    const summary = tag(church) + (ev.type || 'Rota') +
       (ev.description ? ' \u2014 ' + ev.description : '');
     const description = filled.map(x => x.role + ': ' + x.names).join('\n');
 

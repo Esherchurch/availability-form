@@ -6,15 +6,17 @@
 <script src="egbc-shell.js?v=202610311800" data-title="I'm worried about someone"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>I'm worried about someone — EGBC</title>
+<!-- egbc-church.js adds the church's name to the tab. -->
+<title>I'm worried about someone</title>
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="theme-color" content="#3d6263">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610311700"></script>
+<script src="egbc-auth.js?v=202610311800"></script>
 <script src="egbc-guard.js?v=202610282000"></script>
+<script src="egbc-church.js?v=202610311000"></script>
 <script src="egbc-launch.js?v=202610141700"></script>
 
 <style>
@@ -113,7 +115,8 @@
         <button type="button" class="kind" data-kind="pastoral" aria-pressed="false">
           <b>A pastoral concern</b>
           <span>You have not seen them for a while, they seem lonely, or they are going
-            through a hard time. Goes to the pastoral team.</span>
+            through a hard time. Goes to the pastoral team and the people the church has named for
+            pastoral concerns. The safeguarding lead and deputy can read it too.</span>
         </button>
         <button type="button" class="kind" data-kind="safeguarding" aria-pressed="false">
           <b>A safeguarding concern</b>
@@ -179,18 +182,22 @@ const say = (words, bad) => {
 };
 
 /* "I'D LIKE SOME PASTORAL CARE" (Care & support, Martin 14 Oct 2026):
-   the same form, for yourself. worried.html?for=me. It goes where a
-   pastoral concern goes - the pastoral team, and the safeguarding lead
-   and deputy - and nowhere else. Not on the person's record, and the
+   the same form, for yourself. worried.html?for=me. Like a pastoral
+   concern, it is told to the people named for it in "Who gets told" (or,
+   with nobody named, the safeguarding lead and deputy: notify.js
+   onWorry), and read by them, the pastoral team and the safeguarding lead
+   and deputy (the rules' /worries) - and nobody else. Not on the person's record, and the
    alert the team gets says nothing about who or why (notify.js onWorry). */
 const FOR_ME = new URLSearchParams(location.search).get('for') === 'me';
 if (FOR_ME) {
   KIND = 'care';
   const t = "I'd like some pastoral care";
-  document.title = t + ' \u2014 EGBC';
+  document.title = t;
+  /* The tab shows the church, from Church settings. */
+  if (window.EGBCChurch) EGBCChurch.load().then(d => { if (d.name) document.title = t + ' \u2014 ' + d.name; });
   $('h1').textContent = t;
   $('lede').textContent = 'Tell the pastoral team you would like somebody to get in touch. It is private: '
-    + 'only the pastoral team and the safeguarding lead read it, it is not put on your record, '
+    + 'only the pastoral team, the people the church has named for pastoral care, and the safeguarding lead and deputy read it, it is not put on your record, '
     + 'and nobody else will know you asked.';
   $('aboutOthers').hidden = true;
   $('contactRow').hidden = true;

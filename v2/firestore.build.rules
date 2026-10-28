@@ -152,7 +152,8 @@ allow write: if isMaster();
 }
 match /hubPages/{pageId} {
 allow read: if active();
-allow write: if isAdmin() && adminOf(request.resource.data.team);
+allow create, update: if isAdmin() && adminOf(request.resource.data.team);
+allow delete: if isAdmin() && adminOf(resource.data.team);
 }
 match /addressBook/{personId} {
 allow get: if isAdmin() || volunteer() || bookIsMine(personId);
@@ -257,7 +258,7 @@ function sgLeadOrDeputy() {
 return exists(/databases/$(database)/documents/safeguardingSettings/defaults)
 && sgLeadOf(get(/databases/$(database)/documents/safeguardingSettings/defaults).data.get('leadSiteId', ''));
 }
-function onPastoral() { return onTeam('Pastoral'); }
+function onPastoral() { return raOnJob('pastoral', ['Pastoral']); }
 function careNamed(kind) {
 return active() && exists(/databases/$(database)/documents/careRouting/main)
 && me().get('memberId', '-') in get(/databases/$(database)/documents/careRouting/main).data

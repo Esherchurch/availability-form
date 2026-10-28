@@ -14,7 +14,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610311700"></script>
+<script src="egbc-auth.js?v=202610311800"></script>
 <script src="egbc-church.js?v=202610192330"></script>
 <script src="egbc-events.js?v=202610281600"></script>
 <script src="egbc-team-jobs.js?v=202610261800"></script>
@@ -252,10 +252,11 @@
     return EGBCAuth.loadPerms().then(function (P) {
       var MASTER = !!(EGBCAuth.isMaster && EGBCAuth.isMaster()), on = function (job, set) { return TJ.teamsFor(P.jobs, job, set || P.set).some(function (t) { return EGBCAuth.inTeam(t); }); };
       OFFICE = MASTER || on('office');
-      return db().collection('safeguardingSettings').doc('defaults').get().catch(function () { return null; }).then(function (sg) {
-        TRUSTEE = on('trustees', Object.assign({}, P.set, { trusteeTeam: (sg && sg.exists && sg.data().trusteeTeam) || 'Elders' }));
-        return db().collection('dataSettings').doc('main').get().catch(function () { return null; });
-      }).then(function (s) {
+      /* The trustees job: the church's own trustees' team (team jobs), with
+         the safeguarding settings' trustees team as its setting - both read
+         by loadPerms(), so no team is named here. */
+      TRUSTEE = on('trustees');
+      return db().collection('dataSettings').doc('main').get().catch(function () { return null; }).then(function (s) {
         LEADS = (s && s.exists && s.data().leads) || [];
         LEAD = MASTER || (ME.memberId && LEADS.indexOf(ME.memberId) >= 0);
         if (!OFFICE && !LEAD && !TRUSTEE) { wrap.innerHTML = '<div class="card" id="notYours"><h1>Data records</h1><p>These are kept by the church office and the data protection lead; the trustees read the register.</p></div>'; return null; }

@@ -14,7 +14,7 @@ This is where you tell the church that you are worried about someone. It goes, i
 
 ## Raise a concern about someone
 1. Under **What kind of concern is it?**, choose one:
-   - **A pastoral concern**: you have not seen them for a while, they seem lonely, or they are going through a hard time. It goes to the pastoral team.
+   - **A pastoral concern**: you have not seen them for a while, they seem lonely, or they are going through a hard time. It goes to the pastoral team and the people the church has named for pastoral concerns. The safeguarding lead and deputy can read it too.
    - **A safeguarding concern**: a child or an adult may be at risk. It goes only to the safeguarding lead and deputy.
 2. In **Who are you worried about?**, start typing a name. Pick them from the list, or just type a name. Either is fine.
 3. In **What have you noticed?**, say what you have noticed, in your own words.
@@ -29,7 +29,7 @@ This is where you tell the church that you are worried about someone. It goes, i
 
 ## Good to know
 - Nothing here is automatic and nobody is being watched. It is only for when you decide to speak up.
-- A request for pastoral care for yourself is not put on your record. Nobody else will know you asked.
+- A request for pastoral care for yourself is read only by the pastoral team, the people the church has named for pastoral care, and the safeguarding lead and deputy. It is not put on your record. Nobody else will know you asked.
 - You must choose the kind of concern, give a name, and say a little about what you noticed, or it will not send.
 - The form opens when the church goes live on the new hub. Until then, the page says so. Speak to a church leader in person.
 - If the church has not yet named who receives these messages, the page says so and does not offer to send one.

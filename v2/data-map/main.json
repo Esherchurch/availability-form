@@ -191,6 +191,13 @@
         { "field": "memberIds", "array": true, "to": "addressBook", "rule": "archive", "why": "People are archived, never deleted." }
       ]
     },
+    "hubPages": {
+      "what": "A page on the hub's menu: its title, link and the team it belongs to.",
+      "self": "delete",
+      "links": [
+        { "field": "team", "to": "teams", "rule": "archive", "why": "Teams are archived, never deleted." }
+      ]
+    },
     "careRouting": { "what": "Where care, pastoral and prayer messages go.", "self": "delete", "links": [] },
     "prayerSettings": { "what": "Who the prayer team is and how prayer requests work.", "self": "delete", "links": [] },
     "churchSettings": { "what": "The church's settings, one document per area (details, services, video, features...).", "self": "delete", "links": [] },

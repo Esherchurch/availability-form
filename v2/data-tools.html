@@ -5,11 +5,14 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610311700"></script>
-<script src="egbc-guard.js?v=202610282000" data-team="Core Team" data-role="admin"></script>
+<script src="egbc-auth.js?v=202610311800"></script>
+<!-- Anyone who administers something gets past the guard; the page then
+     keeps only master admins and the leadership job's admins (below). -->
+<script src="egbc-guard.js?v=202610282000" data-admin="any"></script>
+<script src="egbc-church.js?v=202610311000"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Data tools — EGBC</title>
+<title>Data tools</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <!-- Firebase is loaded once, above, before egbc-auth.js: a second copy here replaced the firebase global and broke saving the sign-in (21 Oct 2026). -->
@@ -30,16 +33,16 @@
 <div class="max-w-4xl mx-auto">
 
   <header class="mb-8">
-    <div class="text-[10px] font-black uppercase tracking-[0.3em] opacity-50 mb-1">EGBC</div>
+    <div id="churchName" class="text-[10px] font-black uppercase tracking-[0.3em] opacity-50 mb-1"></div>
     <h1 class="text-3xl font-black tracking-tight">Data tools</h1>
-    <p class="text-sm font-semibold opacity-60 mt-1">Back up, restore, and copy between Firebase projects</p>
+    <p class="text-sm font-semibold opacity-60 mt-1">Back up the church's data, and restore or copy a backup</p>
   </header>
 
   <!-- SOURCE -->
   <div class="bg-white rounded-[1.5rem] border border-[#dde7e6] shadow-sm p-6 mb-5">
     <h2 class="font-black uppercase text-[11px] tracking-widest opacity-60 mb-4">1 · Back up</h2>
     <p class="text-[12px] opacity-55 leading-relaxed mb-4">
-      Reads every collection from <strong>egbc-worship-planner</strong> and downloads it as a single JSON file.
+      Reads every kind of the church's data and downloads it as a single file.
       Read-only — nothing is changed. Worth doing before any significant change, and periodically regardless.
     </p>
 
@@ -66,12 +69,16 @@
       </p>
     </div>
 
-    <label class="text-[10px] font-black uppercase tracking-widest opacity-50 block mb-2 px-1">Target project</label>
-    <div class="grid md:grid-cols-2 gap-3 mb-4">
-      <input id="tgtProject" placeholder="projectId e.g. egbc-worship-planner-test" class="px-5 py-3 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-semibold text-[13px]">
-      <input id="tgtKey" placeholder="apiKey" class="px-5 py-3 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-semibold text-[13px]">
-    </div>
-    <p class="text-[11px] opacity-45 mb-5 px-1">Both are on the Firebase console under Project settings → General → Your apps. They are public values, not secrets.</p>
+    <!-- The two technical values sit behind plain words: most people who
+         open this page only ever back up. -->
+    <details class="mb-5">
+      <summary class="text-[12px] font-bold cursor-pointer px-1" style="min-height:44px;display:flex;align-items:center">Where to write it (technical: ask whoever set up the hub)</summary>
+      <div class="grid md:grid-cols-2 gap-3 mb-4 mt-2">
+        <input id="tgtProject" placeholder="Project ID" aria-label="Project ID" class="px-5 py-3 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-semibold text-[13px]">
+        <input id="tgtKey" placeholder="API key" aria-label="API key" class="px-5 py-3 rounded-full border border-[#dde7e6] bg-[#f0f6f6] font-semibold text-[13px]">
+      </div>
+      <p class="text-[11px] opacity-45 px-1">Both are on the Firebase console under Project settings → General → Your apps. They are public values, not secrets.</p>
+    </details>
 
     <label class="text-[10px] font-black uppercase tracking-widest opacity-50 block mb-2 px-1">Backup file</label>
     <input id="restoreFile" type="file" accept=".json" class="w-full px-5 py-3 rounded-2xl border border-[#dde7e6] bg-[#f0f6f6] font-semibold text-[12px] mb-4" onchange="loadBackup(this.files[0])">
@@ -219,7 +226,7 @@ async function runExport(){
   const blob=new Blob([JSON.stringify(out,null,1)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download=`egbc-backup-${stamp}.json`;
+  a.download=`${backupName()}-backup-${stamp}.json`;
   a.click();
   URL.revokeObjectURL(a.href);
 
@@ -426,6 +433,30 @@ async function archiveThese(list, why){
 }
 
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+/* The backup is named after the church it came from: its name from Church
+   settings, else its id, so two churches' backups never look alike. */
+function backupName(){
+  const n=(window.EGBCChurch&&EGBCChurch.name()||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  return n||(EGBCAuth.churchId&&EGBCAuth.churchId())||'church';
+}
+
+/* The church's name over the heading. */
+if(window.EGBCChurch)EGBCChurch.load().then(d=>{document.getElementById('churchName').textContent=d.name||'';});
+
+/* WHO MAY USE IT: master admins and the admins of the church's leaders'
+   teams (the leadership job). Backup and restore reach every record the
+   church has, so it belongs with the people who answer for the whole
+   church, and to their admins rather than every member of those teams.
+   The guard has let in every admin; this narrows it to those. */
+(window.EGBCGuard?EGBCGuard.allowed:Promise.resolve()).then(()=>EGBCAuth.loadPerms().catch(()=>{})).then(()=>{
+  if(EGBCAuth.isMaster())return;
+  /* The core team over the worship teams has always looked after the data too. */
+  const worship=EGBCAuth.teamsForJob('worship');
+  const cores=Object.keys(EGBCAuth.TEAMS).filter(t=>(EGBCAuth.TEAMS[t].coreFor||[]).some(c=>worship.includes(c)));
+  if(EGBCAuth.teamsForJob('leadership').concat(cores).some(t=>EGBCAuth.isAdminOf(t)))return;
+  EGBCAuth._blockPage('Not enough permissions','This page is for master admins, and the admins of the church’s leadership team and of the worship core team.',EGBCAuth.profile());
+});
 </script>
 </body>
 </html>

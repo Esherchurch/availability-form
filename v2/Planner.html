@@ -6,8 +6,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610311700"></script>
+<script src="egbc-auth.js?v=202610311800"></script>
 <script src="egbc-video.js?v=202610311600"></script>
+<script src="egbc-church.js?v=202610311000"></script>
 <script src="egbc-guard.js?v=202610282000" data-team="Worship Team,Kids Church,Youth Worship,Core Team" data-role="leader"></script>
     <meta charset="UTF-8">
     <link rel="manifest" href="./manifest-planner.json">
@@ -15,9 +16,9 @@
     <meta name="theme-color" content="#3d6263">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="EGBC Rota Planner">
+    <meta name="apple-mobile-web-app-title" content="Rota Planner">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EGBC Master Rota Planner</title>
+    <title>Master Rota Planner</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
@@ -61,10 +62,121 @@
         const serviceRoles = () => SV.S ? SV.S.roles(SV.cfg) : [{ id: 'serviceLeader', name: 'Service Leader' }, { id: 'speaker', name: 'Speaker' }];
         const freshEvent = (type, date) => {
             const ev = SV.S ? SV.S.newEvent(SV.cfg, type, date, j => EGBCAuth.teamsForJob(j)) : Object.assign({
-                date, type, description: "", teams: ["Worship Team", "AV Team"], startTime: "08:00", endTime: "11:30",
+                date, type, description: "", teams: [...new Set([...EGBCAuth.teamsForJob('worship'), ...EGBCAuth.teamsForJob('av')])], startTime: "08:00", endTime: "11:30",
                 roles: isServiceType(type) ? MANDATORY_SUNDAY_ROLES : [], archived: false }, isServiceType(type) ? SUNDAY_PUBLIC : {});
             ev.termLabel = getTermLabel(date);
             return ev;
+        };
+        /* The rota places a kind of service starts with, from the church's
+           own list; these are what Auto-Populate fills and what the green
+           "all filled" dot checks. */
+        const slotsFor = (type) => {
+            const t = SV.S && SV.S.type(SV.cfg, type);
+            return t ? (t.slots || []) : (isServiceType(type) ? MANDATORY_SUNDAY_ROLES : []);
+        };
+        /* WHICH SERVICES AUTO-POPULATE FILLS (and Sync copies from, and the
+           month's totals count). A church that has listed its own kinds in
+           Your services: every service kind with rota places. With nothing
+           stored (EGBC's defaults), the defaults give every service the same
+           places, so nothing in them tells the main service from a carol or
+           special one; there only the main service - the first - is filled,
+           and the others are synced like practices, as they always were. */
+        const isFilledKind = (type) => {
+            if (!isServiceType(type)) return false;
+            const own = SV.cfg && Array.isArray(SV.cfg.types) && SV.cfg.types.length;
+            return own ? slotsFor(type).length > 0 : type === mainType();
+        };
+
+        /* ---- The church's teams --------------------------------------
+           Team ids come from the church's own teams (EGBCAuth.TEAMS) and team
+           jobs, never from a list here. Older rota rows sometimes saved a
+           team's label ("Youth") instead of its id, so a row counts a team
+           as ticked under either. */
+        const TEAMS = () => (window.EGBCAuth && EGBCAuth.TEAMS) || {};
+        const teamLabel = (t) => (TEAMS()[t] && TEAMS()[t].label) || t;
+        const evHasTeam = (ev, t) => !!(ev.teams && (ev.teams.includes(t) || (TEAMS()[t] && ev.teams.includes(TEAMS()[t].label))));
+        /* Teams for several jobs, each once, in the order the jobs are given. */
+        const jobTeams = (...jobs) => [...new Set(jobs.flatMap(j => EGBCAuth.teamsForJob(j)))];
+        /* The tick boxes on a row: the core team(s) covering the worship
+           job's teams, then the teams doing the worship, AV, choir, youth and
+           children jobs - the teams this rota is for, in that order. */
+        const rotaTeams = () => {
+            const T = TEAMS(), worship = EGBCAuth.teamsForJob('worship');
+            const cores = Object.keys(T).filter(t => !T[t].archived && (T[t].coreFor || []).some(c => worship.includes(c)));
+            return [...new Set([...cores, ...jobTeams('worship', 'av', 'choir', 'youth', 'children')])];
+        };
+        /* A box shows the name the row stores: the team's id, or - on an
+           older row that saved the team's label ("Youth") - that label. */
+        const tickName = (ev, t) => (ev.teams && !ev.teams.includes(t) && evHasTeam(ev, t)) ? teamLabel(t) : t;
+        /* Young people are offered last when filling a slot, so adults are
+           not passed over; "young people" are the teams doing the youth job. */
+        const isYouthMember = (m) => jobTeams('youth').some(t => m.markers?.includes(t));
+
+        /* ---- The church's name, logo and reply address in emails ------
+           From churchSettings/details (egbc-church.js), never typed in here.
+           Replies go to the "Sending as" address; with none, to the church's
+           enquiry address. A blank detail is simply left out. */
+        const escE = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        const churchDetails = () => (window.EGBCChurch ? EGBCChurch.load() : Promise.resolve({ name: '', enquiryEmail: '', logoUrl: '' }));
+        const replyAddress = () => (document.getElementById('rotaSenderEmail')?.value || '').trim() || (window.EGBCChurch ? EGBCChurch.email() : '');
+        /* "Worship & AV" for EGBC: the labels of the teams doing the rota's
+           worship and AV jobs. */
+        const rotaWords = () => jobTeams('worship', 'av').map(teamLabel).join(' & ');
+
+        /**
+         * The rota emails' shared frame: header with the church's logo, the
+         * body, and a footer with the church's name and the reply address.
+         * @param {string} title  the big heading
+         * @param {string} sub    the line under it (already safe HTML)
+         * @param {string} body   the email's middle (HTML)
+         * @returns {Promise<string>} the whole email
+         */
+        async function rotaEmail(title, sub, body) {
+            const d = await churchDetails();
+            const reply = replyAddress();
+            const words = rotaWords();
+            const logo = d.logoUrl ? `<td style="vertical-align:top;text-align:right;padding-left:20px;"><div style="display:inline-block;background:#ffffff;border-radius:10px;padding:8px 12px;"><img src="${escE(d.logoUrl)}" height="44" style="display:block;height:44px;border:0;" alt="${escE(d.name)}"></div></td>` : '';
+            const foot = [d.name, words ? words + ' Team' : ''].filter(Boolean).map(escE).join(' &bull; ');
+            return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background-color:#eaf2f2;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#eaf2f2"><tr><td align="center" style="padding:40px 16px;">
+<table width="620" cellpadding="0" cellspacing="0" border="0" style="max-width:620px;width:100%;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(61,98,99,0.13);">
+  <tr><td bgcolor="#3d6263" style="padding:32px 40px;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td style="vertical-align:bottom;"><p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:26px;font-weight:800;color:#ffffff;">${title}</p><p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#a8c5c5;font-weight:700;text-transform:uppercase;letter-spacing:2px;">${sub}</p></td>
+      ${logo}
+    </tr></table>
+  </td></tr>
+  <tr><td style="padding:36px 40px 0;">
+${body}
+  </td></tr>
+  <tr><td bgcolor="#3d6263" style="padding:24px 40px;">
+    <p style="margin:0 0 4px;font-family:Arial,sans-serif;font-size:13px;color:#c8dede;font-style:italic;">&ldquo;By this everyone will know that you are my disciples, if you love one another.&rdquo; &mdash; John 13:35</p>
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #4d7475;margin-top:10px;"><tr>
+      <td style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:10px;">${foot}</td>
+      <td align="right" style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:10px;">${escE(reply)}</td>
+    </tr></table>
+  </td></tr>
+</table></td></tr></table></body></html>`;
+        }
+        /* The church's name before a calendar entry's title, or nothing when
+           the church has no name set. */
+        const churchPrefix = (sep) => (shortName ? shortName + sep : '');
+        /* The church's short name ("EGBC"), in the same order the server's
+           rota feed uses: details.shortName, then the e-news footer's short
+           name, then the full name. The e-news settings are the office's, so
+           for anyone else that read is refused and simply skipped. */
+        let shortName = '', shortNameP = null;
+        const churchShortName = () => shortNameP || (shortNameP = (async () => {
+            const get = (c, d) => getDoc(doc(db, c, d)).then(s => (s.exists() ? s.data() : {}), () => ({}));
+            const [det, en] = await Promise.all([get('churchSettings', 'details'), get('enewsSettings', 'main')]);
+            shortName = String(det.shortName || (en.church || {}).shortName || det.name || '').trim();
+            return shortName;
+        })());
+        /* The send itself, with the reply address above (none if both are blank). */
+        const sendRota = (opts) => {
+            const reply = replyAddress();
+            return EGBCAuth.sendEmail(Object.assign({ source: 'rota' }, opts, reply ? { replyTo: reply } : {}));
         };
 
         // Video meetings: the church's own rooms (egbc-video.js, churchSettings/video; Church HQ's
@@ -78,7 +190,7 @@
 
         // Who gets an event in their rota email/ICS: anyone with a role, plus — for meetings — everyone in the ticked teams
         const isMeeting = ev => /Meeting/.test(ev.type || '');
-        const inEventTeams = (m, ev) => !!m && (ev.teams?.some(t => m.markers?.includes(t)) || (ev.teams?.includes("Youth") && m.markers?.includes("Youth Worship")));
+        const inEventTeams = (m, ev) => !!m && (m.markers || []).some(t => evHasTeam(ev, t));
         const isInvitedTo = (ev, memberId) =>
             Object.values(ev.assignments || {}).some(raw => (Array.isArray(raw) ? raw : [raw]).some(a => a?.id === memberId)) ||
             (isMeeting(ev) && inEventTeams(addressBook.find(m => m.id === memberId), ev));
@@ -124,13 +236,22 @@
             try {
                 if (EGBCAuth.isMaster()) return null;
                 const areas = EGBCAuth.adminAreas() || [];
-                return areas.length ? areas : null;
+                if (areas.length) return areas;
+                /* A leader who administers nothing used to get "everything"
+                   here, so a team leader could change every other team's
+                   slots. They get the teams they lead (by role, or through a
+                   core team), and nothing more. */
+                return Object.keys(TEAMS()).filter(t => EGBCAuth.isLeaderOf(t));
             } catch (e) { return null; }
         }
 
-        function canEditRole(r) {
+        /* ev, when given: a row for one of my teams whose slots belong to a
+           team not ticked on it (a youth service using the worship slots)
+           is mine to fill, since nobody else is planning it. */
+        function canEditRole(r, ev) {
             const mine = myRotaTeams();
-            return !mine || mine.includes(roleTeam(r));
+            if (!mine || mine.includes(roleTeam(r))) return true;
+            return !!ev && mine.some(t => evHasTeam(ev, t)) && !evHasTeam(ev, roleTeam(r));
         }
 
         /* Every team that actually has a slot somewhere in this term. A term
@@ -242,11 +363,14 @@
         const FORM_LINK = location.origin + location.pathname.replace(/[^/]*$/, '') + 'index.html'; /* the availability form, at the address this page is open at (github.io, or egbc.churchhq.co.uk, whose bare address opens the hub) */
 
         let logoLoadPromise = null;
+        /* The church's logo (churchSettings/details.logoUrl) for the PDFs;
+           none set, no logo. */
         const getLogoBase64 = () => {
             if (logoLoadPromise) return logoLoadPromise;
             logoLoadPromise = new Promise(async (resolve) => {
                 try {
-                    const url = await getDownloadURL(ref(storage, '1774936285076.png'));
+                    const url = (await churchDetails()).logoUrl;
+                    if (!url) return resolve(null);
                     const img = new Image();
                     img.setAttribute('crossOrigin', 'anonymous');
                     img.onload = () => {
@@ -260,7 +384,7 @@
                         resolve(logoBase64);
                     };
                     img.onerror = () => resolve(null);
-                    img.src = url + "?c=" + new Date().getTime();
+                    img.src = url + (url.includes('?') ? '&' : '?') + "c=" + new Date().getTime();
                 } catch (e) { resolve(null); }
             });
             return logoLoadPromise;
@@ -388,15 +512,17 @@
             const eventSnap = await getDoc(eventRef);
             if (!eventSnap.exists()) return;
             const currentTeams = eventSnap.data().teams || [];
-            const adding = !currentTeams.includes(teamName);
-            const newTeams = adding ? [...currentTeams, teamName] : currentTeams.filter(t => t !== teamName);
+            const adding = !evHasTeam({ teams: currentTeams }, teamName);
+            /* Unticking also takes off the label an older row may have saved. */
+            const newTeams = adding ? [...currentTeams, teamName] : currentTeams.filter(t => t !== teamName && t !== teamLabel(teamName));
             const updates = { teams: newTeams };
+            const kidsTeam = jobTeams('children').includes(teamName);
 
-            /* Ticking Kids Church puts its standard slots on the week, the way
-               a new Sunday already arrives with the worship ones. Unticking
+            /* Ticking a children's team puts its standard slots on the week, the
+               way a new Sunday already arrives with the worship ones. Unticking
                takes back only the empty ones - anybody already rostered stays,
                so a mis-click cannot quietly wipe Karen's work. */
-            if (teamName === 'Kids Church') {
+            if (kidsTeam) {
                 const ev = eventSnap.data();
                 const roles = new Set(ev.roles || []);
                 if (adding) {
@@ -408,7 +534,7 @@
             }
 
             await updateDoc(eventRef, updates);
-            if (teamName === 'Kids Church') await clearSignoff(eventId, 'Kids Church');
+            if (kidsTeam) await clearSignoff(eventId, roleTeam(KIDS_MANDATORY_ROLES[0]));
         };
 
         window.addRole = async (eventId, roleName) => {
@@ -550,84 +676,157 @@
             }
         };
 
-        /* "+ SERVICE" ASKS FIRST (the reviewing window, 19 Oct 2026): it used
-           to save a Sunday Morning Worship dated TODAY the moment it was
-           tapped - one mis-tap on the phone bar, or the live audit, put a
-           real empty service on the rota. Now a small sheet asks the date
-           (next Sunday to start with) and the type, and nothing is saved
-           until "Add". Cancel, the X, a tap outside or Escape save nothing. */
-        const SERVICE_KINDS = ['Sunday Morning Worship', 'Evening Carol Service', 'Midnight Service', 'Special Service', 'LOUD Worship'];
-        const nextSundayIso = () => { const d = new Date(); d.setHours(12, 0, 0, 0); while (d.getDay() !== 0) d.setDate(d.getDate() + 1); return d.toISOString().split('T')[0]; };
-        const closeAddService = () => { const s = document.getElementById('ppAddService'); if (s) s.remove(); document.removeEventListener('keydown', addServiceKey); };
-        const addServiceKey = (e) => { if (e.key === 'Escape') closeAddService(); };
-        window.addSingleLine = async () => {
-            closeAddService();
-            await svcReady;
+        /* ---- A small sheet that asks before anything is saved ----------
+           "+ Service", "Add Practices" and "Gather Avail" each ask a question
+           or two first; Cancel, the X, a tap outside or Escape save nothing.
+           One sheet for all three, so they look and close the same way. */
+        const SHEET_LBL = 'display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:4px';
+        const SHEET_FLD = 'width:100%;height:46px;box-sizing:border-box;border:1px solid #d1d5db;border-radius:10px;padding:0 10px;font:500 15px Inter,system-ui,sans-serif;margin-bottom:12px;background:#fff';
+        const closeSheet = () => { const s = document.getElementById('ppAddService'); if (s) s.remove(); document.removeEventListener('keydown', sheetKey); };
+        const sheetKey = (e) => { if (e.key === 'Escape') closeSheet(); };
+        /**
+         * Opens the sheet.
+         * @param {string} title     its heading
+         * @param {string} fields    the questions (HTML, using SHEET_LBL / SHEET_FLD)
+         * @param {string} goLabel   the button that does it ("Add")
+         * @param {(msg: HTMLElement) => Promise<boolean|void>} onGo  does the work; false keeps the sheet open
+         */
+        function openSheet(title, fields, goLabel, onGo) {
+            closeSheet();
             const wrap = document.createElement('div');
             wrap.id = 'ppAddService'; wrap.setAttribute('data-egbc-overlay', '');
             wrap.style.cssText = 'position:fixed;inset:0;z-index:2000;background:rgba(17,24,39,.4);display:flex;align-items:flex-end;justify-content:center';
             wrap.innerHTML = '<div role="dialog" aria-modal="true" aria-labelledby="ppAddT" style="background:#fff;width:100%;max-width:440px;border-radius:18px 18px 0 0;padding:16px 16px 20px;font-family:Inter,system-ui,sans-serif">'
-              + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><b id="ppAddT" style="font-size:16px;color:#111827">Add a service</b>'
+              + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><b id="ppAddT" style="font-size:16px;color:#111827">' + escP(title) + '</b>'
               + '<button type="button" data-close="1" aria-label="Close" style="width:44px;height:44px;border:1px solid #d1d5db;border-radius:10px;background:#fff;cursor:pointer;font-size:18px;color:#3d6263">&times;</button></div>'
-              + '<label for="ppAddDate" style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:4px">Date</label>'
-              + '<input id="ppAddDate" type="date" style="width:100%;height:46px;box-sizing:border-box;border:1px solid #d1d5db;border-radius:10px;padding:0 10px;font:500 15px Inter,system-ui,sans-serif;margin-bottom:12px">'
-              + '<label for="ppAddType" style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:4px">What kind</label>'
-              + '<select id="ppAddType" style="width:100%;height:46px;box-sizing:border-box;border:1px solid #d1d5db;border-radius:10px;padding:0 10px;font:500 15px Inter,system-ui,sans-serif;margin-bottom:16px;background:#fff">'
-              + typeNames().map(t => '<option' + (t === mainType() ? ' selected' : '') + '>' + escP(t) + '</option>').join('') + '</select>'
-              + '<div style="display:flex;gap:8px"><button type="button" data-close="1" style="flex:1;min-height:48px;border:1px solid #d1d5db;border-radius:12px;background:#fff;font:600 14px Inter,system-ui,sans-serif;cursor:pointer">Cancel</button>'
-              + '<button type="button" id="ppAddGo" style="flex:1;min-height:48px;border:0;border-radius:12px;background:#3d6263;color:#fff;font:600 14px Inter,system-ui,sans-serif;cursor:pointer">Add</button></div>'
+              + fields
+              + '<div style="display:flex;gap:8px;margin-top:4px"><button type="button" data-close="1" style="flex:1;min-height:48px;border:1px solid #d1d5db;border-radius:12px;background:#fff;font:600 14px Inter,system-ui,sans-serif;cursor:pointer">Cancel</button>'
+              + '<button type="button" id="ppAddGo" style="flex:1;min-height:48px;border:0;border-radius:12px;background:#3d6263;color:#fff;font:600 14px Inter,system-ui,sans-serif;cursor:pointer">' + escP(goLabel) + '</button></div>'
               + '<p id="ppAddMsg" role="status" style="margin:10px 0 0;font-size:13px;color:#b0392c;min-height:1em"></p></div>';
             document.body.appendChild(wrap);
             if (window.matchMedia('(min-width:700px)').matches) { wrap.style.alignItems = 'center'; wrap.firstChild.style.borderRadius = '18px'; }
-            document.getElementById('ppAddDate').value = nextSundayIso();
-            wrap.addEventListener('click', (e) => { if (e.target === wrap || e.target.closest('[data-close]')) closeAddService(); });
-            document.addEventListener('keydown', addServiceKey);
-            document.getElementById('ppAddGo').onclick = async () => {
-                const dateStr = document.getElementById('ppAddDate').value, type = document.getElementById('ppAddType').value;
+            wrap.addEventListener('click', (e) => { if (e.target === wrap || e.target.closest('[data-close]')) closeSheet(); });
+            document.addEventListener('keydown', sheetKey);
+            const go = document.getElementById('ppAddGo');
+            go.onclick = async () => {
                 const msg = document.getElementById('ppAddMsg');
-                if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) { msg.textContent = 'Choose the date first.'; return; }
-                const go = document.getElementById('ppAddGo'); go.disabled = true; go.textContent = 'Adding\u2026';
-                try {
-                    await addDoc(collection(db, "events"), freshEvent(type, dateStr));
-                    closeAddService();
-                } catch (e) {
-                    console.error('Planner: could not add the service', e);
-                    msg.textContent = 'That did not save. Please try again.'; go.disabled = false; go.textContent = 'Add';
-                }
+                msg.textContent = '';
+                go.disabled = true; go.textContent = 'Working…';
+                let keep = false;
+                try { keep = (await onGo(msg)) === false; }
+                catch (e) { console.error('Planner:', title, e); msg.textContent = 'That did not save. Please try again.'; keep = true; }
+                if (keep) { go.disabled = false; go.textContent = goLabel; } else closeSheet();
             };
-            setTimeout(() => { try { document.getElementById('ppAddDate').focus(); } catch (e) {} }, 50);
+            setTimeout(() => { try { wrap.querySelector('input,select').focus(); } catch (e) {} }, 50);
+        }
+
+        /* "+ SERVICE" ASKS FIRST (the reviewing window, 19 Oct 2026): it used
+           to save the main service dated TODAY the moment it was tapped - one
+           mis-tap on the phone bar, or the live audit, put a real empty
+           service on the rota. Now the sheet asks the date (next Sunday to
+           start with) and the kind, and nothing is saved until "Add". */
+        const nextSundayIso = () => { const d = new Date(); d.setHours(12, 0, 0, 0); while (d.getDay() !== 0) d.setDate(d.getDate() + 1); return d.toISOString().split('T')[0]; };
+        window.addSingleLine = async () => {
+            await svcReady;
+            openSheet('Add a service',
+                '<label for="ppAddDate" style="' + SHEET_LBL + '">Date</label>'
+              + '<input id="ppAddDate" type="date" value="' + nextSundayIso() + '" style="' + SHEET_FLD + '">'
+              + '<label for="ppAddType" style="' + SHEET_LBL + '">What kind</label>'
+              + '<select id="ppAddType" style="' + SHEET_FLD + '">'
+              + typeNames().map(t => '<option' + (t === mainType() ? ' selected' : '') + '>' + escP(t) + '</option>').join('') + '</select>',
+                'Add', async (msg) => {
+                    const dateStr = document.getElementById('ppAddDate').value, type = document.getElementById('ppAddType').value;
+                    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) { msg.textContent = 'Choose the date first.'; return false; }
+                    await addDoc(collection(db, "events"), freshEvent(type, dateStr));
+                });
+        };
+
+        /* ---- The term being worked on ---------------------------------
+           The Term box offers the current term and the next three, each
+           with its year ("Spring 2027"), so Populate and Add Practices make
+           dates in that term's year - not this calendar year, which put a
+           Spring term planned in the autumn into the Spring just gone. The
+           terms' months are the ones getTermLabel() uses. */
+        const TERM_MONTHS = { Spring: ['01', '04'], Summer: ['05', '08'], Autumn: ['09', '12'] };
+        (function fillTermSelect() {
+            const sel = document.getElementById('termSelect');
+            if (!sel) return;
+            const names = Object.keys(TERM_MONTHS);
+            const now = getTermLabel(new Date().toISOString().split('T')[0]).split(' ');
+            let i = names.indexOf(now[0]), y = +now[1];
+            let html = '<option value="">Term</option>';
+            for (let n = 0; n < 4; n++) {
+                html += '<option value="' + names[i] + ' ' + y + '">' + names[i] + ' ' + y + '</option>';
+                i++; if (i === names.length) { i = 0; y++; }
+            }
+            sel.innerHTML = html;
+        })();
+        /* { from, to } Date of the chosen term, or null with a message. */
+        const chosenTerm = () => {
+            const v = document.getElementById('termSelect').value;
+            if (!v) { alert("Select a Term"); return null; }
+            const [name, year] = v.split(' ');
+            const m = TERM_MONTHS[name];
+            /* Day 0 of the next month is the last day of this one. */
+            return { from: new Date(`${year}-${m[0]}-01`), to: new Date(Date.UTC(+year, +m[1], 0)) };
         };
 
         window.generateTerm = async () => {
-            const term = document.getElementById('termSelect').value;
-            if(!term) return alert("Select a Term");
-            const year = new Date().getFullYear();
-            let curr = new Date(`${year}-${term === 'Spring' ? '01' : term === 'Summer' ? '05' : '09'}-01`);
-            let end = new Date(`${year}-${term === 'Spring' ? '04' : term === 'Summer' ? '08' : '12'}-31`);
+            const term = chosenTerm();
+            if (!term) return;
+            let curr = term.from;
             while (curr.getDay() !== 0) curr.setDate(curr.getDate() + 1);
             await svcReady;
-            while (curr <= end) {
+            while (curr <= term.to) {
                 const dateStr = curr.toISOString().split('T')[0];
                 await addDoc(collection(db, "events"), freshEvent(mainType(), dateStr));
                 curr.setDate(curr.getDate() + 7);
             }
         };
 
-        window.addThursdayPractices = async () => {
-            const term = document.getElementById('termSelect').value;
-            if(!term) return alert("Select a Term");
-            const year = new Date().getFullYear();
-            let curr = new Date(`${year}-${term === 'Spring' ? '01' : term === 'Summer' ? '05' : '09'}-01`);
-            let end = new Date(`${year}-${term === 'Spring' ? '04' : term === 'Summer' ? '08' : '12'}-31`);
-            while (curr.getDay() !== 4) curr.setDate(curr.getDate() + 1);
-            while (curr <= end) {
-                const dateStr = curr.toISOString().split('T')[0];
-                await addDoc(collection(db, "events"), {
-                    date: dateStr, termLabel: getTermLabel(dateStr), type: "Sunday Team Practice", description: "Thursday Rehearsal",
-                    teams: ["Worship Team"], startTime: "19:30", endTime: "21:30", roles: ["Worship Leader", "Keyboard", "Guitar", "Drums", "Bass"], archived: false
+        /* ADD PRACTICES: one a week through the chosen term. The kind, the
+           day and the times are asked each time, because the church keeps no
+           setting for its practice night; the kind's own times (Your
+           services) are filled in to start, and Thursday is the day offered
+           first, as it always was. */
+        const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        window.addPractices = async () => {
+            const term = chosenTerm();
+            if (!term) return;
+            await svcReady;
+            const kinds = SV.S ? SV.S.types(SV.cfg).filter(t => !t.service) : [];
+            if (!kinds.length) { alert("This church has no practice or meeting kinds in Your services yet."); return; }
+            const first = kinds.find(t => /practi|rehears/i.test(t.name)) || kinds[0];
+            const times = (sel) => buildTimeOptions(sel);
+            openSheet('Add practices',
+                '<label for="ppPrKind" style="' + SHEET_LBL + '">What kind</label>'
+              + '<select id="ppPrKind" style="' + SHEET_FLD + '">' + kinds.map(t => '<option' + (t === first ? ' selected' : '') + '>' + escP(t.name) + '</option>').join('') + '</select>'
+              + '<label for="ppPrDay" style="' + SHEET_LBL + '">Day of the week</label>'
+              + '<select id="ppPrDay" style="' + SHEET_FLD + '">' + DAY_NAMES.map((d, i) => '<option value="' + i + '"' + (i === 4 ? ' selected' : '') + '>' + d + '</option>').join('') + '</select>'
+              + '<div style="display:flex;gap:8px"><div style="flex:1"><label for="ppPrStart" style="' + SHEET_LBL + '">Starts</label>'
+              + '<select id="ppPrStart" style="' + SHEET_FLD + '">' + times(first.start || '19:30') + '</select></div>'
+              + '<div style="flex:1"><label for="ppPrEnd" style="' + SHEET_LBL + '">Ends</label>'
+              + '<select id="ppPrEnd" style="' + SHEET_FLD + '">' + times(first.end || '21:30') + '</select></div></div>',
+                'Add', async (msg) => {
+                    const kind = document.getElementById('ppPrKind').value, day = +document.getElementById('ppPrDay').value;
+                    const startTime = document.getElementById('ppPrStart').value, endTime = document.getElementById('ppPrEnd').value;
+                    if (endTime <= startTime) { msg.textContent = 'The end time must be after the start.'; return false; }
+                    let curr = new Date(term.from);
+                    while (curr.getDay() !== day) curr.setDate(curr.getDate() + 1);
+                    while (curr <= term.to) {
+                        const dateStr = curr.toISOString().split('T')[0];
+                        await addDoc(collection(db, "events"), Object.assign(freshEvent(kind, dateStr),
+                            { startTime, endTime, description: DAY_NAMES[day] + ' Rehearsal' }));
+                        curr.setDate(curr.getDate() + 7);
+                    }
                 });
-                curr.setDate(curr.getDate() + 7);
-            }
+            /* A different kind brings its own usual times. */
+            document.getElementById('ppPrKind').onchange = (e) => {
+                const t = kinds.find(k => k.name === e.target.value);
+                if (!t) return;
+                if (t.start) document.getElementById('ppPrStart').value = t.start;
+                if (t.end) document.getElementById('ppPrEnd').value = t.end;
+            };
         };
 
         window.autoFillPractice = async (practiceId, silent = false) => {
@@ -637,10 +836,10 @@
             const sundayService = cachedEvents.find(e => {
                 const eDate = new Date(e.date);
                 const diff = (eDate - practiceDate) / (1000 * 60 * 60 * 24);
-                return e.type === "Sunday Morning Worship" && diff > 0 && diff <= 4;
+                return isFilledKind(e.type) && diff > 0 && diff <= 4;
             });
             if(!sundayService) {
-                if(!silent) alert("No Sunday Worship found within 4 days after this practice.");
+                if(!silent) alert("No service found within 4 days after this practice.");
                 return;
             }
             const updates = {};
@@ -657,11 +856,14 @@
         };
 
         window.autoFillAllEvents = async () => {
-            if (!confirm("Auto-populate all Sunday services and sync practices?")) return;
+            if (!confirm("Auto-populate all services and sync practices?")) return;
+            await svcReady;
 
+            /* The services isFilledKind() picks, not one kind by name;
+               everything else is synced like a practice. */
             const activeEvents = cachedEvents.filter(e => !e.archived).sort((a,b) => new Date(a.date) - new Date(b.date));
-            const sundayEvents = activeEvents.filter(e => e.type === "Sunday Morning Worship");
-            const practiceEvents = activeEvents.filter(e => e.type !== "Sunday Morning Worship");
+            const sundayEvents = activeEvents.filter(e => isFilledKind(e.type));
+            const practiceEvents = activeEvents.filter(e => !isFilledKind(e.type));
 
             const lastServed = {};
             sundayEvents.forEach(ev => {
@@ -685,8 +887,7 @@
 
                 const evDate = new Date(ev.date);
                 const members = addressBook.filter(m =>
-                    availability[ev.id]?.[m.id] === 'avail' &&
-                    (ev.teams?.some(t => m.markers?.includes(t)) || (ev.teams?.includes("Youth") && m.markers?.includes("Youth Worship")))
+                    availability[ev.id]?.[m.id] === 'avail' && inEventTeams(m, ev)
                 );
                 const alreadyAssignedToday = new Set(Object.values(ev.assignments || {}).flatMap(raw => Array.isArray(raw) ? raw.map(p=>p.id) : [raw.id]));
                 const assignments = { ...(ev.assignments || {}) };
@@ -696,7 +897,7 @@
                     if (assignments[roleName]) return false;
                     /* Never fill a slot belonging to a department you do not
                        run. Karen pressing AutoFill must not touch worship. */
-                    if (!canEditRole(roleName)) return false;
+                    if (!canEditRole(roleName, ev)) return false;
                     let candidates = members.filter(m => {
                         if (alreadyAssignedToday.has(m.id)) return false;
                         if ((monthlyCounts[monthKey][m.id] || 0) >= (parseInt(m.maxFrequency) || 2)) return false;
@@ -717,8 +918,8 @@
                     });
 
                     candidates.sort((a, b) => {
-                        const aYouth = a.markers?.includes("Youth Worship") ? 1 : 0;
-                        const bYouth = b.markers?.includes("Youth Worship") ? 1 : 0;
+                        const aYouth = isYouthMember(a) ? 1 : 0;
+                        const bYouth = isYouthMember(b) ? 1 : 0;
                         if (aYouth !== bYouth) return aYouth - bYouth;
                         const aPrimary = a.primaryInstruments?.includes(instrumentName) ? 0 : 1;
                         const bPrimary = b.primaryInstruments?.includes(instrumentName) ? 0 : 1;
@@ -743,8 +944,11 @@
                     return false;
                 };
 
-                MANDATORY_SUNDAY_ROLES.forEach(r => tryAssign(r, r, true));
-                MANDATORY_SUNDAY_ROLES.forEach(r => tryAssign(r, r, false));
+                /* The kind's own rota places (Your services); each is filled
+                   by someone who plays or does the thing it is named for. */
+                const slots = slotsFor(ev.type);
+                slots.forEach(r => tryAssign(r, r, true));
+                slots.forEach(r => tryAssign(r, r, false));
 
                 [...liveRoles].filter(r => r.startsWith("Singer")).forEach(r => {
                     tryAssign(r, "Sing", true) || tryAssign(r, "Sing", false);
@@ -755,15 +959,17 @@
                     (m.primaryInstruments?.includes("Sing") || m.secondaryInstruments?.includes("Sing")) &&
                     (monthlyCounts[monthKey][m.id] || 0) < (parseInt(m.maxFrequency) || 2)
                 ).sort((a, b) => {
-                    const aYouth = a.markers?.includes("Youth Worship") ? 1 : 0;
-                    const bYouth = b.markers?.includes("Youth Worship") ? 1 : 0;
+                    const aYouth = isYouthMember(a) ? 1 : 0;
+                    const bYouth = isYouthMember(b) ? 1 : 0;
                     if (aYouth !== bYouth) return aYouth - bYouth;
                     const aLast = lastServed[a.id] ? (evDate - lastServed[a.id]) : Infinity;
                     const bLast = lastServed[b.id] ? (evDate - lastServed[b.id]) : Infinity;
                     return bLast - aLast;
                 });
 
-                for (const m of availableSingers) {
+                /* Extra singer places are the worship side's too: only for
+                   someone who may fill them. */
+                for (const m of (canEditRole('Singer 1', ev) ? availableSingers : [])) {
                     let nextIdx = 1;
                     while (liveRoles.has(`Singer ${nextIdx}`)) nextIdx++;
                     const newRole = `Singer ${nextIdx}`;
@@ -806,7 +1012,7 @@
                 practicesSynced++;
             }
 
-            alert(`Auto-fill complete!\n\nSundays filled: ${sundayEvents.length}\nPractices synced: ${practicesSynced}`);
+            alert(`Auto-fill complete!\n\nServices filled: ${sundayEvents.length}\nPractices synced: ${practicesSynced}`);
         };
 
         /* Everyone in a person's household.
@@ -893,7 +1099,7 @@
             const names = (p) => (Array.isArray(p) ? p : [p]).map(x => x && x.name).filter(Boolean).join(', ');
             const data = activeEvents.map(e => ({ Date: e.date, Type: e.type, ...Object.fromEntries(Object.entries(e.assignments || {}).map(([r, p]) => [r, names(p)])) }));
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), "Rota");
-            XLSX.writeFile(wb, "EGBC_Rota.xlsx");
+            XLSX.writeFile(wb, "Rota.xlsx");
         };
 
         function buildICS(events, getMemberEvents) {
@@ -906,10 +1112,12 @@
             const escapeICS = str => (str || '').replace(/[\\;,]/g, c => '\\' + c).replace(/\n/g, '\\n');
             // RFC 5545: lines longer than 75 characters must be folded (long video links would otherwise break some calendars)
             const fold = line => line.length <= 75 ? line : line.match(/.{1,74}/gu).join(CRLF + ' ');
-            let lines = ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//EGBC Worship & AV//Rota//EN","CALSCALE:GREGORIAN","METHOD:PUBLISH","X-WR-CALNAME:EGBC Rota","X-WR-TIMEZONE:Europe/London"];
+            /* The calendar is named after the church; the event ids carry this
+               site's own address, so they never clash with another church's. */
+            let lines = ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Church HQ//Rota//EN","CALSCALE:GREGORIAN","METHOD:PUBLISH",fold(`X-WR-CALNAME:${escapeICS(churchPrefix(' ') + 'Rota')}`),"X-WR-TIMEZONE:Europe/London"];
             events.forEach(ev => {
                 const { summary, description, dateStr, startTime, endTime } = getMemberEvents(ev);
-                const uid = `egbc-rota-${ev.id}-${dateStr}@esherchurch.org`;
+                const uid = `rota-${ev.id}-${dateStr}@${location.hostname || 'churchhq'}`;
                 const dtstamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
                 lines.push("BEGIN:VEVENT", `UID:${uid}`, `DTSTAMP:${dtstamp}`);
                 if (startTime) {
@@ -929,7 +1137,7 @@
 
         // ── SEND ALL ROTAS — now respects term filter ───────────────────
         window.prepareDistributionPackage = async () => {
-            const logoUrl = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300";
+            await Promise.all([churchDetails(), svcReady, churchShortName()]);
             const packageId = `rota-${Date.now()}`;
 
             const selectedTerm = document.getElementById('sendTermSelect')?.value || '';
@@ -1023,7 +1231,7 @@
                     if (personalEvents.length > 0) {
                         const icsStr = buildICS(personalEvents, ev => ({
                             dateStr: ev.date, startTime: ev.startTime || null, endTime: ev.endTime || null,
-                            summary: `EGBC: ${rolesForMember(ev, mId) || ev.type}`,
+                            summary: `${churchPrefix(': ')}${rolesForMember(ev, mId) || ev.type}`,
                             description: `${ev.type}${ev.description ? ' — ' + ev.description : ''}`
                         }));
                         attachments.push({ filename: `${safeName}_My_Rota.ics`, content: btoa(unescape(encodeURIComponent(icsStr))) });
@@ -1032,7 +1240,7 @@
                     if (familyEvents.length > 0) {
                         const hIcsStr = buildICS(familyEvents, ev => ({
                             dateStr: ev.date, startTime: ev.startTime || null, endTime: ev.endTime || null,
-                            summary: `EGBC Family: ${rolesForFamily(ev, hIds) || ev.type}`,
+                            summary: `${churchPrefix(' ')}Family: ${rolesForFamily(ev, hIds) || ev.type}`,
                             description: `${ev.type}${ev.description ? ' — ' + ev.description : ''}`
                         }));
                         attachments.push({ filename: `${safeName}_Household_Rota.ics`, content: btoa(unescape(encodeURIComponent(hIcsStr))) });
@@ -1046,18 +1254,7 @@
                         return `<tr><td style="padding:9px 10px;border-bottom:1px solid #eaf2f2;font-family:Arial,sans-serif;font-size:13px;color:#333333;">${dateStr}${timeStr}</td><td style="padding:9px 10px;border-bottom:1px solid #eaf2f2;font-family:Arial,sans-serif;font-size:13px;color:#3d6263;font-weight:800;">${roles}</td></tr>`;
                     }).join('');
 
-                    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background-color:#eaf2f2;">
-<table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#eaf2f2"><tr><td align="center" style="padding:40px 16px;">
-<table width="620" cellpadding="0" cellspacing="0" border="0" style="max-width:620px;width:100%;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(61,98,99,0.13);">
-  <tr><td bgcolor="#3d6263" style="padding:32px 40px;">
-    <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-      <td style="vertical-align:bottom;"><p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:26px;font-weight:800;color:#ffffff;">Your Rota</p><p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#a8c5c5;font-weight:700;text-transform:uppercase;letter-spacing:2px;">${termLabels}</p></td>
-      <td style="vertical-align:top;text-align:right;padding-left:20px;"><div style="display:inline-block;background:#ffffff;border-radius:10px;padding:8px 12px;"><img src="${logoUrl}" height="44" style="display:block;height:44px;border:0;" alt="EGBC"></div></td>
-    </tr></table>
-  </td></tr>
-  <tr><td style="padding:36px 40px 0;">
-    <p style="margin:0 0 20px;font-family:Arial,sans-serif;font-size:15px;color:#333333;line-height:1.8;">Hi ${firstName},</p>
+                    const html = await rotaEmail("Your Rota", escE(termLabels), `    <p style="margin:0 0 20px;font-family:Arial,sans-serif;font-size:15px;color:#333333;line-height:1.8;">Hi ${firstName},</p>
     <p style="margin:0 0 28px;font-family:Arial,sans-serif;font-size:15px;color:#555555;line-height:1.8;">Please find your rota attached for the upcoming term. We are really grateful for your faithful service and look forward to worshipping together with you.</p>
     <p style="margin:0 0 12px;font-family:Arial,sans-serif;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:3px;color:#3d6263;">Your Serving Dates</p>
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;border-top:2px solid #3d6263;margin-bottom:32px;">
@@ -1065,19 +1262,10 @@
       ${dateRows}
     </table>
     <p style="margin:0 0 36px;font-family:Arial,sans-serif;font-size:14px;color:#555555;line-height:1.8;">Your individual rota, household rota, wall planner, full church rota and calendar files (.ics) are all attached. The .ics files can be opened to automatically add your serving dates to Apple Calendar, Google Calendar or Outlook.</p>
-    <p style="margin:0 0 36px;font-family:Arial,sans-serif;font-size:14px;color:#555555;line-height:1.8;">If you have any questions or need to swap a date, please don't hesitate to get in touch.</p>
-  </td></tr>
-  <tr><td bgcolor="#3d6263" style="padding:24px 40px;">
-    <p style="margin:0 0 4px;font-family:Arial,sans-serif;font-size:13px;color:#c8dede;font-style:italic;">&ldquo;By this everyone will know that you are my disciples, if you love one another.&rdquo; &mdash; John 13:35</p>
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #4d7475;margin-top:10px;"><tr>
-      <td style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:10px;">Esher Green Baptist Church &bull; Worship &amp; AV Team</td>
-      <td align="right" style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:10px;">worship@esherchurch.org</td>
-    </tr></table>
-  </td></tr>
-</table></td></tr></table></body></html>`;
+    <p style="margin:0 0 36px;font-family:Arial,sans-serif;font-size:14px;color:#555555;line-height:1.8;">If you have any questions or need to swap a date, please don't hesitate to get in touch.</p>`);
 
                     toast.innerHTML = `Sending to <strong>${firstName}</strong>...<br><span style="font-weight:400;opacity:0.8;">${sent + 1} of ${members.length}</span>`;
-                    const result = await EGBCAuth.sendEmail(Object.assign({ source: 'rota' }, { to: [member.email], subject: `Your Worship & AV Rota — ${termLabels}`, html, replyTo: document.getElementById('rotaSenderEmail')?.value || 'worship@esherchurch.org', attachments }));
+                    const result = await sendRota({ to: [member.email], subject: `Your ${rotaWords() ? rotaWords() + ' ' : ''}Rota — ${termLabels}`, html, attachments });
                     if (result.ok) sent++; else { console.error('Send failed for', member.name, result.error); failed++; }
                 } catch(e) {
                     console.error('Error for', member.name, e);
@@ -1101,7 +1289,7 @@
             if (!member || !member.email) return alert("Member not found or has no email.");
             if (!confirm(`Send rota to ${member.name} (${member.email})?`)) return;
 
-            const logoUrl = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300";
+            await Promise.all([churchDetails(), svcReady, churchShortName()]);
             const packageId = `rota-single-${Date.now()}`;
 
             const toast = document.createElement('div');
@@ -1155,7 +1343,7 @@
                 if (personalEvents.length > 0) {
                     const icsStr = buildICS(personalEvents, ev => ({
                         dateStr: ev.date, startTime: ev.startTime || null, endTime: ev.endTime || null,
-                        summary: `EGBC: ${rolesForMemberS(ev, mId) || ev.type}`,
+                        summary: `${churchPrefix(': ')}${rolesForMemberS(ev, mId) || ev.type}`,
                         description: `${ev.type}${ev.description ? ' — ' + ev.description : ''}`
                     }));
                     attachments.push({ filename: `${safeName}_My_Rota.ics`, content: btoa(unescape(encodeURIComponent(icsStr))) });
@@ -1164,7 +1352,7 @@
                 if (familyEvents.length > 0) {
                     const hIcsStr = buildICS(familyEvents, ev => ({
                         dateStr: ev.date, startTime: ev.startTime || null, endTime: ev.endTime || null,
-                        summary: `EGBC Family: ${rolesForFamilyS(ev, hIds) || ev.type}`,
+                        summary: `${churchPrefix(' ')}Family: ${rolesForFamilyS(ev, hIds) || ev.type}`,
                         description: `${ev.type}${ev.description ? ' — ' + ev.description : ''}`
                     }));
                     attachments.push({ filename: `${safeName}_Household_Rota.ics`, content: btoa(unescape(encodeURIComponent(hIcsStr))) });
@@ -1178,37 +1366,17 @@
                     return `<tr><td style="padding:9px 10px;border-bottom:1px solid #eaf2f2;font-family:Arial,sans-serif;font-size:13px;color:#333333;">${dateStr}${timeStr}</td><td style="padding:9px 10px;border-bottom:1px solid #eaf2f2;font-family:Arial,sans-serif;font-size:13px;color:#3d6263;font-weight:800;">${roles}</td></tr>`;
                 }).join('');
 
-                const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background-color:#eaf2f2;">
-<table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#eaf2f2"><tr><td align="center" style="padding:40px 16px;">
-<table width="620" cellpadding="0" cellspacing="0" border="0" style="max-width:620px;width:100%;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(61,98,99,0.13);">
-  <tr><td bgcolor="#3d6263" style="padding:32px 40px;">
-    <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-      <td style="vertical-align:bottom;"><p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:26px;font-weight:800;color:#ffffff;">Your Rota</p><p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#a8c5c5;font-weight:700;text-transform:uppercase;letter-spacing:2px;">${termLabels}</p></td>
-      <td style="vertical-align:top;text-align:right;padding-left:20px;"><div style="display:inline-block;background:#ffffff;border-radius:10px;padding:8px 12px;"><img src="${logoUrl}" height="44" style="display:block;height:44px;border:0;" alt="EGBC"></div></td>
-    </tr></table>
-  </td></tr>
-  <tr><td style="padding:36px 40px 0;">
-    <p style="margin:0 0 20px;font-family:Arial,sans-serif;font-size:15px;color:#333333;line-height:1.8;">Hi ${firstName},</p>
+                const html = await rotaEmail("Your Rota", escE(termLabels), `    <p style="margin:0 0 20px;font-family:Arial,sans-serif;font-size:15px;color:#333333;line-height:1.8;">Hi ${firstName},</p>
     <p style="margin:0 0 28px;font-family:Arial,sans-serif;font-size:15px;color:#555555;line-height:1.8;">Please find your rota attached for the upcoming term. We are really grateful for your faithful service and look forward to worshipping together with you.</p>
     <p style="margin:0 0 12px;font-family:Arial,sans-serif;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:3px;color:#3d6263;">Your Serving Dates</p>
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;border-top:2px solid #3d6263;margin-bottom:32px;">
       <tr bgcolor="#f4f9f9"><td style="padding:8px 10px;font-family:Arial,sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#7a9e9f;font-weight:800;">Date &amp; Time</td><td style="padding:8px 10px;font-family:Arial,sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#7a9e9f;font-weight:800;">Role</td></tr>
       ${dateRows}
     </table>
-    <p style="margin:0 0 36px;font-family:Arial,sans-serif;font-size:14px;color:#555555;line-height:1.8;">Your individual rota, household rota, wall planner, full church rota and calendar files (.ics) are all attached.</p>
-  </td></tr>
-  <tr><td bgcolor="#3d6263" style="padding:24px 40px;">
-    <p style="margin:0 0 4px;font-family:Arial,sans-serif;font-size:13px;color:#c8dede;font-style:italic;">&ldquo;By this everyone will know that you are my disciples, if you love one another.&rdquo; &mdash; John 13:35</p>
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #4d7475;margin-top:10px;"><tr>
-      <td style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:10px;">Esher Green Baptist Church &bull; Worship &amp; AV Team</td>
-      <td align="right" style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:10px;">worship@esherchurch.org</td>
-    </tr></table>
-  </td></tr>
-</table></td></tr></table></body></html>`;
+    <p style="margin:0 0 36px;font-family:Arial,sans-serif;font-size:14px;color:#555555;line-height:1.8;">Your individual rota, household rota, wall planner, full church rota and calendar files (.ics) are all attached.</p>`);
 
                 toast.innerHTML = `Sending to <strong>${member.name}</strong>...`;
-                const result = await EGBCAuth.sendEmail(Object.assign({ source: 'rota' }, { to: [member.email], subject: `Your Worship & AV Rota — ${termLabels}`, html, replyTo: document.getElementById('rotaSenderEmail')?.value || 'worship@esherchurch.org', attachments }));
+                const result = await sendRota({ to: [member.email], subject: `Your ${rotaWords() ? rotaWords() + ' ' : ''}Rota — ${termLabels}`, html, attachments });
                 await Promise.allSettled(storageRefs.map(r => deleteObject(r)));
                 if (result.ok) {
                     toast.innerHTML = `Rota sent to <strong>${member.name}</strong>`;
@@ -1225,20 +1393,25 @@
             setTimeout(() => toast.remove(), 6000);
         };
 
+        /* GATHER AVAIL: the term is chosen from the terms on the rota, not
+           typed (a typed name had to match exactly or nothing was found). */
         window.gatherTermAvailability = async () => {
-            const logoUrl = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300";
-
-            const terms = [...new Set(cachedEvents.filter(e => !e.archived).map(e => e.termLabel))];
-            const selectedTerm = prompt(`Gather availability for which term?\n\nOptions:\n${terms.join('\n')}`, terms[0]);
+            await Promise.all([churchDetails(), svcReady, churchShortName()]);
+            const terms = [...new Set(cachedEvents.filter(e => !e.archived).map(e => e.termLabel).filter(Boolean))].sort();
+            if (!terms.length) { alert("There are no terms on the rota yet."); return; }
+            openSheet('Gather availability',
+                '<label for="ppGaTerm" style="' + SHEET_LBL + '">Which term</label>'
+              + '<select id="ppGaTerm" style="' + SHEET_FLD + '">' + terms.map(t => '<option>' + escP(t) + '</option>').join('') + '</select>',
+                'Next', () => { const t = document.getElementById('ppGaTerm').value; setTimeout(() => gatherFor(t), 0); });
+        };
+        async function gatherFor(selectedTerm) {
             if (!selectedTerm) return;
 
             const termEvents = cachedEvents.filter(e => !e.archived && e.termLabel === selectedTerm).sort((a, b) => new Date(a.date) - new Date(b.date));
             const emails = new Set();
             termEvents.forEach(ev => {
                 addressBook.forEach(m => {
-                    if (m.email && (m.markers?.some(r => ev.teams?.includes(r)) || (ev.teams?.includes("Youth") && m.markers?.includes("Youth Worship")))) {
-                        emails.add(m.email);
-                    }
+                    if (m.email && inEventTeams(m, ev)) emails.add(m.email);
                 });
             });
 
@@ -1246,28 +1419,20 @@
             if (emailList.length === 0) { alert("No team members found for that term."); return; }
             if (!confirm(`Send availability request for ${selectedTerm} to ${emailList.length} team members?`)) return;
 
-            const dateRows = termEvents
-                .filter(e => e.type === "Sunday Morning Worship")
+            /* Every service in the term (Your services), each with its kind
+               when the church has more than one. */
+            const svcEvents = termEvents.filter(e => isServiceType(e.type));
+            const manyKinds = new Set(svcEvents.map(e => e.type)).size > 1;
+            const dateRows = svcEvents
                 .map(ev => {
                     const d = new Date(ev.date);
                     const dateStr = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
-                    return `<tr><td style="padding:9px 10px;border-bottom:1px solid #eaf2f2;font-family:Arial,sans-serif;font-size:13px;color:#333333;">${dateStr}</td></tr>`;
+                    return `<tr><td style="padding:9px 10px;border-bottom:1px solid #eaf2f2;font-family:Arial,sans-serif;font-size:13px;color:#333333;">${dateStr}${manyKinds ? ' &bull; ' + escE(ev.type) : ''}</td></tr>`;
                 }).join('');
 
-            const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background-color:#eaf2f2;">
-<table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#eaf2f2"><tr><td align="center" style="padding:40px 16px;">
-<table width="620" cellpadding="0" cellspacing="0" border="0" style="max-width:620px;width:100%;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(61,98,99,0.13);">
-  <tr><td bgcolor="#3d6263" style="padding:32px 40px;">
-    <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-      <td style="vertical-align:bottom;"><p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:26px;font-weight:800;color:#ffffff;">Availability Request</p><p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#a8c5c5;font-weight:700;text-transform:uppercase;letter-spacing:2px;">${selectedTerm}</p></td>
-      <td style="vertical-align:top;text-align:right;padding-left:20px;"><div style="display:inline-block;background:#ffffff;border-radius:10px;padding:8px 12px;"><img src="${logoUrl}" height="44" style="display:block;height:44px;border:0;" alt="EGBC"></div></td>
-    </tr></table>
-  </td></tr>
-  <tr><td style="padding:36px 40px 0;">
-    <p style="margin:0 0 20px;font-family:Arial,sans-serif;font-size:15px;color:#333333;line-height:1.8;">Hi,</p>
-    <p style="margin:0 0 20px;font-family:Arial,sans-serif;font-size:15px;color:#555555;line-height:1.8;">We are planning the worship and AV rota for <strong>${selectedTerm}</strong> and would love to know your availability.</p>
-    <p style="margin:0 0 12px;font-family:Arial,sans-serif;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:3px;color:#3d6263;">Sundays This Term</p>
+            const html = await rotaEmail("Availability Request", escE(selectedTerm), `    <p style="margin:0 0 20px;font-family:Arial,sans-serif;font-size:15px;color:#333333;line-height:1.8;">Hi,</p>
+    <p style="margin:0 0 20px;font-family:Arial,sans-serif;font-size:15px;color:#555555;line-height:1.8;">We are planning the ${escE(rotaWords() ? rotaWords() + ' ' : '')}rota for <strong>${escE(selectedTerm)}</strong> and would love to know your availability.</p>
+    <p style="margin:0 0 12px;font-family:Arial,sans-serif;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:3px;color:#3d6263;">Services This Term</p>
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;border-top:2px solid #3d6263;margin-bottom:32px;">
       <tr bgcolor="#f4f9f9"><td style="padding:8px 10px;font-family:Arial,sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#7a9e9f;font-weight:800;">Date</td></tr>
       ${dateRows}
@@ -1275,16 +1440,7 @@
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:36px;"><tr><td align="center">
       <a href="${FORM_LINK}" style="display:inline-block;background:#3d6263;color:#ffffff;font-family:Arial,sans-serif;font-size:15px;font-weight:800;text-decoration:none;padding:16px 40px;border-radius:12px;">Fill In My Availability →</a>
     </td></tr></table>
-    <p style="margin:0 0 36px;font-family:Arial,sans-serif;font-size:14px;color:#555555;line-height:1.8;">Thank you so much for your faithful service.</p>
-  </td></tr>
-  <tr><td bgcolor="#3d6263" style="padding:24px 40px;">
-    <p style="margin:0 0 4px;font-family:Arial,sans-serif;font-size:13px;color:#c8dede;font-style:italic;">&ldquo;By this everyone will know that you are my disciples, if you love one another.&rdquo; &mdash; John 13:35</p>
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #4d7475;margin-top:10px;"><tr>
-      <td style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:10px;">Esher Green Baptist Church &bull; Worship &amp; AV Team</td>
-      <td align="right" style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:10px;">worship@esherchurch.org</td>
-    </tr></table>
-  </td></tr>
-</table></td></tr></table></body></html>`;
+    <p style="margin:0 0 36px;font-family:Arial,sans-serif;font-size:14px;color:#555555;line-height:1.8;">Thank you so much for your faithful service.</p>`);
 
             const toast = document.createElement('div');
             toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#3d6263;color:white;padding:14px 22px;border-radius:14px;font-family:Inter, system-ui, sans-serif;font-size:13px;font-weight:500;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.25);min-width:240px;line-height:1.4;';
@@ -1292,7 +1448,7 @@
             document.body.appendChild(toast);
 
             try {
-                const result = await EGBCAuth.sendEmail(Object.assign({ source: 'rota' }, { to: emailList, subject: `Availability Request — ${selectedTerm}`, html, replyTo: document.getElementById('rotaSenderEmail')?.value || 'worship@esherchurch.org' }));
+                const result = await sendRota({ to: emailList, subject: `Availability Request — ${selectedTerm}`, html });
                 if (result.ok) {
                     toast.innerHTML = `Availability request sent to <strong>${emailList.length}</strong> team members!`;
                     toast.style.background = '#3B7D23';
@@ -1392,21 +1548,22 @@
                     const blocks = []; let current = [];
                     shown.forEach(ev => {
                         current.push(ev);
-                        if(ev.type === "Sunday Morning Worship") { blocks.push(current); current = []; }
+                        if(isFilledKind(ev.type)) { blocks.push(current); current = []; }
                     });
                     if(current.length > 0) blocks.push(current);
                     blocks.forEach((block, idx) => { block.forEach(ev => { html += generateEventHtml(ev, idx); }); });
 
                     const stats = {};
                     byMonth[month].forEach(ev => {
-                        if(ev.type === 'Sunday Morning Worship' && ev.assignments) {
-                            const names = new Set(Object.values(ev.assignments).map(p => p.name));
+                        if(isFilledKind(ev.type) && ev.assignments) {
+                            /* A slot can hold several people: each counts once a service. */
+                            const names = new Set(Object.values(ev.assignments).flatMap(p => (Array.isArray(p) ? p : [p]).map(x => x && x.name)));
                             names.forEach(n => { if(n) stats[n] = (stats[n] || 0) + 1; });
                         }
                     });
                     if(Object.keys(stats).length > 0) {
                         html += '<div class="mt-8 bg-white rounded-[14px] p-5 border border-[#e5e7eb]" style="box-shadow:0 1px 2px rgba(16,24,40,.05)">';
-                        html += '<div class="text-[13px] font-semibold text-[#111827] mb-4 pb-3 border-b border-[#e5e7eb]">Sundays served this month</div>';
+                        html += '<div class="text-[13px] font-semibold text-[#111827] mb-4 pb-3 border-b border-[#e5e7eb]">' + escP(EGBCAuth.serviceDay()) + 's served this month</div>';
                         html += '<div class="flex flex-wrap justify-center gap-4">';
                         Object.entries(stats).sort((a,b) => a[0].localeCompare(b[0])).forEach(([n, c]) => {
                             html += '<div class="text-[13px] text-[#374151] bg-[#f9fafb] px-3 py-2 rounded-[8px] border border-[#e5e7eb] flex items-center gap-2"><span>' + n + '</span><span class="text-[14px] font-semibold text-[#111827]">' + c + '</span></div>';
@@ -1464,12 +1621,12 @@
 
         function generateEventHtml(ev, blockIdx) {
             const assignedIds = Object.values(ev.assignments || {}).flatMap(a => Array.isArray(a) ? a.map(p => p.id) : [a.id]);
-            const members = addressBook.filter(m => (ev.teams?.some(t => m.markers?.includes(t)) || (ev.teams?.includes("Youth") && m.markers?.includes("Youth Worship"))));
+            const members = addressBook.filter(m => inEventTeams(m, ev));
             const respondersAvail = members.filter(m => availability[ev.id]?.[m.id] === 'avail' && (!hideAssigned || !assignedIds.includes(m.id)));
             const declined = members.filter(m => (availability[ev.id]?.[m.id] === 'unavailable' || availability[ev.id]?.[m.id] === 'not-avail') && (!hideAssigned || !assignedIds.includes(m.id)));
             const pending = members.filter(m => !availability[ev.id]?.[m.id] && (!hideAssigned || !assignedIds.includes(m.id)));
             const isSunday = isServiceType(ev.type);
-            const mandatoryFilled = isSunday && MANDATORY_SUNDAY_ROLES.every(r => {
+            const mandatoryFilled = isSunday && slotsFor(ev.type).every(r => {
                 const raw = ev.assignments?.[r];
                 return Array.isArray(raw) ? raw.length > 0 : !!raw;
             });
@@ -1477,7 +1634,7 @@
             const dateBg = !isSunday ? 'bg-[#d1dfdf]' : 'bg-[#3d6263]';
             /* One rota, but each person edits only their department's part
                of it. A master admin sees the lot. */
-            const visibleRoles = (ev.roles || []).filter(canEditRole);
+            const visibleRoles = (ev.roles || []).filter(r => canEditRole(r, ev));
             const sortedRoles = [...visibleRoles.filter(r => !AV_ROLES.includes(r)), ...visibleRoles.filter(r => AV_ROLES.includes(r))];
             const hiddenRoleCount = (ev.roles || []).length - visibleRoles.length;
             const iconStyles = 'width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"';
@@ -1530,8 +1687,9 @@
                 html += '</div>';
             }
             html += '<div class="flex flex-wrap gap-3 bg-white px-4 py-2 rounded-full border border-[#d1dfdf] shadow-sm">';
-            ["Core Team", "Worship Team", "AV Team", "Choir", "Youth", "Kids Church"].forEach(t => {
-                html += '<label class="text-[9px] font-semibold uppercase flex items-center gap-1.5 cursor-pointer text-[#3d6263]"><input type="checkbox" onchange="toggleTeam(\'' + ev.id + '\', \'' + t + '\')" ' + (ev.teams?.includes(t) ? 'checked' : '') + ' class="w-3.5 h-3.5 accent-[#3d6263]"><span>' + t + '</span></label>';
+            /* The teams this rota is for (rotaTeams), by the names rows store. */
+            rotaTeams().forEach(t => {
+                html += '<label class="text-[9px] font-semibold uppercase flex items-center gap-1.5 cursor-pointer text-[#3d6263]"><input type="checkbox" data-team="' + escP(t) + '" onchange="toggleTeam(\'' + ev.id + '\', this.dataset.team)" ' + (evHasTeam(ev, t) ? 'checked' : '') + ' class="w-3.5 h-3.5 accent-[#3d6263]"><span>' + escP(tickName(ev, t)) + '</span></label>';
             });
             html += '</div>';
             if (!isSunday) {
@@ -1573,7 +1731,7 @@
             });
             html += '<select onchange="addRole(\'' + ev.id + '\', this.value); this.value=\'\';" class="bg-white border-2 border-dashed border-[#d1dfdf] text-[#3d6263] text-[11px] font-medium px-6 py-3 rounded-2xl uppercase hover:bg-[#f0f6f6] self-center"><option value="">+ Role</option>';
             [...OPTIONAL_ROLES, ...KIDS_ROLES]
-                .filter(canEditRole)
+                .filter(opt => canEditRole(opt, ev))
                 .filter(opt => !(ev.roles || []).includes(opt))
                 .forEach(opt => { html += '<option value="' + opt + '">' + opt + '</option>'; });
             html += '</select>';
@@ -1953,7 +2111,7 @@
                 </select>
                 <button onclick="generateTerm()" class="bg-[#f0f6f6] text-[#3d6263] px-8 py-3 rounded-full font-semibold text-[11px] uppercase border border-[#d1dfdf]">Populate</button>
                 <button onclick="autoFillAllEvents()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-semibold text-[11px] uppercase shadow-lg">Auto-Populate</button>
-                <button onclick="addThursdayPractices()" class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-semibold text-[11px] uppercase shadow-lg">Add Practices</button>
+                <button onclick="addPractices()"class="bg-[#3d6263] text-white px-8 py-3 rounded-full font-semibold text-[11px] uppercase shadow-lg">Add Practices</button>
                 <button onclick="addSingleLine()" class="bg-[#3d6263] text-white px-10 py-3 rounded-full font-semibold text-[11px] uppercase shadow-lg">+ Service</button>
                 <button onclick="gatherTermAvailability()" class="bg-white text-[#3d6263] border border-[#d1dfdf] px-8 py-3 rounded-full font-semibold text-[11px] uppercase shadow-sm">Gather Avail</button>
                 <button onclick="toggleHideAssigned()" class="bg-white text-[#3d6263] border border-[#d1dfdf] px-8 py-3 rounded-full font-semibold text-[11px] uppercase shadow-sm">Hide Assigned</button>

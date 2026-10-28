@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EGBC Hub</title>
+<title>Hub</title>
 <link rel="manifest" href="./manifest-hub.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="theme-color" content="#3d6263">
@@ -31,7 +31,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <!-- Step R: myCalendarLink is a callable, so the hub needs the functions SDK. -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-functions-compat.js"></script>
-<script src="egbc-auth.js?v=202610311700"></script>
+<script src="egbc-auth.js?v=202610311800"></script>
 <script src="egbc-orientation.js?v=202610160500"></script>
 <script src="egbc-fullvideo.js?v=202610160500"></script>
 <!-- watchLive() for the front page's Watch card (F-164). -->
@@ -568,7 +568,7 @@
 <div class="pick" id="teamPicker">
   <div class="pick-box">
     <button type="button" class="pick-x" onclick="closeTeamPicker()" aria-label="Close"><i data-lucide="x" style="width:20px;height:20px"></i></button>
-    <img id="pickLogo" alt="EGBC">
+    <img id="pickLogo" alt="" style="display:none">
     <h1 id="pickTitle">Which team today?</h1>
     <p id="pickSub">You're on more than one. You can switch whenever you like.</p>
     <!-- Martin, 14 Oct 2026: he read the team button as who he was signed in
@@ -580,10 +580,10 @@
 
 <header class="bar">
   <a class="brand" href="hub.html">
-    <img id="logo" alt="EGBC">
+    <img id="logo" alt="" style="display:none">
     <div>
-      <div class="n">EGBC Hub</div>
-      <div class="k">Esher Green Baptist Church</div>
+      <div class="n">Hub</div>
+      <div class="k"></div>
     </div>
   </a>
   <div class="bar-r">

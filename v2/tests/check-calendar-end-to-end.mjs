@@ -74,6 +74,8 @@ const offMachine = u => {
 };
 
 async function seed() {
+  /* The church's short name goes in front of each entry ("EGBC: Guitar"). */
+  await put('churchSettings/details', { name: 'Synthetic Church', shortName: 'EGBC' });
   /* Sign the invented account up, or sign in if a previous run already made
      it. This used to only sign up, so the check worked once per emulator and
      then died on "Cannot read properties of undefined" - which says nothing

@@ -29,6 +29,7 @@ This page sets up how a team can send emails as itself. The email says it is fro
 - A safeguarding team can only be sent as by its own leads and deputies: not the Pastor, the office admin or a master admin. The hub keeps only the outline of each email: when, who, and the subject.
 - Emails still leave from the hub's one sending address. The team's mailbox gets a copy.
 - Teams come from [Teams & groups](teams-admin.html). Add, rename or archive a team there, and it shows here.
+- If the church has no teams yet, the page says "No teams yet" with a link to Teams & groups.
 
 ## Who to ask
 - A master admin.

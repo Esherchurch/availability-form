@@ -77,6 +77,8 @@ const KEY_ALEX = 'alexkey0000000000000000000000aa';
 const KEY_BEA  = 'beakey00000000000000000000000bb';
 
 async function seed() {
+  /* The church's short name goes in front of each entry ("EGBC: Guitar"). */
+  await put('churchSettings/details', { name: 'Synthetic Church', shortName: 'EGBC' });
   await put('addressBook/' + ALEX, { name: 'Alex Synthetic', email: 'alex@example.invalid', markers: ['Worship Team'] });
   await put('addressBook/' + BEA, { name: 'Bea Synthetic', email: 'bea@example.invalid', markers: ['Worship Team'] });
   await put('calendarFeeds/' + KEY_ALEX, { uid: 'u_alex', memberId: ALEX, createdAt: '2026-10-01' });
@@ -157,7 +159,7 @@ const has = (body, s) => body.includes(s);
   ok('a draft is not in it', !has(body, 'ev_draft'));
 
   ok('the meeting his team is on IS in it, with no role',
-    has(body, 'egbc-rota-ev_meeting@') && has(body, 'SUMMARY:EGBC: Worship Team Meeting'));
+    has(body, 'UID:rota-ev_meeting@') && has(body, 'SUMMARY:EGBC: Worship Team Meeting'));
 
   ok('times are London, not whatever the server thinks',
     has(body, 'DTSTART;TZID=Europe/London:20261011T080000') &&
@@ -173,7 +175,7 @@ const has = (body, s) => body.includes(s);
     (body.match(/DESCRIPTION:[^\r\n]+/g) || []).join(' | ').slice(0, 120));
 
   ok('the entry keys on the event alone, so a moved event moves',
-    has(body, 'UID:egbc-rota-ev_sunday@esherchurch.org') && !/UID:egbc-rota-ev_sunday-2026/.test(body),
+    has(body, 'UID:rota-ev_sunday@churchhq.co.uk') && !/UID:rota-ev_sunday-2026/.test(body),
     'a UID with the date in it leaves the old entry behind when a date changes');
 
   ok('it says how often to come back', has(body, 'REFRESH-INTERVAL') && has(body, 'X-PUBLISHED-TTL'));

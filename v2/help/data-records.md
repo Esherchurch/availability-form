@@ -5,7 +5,7 @@ This page keeps the church's data protection records: what personal data the chu
 ## Who can use it
 - The church office and master admins can use the register, the data requests and **Who keeps these**.
 - The data protection leads can use the register, the breaches and the data requests.
-- The trustees can read the register, but not change it.
+- The trustees can read the register, but not change it. The trustees are whichever team does the trustees job under "Who does each job" in Teams & groups.
 - Anyone else is told these are kept by the church office and the data protection lead, and the trustees read the register.
 
 ## Start the register

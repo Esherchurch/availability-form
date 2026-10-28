@@ -2,6 +2,8 @@
 
 The church's phone app. It shows your week: when you are serving, the notices, your events and groups, and your team's tools. You can add it to your phone's home screen.
 
+The top bar shows the church's initials and "Hub", made from the church's name in Church settings.
+
 ## Who can use it
 - Everyone in the church's address book can sign in and use it.
 - You see the parts for the teams you are on. Someone on no team sees **Just me**.
@@ -21,6 +23,7 @@ The church's phone app. It shows your week: when you are serving, the notices, y
   - **Watch live** while the service is on, and a video meeting you have today, with **Join**.
   - For parents: your child's check-in code before Sunday, and the collection code once they are in.
   - **Your family this week**, **Your events**, **Notices** and **Your groups**.
+  - For parents: **Your family's groups**, the pin board of each group your children are in, to read. The boards and their names come from Teams & groups.
   - **My availability**, to say which Sundays you can do.
 - Each other part has its own **Home** too. For example, **Sunday worship** shows the coming Sunday, how many roles are filled, and your serving.
 
@@ -71,7 +74,8 @@ The church's phone app. It shows your week: when you are serving, the notices, y
 ## Good to know
 - Parts the church has switched off do not show.
 - A section with nothing in it is left out.
-- Some jobs, such as writing a notice, are easier on a computer. Use **Open the full website** on **Me**.
+- Some jobs are easier on a computer. Use **Open the full website** on **Me**.
+- In **Church office**, the **Send** tab opens the email compiler (**An email**) and the notice editor (**A notice**). **Post a notice** on its Home opens the same notice editor. Both are easier on a bigger screen.
 - Turn on notifications from **Me** to hear the day before you serve.
 
 ## Who to ask

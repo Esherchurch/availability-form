@@ -4,8 +4,8 @@ This page shows who serves, how often, and where the gaps are on the rotas. It o
 
 ## Who can use it
 - Master admins see every rota team.
-- Leaders of a rota team see only the teams they lead.
-- A leader who leads no team with a rota is told there is nothing to show.
+- Leaders of a rota team see only the teams they lead. Being an admin of the team, or on a core team that covers it, counts too.
+- The rota teams are the church's own teams that have a rota, as set in Teams & groups.
 - Rota reports have to be switched on for the church. If they are off, the page says so.
 - Anyone else is told "This page is for master admins and the leaders of rota teams."
 

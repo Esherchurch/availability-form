@@ -16,7 +16,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610311700"></script>
+<script src="egbc-auth.js?v=202610311800"></script>
+<script src="egbc-church.js?v=202610311000"></script>
 <script src="egbc-guard.js?v=202610282000" data-team="Youth Worship"></script>
 <script src="egbc-plan-audience.js?v=202610131430"></script>
 <script src="egbc-plan-store.js?v=202610252100"></script>
@@ -26,9 +27,9 @@
     <meta name="theme-color" content="#3d6263">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="EGBC Youth Planner">
+    <meta name="apple-mobile-web-app-title" content="Youth Planner">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EGBC Youth Service Planner</title>
+<title>Youth Service Planner</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
@@ -312,6 +313,23 @@ const worshipOnly = a => Object.fromEntries(Object.entries(a || {}).filter(([r])
 let addressBook = [];
 let isYouthService = false;
 
+/* A slot can hold one person ({id, name}) or several ([{id, name}, ...]):
+   every name, comma separated - as SundayServicePlanner reads them. */
+const personName = raw => Array.isArray(raw) ? raw.map(p => p && p.name).filter(Boolean).join(', ') : (raw?.name || '');
+
+/* WHICH SERVICES THIS PAGE MAY CHANGE: those for the church's youth teams
+   (the teams doing the youth job), by the teams ticked on the rota row.
+   Older rows saved a team's label ("Youth") rather than its id, so either
+   counts. A row with no teams at all falls back to the old test: "youth"
+   in its kind or notes. */
+const youthReady = (window.EGBCAuth && EGBCAuth.loadPerms ? EGBCAuth.loadPerms().catch(() => {}) : Promise.resolve());
+const isYouthEvent = ev => {
+    const teams = Array.isArray(ev.teams) ? ev.teams : [];
+    if (!teams.length) return (ev.description || ev.type || '').toLowerCase().includes('youth');
+    const T = EGBCAuth.TEAMS || {};
+    return EGBCAuth.teamsForJob('youth').some(t => teams.includes(t) || (T[t] && teams.includes(T[t].label)));
+};
+
 const ALL_KEYS = [
     "Ab", "A", "Am", "A#", "A#m", "Bb", "B", "Bm", "C", "Cm", "C#", "C#m", "Db", "D", "Dm", "D#", "D#m", "Eb", "E", "Em", "F", "Fm", "F#", "F#m", "Gb", "G", "Gm", "G#", "G#m"
 ];
@@ -349,8 +367,8 @@ const startPage = async () => {
     setupDefaultOrder();
     /* Service date: the coming services from the rota, in UK words, with the
        date box underneath (Martin, 14 Oct 2026). */
-    EGBCUKDates.attach(document.getElementById('serviceDate'), { eventSelect: 'eventSelect', preferred: ev => (ev.description || ev.type || '').toLowerCase().includes('youth'),
-        load: () => getDocs(collection(db, "events")).then(s => s.docs.map(d => d.data())) });
+    EGBCUKDates.attach(document.getElementById('serviceDate'), { eventSelect: 'eventSelect', preferred: isYouthEvent,
+        load: () => youthReady.then(() => getDocs(collection(db, "events"))).then(s => s.docs.map(d => d.data())) });
     autoFitTextAreas();
 
     document.getElementById('service-order').addEventListener('input', (e) => {
@@ -677,10 +695,11 @@ window.loadRota = async () => {
         if (ev.date === date && ev.archived !== true) day.push({ id: d.id, ...ev });
     });
     eventsForDay = EGBCPlanStore.inOrder(day);
+    await youthReady;
     const select = document.getElementById('eventSelect');
     select.innerHTML = '<option value="">Select Service...</option>';
     eventsForDay.forEach((ev, i) => {
-        const isYouth = (ev.description || ev.type || "").toLowerCase().includes("youth");
+        const isYouth = isYouthEvent(ev);
         select.innerHTML += `<option value="${i}">${EGBCPlanStore.label(ev, eventsForDay.length)}${isYouth ? '' : ' (view only)'}</option>`;
     });
     // Reset readonly state when date changes
@@ -706,11 +725,12 @@ window.selectEvent = async () => {
     currentService = data;
 
     // ── Youth check ──
-    isYouthService = (data.description || data.type || "").toLowerCase().includes("youth");
+    await youthReady;
+    isYouthService = isYouthEvent(data);
     setReadonlyMode(!isYouthService);
 
     document.getElementById('serviceTypeNotes').value = data.description || "";
-    worshipLeaderName = data.assignments?.["Worship Leader"]?.name || "None";
+    worshipLeaderName = personName(data.assignments?.["Worship Leader"]) || "None";
     document.getElementById('leaderName').innerText = worshipLeaderName;
 
     const teamBody = document.getElementById('teamBody');
@@ -727,7 +747,7 @@ window.selectEvent = async () => {
         teamBody.innerHTML += `
             <tr>
                 <td class="w-1/4">${role}</td>
-                <td class="w-1/4">${person.name}</td>
+                <td class="w-1/4">${personName(person)}</td>
                 <td><textarea class="instr-note styled-input w-full" placeholder="Specific instructions..." rows="1"></textarea></td>
             </tr>`;
     });
@@ -947,6 +967,20 @@ window.emailSchedule = async () => {
     const introText = document.getElementById('introBox').value || "";
     const outroText = document.getElementById('outroBox').value || "";
     const summaryUrl = await saveSongSummaryToFirestore(date);
+    /* The church's name, logo and reply address (churchSettings/details) and
+       its worship teams' names, never typed in here; blanks are left out. */
+    const church = await (window.EGBCChurch ? EGBCChurch.load() : Promise.resolve({ name: '', enquiryEmail: '', logoUrl: '' }));
+    await youthReady;
+    const escH = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    /* Replies go to "Sending as" (remembered on this device), else the
+       church's enquiry address. */
+    const replyAddr = () => {
+        let saved = '';
+        try { saved = localStorage.getItem('egbc-sender-email') || ''; } catch (e) { /* private window */ }
+        return document.getElementById('senderEmail').value.trim() || saved.trim() || church.enquiryEmail || '';
+    };
+    const teamWords = [...new Set(['worship', 'av'].flatMap(j => EGBCAuth.teamsForJob(j)))].map(t => (EGBCAuth.TEAMS[t] || {}).label || t).join(' & ');
+    const footLine = [church.name, teamWords ? teamWords + ' Team' : ''].filter(Boolean).map(escH).join(' &bull; ');
 
     let htmlEmail = `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -960,11 +994,11 @@ window.emailSchedule = async () => {
         <p style="margin:0 0 8px;font-family:Arial,sans-serif;font-size:26px;font-weight:800;color:#ffffff;">Youth Service Plan</p>
         <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#a8c5c5;font-weight:700;text-transform:uppercase;letter-spacing:2px;">${EGBCUKDates.long(date)}${worshipLeaderName && worshipLeaderName !== "None" ? " &bull; " + worshipLeaderName + " leading" : ""}</p>
       </td>
-      <td style="vertical-align:top;text-align:right;padding-left:20px;">
+      ${church.logoUrl ? `<td style="vertical-align:top;text-align:right;padding-left:20px;">
         <div style="display:inline-block;background:#ffffff;border-radius:10px;padding:8px 12px;">
-          <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" height="44" style="display:block;height:44px;border:0;" alt="EGBC">
+          <img src="${escH(church.logoUrl)}" height="44" style="display:block;height:44px;border:0;" alt="${escH(church.name)}">
         </div>
-      </td>
+      </td>` : ''}
     </tr></table>
   </td></tr>
   ${serviceNotes ? `<tr><td style="padding:20px 40px 0;"><table width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td width="4" bgcolor="#3d6263" style="font-size:0;line-height:0;">&nbsp;</td><td bgcolor="#f0f6f6" style="padding:14px 18px;font-family:Arial,sans-serif;font-size:13px;color:#3d6263;line-height:1.6;"><strong>Service Notes</strong><br>${serviceNotes.replace(/\n/g, '<br>')}</td></tr></table></td></tr>` : ""}
@@ -1037,7 +1071,8 @@ window.emailSchedule = async () => {
     const rowsForEmail = teamRows.map(r => [r.children[0].innerText, r.children[1].innerText, r.querySelector('.instr-note').value]);
     const sortedForEmail = sortAssignments(rowsForEmail);
     sortedForEmail.forEach(([role, name, note]) => {
-        if(name && name !== "None") rosterNames.push(name.trim());
+        /* A slot with several people lists them "A, B": each is on the team. */
+        if(name && name !== "None") name.split(", ").forEach(n => { if (n.trim()) rosterNames.push(n.trim()); });
         let roleColor = "#3d6263";
         if (["Sound","Words","Camera","Cameras"].includes(role)) roleColor = "#3B7D23";
         htmlEmail += `<tr>
@@ -1060,8 +1095,8 @@ window.emailSchedule = async () => {
   <tr><td bgcolor="#3d6263" style="padding:24px 40px;">
     <p style="margin:0 0 4px;font-family:Arial,sans-serif;font-size:13px;color:#c8dede;font-style:italic;">&ldquo;By this everyone will know that you are my disciples, if you love one another.&rdquo; &mdash; John 13:35</p>
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #4d7475;margin-top:10px;"><tr>
-      <td style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:10px;">Esher Green Baptist Church &bull; Worship &amp; AV Team</td>
-      <td align="right" style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:10px;">worship@esherchurch.org</td>
+      <td style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:10px;">${footLine}</td>
+      <td align="right" style="font-family:Arial,sans-serif;font-size:11px;color:#7a9e9f;padding-top:10px;">${escH(replyAddr())}</td>
     </tr></table>
   </td></tr>
 </table></td></tr></table>
@@ -1088,9 +1123,16 @@ window.emailSchedule = async () => {
         }
     });
 
+    /* "Email Whole Team" also copies the core team this page always copied:
+       the worship core team, i.e. the church's core teams covering the teams
+       that do the worship job (Teams & groups, "core team for"). The youth
+       band plays the worship side's slots, so that is whose core team it is. */
+    const worshipTeams = EGBCAuth.teamsForJob('worship');
+    const coreTeams = Object.keys(EGBCAuth.TEAMS || {}).filter(t => !EGBCAuth.TEAMS[t].archived
+        && (EGBCAuth.TEAMS[t].coreFor || []).some(c => worshipTeams.includes(c)));
     let teamRecipients = [];
     addressBook.forEach(p => {
-        const isCore = p.markers && p.markers.includes("Core Team");
+        const isCore = (p.markers || []).some(m => coreTeams.includes(m));
         if ((rosterNames.includes(p.name?.trim()) || isCore) && p.email) teamRecipients.push(p.email);
     });
     teamRecipients = [...new Set(teamRecipients)];
@@ -1101,7 +1143,8 @@ window.emailSchedule = async () => {
         statusEl.textContent = "Sending…";
         statusEl.style.color = "#3d6263";
         try {
-            const result = await EGBCAuth.sendEmail(Object.assign({ source: 'servicePlan' }, { to: toAddresses, subject: emailSubject, html: emailHtml, replyTo: document.getElementById('senderEmail').value || "worship@esherchurch.org" }));
+            const reply = replyAddr();
+            const result = await EGBCAuth.sendEmail(Object.assign({ source: 'servicePlan' }, { to: toAddresses, subject: emailSubject, html: emailHtml }, reply ? { replyTo: reply } : {}));
             if (result.ok) {
                 statusEl.textContent = "Sent successfully";
                 statusEl.style.color = "#3B7D23";
