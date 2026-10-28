@@ -41,10 +41,11 @@ This is the church's list of people. Here you add someone, change their details,
 - **UNDER 18**: the hub never emails them. A 16 or 17 year old still signs in with their own email. Under 16 counts as under 18 too.
 
 ## Instruments and children's roles
-1. The ticks come from the roles on each team (Teams & groups). Under **Instruments (Primary)**, tick what they usually play or do.
+1. The ticks are the skills on each team (Teams & groups). Under **Instruments (Primary)**, tick what they usually play or do.
 2. Under **Instruments (Secondary)**, tick what they can also do.
 3. Under the children's team's roles, tick **Usually** for what they normally do and **Can cover** for what they will step into.
-4. A role marked "(old name)" is kept from before. Tick the right new one and untick the old one.
+4. A tick saved under an older name shows under its new one, such as **Sing** under **Singer**. Saving the person stores the new name.
+5. A tick marked "(old name)" matches no skill any more. It is kept so nothing is lost. Tick the right new one and untick the old one.
 
 ## The e-news
 The church office and master admins also see the e-news, when the church uses it.

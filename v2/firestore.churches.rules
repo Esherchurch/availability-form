@@ -314,11 +314,13 @@ allow create, update: if (isMaster() || (raOffice()
 && request.resource.data.get('board', '') == (resource == null ? '' : resource.data.get('board', ''))))
 && request.resource.data.keys().hasOnly(['name', 'label', 'colour', 'tint',
 'parent', 'rota', 'tabs', 'runs', 'under18', 'order', 'archived', 'coreFor', 'board',
-'roles', 'updatedAt', 'updatedBy'])
-&& request.resource.data.get('roles', []) is list
-&& request.resource.data.get('roles', []).size() <= 60
-&& (request.resource.data.get('roles', []).size() == 0
-|| request.resource.data.get('roles', []).join('\n').matches('[^\n]{1,60}(\n[^\n]{1,60})*'))
+'skills', 'places', 'updatedAt', 'updatedBy'])
+&& request.resource.data.get('skills', []) is list
+&& request.resource.data.get('skills', []).size() <= 60
+&& (request.resource.data.get('skills', []).size() == 0
+|| request.resource.data.get('skills', []).join('\n').matches('[^\n]{1,60}(\n[^\n]{1,60})*'))
+&& request.resource.data.get('places', []) is list
+&& request.resource.data.get('places', []).size() <= 100
 && request.resource.data.get('board', '') is string && request.resource.data.get('board', '').size() <= 60
 && request.resource.data.get('coreFor', []) is list
 && request.resource.data.get('coreFor', []).size() <= 500

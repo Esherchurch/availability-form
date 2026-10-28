@@ -6,7 +6,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610311900"></script>
+<script src="egbc-auth.js?v=202610312000"></script>
 <script src="egbc-guard.js?v=202610311900" data-admin="any" data-also-job="office"></script>
 <!-- "Gets the e-news" on each person, for the office (the comms window's add-on; FINDINGS-comms C-30) -->
 <script src="egbc-enews-ab.js?v=202610272000"></script>
@@ -53,6 +53,14 @@
            dropping it means the next save deletes it: the saved list is
            rebuilt from whatever is ticked. The label says the name is an old
            one so whoever sees it knows to re-tick it properly. */
+        /* A person's ticks for the list, under their skills' names ("Sing" reads Singer). */
+        const skillWords = (list) => list.map(x => window.EGBCAuth && EGBCAuth.skillName ? EGBCAuth.skillName(x) : x).join(', ');
+        /* The box for a stored tick, found under its skill's name. */
+        function tickFor(cls, value) {
+            const name = window.EGBCAuth && EGBCAuth.skillName ? EGBCAuth.skillName(value) : value;
+            return [].find.call(document.querySelectorAll('input.' + cls), cb => cb.value === name && !cb.closest('[data-old-role]'))
+                || [].find.call(document.querySelectorAll('[data-old-role] input.' + cls), cb => cb.value === value) || null;
+        }
         function keepUnknownKidsRoles(cls, stored) {
             /* Clear the ones added for whoever was open before, or they pile up
                as each record is looked at. */
@@ -64,7 +72,7 @@
                 kidsprimary: 'kidsTickPrimary', kidssecondary: 'kidsTickSecondary' }[cls]);
             if (!holder) return;
             stored.forEach(value => {
-                if (document.querySelector('.' + cls + '[value="' + String(value).replace(/"/g, '&quot;') + '"]')) return;
+                if (tickFor(cls, value)) return;
                 const label = document.createElement('label');
                 label.setAttribute('data-old-role', cls);
                 label.className = 'flex items-center gap-2 cursor-pointer' + (cls.indexOf('kids') === 0 ? ' text-[#7a5f4a]' : '');
@@ -106,10 +114,13 @@
             if(typeof fillTeamTicks === 'function') fillTeamTicks(data.markers || []);
             document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
             if(data.markers) data.markers.forEach(m => { const el = document.querySelector(`.marker[value="${m}"]`); if(el) el.checked = true; });
-            if(data.primaryInstruments) data.primaryInstruments.forEach(i => { const el = document.querySelector(`.primary[value="${i}"]`); if(el) el.checked = true; });
-            if(data.secondaryInstruments) data.secondaryInstruments.forEach(i => { const el = document.querySelector(`.secondary[value="${i}"]`); if(el) el.checked = true; });
-            if(data.kidsRolesPrimary) data.kidsRolesPrimary.forEach(i => { const el = document.querySelector(`.kidsprimary[value="${i}"]`); if(el) el.checked = true; });
-            if(data.kidsRolesSecondary) data.kidsRolesSecondary.forEach(i => { const el = document.querySelector(`.kidssecondary[value="${i}"]`); if(el) el.checked = true; });
+            /* Each tick read under its skill's name (EGBCAuth.skillName: an
+               old "Sing" ticks Singer), so nobody re-ticks; the next save
+               stores the new name, since saving writes what is ticked. */
+            [['primary', data.primaryInstruments], ['secondary', data.secondaryInstruments],
+             ['kidsprimary', data.kidsRolesPrimary], ['kidssecondary', data.kidsRolesSecondary]].forEach(([cls, list]) => {
+                (list || []).forEach(i => { const el = tickFor(cls, i); if (el) el.checked = true; });
+            });
             /* The Kids Church role names changed: the original had Group Leader
                (Younger / Older) and Supporting Adult, v2 has Leader, Assistant
                and Helper, with Creche. Records written before that still hold
@@ -122,17 +133,11 @@
                should become. */
             keepUnknownKidsRoles('kidsprimary', data.kidsRolesPrimary);
             keepUnknownKidsRoles('kidssecondary', data.kidsRolesSecondary);
-            /* The same for instruments once the church keeps its own role
-               list (Teams & groups): a role taken off a team must not be
-               taken off people by the next save. Built-in lists drop
-               nothing new, so they are left as they always were. */
-            /* Also while the ticks are not drawn yet (the team jobs still
-               loading), or the next save would empty the person's list. */
-            const keepInstruments = !document.querySelector('#tickPrimary .primary')
-                || (typeof rolesStoredFor === 'function' && rolesStoredFor(ROTA_TICK_JOBS));
-            /* Called either way, so the last person's kept ones are cleared. */
-            keepUnknownKidsRoles('primary', keepInstruments ? data.primaryInstruments : []);
-            keepUnknownKidsRoles('secondary', keepInstruments ? data.secondaryInstruments : []);
+            /* The same for instruments: a tick that matches no skill (taken
+               off a team, or an old word) is kept, or the next save would
+               take it off the person. */
+            keepUnknownKidsRoles('primary', data.primaryInstruments);
+            keepUnknownKidsRoles('secondary', data.secondaryInstruments);
             document.getElementById('isMinor').checked = !!data.isMinor;
             document.getElementById('under18').checked = !!data.under18 || !!data.isMinor;
             document.getElementById('churchMember').checked = !!data.churchMember;
@@ -221,8 +226,8 @@
                         </td>
                         <td class="p-4 text-xs font-medium text-gray-500">${escapeHtml(householdDisplay)}</td>
                         <td class="p-4">
-                            <div class="text-[11px] text-[#3d6263] font-semibold uppercase tracking-tighter">P: ${member.primaryInstruments ? escapeHtml(member.primaryInstruments.join(', ')) : ''}</div>
-                            <div class="text-[10px] text-gray-400 italic">S: ${member.secondaryInstruments ? escapeHtml(member.secondaryInstruments.join(', ')) : ''}</div>
+                            <div class="text-[11px] text-[#3d6263] font-semibold uppercase tracking-tighter">P: ${member.primaryInstruments ? escapeHtml(skillWords(member.primaryInstruments)) : ''}</div>
+                            <div class="text-[10px] text-gray-400 italic">S: ${member.secondaryInstruments ? escapeHtml(skillWords(member.secondaryInstruments)) : ''}</div>
                         </td>
                         <td class="p-4 text-center font-medium text-[#3d6263]">${escapeHtml(member.maxFrequency)}</td>
                         <td class="p-4 text-right space-x-3">
@@ -400,16 +405,13 @@ function fillTeamTicks(alsoShow) {
     + esc(n) + '" placeholder="&mdash;"></div>').join('');
 }
 
-/* THE ROLE TICKS, from the church's teams (Teams & groups, "Roles on this
-   team"; EGBCAuth.roleTicks). Instruments: the teams doing the worship, AV
-   and choir jobs; the second block: the children's teams. Values are what
-   records already store, so saved records tick as before. Drawn again once
-   the team jobs load, keeping whatever was ticked. */
+/* THE SKILL TICKS, from the church's teams (Teams & groups, "Skills";
+   EGBCAuth.roleTicks). Instruments: the skills of the teams doing the
+   worship, AV and choir jobs; the second block: the children's teams'.
+   A stored tick is read under its skill's name (tickFor), so old records
+   tick as before. Drawn again once the team jobs load, keeping whatever
+   was ticked. */
 const ROTA_TICK_JOBS = ['worship', 'av', 'choir'];
-function rolesStoredFor(jobs) {
-  const T = (window.EGBCAuth && EGBCAuth.TEAMS) || {};
-  return jobs.some(j => (EGBCAuth.teamsForJob(j) || []).some(t => T[t] && T[t].rolesStored));
-}
 function fillRoleTicks() {
   if (!window.EGBCAuth || !EGBCAuth.roleTicks) return;
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
@@ -430,7 +432,7 @@ function fillRoleTicks() {
   fill('kidsTickPrimary', kids.map(t => box('kidsprimary', t, 'text-[#7a5f4a]')).join(''));
   fill('kidsTickSecondary', kids.map(t => box('kidssecondary', t, 'text-[#7a5f4a]')).join(''));
   const T = EGBCAuth.TEAMS || {};
-  const kidsTeams = (EGBCAuth.teamsForJob('children') || []).filter(t => EGBCAuth.rolesOf(t).length);
+  const kidsTeams = (EGBCAuth.teamsForJob('children') || []).filter(t => EGBCAuth.skillsOf(t).length);
   const head = document.getElementById('kidsRolesHead');
   if (head) head.textContent = kidsTeams.map(t => (T[t] && T[t].label) || t).join(' & ') + ' Roles';
   const note = EGBCAuth.roleNote(['children']);

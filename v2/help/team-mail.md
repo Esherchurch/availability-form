@@ -14,7 +14,7 @@ This page sets up how a team can send emails as itself. The email says it is fro
 
 ## Set up a team
 1. Find the team's box under **Teams**.
-2. Type the team's **Shared email address**, if it has one. This is optional.
+2. Type the team's **Shared email address**, if it has one. Replies to the team's rota emails, service plans and youth codes go there; without one, they go to the church's enquiry email.
 3. Under **Leads** and **Deputies**, pick people from **Add someone…**. Press **×** next to a name to take them off.
 4. Tick **Safeguarding** if it is a safeguarding team.
 5. Press **Save** on that team's box.

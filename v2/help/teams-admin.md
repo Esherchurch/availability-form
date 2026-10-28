@@ -27,14 +27,15 @@ This is the one list of every team and group the church has. The Home choices, "
 1. Tick **Has a rota** for a rota team.
 2. Untick it for a group without a rota.
 
-## Roles on this team
-1. On a rota team, press **Roles on this team** to open its list.
-2. These are the places the team fills on the rota, in order. The rota planner offers them, and the address book's ticks come from them.
-3. To add one, type it under the list and press **Add**.
-4. To rename one, type over it. It saves when you leave the box.
-5. Use the up and down arrows to change the order, and the **×** to remove one.
-6. A numbered set, such as **Helper 1** and **Helper 2**, is one role that people tick as **Helper**.
-7. A team can have up to 60 roles, each up to 60 letters long.
+## Skills and rota places
+1. On a rota team, press **Skills and rota places** to open its two lists.
+2. **Skills** are what people on this team can do, such as Guitar or Singer. They are the ticks in the address book.
+3. **Rota places** are the slots the team fills on the rota, in order. Choose the skill each place needs. The rota planner fills it with people who have that skill. **By hand (no skill)** means nobody is filled in for it automatically.
+4. To add a skill or a place, type it under its list and press **Add**. For a place, choose its skill first.
+5. To rename one, type over it. It saves when you leave the box. Renaming a skill renames it on this team's places too.
+6. Use the up and down arrows to change the order, and the **×** to remove one. Removing a skill leaves its places to be filled by hand.
+7. Numbered places, such as **Singer 1** and **Singer 2**, all need the same skill. The planner adds more of them when more people with the skill are free.
+8. A team can have up to 60 skills and 100 places. Each name can be up to 60 letters long.
 
 ## Archive a team, or bring it back
 1. Tick **Archived** on the team. It goes from choices around the hub.
@@ -59,9 +60,9 @@ This is the one list of every team and group the church has. The Home choices, "
 - **Works with under-18s (DBS needed)** is shown, not changed here. A core team for an under-18s team works with under-18s too.
 - If nobody does the care and support job, care requests stay closed until a team is named.
 - If nobody does a job, the pages for that job are hidden.
-- Until anybody edits a team's roles, it keeps the roles the hub started with.
-- Renaming or removing a role does not change rotas already made, or what people have already ticked. Those keep the old name.
-- A role that no team lists counts as the worship team's.
+- Until anybody edits a team's skills or places, it keeps the ones the hub started with.
+- Renaming or removing a skill or place does not change rotas already made, or what people have already ticked. Those keep the old name.
+- A place that no team lists counts as the worship team's.
 
 ## Who to ask
 - The church office, for adding or tidying teams.

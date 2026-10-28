@@ -67,6 +67,12 @@
     { id: 'care', owner: 'main', title: 'Who gets told', page: 'church-settings.html',
       why: 'Who reads requests for care, pastoral concerns and prayer requests',
       done: function (db) { return get(db, 'careRouting', 'main').then(function (d) { return !!d; }); } },
+    /* Each team's own address (Team mail): where replies to its rota emails,
+       service plans and youth codes go. Without one, replies reach the
+       enquiry email instead. Done once any team has one. */
+    { id: 'teamEmails', owner: 'main', title: 'Team emails', page: 'team-mail.html',
+      why: 'Each team’s own email address, so replies to its emails reach the team, not the office',
+      done: function (db) { return any(db, 'teamMailboxes', function (t) { return !!t.address; }); } },
     { id: 'safeguarding', owner: 'events', title: 'Safeguarding', page: 'safeguarding-settings.html',
       why: 'The safeguarding lead and deputy, how long checks last, and the ratios',
       done: function (db) { return get(db, 'safeguardingSettings', 'defaults').then(function (d) { return !!(d && d.leadSiteId); }); } },

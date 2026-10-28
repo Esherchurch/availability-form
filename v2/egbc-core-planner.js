@@ -486,8 +486,10 @@
     return Array.isArray(raw) ? ((raw[0] && raw[0].id) || '') : ((raw && raw.id) || '');
   };
   var isWorshipRole = function (r) {
-    if (typeof global.EGBCAuth !== 'undefined' && EGBCAuth.roleTeam) {
-      return EGBCAuth.roleTeam(r) !== 'Kids Church';
+    /* Children's work is the children job's teams, once the team jobs are
+       read; before then the place names decide, as they always did. */
+    if (typeof global.EGBCAuth !== 'undefined' && EGBCAuth.roleTeam && EGBCAuth.permsReady && EGBCAuth.permsReady()) {
+      return EGBCAuth.teamsForJob('children').indexOf(EGBCAuth.roleTeam(r)) === -1;
     }
     return !(r === 'Session Leader' || r.indexOf('Helper ') === 0
              || r.indexOf('Leader (') === 0 || r.indexOf('Assistant (') === 0);
@@ -1231,6 +1233,8 @@
     if (opts.toast) H.toast = opts.toast;
     if (opts.loader) H.loader = opts.loader;
     H.root = into;
+    /* The team jobs, read now: isWorshipRole asks the children job. */
+    if (global.EGBCAuth && EGBCAuth.loadPerms) EGBCAuth.loadPerms().catch(function () {});
 
     if (!document.getElementById('egbc-core-planner-css')) {
       var s = document.createElement('style');

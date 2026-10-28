@@ -300,6 +300,14 @@
      Asked each time, since they follow the teams once those load. */
   function optionalRoles() { return global.EGBCAuth && EGBCAuth.roleChoices ? EGBCAuth.roleChoices(['av', 'worship', 'choir']) : []; }
   function avRoles() { return global.EGBCAuth && EGBCAuth.roleChoices ? EGBCAuth.roleChoices(['av']) : []; }
+  /* The skill a place needs ("2nd Keys" needs Keyboard), and whether a
+     person has it ticked - an old tick ("Sing") counts under its skill's
+     name (EGBCAuth.skillName). */
+  function skillOf(r) { return global.EGBCAuth && EGBCAuth.placeSkill ? EGBCAuth.placeSkill(r) : r; }
+  function hasSkill(m, skill, usuallyOnly) {
+    if (global.EGBCAuth && EGBCAuth.hasSkill) return EGBCAuth.hasSkill(m, skill, usuallyOnly);
+    return !!skill && ((m.primaryInstruments || []).includes(skill) || (!usuallyOnly && (m.secondaryInstruments || []).includes(skill)));
+  }
   var MANDATORY_SUNDAY_ROLES = ['Worship Leader', 'Keyboard', 'Guitar', 'Drums', 'Bass', 'Sound', 'Words', 'Cameras'];
   var EVENT_TYPES_LIST = ['Sunday Morning Worship', 'Sunday Team Practice', 'Evening Carol Service',
     'Midnight Service', 'Special Service', 'Worship and AV Team Meeting', 'All Team Practice',
@@ -566,9 +574,9 @@
       if (!a) return 1;
       return 2;
     };
+    var skill = skillOf(role);
     var plays = function (m) {
-      return (m.primaryInstruments || []).includes(role) ? 0
-        : (m.secondaryInstruments || []).includes(role) ? 1 : 2;
+      return hasSkill(m, skill, true) ? 0 : hasSkill(m, skill, false) ? 1 : 2;
     };
     return eligible.sort(function (a, b) {
       return plays(a) - plays(b) || rank(a) - rank(b) || (a.name || '').localeCompare(b.name || '');
@@ -578,8 +586,8 @@
   function availLabel(ev, m, role) {
     var a = (rotaAvailability[ev.id] || {})[m.id];
     var bits = [];
-    if ((m.primaryInstruments || []).includes(role)) bits.push('plays this');
-    else if ((m.secondaryInstruments || []).includes(role)) bits.push('can cover');
+    if (hasSkill(m, skillOf(role), true)) bits.push('plays this');
+    else if (hasSkill(m, skillOf(role), false)) bits.push('can cover');
     bits.push(a === 'avail' ? 'available' : (a ? 'not available' : 'no reply'));
     var elsewhere = Object.entries(ev.assignments || {})
       .find(function (e) { return e[1] && e[1].id === m.id && e[0] !== role; });
@@ -636,7 +644,7 @@
       roles.forEach(function (r) {
         var taken = (ev.assignments || {})[r];
         body += sheetBtn(r, taken ? 'Replaces ' + personName(taken)
-          : ((m.primaryInstruments || []).includes(r) ? 'They play this' : 'Empty'),
+          : (hasSkill(m, skillOf(r), true) ? 'They play this' : 'Empty'),
           "doAssign('" + eventId + "','" + r.replace(/'/g, "\\'") + "','" + personId + "','"
           + (personName_ || '').replace(/'/g, "\\'") + "')");
       });
@@ -1029,8 +1037,7 @@
         var cands = members.filter(function (m) {
           return !assigned.has(m.id)
             && (mCounts[mk][m.id] || 0) < (parseInt(m.maxFrequency) || 2)
-            && (primary ? (m.primaryInstruments || []).includes(inst)
-                        : ((m.primaryInstruments || []).includes(inst) || (m.secondaryInstruments || []).includes(inst)));
+            && hasSkill(m, inst, primary);
         });
         cands.sort(function (a, b) {
           return (((a.markers || []).includes('Youth Worship') ? 1 : 0) - ((b.markers || []).includes('Youth Worship') ? 1 : 0))
@@ -1042,26 +1049,34 @@
         mCounts[mk][c.id] = (mCounts[mk][c.id] || 0) + 1; return true;
       };
 
-      MANDATORY_SUNDAY_ROLES.forEach(function (r) { tryAssign(r, r, true); });
-      roles.filter(function (r) { return r.startsWith('Singer'); }).forEach(function (r) { tryAssign(r, 'Sing', true); });
-      MANDATORY_SUNDAY_ROLES.forEach(function (r) { tryAssign(r, r, false); });
-      roles.filter(function (r) { return r.startsWith('Singer'); }).forEach(function (r) { tryAssign(r, 'Sing', false); });
+      /* Each place is filled by people with its skill (Teams & groups);
+         the extra places are the worship, AV and choir teams' (roleFill):
+         a numbered family (EGBC's singers) takes every available person
+         with its skill, any other place one person. */
+      var plan = global.EGBCAuth && EGBCAuth.roleFill ? EGBCAuth.roleFill(['worship', 'av', 'choir']) : { fill: [], grow: [] };
+      var family = function (base) {
+        return roles.filter(function (r) { return r === base || (r.indexOf(base + ' ') === 0 && /^\d+$/.test(r.slice(base.length + 1))); });
+      };
+      MANDATORY_SUNDAY_ROLES.forEach(function (r) { tryAssign(r, skillOf(r), true); });
+      plan.grow.forEach(function (g) { family(g[0]).forEach(function (r) { tryAssign(r, g[1], true); }); });
+      MANDATORY_SUNDAY_ROLES.forEach(function (r) { tryAssign(r, skillOf(r), false); });
+      plan.grow.forEach(function (g) { family(g[0]).forEach(function (r) { tryAssign(r, g[1], false); }); });
 
-      members.filter(function (m) {
-        return !assigned.has(m.id)
-          && ((m.primaryInstruments || []).includes('Sing') || (m.secondaryInstruments || []).includes('Sing'));
-      }).sort(function (a, b) {
-        return ((a.markers || []).includes('Youth Worship') ? 1 : 0) - ((b.markers || []).includes('Youth Worship') ? 1 : 0);
-      }).forEach(function (m) {
-        if ((mCounts[mk][m.id] || 0) >= (parseInt(m.maxFrequency) || 2)) return;
-        var i = 1; while (roles.includes('Singer ' + i)) i++;
-        var nr = 'Singer ' + i; roles.push(nr); asgn[nr] = { id: m.id, name: m.name };
-        assigned.add(m.id); mCounts[mk][m.id] = (mCounts[mk][m.id] || 0) + 1;
+      plan.grow.forEach(function (g) {
+        members.filter(function (m) {
+          return !assigned.has(m.id) && hasSkill(m, g[1], false);
+        }).sort(function (a, b) {
+          return ((a.markers || []).includes('Youth Worship') ? 1 : 0) - ((b.markers || []).includes('Youth Worship') ? 1 : 0);
+        }).forEach(function (m) {
+          if ((mCounts[mk][m.id] || 0) >= (parseInt(m.maxFrequency) || 2)) return;
+          var i = 1; while (roles.includes(g[0] + ' ' + i)) i++;
+          var nr = g[0] + ' ' + i; roles.push(nr); asgn[nr] = { id: m.id, name: m.name };
+          assigned.add(m.id); mCounts[mk][m.id] = (mCounts[mk][m.id] || 0) + 1;
+        });
       });
 
-      ['Guitar', 'Keyboard'].forEach(function (inst) {
-        var rn = '2nd ' + inst;
-        if (!roles.includes(rn) && (tryAssign(rn, inst, true) || tryAssign(rn, inst, false))) roles.push(rn);
+      plan.fill.forEach(function (f) {
+        if (!roles.includes(f[0]) && (tryAssign(f[0], f[1], true) || tryAssign(f[0], f[1], false))) roles.push(f[0]);
       });
       await db().collection('events').doc(ev.id).update({ assignments: asgn, roles: roles });
     }

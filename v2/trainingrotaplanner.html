@@ -5,7 +5,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610311900"></script>
+<script src="egbc-auth.js?v=202610312000"></script>
 <script src="egbc-guard.js?v=202610311900"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -214,10 +214,22 @@
            training session would open on an empty rota. */
         await ready;
 
-        const OPTIONAL_ROLES        = ['Sound','Words','Cameras','Violin','Congas','2nd Guitar','2nd Keys','Electric Guitar','Oboe','Trumpet','Cahon','Singer 1','Singer 2','Singer 3','Other','Other 2','Other 3','Choir'];
+        /* THE SAME TEAM LISTS AS THE ROTA PLANNER (EGBCAuth; Teams & groups,
+           "Skills and rota places"): "+ Role" offers the AV, worship and choir
+           teams' places; each place is filled by people with its skill, and
+           an old tick ("Sing") counts under its skill's name. Asked each time,
+           since they follow the teams and team jobs once those load. */
+        const OPTIONAL_ROLES        = () => EGBCAuth.roleChoices ? EGBCAuth.roleChoices(['av','worship','choir']) : [];
+        const AV_ROLES              = () => EGBCAuth.roleChoices ? EGBCAuth.roleChoices(['av']) : [];
+        const skillOf               = r => EGBCAuth.placeSkill ? EGBCAuth.placeSkill(r) : r;
+        const hasSkill              = (m, skill, usuallyOnly) => EGBCAuth.hasSkill ? EGBCAuth.hasSkill(m, skill, usuallyOnly)
+            : !!skill && ((m.primaryInstruments||[]).includes(skill) || (!usuallyOnly && (m.secondaryInstruments||[]).includes(skill)));
+        const fillPlan              = () => EGBCAuth.roleFill ? EGBCAuth.roleFill(['worship','av','choir']) : { fill: [], grow: [] };
+        /* A numbered family's places on a row ("Singer 1", "Singer 2"). */
+        const family                = (roles, base) => roles.filter(r => r === base || (r.indexOf(base + ' ') === 0 && /^\d+$/.test(r.slice(base.length + 1))));
+        if (EGBCAuth.loadPerms) EGBCAuth.loadPerms().catch(()=>{}).then(()=>{ if (typeof renderPlanner === 'function') renderPlanner(); });
         const MANDATORY_SUNDAY_ROLES= ["Worship Leader","Keyboard","Guitar","Drums","Bass","Sound","Words","Cameras"];
         const EVENT_TYPES           = ['Sunday Morning Worship','Sunday Team Practice','Evening Carol Service','Midnight Service','Special Service','Worship and AV Team Meeting','All Team Practice','Core Team Meeting','Worship Team Meeting','AV Team Meeting','Song Writing Workshop','LOUD Worship'];
-        const AV_ROLES              = ["Sound","Words","Cameras"];
         const FORM_LINK             = location.origin + location.pathname.replace(/[^/]*$/, '') + 'index.html'; /* the availability form, where this page is open */
         const LOGO_URL              = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1777880144841.png?alt=media";
         const TS_KEY                = "EGBC_TR";
@@ -586,11 +598,10 @@
             const active=trainingEvents.filter(e=>!e.archived&&e.type==="Sunday Morning Worship").sort((a,b)=>new Date(a.date)-new Date(b.date));
             const mc={};
 
-            // Helper: does a member sing? Covers "Sing", "Vocals", "Singer", "Vocal" naming conventions
-            const memberSings=(m)=>{
-                const all=[...(m.primaryInstruments||[]),...(m.secondaryInstruments||[])].map(i=>i.toLowerCase());
-                return all.some(i=>i==='sing'||i==='vocals'||i==='vocal'||i==='singer'||i.startsWith('sing'));
-            };
+            /* The extra places beyond the service's own (as the rota planner):
+               a numbered family (singers) takes every available person with
+               its skill; any other place with a skill, one person. */
+            const plan=fillPlan();
 
             for(const ev of active){
                 const mk=new Date(ev.date).toLocaleString('en-GB',{month:'long',year:'numeric'});
@@ -602,54 +613,47 @@
 
                 const tryAssign=(rName,inst,primaryOnly)=>{
                     if(asgn[rName]) return false;
-                    const instLower=inst.toLowerCase();
                     let cands=members.filter(m=>{
                         if(today.has(m.id)||avail[ev.id]?.[m.id]!=='avail') return false;
                         if((mc[mk][m.id]||0)>=(parseInt(m.maxFrequency)||2)) return false;
-                        const pri=(m.primaryInstruments||[]).map(i=>i.toLowerCase());
-                        const sec=(m.secondaryInstruments||[]).map(i=>i.toLowerCase());
-                        // For singing roles, match any sing-like instrument
-                        if(instLower==='sing'){
-                            const sings=primaryOnly?pri:([...pri,...sec]);
-                            return sings.some(i=>i==='sing'||i==='vocals'||i==='vocal'||i==='singer'||i.startsWith('sing'));
-                        }
-                        return primaryOnly?pri.includes(instLower):([...pri,...sec].includes(instLower));
+                        return hasSkill(m,inst,primaryOnly);
                     });
                     cands.sort((a,b)=>{ const ay=a.markers?.includes("Youth Worship")?1:0,by=b.markers?.includes("Youth Worship")?1:0; if(ay!==by) return ay-by; return (a.primaryInstruments?.length||0)-(b.primaryInstruments?.length||0); });
                     if(cands.length>0){ const c=cands[0]; asgn[rName]={id:c.id,name:c.name}; today.add(c.id); mc[mk][c.id]=(mc[mk][c.id]||0)+1; return true; }
                     return false;
                 };
 
-                // Pass 1: mandatory roles, primary instruments only
-                MANDATORY_SUNDAY_ROLES.forEach(r=>tryAssign(r,r,true));
-                // Pass 2: any existing Singer slots, primary
-                roles.filter(r=>r.startsWith("Singer")).forEach(r=>tryAssign(r,"Sing",true));
-                // Pass 3: mandatory roles, secondary instruments
-                MANDATORY_SUNDAY_ROLES.forEach(r=>tryAssign(r,r,false));
-                // Pass 4: any existing Singer slots, secondary
-                roles.filter(r=>r.startsWith("Singer")).forEach(r=>tryAssign(r,"Sing",false));
+                // Pass 1: mandatory roles, usual skills only
+                MANDATORY_SUNDAY_ROLES.forEach(r=>tryAssign(r,skillOf(r),true));
+                // Pass 2: any existing numbered places (singers), usual
+                plan.grow.forEach(([base,skill])=>family(roles,base).forEach(r=>tryAssign(r,skill,true)));
+                // Pass 3: mandatory roles, can-cover skills too
+                MANDATORY_SUNDAY_ROLES.forEach(r=>tryAssign(r,skillOf(r),false));
+                // Pass 4: any existing numbered places, can-cover
+                plan.grow.forEach(([base,skill])=>family(roles,base).forEach(r=>tryAssign(r,skill,false)));
 
-                // Pass 5: find ALL remaining available singers and create Singer roles for them
-                let singers=members.filter(m=>
-                    !today.has(m.id) &&
-                    memberSings(m) &&
-                    avail[ev.id]?.[m.id]==='avail' &&
-                    (mc[mk][m.id]||0)<(parseInt(m.maxFrequency)||2)
-                );
-                singers.sort((a,b)=>(a.markers?.includes("Youth Worship")?1:0)-(b.markers?.includes("Youth Worship")?1:0));
-                for(const m of singers){
-                    let ni=1; while(roles.includes(`Singer ${ni}`)) ni++;
-                    const nr=`Singer ${ni}`;
-                    roles.push(nr);
-                    asgn[nr]={id:m.id,name:m.name};
-                    today.add(m.id);
-                    mc[mk][m.id]=(mc[mk][m.id]||0)+1;
-                }
+                // Pass 5: every remaining available person with a growing family's skill gets a place
+                plan.grow.forEach(([base,skill])=>{
+                    let more=members.filter(m=>
+                        !today.has(m.id) &&
+                        hasSkill(m,skill,false) &&
+                        avail[ev.id]?.[m.id]==='avail' &&
+                        (mc[mk][m.id]||0)<(parseInt(m.maxFrequency)||2)
+                    );
+                    more.sort((a,b)=>(a.markers?.includes("Youth Worship")?1:0)-(b.markers?.includes("Youth Worship")?1:0));
+                    for(const m of more){
+                        let ni=1; while(roles.includes(`${base} ${ni}`)) ni++;
+                        const nr=`${base} ${ni}`;
+                        roles.push(nr);
+                        asgn[nr]={id:m.id,name:m.name};
+                        today.add(m.id);
+                        mc[mk][m.id]=(mc[mk][m.id]||0)+1;
+                    }
+                });
 
-                // Pass 6: 2nd Guitar and 2nd Keys if available
-                ["Guitar","Keyboard"].forEach(inst=>{
-                    const rn=`2nd ${inst}`;
-                    if(!roles.includes(rn)){if(tryAssign(rn,inst,true)||tryAssign(rn,inst,false)) roles.push(rn);}
+                // Pass 6: the other extra places, one person each
+                plan.fill.forEach(([rn,skill])=>{
+                    if(!roles.includes(rn)){if(tryAssign(rn,skill,true)||tryAssign(rn,skill,false)) roles.push(rn);}
                 });
 
                 ev.assignments=asgn;
@@ -683,18 +687,19 @@
             const srole=e.dataTransfer.getData("sourceRole");
             if(!pid||!pname) return;
             if(seid&&srole){ window.unassignPerson(seid,srole); return; }
-            // Find if this person is a singer
+            // Find if this person has a growing family's skill (a singer)
             const member=addressBook.find(m=>m.id===pid);
             if(!member) return;
-            const isSinger=member.primaryInstruments?.includes("Sing")||member.secondaryInstruments?.includes("Sing");
-            if(!isSinger) return;
+            const grow=fillPlan().grow.find(([,skill])=>hasSkill(member,skill,false));
+            if(!grow) return;
+            const base=grow[0];
             ensureTrainingEvents();
             const ev=trainingEvents.find(e=>e.id===eid); if(!ev) return;
             if(!ev.roles) ev.roles=[];
             if(!ev.assignments) ev.assignments={};
-            // Find next available Singer slot
-            let ni=1; while(ev.roles.includes(`Singer ${ni}`)) ni++;
-            const newRole=`Singer ${ni}`;
+            // Find the next free place in that family
+            let ni=1; while(ev.roles.includes(`${base} ${ni}`)) ni++;
+            const newRole=`${base} ${ni}`;
             ev.roles.push(newRole);
             ev.assignments[newRole]={id:pid,name:pname};
             saveTS(); renderPlanner(); showToast(`🎤 ${pname} added as ${newRole}`);
@@ -732,7 +737,7 @@
             if(logo){const lh=20;dr.addImage(logo,'JPEG',255,10,(logoNaturalWidth/logoNaturalHeight)*lh,lh);}
             dr.setFillColor(240,246,246);dr.roundedRect(12,12,230,10,4,4,'F');dr.setTextColor(61,98,99);dr.setFont("helvetica","bold");dr.setFontSize(18);dr.text(title,16,19);
             const arr=[...new Set(te.flatMap(e=>e.roles||[]))];
-            const allRoles=[...arr.filter(r=>!AV_ROLES.includes(r)),...arr.filter(r=>AV_ROLES.includes(r))];
+            const allRoles=[...arr.filter(r=>!AV_ROLES().includes(r)),...arr.filter(r=>AV_ROLES().includes(r))];
             dr.autoTable({startY:35,head:[['DATE','TIME','SERVICE',...allRoles.map(r=>r.toUpperCase())]],body:te.map(e=>[new Date(e.date).toLocaleDateString('en-GB'),(e.startTime||'')+(e.startTime&&e.endTime?'–':'')+(e.endTime||''),e.type,...allRoles.map(r=>e.assignments?.[r]?.name||"---")]),headStyles:{fillColor:[61,98,99]},styles:{fontSize:7}});
             return dr;
         };
@@ -781,7 +786,7 @@
             const isSunday=ev.type==="Sunday Morning Worship";
             const rowClass=!isSunday?'bg-slate-50 border-dashed border-[#d1dfdf]':(blockIdx%2===0?'bg-white border-[#d1dfdf]':'bg-[#f0f6f6]/30 border-[#d1dfdf]');
             const dateBg=!isSunday?'bg-[#d1dfdf]':'bg-[#3d6263]';
-            const sortedRoles=[...(ev.roles||[]).filter(r=>!AV_ROLES.includes(r)),...(ev.roles||[]).filter(r=>AV_ROLES.includes(r))];
+            const sortedRoles=[...(ev.roles||[]).filter(r=>!AV_ROLES().includes(r)),...(ev.roles||[]).filter(r=>AV_ROLES().includes(r))];
             const is='width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"';
             const tss='bg-white border border-[#d1dfdf] text-[#3d6263] px-2 py-1 rounded-full font-bold text-[11px] outline-none';
             let h=`<div class="${rowClass} border rounded-[1.5rem] p-4 mb-3 shadow-sm relative overflow-visible transition-all">`;
@@ -802,7 +807,7 @@
             h+=`<div class="${expandedEvents.has(ev.id)||isSunday?'flex':'hidden'} mt-6 border-t border-[#f0f6f6] pt-6 flex-row gap-6 overflow-visible"><div class="flex flex-wrap gap-4 flex-grow" ondragover="event.preventDefault()" ondrop="onDropRolesArea(event,'${ev.id}')">`;
             sortedRoles.forEach(r=>{
                 const assigned=ev.assignments?.[r]||null;
-                const isAV=AV_ROLES.includes(r);
+                const isAV=AV_ROLES().includes(r);
                 const isPending=assigned&&!avail[ev.id]?.[assigned.id];
                 const bc=isAV?'border-amber-400':(assigned?'border-[#3d6263]':'border-[#d1dfdf]');
                 const nc=isPending?'text-orange-500':'text-[#3d6263]';
@@ -811,7 +816,7 @@
                 h+=`<div draggable="true" ondragstart="onDragStart(event,'${assigned?.id||''}','${(assigned?.name||'').replace(/'/g,"\\'")}','${ev.id}','${r}')" class="text-[13px] font-bold ${assigned?nc+' cursor-grab':'text-[#d1dfdf] italic'}">${assigned?assigned.name:'Unassigned'}</div></div>`;
             });
             h+=`<select onchange="addRole('${ev.id}',this.value);this.value='';" class="bg-white border-2 border-dashed border-[#d1dfdf] text-[#3d6263] text-[11px] font-bold px-6 py-3 rounded-2xl uppercase hover:bg-[#f0f6f6] self-center"><option value="">+ Role</option>`;
-            OPTIONAL_ROLES.forEach(opt=>{h+=`<option value="${opt}">${opt}</option>`;});
+            OPTIONAL_ROLES().forEach(opt=>{h+=`<option value="${opt}">${opt}</option>`;});
             h+=`</select></div>`;
             if(openBuckets.has(ev.id)){
                 h+=`<div ondragover="event.preventDefault()" ondrop="onDropBucket(event,'${ev.id}')" class="bg-[#f0f6f6] p-7 rounded-[2.5rem] border border-[#d1dfdf] shadow-inner min-w-[340px]"><div class="max-h-[400px] overflow-y-auto space-y-6">`;

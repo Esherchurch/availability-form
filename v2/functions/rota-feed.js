@@ -99,10 +99,11 @@ export function householdIds(addressBook, memberId) {
 
    This runs on the server because the server is what answers a calendar app,
    and a calendar app has nobody signed in. */
-/* A church keeps each team's rota places on the team (teams/{id}.roles,
-   Teams & groups). With none stored, a team takes these: EGBC's, the same
-   `roles` as TEAM_ROLES in egbc-auth.js, which the server cannot read. A
-   sub-team's places count as its parent's (Choir is part of Worship). */
+/* A church keeps each team's rota places on the team (teams/{id}.places,
+   [{ name, skill }], Teams & groups). With none stored, a team takes these:
+   EGBC's, the same place names as TEAM_SKILLS in egbc-auth.js, which the
+   server cannot read. Only the names matter here: which team a place is.
+   A sub-team's places count as its parent's (Choir is part of Worship). */
 const BUILT_IN_ROLES = {
   'Worship Team': ['Worship Leader', 'Keyboard', 'Guitar', 'Drums', 'Bass', 'Violin', 'Congas', '2nd Guitar', '2nd Keys',
     'Electric Guitar', 'Oboe', 'Trumpet', 'Cahon', 'Singer 1', 'Singer 2', 'Singer 3', 'Other', 'Other 2', 'Other 3'],
@@ -118,7 +119,7 @@ const roleBase = (r) => String(r || '').replace(/\s+\d+$/, '');
 
 /**
  * Which team each rota place belongs to, from the church's teams: each
- * team's stored roles, else its built-in ones. The same answer as
+ * team's stored places, else its built-in ones. The same answer as
  * EGBCAuth.roleTeamOf in egbc-auth.js.
  * @param {Array<{id: string, data: object}>} [teams] the church's teams collection
  * @param {string} [otherTeam] the team a place no team lists belongs to: the
@@ -130,7 +131,10 @@ export function roleTeams(teams = [], otherTeam = teamsFor(null, 'worship')[0] |
   const ids = [...new Set(Object.keys(BUILT_IN_ROLES).concat(teams.map((t) => t.id)))];
   const lists = ids.map((id) => {
     const d = byId[id] || {};
-    const roles = Array.isArray(d.roles) ? d.roles.filter((r) => typeof r === 'string' && r) : (BUILT_IN_ROLES[id] || []);
+    /* Skills and places are saved together: either stored means stored. */
+    const stored = Array.isArray(d.places) || Array.isArray(d.skills);
+    const roles = stored ? (Array.isArray(d.places) ? d.places : []).map((x) => (x && typeof x.name === 'string' ? x.name : '')).filter(Boolean)
+      : (BUILT_IN_ROLES[id] || []);
     return [d.parent || BUILT_IN_PARENT[id] || id, roles];
   });
   return { lists, other: otherTeam };
@@ -149,24 +153,39 @@ export function roleTeam(r, rt = ROLE_TEAMS) {
 }
 
 /* Worship and AV serve the same service and share a charter, so somebody on
-   one sees the other's slots. Youth Worship has no roles of its own - the
+   one sees the other's slots. The youth team has no places of its own - the
    young people play drums and keys on an ordinary Sunday morning - so scoping
-   them to "Youth Worship" would show them an empty rota they are actually on.
-   Choir folds into Worship. Same allowances as egbc-auth.js and
-   view-only-rota.html. */
-const WORSHIP_SIDE = ['Worship Team', 'AV Team', 'Youth Worship', 'Core Team'];
-const TEAM_PARENT = { Choir: 'Worship Team' };
-
-export function visibleRoleTeams(user) {
+   them to their own team would show them an empty rota they are actually on;
+   the worship core team sees the worship side too. A sub-team (a choir)
+   folds into its parent. Same allowances as egbc-auth.js and
+   view-only-rota.html, from the church's team jobs and teams. */
+/**
+ * The teams whose rota places this person may see on the full rota.
+ * @param {object} user their users record (teams, adminFor, masterAdmin)
+ * @param {{ jobs?: { map?: object, set?: object }, teams?: Array<{id: string, data: object}> }} [church]
+ *   the church's team jobs (readTeamJobs) and teams collection; none: EGBC's defaults
+ * @returns {string[]|null} team ids; null for all of them; [] for nobody
+ */
+export function visibleRoleTeams(user, church = {}) {
   if (!user) return [];
   if (user.masterAdmin === true) return null;          /* null means all of them */
+  const jobs = church.jobs || {};
+  const of = (...js) => [...new Set(js.flatMap((j) => teamsFor(jobs.map || null, j, jobs.set || {})))];
+  const byId = Object.fromEntries((church.teams || []).map((t) => [t.id, t.data || {}]));
+  const parentOf = (t) => (byId[t] && byId[t].parent) || BUILT_IN_PARENT[t] || '';
+  /* Core teams as core-teams.js has them: what Teams & groups stored, else EGBC's. */
+  const coreFor = (t) => (byId[t] && Array.isArray(byId[t].coreFor) ? byId[t].coreFor : (DEFAULT_CORES[t] || []));
+  const worship = of('worship'), sides = of('worship', 'av');
+  const worshipCores = [...new Set(Object.keys(DEFAULT_CORES).concat(Object.keys(byId)))]
+    .filter((t) => !(byId[t] && byId[t].archived === true) && coreFor(t).some((c) => worship.includes(c)));
+  const worshipSide = sides.concat(of('youth'), worshipCores);
   const out = [];
   const add = t => { if (t && out.indexOf(t) === -1) out.push(t); };
-  (user.teams || []).forEach(t => add(TEAM_PARENT[t] || t));
+  (user.teams || []).forEach(t => add(parentOf(t) || t));
   (user.adminFor || []).forEach(add);
   if (!out.length) return null;
-  if (WORSHIP_SIDE.some(t => out.indexOf(t) !== -1)) { add('Worship Team'); add('AV Team'); }
-  if (out.indexOf('Worship Team') !== -1) add('Choir');
+  if (worshipSide.some(t => out.indexOf(t) !== -1)) sides.forEach(add);
+  if (worship.some(t => out.indexOf(t) !== -1)) of('choir').forEach(add);
   return out;
 }
 
@@ -208,6 +227,7 @@ export const firstName = (n) => String(n || '').trim().split(/\s+/)[0] || '';
 
 import { EGBC_BY_TYPE, HUB } from './video.js';
 import { teamsFor } from './team-jobs.js';
+import { DEFAULT_CORES } from './core-teams.js';
 
 /* The church's short name in front of each entry, so it stands out in a
    calendar that holds other things; nothing when it is unknown. */

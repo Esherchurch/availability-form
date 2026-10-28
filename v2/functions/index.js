@@ -40,7 +40,9 @@ async function feedChurch(cdb) {
   const church = String(details.shortName || (enews.church || {}).shortName || details.name || '').trim();
   const rt = roleTeams(teams.map((d) => ({ id: d.id, data: d.data() || {} })),
     teamsFor(jobs.map || null, 'worship', jobs.set || {})[0] || '');
-  return { church, scopes: fullScopes(jobs, (t) => labels[t] || t), roleTeams: rt };
+  return { church, scopes: fullScopes(jobs, (t) => labels[t] || t), roleTeams: rt,
+    /* visibleRoleTeams' church: its team jobs and teams. */
+    seen: { jobs, teams: teams.map((d) => ({ id: d.id, data: d.data() || {} })) } };
 }
 import {
   findMe as findMeIn, myDates as myDatesIn, saveAnswer as saveAnswerIn,
@@ -152,8 +154,8 @@ export const rotaFeed = onRequest({ cors: false, invoker: 'public' }, async (req
       const userSnap = uid ? await fdb.collection('users').doc(uid).get() : null;
       const user = userSnap && userSnap.exists ? userSnap.data() : null;
       if (!user || user.status !== 'active') return no();
-      const { church, scopes, roleTeams: rt } = await feedChurch(fdb);
-      body = buildFullFeed({ events, allowedTeams: visibleRoleTeams(user), scope, scopes, church, roleTeams: rt });
+      const { church, scopes, roleTeams: rt, seen } = await feedChurch(fdb);
+      body = buildFullFeed({ events, allowedTeams: visibleRoleTeams(user, seen), scope, scopes, church, roleTeams: rt });
 
     } else {
       const memberSnap = await fdb.collection('addressBook').doc(memberId).get();
@@ -222,8 +224,9 @@ export const myCalendarLink = onCall(async (request) => {
      make. Refused here, where it can be said in words, rather than quietly
      handing them an empty calendar. */
   if (cfg.kind === 'full' && cfg.scope !== 'all') {
-    const allowed = visibleRoleTeams(user);
-    const scope = (await feedChurch(cdb)).scopes[cfg.scope];
+    const fc = await feedChurch(cdb);
+    const allowed = visibleRoleTeams(user, fc.seen);
+    const scope = fc.scopes[cfg.scope];
     const wanted = scope.teams || [];
     if (allowed && !wanted.some(t => allowed.includes(t))) {
       throw new HttpsError('permission-denied',

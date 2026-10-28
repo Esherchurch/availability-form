@@ -13,7 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610311900"></script>
+<script src="egbc-auth.js?v=202610312000"></script>
 <script src="egbc-guard.js?v=202610311900" data-job="office"></script>
 <script src="egbc-team-jobs.js?v=202610261800"></script>
 <style>
@@ -70,6 +70,7 @@
   .roles summary{min-height:44px;display:flex;align-items:center;cursor:pointer;color:var(--body)}
   .roles ol{list-style:none;margin:6px 0 8px;padding:0;display:grid;gap:6px}
   .roles li{display:flex;gap:6px;align-items:center}
+  .roles select{min-height:44px;max-width:45%;border:1px solid var(--line-2);border-radius:8px;padding:0 8px;font:400 14px Inter,system-ui,sans-serif;color:var(--ink);background:#fff}
   .roles li input{flex:1 1 auto;min-width:0;min-height:44px;border:1px solid var(--line-2);border-radius:8px;padding:0 12px;
                   font:400 14px Inter,system-ui,sans-serif;color:var(--ink)}
   .roles li input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--ring)}
@@ -157,9 +158,10 @@ async function load() {
       coreFor: Array.isArray(d.coreFor) ? d.coreFor : (t.coreFor || []),
       /* Its pin board: shared with the teams that name the same one (26 Oct 2026). */
       board: typeof d.board === 'string' ? d.board : (t.board || ''),
-      /* Its rota places, in order (EGBCAuth.rolesOf): what it stored, else
-         the built-in ones, which are saved only when somebody edits them. */
-      roles: Array.isArray(d.roles) ? d.roles.slice() : (t.roles || []).slice(),
+      /* Its skills and rota places (EGBCAuth.skillsOf / placesOf): what it
+         stored, else the built-in ones, saved only when somebody edits them. */
+      skills: (t.skills || []).slice(),
+      places: (t.places || []).map(p => ({ name: p.name, skill: p.skill || '' })),
       archived: d.archived === true
     };
   });
@@ -277,86 +279,125 @@ function draw() {
     </article>`).join('');
 }
 
-/* ---- ROLES ON THIS TEAM ---------------------------------------------
-   The team's rota places, in order (teams/{id}.roles). The rota planner
-   offers them, the read-only rota and calendar feeds sort places by them,
-   and the address book's ticks are them with any number taken off
-   ("Helper 1", "Helper 2" -> "Helper"). Whoever may keep the list may edit
-   them (firestore.rules: at most 60, each 60 letters at most). Renaming
-   changes no rota already made and nothing anybody ticked: those keep the
-   old name, which the address book keeps showing. */
-const MOST_ROLES = 60, ROLE_LEN = 60;
+/* ---- SKILLS AND ROTA PLACES ON THIS TEAM ------------------------------
+   skills (teams/{id}.skills): what the team's people can do, in order -
+   the address book's ticks. places (teams/{id}.places): the rota places
+   the team fills, in order, each naming the skill it needs ({ name, skill };
+   '' = filled by hand only). The rota planner offers the places, fills each
+   with people who have its skill, and the read-only rota and calendar
+   feeds sort places by them. The two lists are saved together, so a team
+   either keeps its built-in lists or has its own.
+
+   Whoever may keep the list may edit them (firestore.rules: at most 60
+   skills of 60 letters; at most 100 places). Renaming a skill renames it on
+   this team's places too; removing one leaves its places to be filled by
+   hand. Neither changes rotas already made or what anybody ticked: those
+   keep the old name, which the address book keeps showing. */
+const MOST_SKILLS = 60, MOST_PLACES = 100, NAME_LEN = 60;
 const OPEN_ROLES = new Set();
 function rolesBox(r) {
-  const n = r.roles.length;
   const ic = (attr, label, path, off) => `<button type="button" class="ic" ${attr} aria-label="${label}" ${off ? 'disabled' : ''}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${path}"/></svg></button>`;
+  const tools = (kind, i, n, x) =>
+    ic(`data-kind="${kind}" data-lmove="-1" data-at="${i}"`, 'Move ' + esc(x) + ' up', 'm18 15-6-6-6 6', i === 0) +
+    ic(`data-kind="${kind}" data-lmove="1" data-at="${i}"`, 'Move ' + esc(x) + ' down', 'm6 9 6 6 6-6', i === n - 1) +
+    ic(`data-kind="${kind}" data-ldrop="${i}"`, 'Remove ' + esc(x), 'M6 18 18 6M6 6l12 12', false);
+  const skillPick = (attr, chosen, label) => `<select ${attr} aria-label="${label}">
+      <option value="" ${chosen ? '' : 'selected'}>By hand (no skill)</option>
+      ${r.skills.map(s => `<option value="${esc(s)}" ${s === chosen ? 'selected' : ''}>${esc(s)}</option>`).join('')}
+    </select>`;
+  const ns = r.skills.length, np = r.places.length;
   return `<details class="runs roles" data-roles ${OPEN_ROLES.has(r.id) ? 'open' : ''}>
-      <summary>Roles on this team (${n})</summary>
-      <p class="note">The places this team fills on the rota, in order. A numbered set (Helper 1, Helper 2) is one role people tick as Helper.</p>
-      <ol>${r.roles.map((x, i) => `<li>
-        <input value="${esc(x)}" maxlength="${ROLE_LEN}" data-role-i="${i}" aria-label="Role ${i + 1} on ${esc(r.label)}">
-        ${ic(`data-role-move="-1" data-role-at="${i}"`, 'Move ' + esc(x) + ' up', 'm18 15-6-6-6 6', i === 0)}
-        ${ic(`data-role-move="1" data-role-at="${i}"`, 'Move ' + esc(x) + ' down', 'm6 9 6 6 6-6', i === n - 1)}
-        ${ic(`data-role-drop="${i}"`, 'Remove ' + esc(x), 'M6 18 18 6M6 6l12 12', false)}
+      <summary>Skills and rota places (${ns} skills, ${np} places)</summary>
+      <p class="note"><b>Skills</b> are what people on this team can do. They are the ticks in the address book.</p>
+      <ol>${r.skills.map((x, i) => `<li>
+        <input value="${esc(x)}" maxlength="${NAME_LEN}" data-kind="skills" data-i="${i}" aria-label="Skill ${i + 1} on ${esc(r.label)}">
+        ${tools('skills', i, ns, x)}
       </li>`).join('')}</ol>
-      <form class="add" data-role-add>
-        <input maxlength="${ROLE_LEN}" placeholder="Add a role, for example Organist" aria-label="Add a role to ${esc(r.label)}" autocomplete="off">
-        <button class="btn" type="submit" ${n >= MOST_ROLES ? 'disabled' : ''}>Add</button>
+      <form class="add" data-add="skills">
+        <input maxlength="${NAME_LEN}" placeholder="Add a skill, for example Organ" aria-label="Add a skill to ${esc(r.label)}" autocomplete="off">
+        <button class="btn" type="submit" ${ns >= MOST_SKILLS ? 'disabled' : ''}>Add</button>
+      </form>
+      <p class="note"><b>Rota places</b> are the slots this team fills on the rota, in order. Each is filled by people with the skill chosen for it.</p>
+      <ol>${r.places.map((p, i) => `<li>
+        <input value="${esc(p.name)}" maxlength="${NAME_LEN}" data-kind="places" data-i="${i}" aria-label="Rota place ${i + 1} on ${esc(r.label)}">
+        ${skillPick(`data-place-skill="${i}"`, p.skill, 'Skill needed for ' + esc(p.name))}
+        ${tools('places', i, np, p.name)}
+      </li>`).join('')}</ol>
+      <form class="add" data-add="places">
+        <input maxlength="${NAME_LEN}" placeholder="Add a rota place, for example Organist" aria-label="Add a rota place to ${esc(r.label)}" autocomplete="off">
+        ${skillPick('data-new-skill', '', 'Skill needed for the new place')}
+        <button class="btn" type="submit" ${np >= MOST_PLACES ? 'disabled' : ''}>Add</button>
       </form>
     </details>`;
 }
-/* The list as it will be saved; null (with the reason shown) if not. */
-function rolesOk(list, card) {
+/* The lists as they will be saved; null (with the reason shown) if not. */
+function listsOk(skills, places, card) {
   const msg = card.querySelector('.saved');
   const bad = (t) => { msg.className = 'saved err'; msg.textContent = t; return null; };
-  if (list.length > MOST_ROLES) return bad('At most ' + MOST_ROLES + ' roles on one team.');
-  if (list.some(x => !x || x.length > ROLE_LEN)) return bad('Each role needs a name of ' + ROLE_LEN + ' letters at most.');
-  if (list.some((x, i) => list.findIndex(y => y.toLowerCase() === x.toLowerCase()) !== i)) return bad('That role is already on this team.');
-  return list;
+  const twice = (list) => list.some((x, i) => list.findIndex(y => y.toLowerCase() === x.toLowerCase()) !== i);
+  if (skills.length > MOST_SKILLS) return bad('At most ' + MOST_SKILLS + ' skills on one team.');
+  if (places.length > MOST_PLACES) return bad('At most ' + MOST_PLACES + ' rota places on one team.');
+  if (skills.some(x => !x || x.length > NAME_LEN) || places.some(p => !p.name || p.name.length > NAME_LEN))
+    return bad('Each name needs to be ' + NAME_LEN + ' letters at most.');
+  if (twice(skills)) return bad('That skill is already on this team.');
+  if (twice(places.map(p => p.name))) return bad('That rota place is already on this team.');
+  return true;
 }
-async function saveRoles(r, list, card) {
-  if (!rolesOk(list, card)) { draw(); return; }
-  const before = r.roles;
-  r.roles = list;
-  /* A team saved for the first time takes everything it shows, roles too. */
-  if (await save(r, r.saved ? { roles: list } : Object.assign(whole(r), { roles: list }), card)) {
+async function saveLists(r, skills, places, card) {
+  places = places.map(p => ({ name: p.name, skill: skills.indexOf(p.skill) !== -1 ? p.skill : '' }));
+  if (!listsOk(skills, places, card)) { draw(); return; }
+  const before = [r.skills, r.places];
+  r.skills = skills; r.places = places;
+  /* Saved together; a team saved for the first time takes everything it shows. */
+  const lists = { skills, places };
+  if (await save(r, r.saved ? lists : Object.assign(whole(r), lists), card)) {
     draw();
     const again = document.querySelector('[data-id="' + CSS.escape(r.id) + '"] .saved');
     if (again) { again.className = 'saved'; again.textContent = 'Saved'; setTimeout(() => { if (again.textContent === 'Saved') again.textContent = ''; }, 2000); }
-  } else r.roles = before;
+  } else [r.skills, r.places] = before;
 }
 const rowOf = (el) => { const card = el.closest('[data-id]'); return card ? [ROWS.find(x => x.id === card.dataset.id), card] : [null, null]; };
+const tidy = (v) => String(v || '').trim().replace(/\s+/g, ' ');
 $('list').addEventListener('toggle', (e) => {
   const d = e.target.closest && e.target.closest('[data-roles]'); if (!d) return;
   const [r] = rowOf(d); if (!r) return;
   if (d.open) OPEN_ROLES.add(r.id); else OPEN_ROLES.delete(r.id);
 }, true);
 $('list').addEventListener('change', (e) => {
-  if (e.target.dataset.roleI === undefined) return;
-  const [r, card] = rowOf(e.target); if (!r) return;
-  const list = r.roles.slice();
-  list[Number(e.target.dataset.roleI)] = e.target.value.trim().replace(/\s+/g, ' ');
-  saveRoles(r, list, card);
+  const t = e.target;
+  if (t.dataset.i === undefined && t.dataset.placeSkill === undefined) return;
+  const [r, card] = rowOf(t); if (!r) return;
+  const skills = r.skills.slice(), places = r.places.map(p => Object.assign({}, p));
+  if (t.dataset.placeSkill !== undefined) places[Number(t.dataset.placeSkill)].skill = t.value;
+  else if (t.dataset.kind === 'skills') {
+    const i = Number(t.dataset.i), was = skills[i], now = tidy(t.value);
+    skills[i] = now;
+    /* This team's places needing it follow the new name. */
+    places.forEach(p => { if (p.skill === was) p.skill = now; });
+  } else places[Number(t.dataset.i)].name = tidy(t.value);
+  saveLists(r, skills, places, card);
 });
 $('list').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-role-move],[data-role-drop]'); if (!b) return;
+  const b = e.target.closest('[data-kind][data-lmove],[data-kind][data-ldrop]'); if (!b) return;
   const [r, card] = rowOf(b); if (!r) return;
-  const list = r.roles.slice();
-  if (b.dataset.roleDrop !== undefined) list.splice(Number(b.dataset.roleDrop), 1);
+  const skills = r.skills.slice(), places = r.places.map(p => Object.assign({}, p));
+  const list = b.dataset.kind === 'skills' ? skills : places;
+  if (b.dataset.ldrop !== undefined) list.splice(Number(b.dataset.ldrop), 1);
   else {
-    const i = Number(b.dataset.roleAt), j = i + Number(b.dataset.roleMove);
+    const i = Number(b.dataset.at), j = i + Number(b.dataset.lmove);
     if (j < 0 || j >= list.length) return;
     [list[i], list[j]] = [list[j], list[i]];
   }
-  saveRoles(r, list, card);
+  saveLists(r, skills, places, card);
 });
 $('list').addEventListener('submit', (e) => {
-  if (!e.target.matches('[data-role-add]')) return;
+  const kind = e.target.dataset && e.target.dataset.add; if (!kind) return;
   e.preventDefault();
   const [r, card] = rowOf(e.target); if (!r) return;
-  const v = e.target.querySelector('input').value.trim().replace(/\s+/g, ' ');
+  const v = tidy(e.target.querySelector('input').value);
   if (!v) return;
-  saveRoles(r, r.roles.concat([v]), card);
+  if (kind === 'skills') saveLists(r, r.skills.concat([v]), r.places, card);
+  else saveLists(r, r.skills, r.places.concat([{ name: v, skill: e.target.querySelector('[data-new-skill]').value }]), card);
 });
 
 /* Every write carries the name (the rules check it is the id) and who
@@ -381,9 +422,8 @@ async function save(r, fields, card) {
 }
 
 /* A team saved for the first time takes everything it shows, so the list
-   in the collection matches what the person saw - except its roles: built-in
-   roles stay built-in (and the built-in address book ticks with them) until
-   somebody edits the roles themselves (saveRoles). */
+   in the collection matches what the person saw - except its skills and
+   places: built-in ones stay built-in until somebody edits them (saveLists). */
 function whole(r) {
   const o = { label: r.label, colour: r.colour, order: r.order, rota: r.rota, archived: r.archived };
   if (MASTER && r.coreFor.length) o.coreFor = r.coreFor;

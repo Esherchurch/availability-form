@@ -103,6 +103,11 @@ site still reads and writes the same database without signing in.
     - **No test people left:** a search of the address book for "Synthetic", "test" and "example.invalid" finds nothing.
     - **Who:** Martin with the safeguarding lead.
     - **Check:** Safeguarding settings names real people on every site; the search is empty.
+17a. **Each team's email address** (Team emails, team-mail.html; it saves only once the hub is live). Replies to the rota emails, service plans and youth codes go to the team's own address, and fall back to the enquiry email until it is set.
+    - Worship Team = **worship@esherchurch.org**.
+    - The youth team (Youth Worship) = **youth@esherchurch.org**.
+    - **Who:** a master admin.
+    - **Check:** `node ../tools/church-details.mjs` from v2/functions shows "replies (worship)" at worship@ and "replies (youth)" at youth@, each "the ... team's own", not "the enquiry email".
 18. **The rest of the events window's set-up** ([SWITCHOVER-events.md Part 3](SWITCHOVER-events.md), in its own order): church details, sites and rooms, safeguarding, Kids Church, small groups, sermons, Watch, What's on, prayer, "I'm new here", Gift Aid, room hire.
     - **Who:** as named there.
     - **Includes the building checks' templates (version 4, F-296):** `node tools/seed-compliance.mjs --templates --live --write` ([SWITCHOVER-events.md](SWITCHOVER-events.md) 3.10), then Health and safety settings set up by the office.

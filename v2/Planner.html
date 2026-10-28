@@ -6,7 +6,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610311900"></script>
+<script src="egbc-auth.js?v=202610312000"></script>
 <script src="egbc-manifest.js?v=202610311800"></script>
 <script src="egbc-video.js?v=202610311600"></script>
 <script src="egbc-church.js?v=202610311000"></script>
@@ -218,9 +218,12 @@ ${body}
            week that needs one pinned. */
         const KIDS_MANDATORY_ROLES = () => EGBCAuth.roleStarts ? EGBCAuth.roleStarts(['children']) : [];
 
-        /* What someone must have ticked in the address book to fill a place:
-           "Helper 4" is just a Helper; a built-in team may name it its own way. */
-        const roleAbility = r => EGBCAuth.abilityOf ? EGBCAuth.abilityOf(r) : r;
+        /* The skill a place needs (Teams & groups: "2nd Keys" needs Keyboard,
+           "Helper 4" a Helper; '' = filled by hand), and whether a person has
+           it ticked - an old tick ("Sing") counts under its skill's name. */
+        const roleAbility = r => EGBCAuth.placeSkill ? EGBCAuth.placeSkill(r) : r;
+        const hasSkill = (m, skill, usuallyOnly) => EGBCAuth.hasSkill ? EGBCAuth.hasSkill(m, skill, usuallyOnly)
+            : !!skill && ((m.primaryInstruments || []).includes(skill) || (!usuallyOnly && (m.secondaryInstruments || []).includes(skill)));
 
         /* Which team owns a slot: the team whose roles list it (egbc-auth.js),
            so the read-only rota answers it the same way. */
@@ -912,18 +915,15 @@ ${body}
                                 && teamCounts[monthKey][m.id][roleTeam(roleName)]) || 0;
                             if (usedHere >= cap) return false;
                         }
-                        const hasInst = isPrimaryOnly
-                            ? m.primaryInstruments?.includes(instrumentName)
-                            : (m.primaryInstruments?.includes(instrumentName) || m.secondaryInstruments?.includes(instrumentName));
-                        return hasInst;
+                        return hasSkill(m, instrumentName, isPrimaryOnly);
                     });
 
                     candidates.sort((a, b) => {
                         const aYouth = isYouthMember(a) ? 1 : 0;
                         const bYouth = isYouthMember(b) ? 1 : 0;
                         if (aYouth !== bYouth) return aYouth - bYouth;
-                        const aPrimary = a.primaryInstruments?.includes(instrumentName) ? 0 : 1;
-                        const bPrimary = b.primaryInstruments?.includes(instrumentName) ? 0 : 1;
+                        const aPrimary = hasSkill(a, instrumentName, true) ? 0 : 1;
+                        const bPrimary = hasSkill(b, instrumentName, true) ? 0 : 1;
                         if (aPrimary !== bPrimary) return aPrimary - bPrimary;
                         const aLast = lastServed[a.id] ? (evDate - lastServed[a.id]) : Infinity;
                         const bLast = lastServed[b.id] ? (evDate - lastServed[b.id]) : Infinity;
@@ -951,11 +951,11 @@ ${body}
                 slots.forEach(r => tryAssign(r, roleAbility(r), true));
                 slots.forEach(r => tryAssign(r, roleAbility(r), false));
 
-                /* THE EXTRA PLACES are the worship, AV and choir teams' roles
-                   (EGBCAuth.roleFill): `grow` is a numbered family that takes
-                   every available person who ticked it (EGBC's singers);
-                   `fill` adds one place each, in order, for whoever ticked
-                   it. */
+                /* THE EXTRA PLACES are the worship, AV and choir teams' places
+                   (EGBCAuth.roleFill), each filled by people with its skill:
+                   `grow` is a numbered family that takes every available
+                   person with the skill (EGBC's singers); `fill` adds one
+                   place each, in the teams' order. */
                 const plan = EGBCAuth.roleFill ? EGBCAuth.roleFill(['worship', 'av', 'choir']) : { fill: [], grow: [] };
                 const inFamily = (r, base) => r === base || new RegExp('^' + base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\d+$').test(r);
                 plan.grow.forEach(([base, ability]) => {
@@ -965,7 +965,7 @@ ${body}
 
                     const available = members.filter(m =>
                         !alreadyAssignedToday.has(m.id) &&
-                        (m.primaryInstruments?.includes(ability) || m.secondaryInstruments?.includes(ability)) &&
+                        hasSkill(m, ability, false) &&
                         (monthlyCounts[monthKey][m.id] || 0) < (parseInt(m.maxFrequency) || 2)
                     ).sort((a, b) => {
                         const aYouth = isYouthMember(a) ? 1 : 0;

@@ -16,7 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610311900"></script>
+<script src="egbc-auth.js?v=202610312000"></script>
 <script src="egbc-manifest.js?v=202610311800"></script>
 <script src="egbc-church.js?v=202610311000"></script>
 <script src="egbc-guard.js?v=202610311900" data-job="youth" data-role="member"></script>
@@ -307,7 +307,10 @@ let currentService = null;
 // team's (Martin, 25 Oct 2026; the same filter as c5f664ba), so the Kids
 // Church slots are left out of it.
 const isWorshipRole = r => {
-  if (typeof EGBCAuth !== 'undefined' && EGBCAuth.roleTeam) return EGBCAuth.roleTeam(r) !== 'Kids Church';
+  /* Children's work is the children job's teams, once the team jobs are
+     read; before then the place names decide, as they always did. */
+  if (typeof EGBCAuth !== 'undefined' && EGBCAuth.roleTeam && EGBCAuth.permsReady && EGBCAuth.permsReady())
+    return EGBCAuth.teamsForJob('children').indexOf(EGBCAuth.roleTeam(r)) === -1;
   return !(r === 'Session Leader' || /^Helper \d+$/.test(r) || r.startsWith('Leader (') || r.startsWith('Assistant ('));
 };
 const worshipOnly = a => Object.fromEntries(Object.entries(a || {}).filter(([r]) => isWorshipRole(r)));

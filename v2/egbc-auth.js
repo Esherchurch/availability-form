@@ -337,55 +337,67 @@
     'Maintenance':   { label: 'Maintenance',  colour: '#4f5a66' }
   };
 
-  /* ---- The roles on each team: EGBC's, as the FALLBACK ---------------
-     A church keeps each team's roles on the team (teams/{id}.roles, in
-     order; Teams & groups). A role is a rota place ("Helper 2") and, with
-     any number taken off, the thing a person ticks in the address book
-     ("Helper"). Nothing stored: these, so EGBC needs no data and looks the
-     same. Only teams listed here have built-in roles.
+  /* ---- Each team's skills and rota places: EGBC's, as the FALLBACK ----
+     A church keeps two lists on each team (Teams & groups):
+       skills  what a person can do, in order: the address book's ticks
+               ("Guitar", "Singer", "Helper")
+       places  the rota places the team fills, in order, each naming the
+               skill it needs: { name: '2nd Keys', skill: 'Keyboard' }.
+               skill '' = filled by hand only ("Other").
+     A place belongs to the team listing it; it is filled by people with
+     its skill. Nothing stored: these, so EGBC needs no data. Written as
+     [place, skill] pairs here for reading; the stored shape is objects.
 
-     EGBC's address book, rota and auto-fill grew separate lists that one
-     list cannot reproduce ("Sing" ticked, "Singer 2" on the rota; "2nd
-     Keys" filled by someone who plays "Keyboard"). The extra keys hold
-     them, and apply ONLY while the team still uses these built-in roles:
-       offer   the "+ Role" choices, when not all of `roles`
-       ticks   the address book ticks, when not `roles` without numbers
+     Display-only keys, used only while a team keeps these built-in lists:
        strong  ticks drawn in the brand colour (the leading and AV ones)
        labels  a tick's words, when not its name
-       fill    auto-fill's extra places, in its order: [place, ticked as]
-       grow    numbered places auto-fill adds one of per available person
        starts  the places a week gets when the team is ticked on it
        note    the address book's words above and below the ticks
-     functions/rota-feed.js keeps the same `roles` for the calendar feeds,
-     since the server cannot read this file. */
-  var TEAM_ROLES = {
+     `aliases` always apply: an old tick read under its skill's name
+     ("Sing" is "Singer"), so nobody re-ticks; the next save of that person
+     stores the new name. One table, here, for the whole hub.
+
+     functions/rota-feed.js keeps the same place names for the calendar
+     feeds, since the server cannot read this file. */
+  var TEAM_SKILLS = {
     'Worship Team': {
-      roles: ['Worship Leader', 'Keyboard', 'Guitar', 'Drums', 'Bass', 'Violin', 'Congas', '2nd Guitar', '2nd Keys',
-        'Electric Guitar', 'Oboe', 'Trumpet', 'Cahon', 'Singer 1', 'Singer 2', 'Singer 3', 'Other', 'Other 2', 'Other 3'],
-      offer: ['Violin', 'Congas', '2nd Guitar', '2nd Keys', 'Electric Guitar', 'Oboe', 'Trumpet', 'Cahon',
-        'Singer 1', 'Singer 2', 'Singer 3', 'Other', 'Other 2', 'Other 3'],
-      ticks: ['Worship Leader', 'Sound', 'Words', 'Cameras', 'Sing', 'Guitar', 'Keyboard', 'Drums', 'Bass', 'Congas',
+      skills: ['Worship Leader', 'Sound', 'Words', 'Cameras', 'Singer', 'Guitar', 'Keyboard', 'Drums', 'Bass', 'Congas',
         'Percussion', 'Violin', 'Trumpet', 'Synth', 'Electric Guitar'],
+      places: [['Worship Leader', 'Worship Leader'], ['Keyboard', 'Keyboard'], ['Guitar', 'Guitar'], ['Drums', 'Drums'],
+        ['Bass', 'Bass'], ['Violin', 'Violin'], ['Congas', 'Congas'], ['2nd Guitar', 'Guitar'], ['2nd Keys', 'Keyboard'],
+        ['Electric Guitar', 'Electric Guitar'], ['Oboe', ''], ['Trumpet', 'Trumpet'], ['Cahon', ''],
+        ['Singer 1', 'Singer'], ['Singer 2', 'Singer'], ['Singer 3', 'Singer'], ['Other', ''], ['Other 2', ''], ['Other 3', '']],
       strong: ['Worship Leader', 'Sound', 'Words', 'Cameras'],
-      fill: [['2nd Guitar', 'Guitar'], ['2nd Keys', 'Keyboard'], ['Electric Guitar', 'Electric Guitar'], ['Violin', 'Violin'],
-        ['Trumpet', 'Trumpet'], ['Congas', 'Congas'], ['Cahon', 'Cahon']],
-      grow: [['Singer', 'Sing']]
+      aliases: { 'Sing': 'Singer' }
     },
-    'AV Team': { roles: ['Sound', 'Words', 'Cameras'], strong: ['Sound', 'Words', 'Cameras'] },
-    /* Choir is a part of Worship (parent), so its place counts as Worship's. */
-    'Choir': { roles: ['Choir'], ticks: [] },
+    'AV Team': {
+      skills: ['Sound', 'Words', 'Cameras'],
+      places: [['Sound', 'Sound'], ['Words', 'Words'], ['Cameras', 'Cameras']],
+      strong: ['Sound', 'Words', 'Cameras']
+    },
+    /* Choir is a part of Worship (parent), so its place counts as Worship's.
+       The whole choir sings it, so it needs no skill. */
+    'Choir': { skills: [], places: [['Choir', '']] },
     'Kids Church': {
-      roles: ['Session Leader', 'Leader (Younger)', 'Leader (Older)', 'Leader (Creche)',
-        'Assistant (Younger)', 'Assistant (Older)', 'Assistant (Creche)',
-        'Helper 1', 'Helper 2', 'Helper 3', 'Helper 4', 'Helper 5'],
-      labels: { 'Leader (Creche)': 'Leader — Crèche', 'Assistant (Creche)': 'Assistant — Crèche' },
+      skills: ['Session Leader', 'Leader (Younger)', 'Leader (Older)', 'Leader (Creche)',
+        'Assistant (Younger)', 'Assistant (Older)', 'Assistant (Creche)', 'Helper'],
+      places: [['Session Leader', 'Session Leader'], ['Leader (Younger)', 'Leader (Younger)'], ['Leader (Older)', 'Leader (Older)'],
+        ['Leader (Creche)', 'Leader (Creche)'], ['Assistant (Younger)', 'Assistant (Younger)'], ['Assistant (Older)', 'Assistant (Older)'],
+        ['Assistant (Creche)', 'Assistant (Creche)'], ['Helper 1', 'Helper'], ['Helper 2', 'Helper'], ['Helper 3', 'Helper'],
+        ['Helper 4', 'Helper'], ['Helper 5', 'Helper']],
+      labels: { 'Leader (Creche)': 'Leader \u2014 Cr\u00e8che', 'Assistant (Creche)': 'Assistant \u2014 Cr\u00e8che' },
       /* The standard Sunday: one Session Leader and two helpers. */
       starts: ['Session Leader', 'Helper 1', 'Helper 2'],
-      note: ['Younger = Nursery, Reception, Y1, Y2 · Older = Y3, Y4, Y5 · Crèche = under 3s.',
-        'Helpers are not tied to a group — which group they take is decided when the week is planned.']
+      note: ['Younger = Nursery, Reception, Y1, Y2 \u00b7 Older = Y3, Y4, Y5 \u00b7 Cr\u00e8che = under 3s.',
+        'Helpers are not tied to a group \u2014 which group they take is decided when the week is planned.']
     }
   };
-  Object.keys(TEAM_ROLES).forEach(function (t) { if (TEAMS[t]) TEAMS[t].roles = TEAM_ROLES[t].roles.slice(); });
+  var pairs = function (list) { return list.map(function (p) { return { name: p[0], skill: p[1] }; }); };
+  Object.keys(TEAM_SKILLS).forEach(function (t) {
+    if (!TEAMS[t]) return;
+    TEAMS[t].skills = TEAM_SKILLS[t].skills.slice();
+    TEAMS[t].places = pairs(TEAM_SKILLS[t].places);
+  });
 
   /* ---- Teams as data (APP-A1 §4, steps 1-2) -------------------------
 
@@ -427,6 +439,15 @@
       });
   }
 
+  function listsStored(d) { return Array.isArray(d.skills) || Array.isArray(d.places); }
+  function cleanSkills(list) {
+    return (Array.isArray(list) ? list : []).filter(function (s) { return typeof s === 'string' && s; });
+  }
+  function cleanPlaces(list) {
+    return (Array.isArray(list) ? list : []).filter(function (p) { return p && typeof p.name === 'string' && p.name; })
+      .map(function (p) { return { name: p.name, skill: typeof p.skill === 'string' ? p.skill : '' }; });
+  }
+
   function mergeTeam(id, d) {
     var base = TEAMS[id] || {};
     TEAMS[id] = {
@@ -444,9 +465,11 @@
       coreFor:  Array.isArray(d.coreFor) ? d.coreFor.slice() : (base.coreFor || []),
       /* Its pin board ('' = none; Teams & groups, 26 Oct 2026). */
       board:    typeof d.board === 'string' ? d.board : (base.board || ''),
-      /* Its roles (Teams & groups); none stored keeps the built-in ones. */
-      roles:    Array.isArray(d.roles) ? d.roles.filter(function (r) { return typeof r === 'string' && r; }) : (base.roles || []),
-      rolesStored: Array.isArray(d.roles)
+      /* Its skills and rota places (Teams & groups), saved together; none
+         stored keeps the built-in ones. */
+      skills:   listsStored(d) ? cleanSkills(d.skills) : (base.skills || []),
+      places:   listsStored(d) ? cleanPlaces(d.places) : (base.places || []),
+      listsStored: listsStored(d)
     };
     if (!TEAMS[id].parent) delete TEAMS[id].parent;
     if (!TEAMS[id].coreFor.length) delete TEAMS[id].coreFor;
@@ -1329,21 +1352,30 @@
      rota, and anything added later. Defined once here rather than copied
      into each, because a copy is a thing that drifts. */
 
-  /* Every answer comes from the teams' roles (TEAM_ROLES above, or what
-     the church stored), so the planner, the read-only rota and the PDF
-     cannot disagree about whose a place is. */
+  /* Every answer comes from the teams' skills and places (TEAM_SKILLS
+     above, or what the church stored), so the planner, the read-only rota,
+     the address book and the PDF cannot disagree. */
 
-  /** A team's roles, in its order: what it stored, else the built-in ones.
+  /** A team's skills, in its order (the address book's ticks).
    * @param {string} team team id  @returns {string[]} */
-  function rolesOf(team) { return ((TEAMS[team] && TEAMS[team].roles) || []).slice(); }
+  function skillsOf(team) { return ((TEAMS[team] && TEAMS[team].skills) || []).slice(); }
 
-  /* "Helper 3" -> "Helper": the numbered places of one role share a tick. */
+  /** A team's rota places, in its order: [{ name, skill }] ('' = no skill).
+   * @param {string} team team id  @returns {{name: string, skill: string}[]} */
+  function placesOf(team) {
+    return ((TEAMS[team] && TEAMS[team].places) || []).map(function (p) { return { name: p.name, skill: p.skill || '' }; });
+  }
+
+  /** A team's place names, in order. @param {string} team @returns {string[]} */
+  function rolesOf(team) { return placesOf(team).map(function (p) { return p.name; }); }
+
+  /* "Helper 3" -> "Helper": the numbered places of one kind are a family. */
   function roleBase(r) { return String(r || '').replace(/\s+\d+$/, ''); }
 
-  /* The extra built-in key for a team still on its built-in roles. */
+  /* A display key of the built-in table, for a team still on its built-in lists. */
   function builtIn(team, key) {
     var t = TEAMS[team];
-    return t && !t.rolesStored && TEAM_ROLES[team] ? TEAM_ROLES[team][key] : undefined;
+    return t && !t.listsStored && TEAM_SKILLS[team] ? TEAM_SKILLS[team][key] : undefined;
   }
 
   function jobTeamIds(jobs) {
@@ -1354,45 +1386,82 @@
     return out;
   }
 
-  /** The team a rota place belongs to: the first team listing it (or its
-   * numbered family: "Helper 7" goes with "Helper 1"). A sub-team's place
-   * counts as its parent's, as Choir always counted as Worship. A place no
-   * team lists is the first worship team's, as it always was.
+  /* The team listing a place (or its family: "Helper 7" goes with "Helper 1"). */
+  function placeHolder(r) {
+    var ids = Object.keys(TEAMS), base = roleBase(r);
+    return ids.filter(function (t) { return rolesOf(t).indexOf(r) !== -1; })[0] ||
+      ids.filter(function (t) { return rolesOf(t).some(function (x) { return roleBase(x) === base; }); })[0] || '';
+  }
+
+  /** The team a rota place belongs to: the team listing it. A sub-team's
+   * place counts as its parent's, as Choir always counted as Worship. A place
+   * no team lists is the first worship team's, as it always was.
    * @param {string} r the place  @returns {string} team id, or '' */
   function roleTeamOf(r) {
-    var ids = Object.keys(TEAMS), base = roleBase(r), hit = '';
-    ids.some(function (t) { return rolesOf(t).indexOf(r) !== -1 && (hit = t); }) ||
-      ids.some(function (t) { return rolesOf(t).some(function (x) { return roleBase(x) === base; }) && (hit = t); });
+    var hit = placeHolder(r);
     if (hit) return (TEAMS[hit] && TEAMS[hit].parent) || hit;
-    /* Before the team jobs have loaded: the first team with roles, which
+    /* Before the team jobs have loaded: the first team with places, which
        for the built-in table is the worship team, so a page that never
        loads the jobs still sorts places as it always did. */
     return (EGBCAuth.teamsForJob('worship') || [])[0] ||
-      ids.filter(function (t) { return rolesOf(t).length && !TEAMS[t].parent; })[0] || '';
+      Object.keys(TEAMS).filter(function (t) { return rolesOf(t).length && !TEAMS[t].parent; })[0] || '';
   }
   var roleTeam = roleTeamOf;
+
+  /** A stored tick under its skill's name: the built-in aliases ("Sing" is
+   * "Singer"), applied when reading so nobody has to tick again.
+   * @param {string} tick @returns {string} */
+  function skillName(tick) {
+    var out = tick;
+    Object.keys(TEAM_SKILLS).some(function (t) {
+      var a = TEAM_SKILLS[t].aliases;
+      return a && Object.prototype.hasOwnProperty.call(a, tick) && (out = a[tick]);
+    });
+    return out;
+  }
+
+  /** The skill a place needs ('' = filled by hand only). A place no team
+   * lists ("Singer 4", added by auto-fill) takes its family's skill, else
+   * its own name, as the rota always matched it.
+   * @param {string} r the place @returns {string} */
+  function placeSkill(r) {
+    var t = placeHolder(r);
+    if (!t) return skillName(r);
+    var all = placesOf(t);
+    var p = all.filter(function (x) { return x.name === r; })[0] ||
+      all.filter(function (x) { return roleBase(x.name) === roleBase(r); })[0];
+    return p ? p.skill : '';
+  }
+
+  /** Whether a person (an address book record) has a skill ticked, under
+   * either name. @param {object} m @param {string} skill
+   * @param {boolean} [usuallyOnly] the "usually" ticks only */
+  function hasSkill(m, skill, usuallyOnly) {
+    if (!m || !skill) return false;
+    var has = function (list) { return (list || []).some(function (x) { return skillName(x) === skill; }); };
+    return has(m.primaryInstruments) || has(m.kidsRolesPrimary) ||
+      (!usuallyOnly && (has(m.secondaryInstruments) || has(m.kidsRolesSecondary)));
+  }
 
   /** The rota places to offer for the teams doing some jobs, in job order,
    * no repeats ("+ Role"). @param {string[]} jobs @returns {string[]} */
   function roleChoices(jobs) {
     var out = [];
     jobTeamIds(jobs).forEach(function (t) {
-      (builtIn(t, 'offer') || rolesOf(t)).forEach(function (r) { if (out.indexOf(r) === -1) out.push(r); });
+      rolesOf(t).forEach(function (r) { if (out.indexOf(r) === -1) out.push(r); });
     });
     return out;
   }
 
-  /** What a person can tick in the address book for the teams doing some
-   * jobs: [{ value, label, strong }], no repeats. The value is what a
-   * record stores, so it never changes for a saved record.
-   * @param {string[]} jobs */
+  /** The address book ticks for the teams doing some jobs: their skills,
+   * [{ value, label, strong }], no repeats. @param {string[]} jobs */
   function roleTicks(jobs) {
     var out = [], seen = {}, strong = {};
     var teams = jobTeamIds(jobs);
     teams.forEach(function (t) { (builtIn(t, 'strong') || []).forEach(function (s) { strong[s] = 1; }); });
     teams.forEach(function (t) {
       var labels = builtIn(t, 'labels') || {};
-      (builtIn(t, 'ticks') || rolesOf(t).map(roleBase)).forEach(function (v) {
+      skillsOf(t).forEach(function (v) {
         if (seen[v]) return;
         seen[v] = 1;
         /* "Leader (Younger)" reads "Leader — Younger". */
@@ -1403,7 +1472,7 @@
   }
 
   /** The places a week gets when one of these teams is ticked on it. With
-   * roles stored: all of them, a numbered family starting with two.
+   * lists stored: all of them, a numbered family starting with two.
    * @param {string[]} jobs @returns {string[]} */
   function roleStarts(jobs) {
     var out = [];
@@ -1414,37 +1483,27 @@
     return out;
   }
 
-  /** What auto-fill adds beyond a service's own places, for the teams doing
-   * some jobs: { fill: [[place, ticked as]], grow: [[family, ticked as]] }.
-   * With roles stored every place is tried, filled by whoever ticked it
-   * (numbers off), and nothing grows past the places listed.
-   * @param {string[]} jobs */
+  /** What auto-fill tries beyond a service's own places, for the teams doing
+   * some jobs: { fill: [[place, skill]], grow: [[family, skill]] }. A
+   * numbered family with a skill (Singer 1-3) grows to take every available
+   * person with it; any other place with a skill gets one person. Places
+   * with no skill are left for people to fill. @param {string[]} jobs */
   function roleFill(jobs) {
-    var fill = [], grow = [];
+    var fill = [], grow = [], seen = {};
     jobTeamIds(jobs).forEach(function (t) {
-      if (TEAMS[t] && TEAMS[t].rolesStored) rolesOf(t).forEach(function (r) { fill.push([r, roleBase(r)]); });
-      else { fill = fill.concat(builtIn(t, 'fill') || []); grow = grow.concat(builtIn(t, 'grow') || []); }
+      placesOf(t).forEach(function (p) {
+        if (!p.skill || seen[p.name]) return;
+        seen[p.name] = 1;
+        var base = roleBase(p.name);
+        if (base !== p.name) {
+          if (!grow.some(function (g) { return g[0] === base; })) grow.push([base, p.skill]);
+        } else fill.push([p.name, p.skill]);
+      });
     });
     return { fill: fill, grow: grow };
   }
 
-  /** What a person must have ticked to fill a place: the place without its
-   * number, or a built-in team's own word for it ("Singer 2" -> "Sing").
-   * @param {string} r the place */
-  function abilityOf(r) {
-    var ids = Object.keys(TEAMS);
-    var t = ids.filter(function (x) { return rolesOf(x).indexOf(r) !== -1; })[0] ||
-      ids.filter(function (x) { return rolesOf(x).some(function (y) { return roleBase(y) === roleBase(r); }); })[0];
-    var pairs = (t && builtIn(t, 'fill')) || [], grow = (t && builtIn(t, 'grow')) || [];
-    var f = pairs.filter(function (p) { return p[0] === r; })[0] || grow.filter(function (p) { return p[0] === roleBase(r); })[0];
-    if (f) return f[1];
-    /* A built-in place someone can tick by its own name ("Keyboard") keeps
-       it; otherwise the number comes off ("Helper 3" -> "Helper"). */
-    var ticks = t && builtIn(t, 'ticks');
-    return ticks && ticks.indexOf(r) !== -1 ? r : roleBase(r);
-  }
-
-  /** The address book's words about these teams' roles: [above, below]
+  /** The address book's words about these teams' skills: [above, below]
    * (built-in only). @param {string[]} jobs */
   function roleNote(jobs) {
     var n = null;
@@ -2381,7 +2440,13 @@
     roleTicks: roleTicks,
     roleStarts: roleStarts,
     roleFill: roleFill,
-    abilityOf: abilityOf,
+    skillsOf: skillsOf,
+    placesOf: placesOf,
+    placeSkill: placeSkill,
+    /* Kept for pages written against it: a place's skill. */
+    abilityOf: placeSkill,
+    skillName: skillName,
+    hasSkill: hasSkill,
     roleNote: roleNote,
     /* The children's and AV teams' places, read when asked: they follow the
        church's teams and team jobs once those have loaded. */
@@ -2733,7 +2798,7 @@
   try {
     if (new URLSearchParams(location.search).get('setup') === '1') {
       document.addEventListener('egbc-ready', function () {
-        sibling('egbc-setup.js', '202610302000').then(function () { if (global.EGBCSetup) global.EGBCSetup.bar(); });
+        sibling('egbc-setup.js', '202610311900').then(function () { if (global.EGBCSetup) global.EGBCSetup.bar(); });
       }, { once: true });
     }
   } catch (e) {}

@@ -6,7 +6,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202610311900"></script>
+<script src="egbc-auth.js?v=202610312000"></script>
 <script src="egbc-manifest.js?v=202610311800"></script>
 <script src="egbc-plan-store.js?v=202610252100"></script>
 
@@ -1311,7 +1311,10 @@ let currentService = null;
 // team's (Martin, 25 Oct 2026; the same filter as c5f664ba), so the Kids
 // Church slots are left out of it.
 const isWorshipRole = r => {
-  if (typeof EGBCAuth !== 'undefined' && EGBCAuth.roleTeam) return EGBCAuth.roleTeam(r) !== 'Kids Church';
+  /* Children's work is the children job's teams, once the team jobs are
+     read; before then the place names decide, as they always did. */
+  if (typeof EGBCAuth !== 'undefined' && EGBCAuth.roleTeam && EGBCAuth.permsReady && EGBCAuth.permsReady())
+    return EGBCAuth.teamsForJob('children').indexOf(EGBCAuth.roleTeam(r)) === -1;
   return !(r === 'Session Leader' || /^Helper \d+$/.test(r) || r.startsWith('Leader (') || r.startsWith('Assistant ('));
 };
 const worshipOnly = a => Object.fromEntries(Object.entries(a || {}).filter(([r]) => isWorshipRole(r)));
@@ -1721,6 +1724,7 @@ async function selectEvent() {
   EGBCAuth.slideRoles(data).forEach(([role, name]) => {
       if (name) teamBody.innerHTML += `<tr><td>${role}</td><td>${name}</td><td><textarea class="instr-note" placeholder="Specific instructions..." rows="1"></textarea></td></tr>`;
   });
+  if (EGBCAuth.loadPerms) await EGBCAuth.loadPerms().catch(() => {});
   let rows = sortAssignments(Object.entries(worshipOnly(data.assignments)));
   rows.forEach(([role, person]) => {
     teamBody.innerHTML += `<tr><td>${role}</td><td>${person.name}</td><td><textarea class="instr-note" placeholder="Specific instructions..." rows="1"></textarea></td></tr>`;
@@ -1882,8 +1886,13 @@ async function emailSchedule() {
 
   // Email sent via Resend below
 
+  /* The plan goes to the worship core team too: the core teams covering
+     the teams that do the church's worship. */
+  if (EGBCAuth.loadPerms) await EGBCAuth.loadPerms().catch(() => {});
+  const worshipTeams = EGBCAuth.teamsForJob('worship'), T = EGBCAuth.TEAMS || {};
+  const cores = Object.keys(T).filter(t => !T[t].archived && (T[t].coreFor || []).some(c => worshipTeams.includes(c)));
   let recipients = [];
-  addressBook.forEach(p => { if ((rosterNames.includes(p.name?.trim()) || (p.markers && p.markers.includes('Core Team'))) && p.email) recipients.push(p.email); });
+  addressBook.forEach(p => { if ((rosterNames.includes(p.name?.trim()) || (p.markers && p.markers.some(m => cores.includes(m)))) && p.email) recipients.push(p.email); });
   const teamTo = [...new Set(recipients)].join(',');
   const subject = 'Youth Service Plan: ' + date;
 
