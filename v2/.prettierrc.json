@@ -1,0 +1,11 @@
+{
+  "printWidth": 140,
+  "singleQuote": true,
+  "semi": true,
+  "trailingComma": "none",
+  "arrowParens": "always",
+  "endOfLine": "auto",
+  "overrides": [
+    { "files": "*.html", "options": { "printWidth": 160 } }
+  ]
+}

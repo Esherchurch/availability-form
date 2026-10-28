@@ -2271,3 +2271,13 @@ I went through NEXT-BRIEF §26 and §27, GOING-LIVE.md and this file for my area
 **For the events window (egbc-notify-core.js is theirs):** one new type, `message` ("Emails from the church office and my leaders"), with `email: false`. functions/notify-core.cjs is the same copy, and the stamp is bumped on its three pages.
 
 **Functions to deploy:** compilerGroups, compilerNotify, compilerSent (new); enewsTidyPending (new, scheduled); hubSend, enewsPreviewWeb, helpAsk (changed).
+
+## "Make it maintainable", first part: checks and the handbook (28 Oct 2026)
+
+Config only. Nothing was reformatted, and no other window's code changed.
+- **ESLint:** `eslint.config.js` (flat config, recommended rules) covers the page scripts, the functions, the tests and tools, and the Cloudflare Worker. One run: 418 files, **15 errors** and 858 warnings, most of them names from other scripts in the page scripts. The errors: re-declared variables in egbc-auth.js (`kidsTeams`) and the Mix Builder files; odd spaces and character classes in four regexes in tests and tools; one stray whitespace character in egbc-ics.js; and one browser name in a server copy (compliance-store.cjs). The inline scripts in .html pages wait for eslint-plugin-html, or for each page's script moving to its own file.
+- **Prettier:** `.prettierrc.json` and `.prettierignore`, which leaves out built files and Markdown. Check only.
+- **Type check:** `tsconfig.json` (page scripts) and `functions/tsconfig.json` (Node 22), with checkJs and noEmit, not strict. One run each: **2,004** errors in the page scripts, **210** in the functions.
+- **npm scripts** in v2/package.json: `lint`, `format:check`, `typecheck`, `test:rules` and `test:functions`.
+- **CI:** `v2/.github/workflows/checks.yml` has four jobs (lint and format, type check, rules tests with the build check, functions tests). Each is continue-on-error, so it reports and blocks nothing. Tool versions are pinned. It uses demo project ids only and never deploys. **It doesn't run yet:** GitHub reads workflows only from the top of a repository. It runs as it is once Church HQ has its own repository (set `V2: .`), or once copied to this repository's top-level `.github/workflows/`. Dependabot (`v2/.github/dependabot.yml`) is the same.
+- **docs/HANDBOOK.md**, first draft (about 15 pages): what Church HQ is; how a church's data is kept apart; the folder map and built files; sign-in, levels, jobs, permissions and features; running, testing and deploying; the data map; where each feature lives; adding a page; adding a function; working alongside others; common mistakes; a glossary. Places that change with the new repository are marked "(changing)".

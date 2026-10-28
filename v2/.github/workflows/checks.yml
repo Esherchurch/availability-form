@@ -1,0 +1,98 @@
+# Church HQ's automatic checks (ENGINEERING.md §4): lint, type check, the
+# security rules tests and the functions tests, on every push.
+#
+# REPORT-ONLY FOR NOW: every job is continue-on-error, so a red check shows
+# in the run but blocks nothing. Make a job blocking by deleting its
+# continue-on-error line, one at a time, once its count is down to zero.
+#
+# WHERE IT RUNS: GitHub only reads workflows from .github/workflows at the
+# top of a repository. Church HQ still lives in v2/ of the original site's
+# repository, so this copy is inert until either
+#   - Church HQ moves to its own repository (ENGINEERING.md §2), where v2/
+#     is the top: set V2 below to "." and it runs as it is; or
+#   - it is copied to the top-level .github/workflows/ of this repository,
+#     with V2 left as "v2".
+# Nothing here deploys, and nothing reaches a real Firebase project: the
+# emulators run with a demo project id.
+
+name: Church HQ checks
+
+on:
+  push:
+  pull_request:
+
+env:
+  V2: v2
+  EGBC_FIREBASE_CONFIG: firebase.spare.json
+  # The tools' exact versions, so a run is the same each time.
+  TOOLS: eslint@9.14.0 @eslint/js@9.14.0 globals@15.12.0 prettier@3.3.3 typescript@5.6.3 @types/node@22.9.0
+
+jobs:
+  lint:
+    name: Lint and format
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults: { run: { working-directory: ${{ env.V2 }} } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm install --no-save --no-audit --no-fund $TOOLS
+      - name: ESLint
+        run: npx eslint . --max-warnings=-1
+      - name: Prettier (check only, never writes)
+        if: always()
+        run: npx prettier --check "**/*.{js,mjs,cjs,json,css}"
+
+  typecheck:
+    name: Type check (JSDoc)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults: { run: { working-directory: ${{ env.V2 }} } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci --no-audit --no-fund && npm install --no-save --no-audit --no-fund $TOOLS
+      - run: cd functions && npm ci --no-audit --no-fund
+      - name: Shared page scripts
+        run: npx tsc -p tsconfig.json
+      - name: Cloud Functions
+        if: always()
+        run: npx tsc -p functions/tsconfig.json
+
+  rules:
+    name: Security rules tests
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults: { run: { working-directory: ${{ env.V2 }} } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      # The Firestore and Storage emulators need Java.
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - run: npm ci --no-audit --no-fund
+      - run: cd functions && npm ci --no-audit --no-fund
+      # The generated rules must match their sources before they are tested.
+      - name: Rules built from their sources
+        run: node tests/check-rules-build.mjs
+      - name: Rules tests (both rulesets, Firestore and Storage)
+        run: npm run test:rules
+
+  functions:
+    name: Functions tests
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults: { run: { working-directory: ${{ env.V2 }} } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - run: npm ci --no-audit --no-fund
+      - run: cd functions && npm ci --no-audit --no-fund
+      - name: Functions tests on the emulator
+        run: npm run test:functions

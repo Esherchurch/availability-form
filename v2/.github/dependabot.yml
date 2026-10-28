@@ -1,0 +1,16 @@
+# Keeps packages up to date (ENGINEERING.md §4). Like the workflow, GitHub
+# reads this only from the top of a repository: it takes effect when Church
+# HQ has its own repository, or once copied to the top with "/v2" paths.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: npm
+    directory: /functions
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: monthly }

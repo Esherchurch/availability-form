@@ -1,0 +1,18 @@
+{
+  // The Cloud Functions' type check (see ../tsconfig.json). Node 22, ES
+  // modules; firebase-admin and firebase-functions bring their own types.
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": false,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["*.js", "*.cjs"],
+  "exclude": ["node_modules", "*.test.mjs"]
+}

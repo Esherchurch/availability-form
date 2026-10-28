@@ -4,7 +4,12 @@
   "description": "",
   "main": "egbc-auth.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "lint": "eslint .",
+    "format:check": "prettier --check \"**/*.{js,mjs,cjs,json,css}\"",
+    "typecheck": "tsc -p tsconfig.json && tsc -p functions/tsconfig.json",
+    "test:rules": "firebase emulators:exec --config firebase.spare.json --only firestore,storage --project demo-egbc \"node firestore-rules.test.mjs && node storage-rules.test.mjs && node church-scope-rules.test.mjs && node church-rules.test.mjs\"",
+    "test:functions": "node --test functions/on-delete.test.mjs && firebase emulators:exec --config firebase.spare.json --only firestore --project demo-egbc \"node functions/data-links.test.mjs && node functions/comms-links.test.mjs && node functions/help-ask.test.mjs && node functions/votes-in-meetings.test.mjs && node functions/comms-extras.test.mjs\"",
+    "test": "echo \"See docs/HANDBOOK.md, Testing: npm run test:rules and npm run test:functions\" && exit 1"
   },
   "keywords": [],
   "author": "",

@@ -1,0 +1,22 @@
+{
+  // Type checking from the JSDoc comments (ENGINEERING.md §4). There is no
+  // build step: nothing is emitted, the code stays plain JavaScript.
+  //   npx tsc -p tsconfig.json            the shared page scripts
+  //   npx tsc -p functions/tsconfig.json  the Cloud Functions
+  // Report-only for now. "strict" is off until the JSDoc is filled in; turn
+  // on one strict option at a time as the count of errors comes down.
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "strict": false,
+    "skipLibCheck": true,
+    "types": []
+  },
+  "include": ["*.js"],
+  "exclude": ["node_modules", "eslint.config.js"]
+}

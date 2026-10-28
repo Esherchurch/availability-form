@@ -1,0 +1,30 @@
+# Prettier (ENGINEERING.md §4). Config only for now: nothing has been
+# reformatted. CI runs "prettier --check" and reports; the one reformat
+# happens in the "make it maintainable" stage, as its own commit, when no
+# other window has work in flight.
+node_modules/
+functions/node_modules/
+bibles/
+brand/
+design/
+design-mocks/
+screenshots/
+img/
+converter/
+ease-test/
+mix-tests/
+monitor-bridge/
+# Built by tools/ (rules, help, the data map, shared copies): reformatting
+# them would make their own "is it up to date" checks fail.
+firestore.build.rules
+firestore.churches.rules
+storage.churches.rules
+functions/help-texts.json
+functions/data-map.json
+functions/notify-core.cjs
+functions/safeguarding-core.cjs
+functions/team-jobs.js
+functions/permissions-core.js
+package-lock.json
+functions/package-lock.json
+*.md
