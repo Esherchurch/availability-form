@@ -6,7 +6,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202610312000"></script>
+<script src="egbc-auth.js?v=202610312100"></script>
 <script src="egbc-manifest.js?v=202610311800"></script>
 <script src="egbc-plan-store.js?v=202610252100"></script>
 
@@ -924,6 +924,27 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
 .mine-charter-body h1, .mine-charter-body h2, .mine-charter-body h3 { font-size: 15px; font-weight: 600; margin: 14px 0 6px; }
 </style>
 <script src="egbc-ui.js?v=202610150900"></script>
+<script>
+/* THE HEADER IS THE YOUTH TEAM'S OWN: the team doing the youth job, its
+   logo and title from Teams & groups, else the church's logo; its name
+   ("Youth Worship") on the big line. */
+(function () {
+  function set(look, name, churchLogo) {
+    var img = document.getElementById('yh-logo');
+    var logo = look.logo || churchLogo;
+    if (logo) { img.src = logo; img.alt = name; img.style.visibility = 'visible'; } else img.style.display = 'none';
+    document.getElementById('yh-name').textContent = name;
+    document.getElementById('yh-title').textContent = look.title && look.title !== name ? look.title : '';
+  }
+  EGBCAuth.optional().then(function () { return EGBCAuth.loadPerms ? EGBCAuth.loadPerms().catch(function () {}) : null; }).then(function () {
+    var team = (EGBCAuth.teamsForJob('youth') || [])[0] || '';
+    var look = EGBCAuth.teamLook(team);
+    return EGBCAuth.db.collection('churchSettings').doc('details').get().then(function (d) {
+      set(look, team, ((d.exists && d.data()) || {}).logoUrl || '');
+    }, function () { set(look, team, ''); });
+  }).catch(function () {});
+})();
+</script>
 </head>
 <body>
 
@@ -940,10 +961,10 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
   <!-- HOME -->
   <div id="home-screen">
     <div style="background:var(--white);padding:16px 16px 12px;display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--border);">
-      <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774933429062.png?alt=media&token=bdd037bd-8caf-436d-b09a-3174ecf5123c" alt="EGBC Youth Worship" style="height:56px;width:auto;display:block;background:white;">
+      <img id="yh-logo" src="" alt="" style="height:56px;width:auto;display:block;background:white;visibility:hidden">
       <div>
-        <div style="font-size:16px;font-weight:600;color:var(--teal);line-height:1.1;">Youth Worship</div>
-        <div style="font-size:12px;font-weight:600;color:var(--muted);">EGBC Youth Team</div>
+        <div id="yh-name" style="font-size:16px;font-weight:600;color:var(--teal);line-height:1.1;"></div>
+        <div id="yh-title" style="font-size:12px;font-weight:600;color:var(--muted);"></div>
       </div>
     </div>
 

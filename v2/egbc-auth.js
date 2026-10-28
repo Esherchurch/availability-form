@@ -392,11 +392,14 @@
         'Helpers are not tied to a group \u2014 which group they take is decided when the week is planned.']
     }
   };
-  var pairs = function (list) { return list.map(function (p) { return { name: p[0], skill: p[1] }; }); };
+  /* start: the place is in the team's standard week (starts above). */
+  var pairs = function (list, starts) {
+    return list.map(function (p) { return { name: p[0], skill: p[1], start: (starts || []).indexOf(p[0]) !== -1 }; });
+  };
   Object.keys(TEAM_SKILLS).forEach(function (t) {
     if (!TEAMS[t]) return;
     TEAMS[t].skills = TEAM_SKILLS[t].skills.slice();
-    TEAMS[t].places = pairs(TEAM_SKILLS[t].places);
+    TEAMS[t].places = pairs(TEAM_SKILLS[t].places, TEAM_SKILLS[t].starts);
   });
 
   /* ---- Teams as data (APP-A1 §4, steps 1-2) -------------------------
@@ -445,7 +448,7 @@
   }
   function cleanPlaces(list) {
     return (Array.isArray(list) ? list : []).filter(function (p) { return p && typeof p.name === 'string' && p.name; })
-      .map(function (p) { return { name: p.name, skill: typeof p.skill === 'string' ? p.skill : '' }; });
+      .map(function (p) { return { name: p.name, skill: typeof p.skill === 'string' ? p.skill : '', start: p.start === true }; });
   }
 
   function mergeTeam(id, d) {
@@ -469,7 +472,12 @@
          stored keeps the built-in ones. */
       skills:   listsStored(d) ? cleanSkills(d.skills) : (base.skills || []),
       places:   listsStored(d) ? cleanPlaces(d.places) : (base.places || []),
-      listsStored: listsStored(d)
+      listsStored: listsStored(d),
+      /* Its own logo and display title (Teams & groups), for the pages and
+         apps that show the team as itself; '' = the church's logo and the
+         team's label. */
+      logoUrl:  typeof d.logoUrl === 'string' ? d.logoUrl : (base.logoUrl || ''),
+      title:    typeof d.title === 'string' ? d.title : (base.title || '')
     };
     if (!TEAMS[id].parent) delete TEAMS[id].parent;
     if (!TEAMS[id].coreFor.length) delete TEAMS[id].coreFor;
@@ -1363,7 +1371,7 @@
   /** A team's rota places, in its order: [{ name, skill }] ('' = no skill).
    * @param {string} team team id  @returns {{name: string, skill: string}[]} */
   function placesOf(team) {
-    return ((TEAMS[team] && TEAMS[team].places) || []).map(function (p) { return { name: p.name, skill: p.skill || '' }; });
+    return ((TEAMS[team] && TEAMS[team].places) || []).map(function (p) { return { name: p.name, skill: p.skill || '', start: p.start === true }; });
   }
 
   /** A team's place names, in order. @param {string} team @returns {string[]} */
@@ -1471,13 +1479,16 @@
     return out;
   }
 
-  /** The places a week gets when one of these teams is ticked on it. With
-   * lists stored: all of them, a numbered family starting with two.
-   * @param {string[]} jobs @returns {string[]} */
+  /** The places a week gets when one of these teams is ticked on it: the
+   * team's standard week (the places marked to start each week, in Teams &
+   * groups). A team that has marked none: every place, a numbered family
+   * starting with two. @param {string[]} jobs @returns {string[]} */
   function roleStarts(jobs) {
     var out = [];
     jobTeamIds(jobs).forEach(function (t) {
-      (builtIn(t, 'starts') || rolesOf(t).filter(function (r) { var n = /\s(\d+)$/.exec(r); return !n || Number(n[1]) <= 2; }))
+      var places = placesOf(t), marked = places.filter(function (p) { return p.start; });
+      (marked.length ? marked.map(function (p) { return p.name; })
+        : places.map(function (p) { return p.name; }).filter(function (r) { var n = /\s(\d+)$/.exec(r); return !n || Number(n[1]) <= 2; }))
         .forEach(function (r) { if (out.indexOf(r) === -1) out.push(r); });
     });
     return out;
@@ -2439,6 +2450,13 @@
     roleChoices: roleChoices,
     roleTicks: roleTicks,
     roleStarts: roleStarts,
+    /* A team's own logo and title for its pages and apps, each falling back
+       to the church's logo and the team's label (the caller has the church's
+       logo). @param {string} team @returns {{ logo: string, title: string }} */
+    teamLook: function (team) {
+      var T = TEAMS[team] || {};
+      return { logo: T.logoUrl || '', title: T.title || T.label || team || '' };
+    },
     roleFill: roleFill,
     skillsOf: skillsOf,
     placesOf: placesOf,

@@ -870,8 +870,9 @@ service cloud.firestore {
     // its members see.
     match /teams/{teamId} {
       // Everyone needs the labels and colours to draw anything, and there
-      // is nothing private in it.
-      allow read: if active();
+      // is nothing private in it - the youth app's young people included,
+      // whose header is their team's own logo and title.
+      allow read: if active() || youthGranted();
       // Adding a team gives access to whoever is ticked into it, and `runs`
       // decides who runs things - neither is an ordinary admin job.
       // TEAMS & GROUPS (Martin, 15 Oct 2026): master admins and the Church
@@ -888,7 +889,11 @@ service cloud.firestore {
                         && request.resource.data.get('board', '') == (resource == null ? '' : resource.data.get('board', ''))))
                    && request.resource.data.keys().hasOnly(['name', 'label', 'colour', 'tint',
                         'parent', 'rota', 'tabs', 'runs', 'under18', 'order', 'archived', 'coreFor', 'board',
-                        'skills', 'places', 'updatedAt', 'updatedBy'])
+                        'skills', 'places', 'logoUrl', 'logoPath', 'title', 'updatedAt', 'updatedBy'])
+                   // Its own logo and display title, for its pages and apps.
+                   && request.resource.data.get('logoUrl', '') is string && request.resource.data.get('logoUrl', '').size() <= 1000
+                   && request.resource.data.get('logoPath', '') is string && request.resource.data.get('logoPath', '').size() <= 300
+                   && request.resource.data.get('title', '') is string && request.resource.data.get('title', '').size() <= 60
                    // skills: what the team's people can do (the address book's
                    // ticks), at most 60 names of 1-60 characters. The rules cannot
                    // loop over a list, so the names are joined one per line and

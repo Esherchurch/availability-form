@@ -36,6 +36,13 @@ This is the one list of every team and group the church has. The Home choices, "
 6. Use the up and down arrows to change the order, and the **×** to remove one. Removing a skill leaves its places to be filled by hand.
 7. Numbered places, such as **Singer 1** and **Singer 2**, all need the same skill. The planner adds more of them when more people with the skill are free.
 8. A team can have up to 60 skills and 100 places. Each name can be up to 60 letters long.
+9. Tick **Every week** on the places a new date starts with: the team's standard week. For example, a Session Leader and two helpers. If none are ticked, a new date gets every place, with two of each numbered place.
+
+## A team's logo and title
+1. Every team has **Logo and title** on its box.
+2. Press **Add a logo** and choose a picture under 2 MB. **Remove the logo** takes it away again.
+3. Type a **title** in the box beside it, for example "Youth Team". Leave it empty to use the team's name.
+4. The team's own pages and apps show these. The youth app's header shows the youth team's. Without a logo, they show the church's logo.
 
 ## Archive a team, or bring it back
 1. Tick **Archived** on the team. It goes from choices around the hub.
