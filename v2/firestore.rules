@@ -596,7 +596,8 @@ service cloud.firestore {
       // Planner on the old portal, so they must be able to SAVE a Worship
       // service and not only read it. Same helper as onTeam, same cover.
       allow write: if (isAdmin()
-                       || onAnyTeam(request.resource.data.get('teams', ['Worship Team'])))
+                       || onAnyTeam(request.resource.data.get('teams', ['Worship Team']))
+                       || privateMeetingOk(eventId))
                    && safeguardingOk()
                    // A MEETING'S OWN WORDS ARE NEVER HERE (Martin, 28 Oct 2026:
                    // "fix it properly"): the rota reads every event, so a
@@ -631,8 +632,23 @@ service cloud.firestore {
     // by the people invited, as EGBCAuth.invitedTo says: master admins, the
     // meetingsAll permission, its organiser, anyone named, and anyone on or
     // covering one of its teams. Written as its event is, or by its organiser.
+    // A meeting for named people only (no team): anyone who may set up
+    // meetings makes one, and only its organiser changes it. The event and
+    // its private part are written in one batch, so getAfter sees the
+    // organiser on create.
+    function privateMeetingOk(id) {
+      return volunteer()
+             && request.resource.data.get('meeting', false) == true
+             && request.resource.data.get('teams', ['-']).size() == 0
+             && (resource == null
+                 ? getAfter(/databases/$(database)/documents/meetings/$(id)).data.get('organiserUid', '') == request.auth.uid
+                 : (resource.data.get('teams', ['-']).size() == 0
+                    && get(/databases/$(database)/documents/meetings/$(id)).data.get('organiserUid', '') == request.auth.uid));
+    }
+    // With no team, a meeting is private to its organiser, the people named
+    // and master admins; the meetingsAll permission does not reach it.
     function meetingInvited(d) {
-      return active() && (isMaster() || hasPerm('meetingsAll')
+      return active() && (isMaster() || (hasPerm('meetingsAll') && d.get('teams', []).size() > 0)
              || d.get('organiserUid', '') == request.auth.uid
              || me().get('memberId', '-') in d.get('invitees', [])
              || myTeams().hasAny(d.get('teams', [])));

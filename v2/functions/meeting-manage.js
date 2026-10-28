@@ -10,6 +10,10 @@
                        page can show the invite link straight away.
 
      meetingInvite     { event }                        -> { invited }
+                       { event, people: [memberId], guests: [{ name, email }] }
+                                                        several at once, from
+                                                        the New meeting form;
+                                                        -> { invited, results }
                        { event, memberId }              invite one person
                                                         from the address book
                        { event, guest: { name, email } } invite somebody who
@@ -118,6 +122,7 @@ export async function listInvited(db, id, part) {
 
 export async function runInvite({ db, send, uid, data, now = new Date() }) {
   data = data || {};
+  if (Array.isArray(data.people) || Array.isArray(data.guests)) return inviteMany({ db, send, uid, data, now });
   const m = await manager(db, uid, data.event);
   const { id, ev } = m;
   const mref = db.collection('meetings').doc(id);
@@ -180,6 +185,30 @@ export async function runInvite({ db, send, uid, data, now = new Date() }) {
   }
   const part = (await mref.get()).data() || {};
   return { invited: await listInvited(db, id, part), emailed };
+}
+
+/**
+ * Invites several people and guests to one meeting, one at a time, so one
+ * refusal does not stop the rest.
+ * @returns {Promise<{ invited: object[], results: { name: string, ok: boolean, emailed: boolean, error?: string }[] }>}
+ */
+async function inviteMany({ db, send, uid, data, now }) {
+  const people = (data.people || []).slice(0, 50).map(String), guests = (data.guests || []).slice(0, 50);
+  const results = [];
+  let invited = [];
+  for (const memberId of people) {
+    const p = (await db.collection('addressBook').doc(memberId).get().catch(() => null));
+    const name = (p && p.exists && p.data().name) || memberId;
+    try { const r = await runInvite({ db, send, uid, now, data: { event: data.event, memberId } }); invited = r.invited; results.push({ name, ok: true, emailed: r.emailed === true }); }
+    catch (e) { results.push({ name, ok: false, emailed: false, error: e.message }); }
+  }
+  for (const g of guests) {
+    const name = String((g && g.name) || '').slice(0, 80);
+    try { const r = await runInvite({ db, send, uid, now, data: { event: data.event, guest: g } }); invited = r.invited; results.push({ name, ok: true, emailed: r.emailed === true }); }
+    catch (e) { results.push({ name, ok: false, emailed: false, error: e.message }); }
+  }
+  if (!results.some((r) => r.ok)) invited = await listInvited(db, String(data.event), (await db.collection('meetings').doc(String(data.event)).get()).data() || {});
+  return { invited, results };
 }
 
 export async function runGuestJoin({ db, data, now = Date.now() }) {

@@ -2156,7 +2156,9 @@
       if (!ev || ev.archived) return false;
       var room = global.EGBCVideo ? global.EGBCVideo.roomFor(ev) : (ev.videoRoom || '');
       if (room && !EGBCAuth.mayJoinRoom(room)) return false;
-      if (EGBCAuth.seesAllMeetings()) return true;
+      /* With no team a meeting is private: its organiser, the people named
+         and master admins only. */
+      if (EGBCAuth.isMaster() || (EGBCAuth.seesAllMeetings() && (ev.teams || []).length)) return true;
       if (room && EGBCAuth.membersRoom(room)) return true;
       var mine = EGBCAuth.effectiveTeams();
       mine = mine.concat(coversOf(mine));

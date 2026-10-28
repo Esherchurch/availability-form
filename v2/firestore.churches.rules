@@ -169,7 +169,8 @@ allow read, write: if false;
 match /events/{eventId} {
 allow read: if volunteer() || (active() && hasPerm('meetingsAll')) || churchShowServices() || youthGranted();
 allow write: if (isAdmin()
-|| onAnyTeam(request.resource.data.get('teams', ['Worship Team'])))
+|| onAnyTeam(request.resource.data.get('teams', ['Worship Team']))
+|| privateMeetingOk(eventId))
 && safeguardingOk()
 && !(request.resource.data.get('meeting', false) == true
 && request.resource.data.keys().hasAny(['description', 'organiserUid', 'invitees', 'publicTitle']));
@@ -182,8 +183,17 @@ allow update: if (isPastor() || isLeadership())
 && request.resource.data.get('readers', []) is list
 && request.resource.data.get('readers', []).size() <= 12;
 }
+function privateMeetingOk(id) {
+return volunteer()
+&& request.resource.data.get('meeting', false) == true
+&& request.resource.data.get('teams', ['-']).size() == 0
+&& (resource == null
+? getAfter(/databases/$(database)/documents/churches/$(cid)/meetings/$(id)).data.get('organiserUid', '') == request.auth.uid
+: (resource.data.get('teams', ['-']).size() == 0
+&& get(/databases/$(database)/documents/churches/$(cid)/meetings/$(id)).data.get('organiserUid', '') == request.auth.uid));
+}
 function meetingInvited(d) {
-return active() && (isMaster() || hasPerm('meetingsAll')
+return active() && (isMaster() || (hasPerm('meetingsAll') && d.get('teams', []).size() > 0)
 || d.get('organiserUid', '') == request.auth.uid
 || me().get('memberId', '-') in d.get('invitees', [])
 || myTeams().hasAny(d.get('teams', [])));

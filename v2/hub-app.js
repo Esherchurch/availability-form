@@ -1194,8 +1194,8 @@ function renderMeetings() {
           <div class="s">${I('clock')}${dow}${time ? ' ' + time : ''} <span>&middot;</span> ${I('video')}${esc(videoRoomLabel(videoRoomFor(ev)))}</div>
         </div>
         ${ev.date === today ? '<span class="pill">Today</span>' : ''}
-        ${EGBCAuth.mayManageMeeting && EGBCAuth.mayManageMeeting(ev) ? `<a class="btn sm ghost" href="meeting.html?invite=${encodeURIComponent(ev.id)}" title="Invite people" aria-label="Invite people">${I('user-plus')}</a>
-          <button class="btn sm ghost" onclick="cancelHubMeeting('${esc(ev.id)}')" title="Cancel this meeting" aria-label="Cancel this meeting">${I('trash-2')}</button>` : ''}
+        ${EGBCAuth.mayManageMeeting && EGBCAuth.mayManageMeeting(ev) ? `<a class="btn sm ghost" href="meeting.html?invite=${encodeURIComponent(ev.id)}" >${I('user-plus')}Invite people</a>
+          <button class="btn sm ghost" onclick="cancelHubMeeting('${esc(ev.id)}')" >${I('trash-2')}Cancel</button>` : ''}
         <a class="btn sm primary" href="${link}">Join</a>
       </div>`;
   }).join('');

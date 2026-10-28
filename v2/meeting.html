@@ -17,7 +17,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202610311600"></script>
+<script src="egbc-auth.js?v=202610311700"></script>
 <script src="egbc-present.js?v=202610311200"></script>
 <script src="egbc-video.js?v=202610311600"></script>
 <script src="https://unpkg.com/@daily-co/daily-js"></script>
@@ -275,7 +275,7 @@ async function lobby(profile) {
     const time = ev.startTime ? ` · ${ev.startTime}${ev.endTime ? '–' + ev.endTime : ''}` : '';
     html += `<div class="row"><div class="ic">${I('calendar-clock')}</div><div style="flex:1;min-width:170px"><div class="t">${esc(ev.type)}${ev.description ? ' · ' + esc(ev.description) : ''}</div>
       <div class="s">${esc(day + time)} · ${esc(roomLabel(r))}</div></div>
-      ${EGBCAuth.mayManageMeeting(ev) ? `<button class="btn sm" onclick="openInvite('${escAttr(ev.id)}')">${I('user-plus', 15)}Invite</button>
+      ${EGBCAuth.mayManageMeeting(ev) ? `<button class="btn sm" onclick="openInvite('${escAttr(ev.id)}')">${I('user-plus', 15)}Invite people</button>
         <button class="btn sm" onclick="cancelMeeting('${escAttr(ev.id)}')">${I('trash-2', 15)}Cancel</button>` : ''}
       <a class="btn sm solid" href="meeting.html?room=${encodeURIComponent(r)}&event=${encodeURIComponent(ev.id)}">Join</a></div>`;
   });
@@ -435,7 +435,8 @@ function myRotaTeams() {
 /* The types to offer: the rota's, then each of my teams' own. */
 function myMeetingTypes() {
   const mine = myRotaTeams(), by = teamsByType();
-  return Object.keys(by).filter(type => by[type].some(t => mine.includes(t)));
+  /* "Meeting" first: a one-to-one or an interview belongs to no team. */
+  return ['Meeting'].concat(Object.keys(by).filter(type => by[type].some(t => mine.includes(t))));
 }
 function canSchedule() { return myRotaTeams().length > 0; }
 
@@ -466,23 +467,73 @@ function openNewMeeting() {
     <!-- EVERY MEETING ITS OWN ROOM (Martin's test, 28 Oct 2026): never a
          standing room, so two meetings never share a link. -->
     <select id="nmRoom" style="${field}"><option value="own">Yes, in a room of its own</option><option value="">No video call</option></select>
-    <label style="${label}">Who is it for?</label>
+    <!-- WHO IS IT FOR: people first, whole teams only if wanted, so a
+         one-to-one never invites a whole team. -->
+    <label style="${label}">People</label>
+    <input id="nmFind" style="${field}" placeholder="Type a name from the address book" oninput="nmFind()" autocomplete="off">
+    <div id="nmHits"></div>
+    <label style="${label}">Someone not in the address book</label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><input id="nmGName" style="${field};flex:1;min-width:140px;width:auto" placeholder="Their name">
+      <input id="nmGEmail" type="email" style="${field};flex:1.4;min-width:180px;width:auto" placeholder="Their email">
+      <button class="btn" type="button" onclick="nmAddGuest()">Add</button></div>
+    <div id="nmChips" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"></div>
+    <label style="${label}">Whole teams (optional)</label>
     <div id="nmTeams" style="display:flex;gap:14px;flex-wrap:wrap;font-size:13px;font-weight:700;color:var(--ink)">
-      ${teams.map(t => `<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" value="${escAttr(t)}" style="width:18px;height:18px;accent-color:#3d6263">${esc(ROTA_TEAMS.includes(t) ? t : teamLabel(t))}</label>`).join('')}
+      ${teams.map(t => `<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" value="${escAttr(t)}" onchange="nmCheck()" style="width:18px;height:18px;accent-color:#3d6263">${esc(ROTA_TEAMS.includes(t) ? t : teamLabel(t))}</label>`).join('')}
     </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+    <div style="font-size:13px;color:var(--muted);margin-top:8px">With no team ticked, only you, the people you add and master admins can see it.</div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;align-items:center;flex-wrap:wrap;margin-top:16px">
+      <span id="nmWhy" style="font-size:13px;color:#b45309;font-weight:600"></span>
       <button class="btn" onclick="document.getElementById('newMeeting').style.display='none'">Cancel</button>
       <button class="btn solid" id="nmSave" onclick="saveNewMeeting()">Create meeting</button>
     </div>
   </div>`;
   box.style.display = '';
-  nmTypeChanged();
+  NM_PEOPLE = []; NM_GUESTS = [];
+  nmChips();
 }
 
-function nmTypeChanged() {
-  const type = document.getElementById('nmType').value;
-  const want = teamsByType()[type] || [];
-  document.querySelectorAll('#nmTeams input').forEach(c => { c.checked = want.includes(c.value); });
+/* Nothing is ticked for you: a team is invited only when somebody chooses it. */
+function nmTypeChanged() {}
+
+let NM_PEOPLE = [], NM_GUESTS = [];
+async function nmFind() {
+  const q = document.getElementById('nmFind').value.trim().toLowerCase();
+  const box = document.getElementById('nmHits');
+  if (q.length < 2) { box.innerHTML = ''; return; }
+  const hits = (await addressBook()).filter(p => String(p.name).toLowerCase().includes(q) && !NM_PEOPLE.some(x => x.id === p.id)).slice(0, 6);
+  box.innerHTML = hits.length ? hits.map(p => `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)"><div style="flex:1">${esc(p.name)}</div>
+      <button class="btn sm" type="button" onclick="nmAddPerson('${escAttr(p.id)}')">Add</button></div>`).join('')
+    : '<div style="font-size:13px;color:var(--muted);padding:6px 0">Nobody by that name. Add them below by name and email.</div>';
+}
+function nmAddPerson(id) {
+  const p = (BOOK || []).find(x => x.id === id);
+  if (p && !NM_PEOPLE.some(x => x.id === id)) NM_PEOPLE.push({ id, name: p.name });
+  document.getElementById('nmFind').value = ''; document.getElementById('nmHits').innerHTML = '';
+  nmChips();
+}
+function nmAddGuest() {
+  const name = document.getElementById('nmGName').value.trim(), email = document.getElementById('nmGEmail').value.trim();
+  if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { document.getElementById('nmWhy').textContent = 'A guest needs a name and an email address.'; return; }
+  if (!NM_GUESTS.some(g => g.email.toLowerCase() === email.toLowerCase())) NM_GUESTS.push({ name, email });
+  document.getElementById('nmGName').value = ''; document.getElementById('nmGEmail').value = '';
+  nmChips();
+}
+function nmRemove(kind, i) { (kind === 'g' ? NM_GUESTS : NM_PEOPLE).splice(i, 1); nmChips(); }
+function nmChips() {
+  const chip = (text, kind, i) => `<span style="display:inline-flex;align-items:center;gap:6px;background:var(--tint);color:var(--brand-dark);border-radius:999px;padding:4px 6px 4px 12px;font-size:13px;font-weight:500">${esc(text)}
+    <button type="button" onclick="nmRemove('${kind}', ${i})" aria-label="Remove" style="border:0;background:transparent;cursor:pointer;font-size:16px;line-height:1;color:var(--brand-dark);padding:0 4px">&times;</button></span>`;
+  document.getElementById('nmChips').innerHTML = NM_PEOPLE.map((p, i) => chip(p.name, 'p', i)).join('')
+    + NM_GUESTS.map((g, i) => chip(g.name + ' (guest)', 'g', i)).join('');
+  nmCheck();
+}
+/* At least one person or one team, or nobody would be invited. */
+function nmCheck() {
+  const teams = document.querySelectorAll('#nmTeams input:checked').length;
+  const ok = teams || NM_PEOPLE.length || NM_GUESTS.length;
+  document.getElementById('nmSave').disabled = !ok;
+  document.getElementById('nmWhy').textContent = ok ? '' : 'Add at least one person or tick a team.';
+  return !!ok;
 }
 
 async function saveNewMeeting() {
@@ -493,7 +544,8 @@ async function saveNewMeeting() {
   if (!date) { alert('Pick a date.'); return; }
   if (!startTime) { alert('Pick a start time.'); return; }
   if (endTime && endTime <= startTime) { alert('The end time is before the start time.'); return; }
-  if (!teams.length) { alert('Tick at least one team, so people can see the meeting.'); return; }
+  if (!nmCheck()) return;
+  if (NM_GUESTS.length && !document.getElementById('nmRoom').value) { document.getElementById('nmWhy').textContent = 'Guests can only join a video call.'; return; }
   const btn = document.getElementById('nmSave');
   btn.disabled = true; btn.textContent = 'Saving…';
   try {
@@ -510,9 +562,25 @@ async function saveNewMeeting() {
       organiserUid: (EGBCAuth.user() || {}).uid || '',
       archived: false,
     });
+    /* Then everyone chosen, in one go; each is emailed. */
+    let said = 'Created.';
+    if (NM_PEOPLE.length || NM_GUESTS.length) {
+      btn.textContent = 'Inviting…';
+      try {
+        const r = await EGBCAuth.call('meetingInvite', { event: id, people: NM_PEOPLE.map(p => p.id), guests: NM_GUESTS }, { timeoutMs: 60000 });
+        const sent = r.results.filter(x => x.ok && x.emailed).map(x => x.name);
+        const quiet = r.results.filter(x => x.ok && !x.emailed).map(x => x.name);
+        const bad = r.results.filter(x => !x.ok).map(x => x.name + ' (' + x.error + ')');
+        said += (sent.length ? ' Emailed: ' + sent.join(', ') + '.' : '')
+          + (quiet.length ? ' Invited, no email sent: ' + quiet.join(', ') + '.' : '')
+          + (bad.length ? ' Not invited: ' + bad.join('; ') + '.' : '');
+      } catch (e) { said += ' But the invitations did not go: ' + (e.message || e) + '. Use Invite people on the meeting.'; }
+    }
     await lobby(CURRENT_PROFILE);
-    /* Straight on to inviting people, with its link to copy. */
-    openInvite(id);
+    const note = document.createElement('div');
+    note.className = 'row'; note.style.cssText = 'margin-top:16px;border-color:#3d6263;color:var(--ink);font-weight:500';
+    note.textContent = said;
+    document.getElementById('lobby').prepend(note);
   } catch (e) {
     console.error('Could not save meeting', e);
     alert('Could not save the meeting: ' + e.message);
