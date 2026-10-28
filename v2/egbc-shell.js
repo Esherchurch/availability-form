@@ -661,7 +661,18 @@
   }
 
 
+  /* The page's "?" help (help/<page>.md), on every page with the bar, app
+     mode included. egbc-help.js checks for itself, so a page that also
+     loads it directly is fine, and a page with no help file shows no "?". */
+  function loadHelp() {
+    if (window.EGBCHelp || document.querySelector('script[src*="egbc-help.js"]')) return;
+    var s = document.createElement('script');
+    s.src = sibling('egbc-help.js');
+    document.head.appendChild(s);
+  }
+
   function start() {
+    loadHelp();
     /* APP MODE (APP-DESIGN-BRIEF §7d A). When the app opened this page,
        the website's bar, its Menu and its preview strip are not drawn at
        all - egbc-appmode.js puts the app's slim header and tab bar there
