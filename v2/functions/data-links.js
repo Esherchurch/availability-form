@@ -74,7 +74,9 @@ async function* childrenOf(dbi, parent, id, child, link) {
   let q;
   if (link.field === '$parent') q = dbi.collection(parent).doc(id).collection(child.split('/').pop());
   else if (link.field === '$id') { const s = await dbi.collection(child).doc(id).get(); if (s.exists) yield s; return; }
-  else if (link.field === '$idPrefix') q = dbi.collection(child).where(FieldPath.documentId(), '>=', id + '_').where(FieldPath.documentId(), '<', id + '_');
+  /* Ids from '<id>_' up to '<id>`' (the character after _): every id
+     starting '<id>_' and no other. */
+  else if (link.field === '$idPrefix') q = dbi.collection(child).where(FieldPath.documentId(), '>=', id + '_').where(FieldPath.documentId(), '<', id + '`');
   else q = dbi.collection(child).where(link.field, link.array ? 'array-contains' : '==', id);
   q = q.orderBy(FieldPath.documentId()).limit(PAGE);
   for (let last = null; ;) {

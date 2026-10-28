@@ -339,6 +339,6 @@
     "quizRuns": { "what": "A quiz being played.", "self": "delete", "links": [] },
     "planGroups": { "what": "A group with a teaching plan (Kids Church, youth).", "self": "delete", "links": [] },
     "planSessions": { "what": "One session's plan, shown by ChurchShow.", "self": "delete", "links": [ { "field": "groupId", "to": "planGroups", "rule": "keep-history", "why": "The page promises a group's plans stay when the group is removed." } ] },
-    "sermonLinks": { "what": "A sermon's link to a plan, kept by the server.", "self": "delete", "links": [] }
+    "sermonLinks": { "what": "A rota service's link to its sermon plan, kept by the server.", "self": "delete", "links": [ { "field": "$id", "to": "events", "rule": "cascade", "why": "Keyed by the rota service; means nothing once the service has gone." }, { "field": "sessionId", "to": "planSessions", "rule": "cascade", "why": "Points at the plan; a deleted plan has nothing to link to." } ] }
   }
 }

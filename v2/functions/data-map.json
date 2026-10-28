@@ -1850,9 +1850,22 @@
   },
   "sermonLinks": {
    "owner": "events",
-   "what": "A sermon's link to a plan, kept by the server.",
+   "what": "A rota service's link to its sermon plan, kept by the server.",
    "self": "delete",
-   "links": []
+   "links": [
+    {
+     "field": "$id",
+     "to": "events",
+     "rule": "cascade",
+     "why": "Keyed by the rota service; means nothing once the service has gone."
+    },
+    {
+     "field": "sessionId",
+     "to": "planSessions",
+     "rule": "cascade",
+     "why": "Points at the plan; a deleted plan has nothing to link to."
+    }
+   ]
   },
   "addressBook": {
    "owner": "main",

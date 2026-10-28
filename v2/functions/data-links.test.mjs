@@ -22,6 +22,7 @@ for (const cid of [null, 'st-aidans-test']) {
   await ev.collection('ticketTypes').doc('t1').set({ name: 'Adult' });
   await D.collection('eventNotes').doc('ev1').set({ text: 'x' });
   await D.collection('checklistReminders').doc('ev1_task_due').set({ at: 1 });
+  await D.collection('checklistReminders').doc('ev10_task_due').set({ at: 1 });
   await D.collection('signups').doc('s1').set({ calEventId: 'ev1', name: 'Synthetic Person' });
   await D.collection('rooms').doc('hall').set({ name: 'Hall', parts: ['hallA', 'hallB'] });
   const slots = new Array(96).fill(0); for (let i = 40; i < 44; i++) slots[i] = 1;
@@ -46,6 +47,13 @@ for (const cid of [null, 'st-aidans-test']) {
   ok(!(await ev.collection('ticketTypes').doc('t1').get()).exists, who + 'cascade: ticket types gone');
   ok(!(await D.collection('eventNotes').doc('ev1').get()).exists, who + 'cascade ($id): notes gone');
   ok(!(await D.collection('checklistReminders').doc('ev1_task_due').get()).exists, who + 'cascade ($idPrefix): reminder marks gone');
+  ok((await D.collection('checklistReminders').doc('ev10_task_due').get()).exists, who + '$idPrefix: another event\'s marks stay');
+
+  /* A pastoral visit's follow-up reminder goes with the visit. */
+  await D.collection('pastoralReminded').doc('v1_2026-11-20').set({ at: 1 });
+  await D.collection('pastoralVisits').doc('v1').delete();
+  await tidyChildren(D, 'pastoralVisits', 'v1', { name: 'A visit' });
+  ok(!(await D.collection('pastoralReminded').doc('v1_2026-11-20').get()).exists, who + '$idPrefix: a visit\'s reminder goes with it');
   const s1 = (await D.collection('signups').doc('s1').get()).data();
   ok(s1 && s1.parentGone && s1.parentGone.calEventId.name === 'Harvest supper', who + 'keep-history: the sign-up stays, with the event\'s name');
   const b1 = (await D.collection('bookings').doc('b1').get()).data(), b0 = (await D.collection('bookings').doc('b0').get()).data();
