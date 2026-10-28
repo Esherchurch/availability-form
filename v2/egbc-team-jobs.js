@@ -52,7 +52,7 @@
       suggest: ['Church office', 'Parish office', 'Admin team', 'Administration'] },
     { id: 'communications', means: 'The e-news, social posts, the card maker, Canva and Unsplash', egbc: ['Church office'],
       suggest: ['Communications', 'Comms team', 'Church office'] },
-    { id: 'trustees', means: 'The risk registers, members’ meetings and compliance', egbc: ['Elders'], setting: 'trusteeTeam',
+    { id: 'trustees', means: 'The risk registers, the meetings where members vote, and compliance', egbc: ['Elders'], setting: 'trusteeTeam',
       suggest: ['Elders', 'Deacons', 'Stewards', 'PCC', 'Trustees', 'Leadership team'] },
     /* The church's overall leaders (Martin, 26 Oct 2026: "some are elders
        in some churches; they will have administration people" - those are

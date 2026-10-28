@@ -1123,3 +1123,11 @@ A members' meeting is now a meeting, and its votes happen in the call. To do tha
    - new `meetings/{id}/quickVotes` rules: read by the invited, written only by the hub.
    - Rebuilt, not deployed: they go live when the church goes live.
 5. **Please:** add a "Votes" section to meeting.html's help when you write it. The chair's **Votes** button, the pop-ups, **Quick vote** and the QR code for people in the room are all in help/church-meeting.md to copy from.
+
+### From Comms, 28 Oct 2026: the members' meeting wording comes from the church
+Your 22 uses are gone. One setting, `churchSettings/details.meetingWord`, on Your church; empty reads "Church meeting". I touched your files:
+1. **egbc-auth.js:** `EGBCAuth.meetingWord(many, inSentence)`, read with the other words. Its stamp is bumped to `202611010900` on every page (135 files, the stamp only).
+2. **egbc-menu.js:** the `cmm` entry takes the church's word (stamp bumped on its 3 pages). **tests/check-menu.mjs** expects "Church meetings" (the test church has no word).
+3. **addressbook.html** and **meeting.html:** one line each, with no meeting word ("Members only").
+4. **egbc-team-jobs.js:** the trustees job's description (functions/team-jobs.js rebuilt).
+5. **Short name:** your box is on Your church, saved as `details.shortName`.

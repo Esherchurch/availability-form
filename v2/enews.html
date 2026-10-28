@@ -24,14 +24,14 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610312100"></script>
+<script src="egbc-auth.js?v=202611010900"></script>
 <script src="egbc-help.js?v=202610281800"></script>
 <script src="egbc-church.js?v=202610121600"></script>
 <script src="egbc-editor.js?v=202610221600"></script>
 <script src="egbc-plan-store.js?v=202610252100"></script>
 <script src="egbc-notices.js?v=202610252100"></script>
-<script src="egbc-mailblocks.js?v=202610261200"></script>
-<script src="egbc-starters.js?v=202610251800"></script>
+<script src="egbc-mailblocks.js?v=202611010900"></script>
+<script src="egbc-starters.js?v=202611010900"></script>
 <script src="egbc-core-meetings.js?v=202610311600"></script>
 <script src="egbc-meeting-pick.js?v=202610271500"></script>
 <script src="egbc-bible.js?v=202610161700"></script>
@@ -139,7 +139,7 @@
       '<div class="row" style="margin:0 0 12px"><button class="btn" id="new"><i data-lucide="plus" style="width:16px;height:16px"></i>New e-news</button>' +
       '<button class="btn sec" id="newmail"><i data-lucide="mail-plus" style="width:16px;height:16px"></i>New email</button>' +
       '<button class="btn sec" id="tpls"><i data-lucide="layout-template" style="width:16px;height:16px"></i>Templates</button>' +
-      '<button class="btn sec" id="newcmm"><i data-lucide="video" style="width:16px;height:16px"></i>Church members\u2019 meeting</button>' +
+      '<button class="btn sec" id="newcmm"><i data-lucide="video" style="width:16px;height:16px"></i>' + esc(EGBCAuth.meetingWord()) + '</button>' +
       '<button class="btn sec" id="look"><i data-lucide="palette" style="width:16px;height:16px"></i>Look and footer</button>' +
       '<button class="btn sec" id="subsb"><i data-lucide="users" style="width:16px;height:16px"></i>Subscribers</button>' +
       '<button class="btn sec" id="welc"><i data-lucide="hand-heart" style="width:16px;height:16px"></i>Welcome emails</button></div>' +
@@ -199,7 +199,7 @@
     var A = AUTO[k], ref = db().collection('enewsIssues').doc(A.id);
     return ref.get().then(function (x) {
       if (x.exists) return;
-      var t = EGBCStarters.get(A.starter) || { blocks: [] }, u = EGBCAuth.user() || {};
+      var t = EGBCStarters.get(A.starter, { meeting: EGBCAuth.meetingWord() }) || { blocks: [] }, u = EGBCAuth.user() || {};
       return ref.set(Object.assign({ subject: String(t.subject || A.title).replace('[Church]', shortName() || '[Church]').slice(0, 200), preheader: String(t.preheader || '').slice(0, 200),
         template: SET.template === 'green' ? 'green' : 'classic', blocks: JSON.parse(JSON.stringify(t.blocks || [])), status: 'draft', sendAt: '', week: 'notice',
         kind: 'oneoff', audience: 'picked', team: '', picked: [], templateId: A.starter, htmlMembers: '', htmlEveryone: '', createdAt: new Date().toISOString(), createdBy: u.uid || '' }, stamp()));
@@ -588,7 +588,7 @@
   function pickTemplate() {
     var s = sheet('New email: start from a template', '<div id="tp" class="m">Loading\u2026</div>');
     /* The minister's title, a church setting (C-53): "Letter from the vicar". */
-    var title = db().collection('churchSettings').doc('details').get().then(function (d) { return { minister: d.exists ? d.data().ministerTitle || '' : '' }; }, function () { return {}; });
+    var title = db().collection('churchSettings').doc('details').get().then(function (d) { return { minister: d.exists ? d.data().ministerTitle || '' : '', meeting: EGBCAuth.meetingWord() }; }, function () { return { meeting: EGBCAuth.meetingWord() }; });
     Promise.all([ours(), title]).then(function (r) {
       var O = r[0], W = r[1];
       var groups = {}; EGBCStarters.list(W).forEach(function (t) { (groups[t.group] = groups[t.group] || []).push(t); });
@@ -625,10 +625,10 @@
       if (b.type === 'button' && /agenda/i.test(b.label || '')) { b.label = 'See the agenda and minutes'; b.url = hubBase().replace(/\/+$/, '') + '/church-meeting.html?meeting=' + encodeURIComponent(m.id); b.members = true; }
       if (b.type !== 'meeting') return;
       if (m.joinKind === 'zoom' && /^https:\/\//.test(j.zoomUrl || '')) {
-        Object.assign(b, { title: m.title || 'Church members\u2019 meeting', date: m.date, startTime: m.time || '', eventId: '', url: j.zoomUrl, label: 'Join on Zoom', zoom: true,
+        Object.assign(b, { title: m.title || EGBCAuth.meetingWord(), date: m.date, startTime: m.time || '', eventId: '', url: j.zoomUrl, label: 'Join on Zoom', zoom: true,
           text: [j.zoomId ? 'Meeting ID: ' + j.zoomId : '', j.passcode ? 'Passcode: ' + j.passcode : ''].filter(Boolean).join(' \u00b7 '), members: true });
       } else if (m.joinKind !== 'zoom' && !MB.safeUrl(b.url)) {
-        Object.assign(b, MB.meetingFrom({ date: m.date, startTime: m.time, type: m.title || 'Church members\u2019 meeting' }, m.room || 'CMM', hubBase()));
+        Object.assign(b, MB.meetingFrom({ date: m.date, startTime: m.time, type: m.title || EGBCAuth.meetingWord() }, m.room || 'CMM', hubBase()));
       }
     });
   }
@@ -744,11 +744,12 @@
     up.then(function (rows) {
       var next = rows.filter(function (r) { return r.room === 'CMM'; })[0];
       var meeting = next ? MB.meetingFrom(next.ev, 'CMM', hubBase()) : { type: 'meeting', room: 'CMM', members: true };
+      var word = EGBCAuth.meetingWord();
       ISSUE = {
-        subject: 'Church members’ meeting' + (next ? ' · ' + MB.meetingWhen(meeting).split(' · ')[0] : ''),
+        subject: word + (next ? ' · ' + MB.meetingWhen(meeting).split(' · ')[0] : ''),
         preheader: 'For church members: the meeting, and how to join online', template: SET.template || 'classic', status: 'draft', week: 'notice',
         blocks: [
-          { type: 'text', title: 'Church members’ meeting', html: '<p>Dear church members,</p><p>You are warmly invited to our church members’ meeting. The papers will follow. If you can’t be there in person, you can join online with the button below.</p>' },
+          { type: 'text', title: word, html: '<p>Dear church members,</p><p>You are warmly invited to our ' + esc(EGBCAuth.meetingWord(false, true)) + '. The papers will follow. If you can’t be there in person, you can join online with the button below.</p>' },
           meeting
         ]
       };

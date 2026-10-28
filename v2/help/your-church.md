@@ -7,7 +7,7 @@ Tell the hub who your church is: its name, address, logo and enquiry email, the 
 - The church office can also keep the giving (bank) details up to date, on the [Giving details](giving-details.html) page. It is the same form as on this page.
 
 ## Set your name, address and logo
-1. In **Name, address and logo**, type **Your church's name** as people know it.
+1. In **Name, address and logo**, type **Your church's name** as people know it. Add a **Short name**, such as your initials, for where space is tight: the hub's bar and tab, and rota entries in calendars.
 2. Type the **Postal address**. It goes at the foot of emails and the e-news. Each building's own address is kept separately, with your buildings.
 3. Type the **Enquiry email**. This is where questions go, and it is the reply address on emails the hub sends.
 4. Press **Save**.
@@ -15,9 +15,10 @@ Tell the hub who your church is: its name, address, logo and enquiry email, the 
 
 ## Set your words
 1. In **Your words**, type **Your minister's title**, for example vicar, rector, minister or pastor. You see how it reads in a sentence, such as "Letter from the vicar". Left empty, the hub says "minister".
-2. Type **What you call a member**, for example "Member" or "On the electoral roll". These are the people who may come to members' meetings and read members-only words. Left empty, the hub says "Church member".
-3. Choose **Your main day of worship**. The e-news and the screens in church look ahead to this day. It starts as Sunday.
-4. Press **Save**.
+2. Type **What you call a member**, for example "Member" or "On the electoral roll". These are the people who may come to the meetings where members vote and read members-only words. Left empty, the hub says "Church member".
+3. Type **What you call the meeting where members vote**, for example "Members’ meeting", "Church meeting" or "Annual parish meeting". The meeting's page, its video room, the menu and its emails all use it. Left empty, the hub says "Church meeting".
+4. Choose **Your main day of worship**. The e-news and the screens in church look ahead to this day. It starts as Sunday.
+5. Press **Save**.
 
 ## Add the giving details
 1. In **Giving**, fill in **Account name**, **Sort code** and **Account number**. The sort code can be typed with or without dashes.

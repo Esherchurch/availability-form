@@ -17,10 +17,10 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202610312100"></script>
+<script src="egbc-auth.js?v=202611010900"></script>
 <script src="egbc-manifest.js?v=202610311800"></script>
 <script src="egbc-present.js?v=202610311200"></script>
-<script src="egbc-vote.js?v=202610282200"></script>
+<script src="egbc-vote.js?v=202611010900"></script>
 <script src="egbc-video.js?v=202610311600"></script>
 <script src="https://unpkg.com/@daily-co/daily-js"></script>
 <style>
@@ -628,7 +628,7 @@ async function start(profile) {
      said out loud. It is the only place a members-only thing is refused
      rather than simply absent. */
   if (!EGBCAuth.mayJoinRoom(room)) {
-    showMsg('A members\' meeting',
+    showMsg('Members only',
       'This room is for church members. If you have formally joined the church '
       + 'and this is wrong, ask the church office to tick it against your record.',
       '<a class="btn" href="hub.html">Back to hub</a>');

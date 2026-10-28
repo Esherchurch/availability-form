@@ -3,15 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Members' meetings — EGBC</title>
+<title>Meetings that vote</title>
 <script src="egbc-nosend.js?v=202610212000"></script>
 <script src="egbc-appmode.js?v=202610201500"></script>
-<script src="egbc-shell.js?v=202610311800" data-title="Members' meetings"></script>
+<script src="egbc-shell.js?v=202610311800" data-title="Meetings that vote"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202610312100"></script>
+<script src="egbc-auth.js?v=202611010900"></script>
 <script src="egbc-help.js?v=202610281800"></script>
 <!-- MEMBERS' MEETINGS (21 Oct 2026; design-mocks/members-meeting, Martin's
      answers). For church members (the address book's tick) and whoever runs
@@ -70,7 +70,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1 id="mm-title">Members' meetings</h1>
+  <h1 id="mm-title"></h1>
   <p class="sub" id="mm-sub">Loading&hellip;</p>
   <div class="cols" id="mm-cols">
     <div class="col" id="mm-main"></div>
@@ -111,11 +111,14 @@
   /* The team jobs are read before anyone is turned away or shown the controls. */
   function start(profile) {
     ME = profile || {};
+    /* The church's own word for these meetings (Your church). */
+    document.title = A.meetingWord(true);
+    var bar = document.querySelector('.eb-n'); if (bar) bar.textContent = A.meetingWord(true);
     A.loadPerms().catch(function () {}).then(function () { begin(profile); });
   }
   function begin(profile) {
     if (!isMember() && !isRunner()) {
-      A._blockPage('Church members only', 'Members’ meetings are for church members. If you have joined the church and this is wrong, ask the church office to tick it against your record.', profile);
+      A._blockPage('Members only', A.meetingWord(true) + ' are for church members. If you have joined the church and this is wrong, ask the church office to tick it against your record.', profile);
       return;
     }
     if (isRunner()) { $('mm-run').hidden = false; $('mm-cols').classList.add('run'); }
@@ -207,13 +210,13 @@
   /* ---- what a member sees ---- */
   function draw() {
     if (!CUR) {
-      $('mm-title').textContent = 'Members’ meetings';
-      $('mm-sub').textContent = (GONE ? 'The meeting in that link is not on the hub any more. ' : '') + 'No members’ meeting is planned yet.';
+      $('mm-title').textContent = A.meetingWord(true);
+      $('mm-sub').textContent = (GONE ? 'The meeting in that link is not on the hub any more. ' : '') + 'No ' + A.meetingWord(false, true) + ' is planned yet.';
       $('mm-main').innerHTML = '';
       drawRun();
       return;
     }
-    $('mm-title').textContent = CUR.title || 'Church Members’ Meeting';
+    $('mm-title').textContent = CUR.title || A.meetingWord();
     $('mm-sub').textContent = [dayWords(CUR.date), CUR.time, CUR.place].filter(Boolean).join(' · ');
     var html = '';
     VOTES.filter(function (v) { return v.status === 'open'; }).forEach(function (v) {
@@ -280,7 +283,7 @@
     if (!isRunner()) return;
     var el = $('mm-run'), m = CUR || {};
     var html = '<div class="card" id="run-meeting"><h2>' + (CUR ? 'The meeting' : 'Plan the next meeting') + '</h2>'
-      + '<div><label for="r-title">Title</label><input class="inp" id="r-title" maxlength="120" value="' + esc(m.title || 'Church Members’ Meeting') + '"></div>'
+      + '<div><label for="r-title">Title</label><input class="inp" id="r-title" maxlength="120" value="' + esc(m.title || A.meetingWord()) + '"></div>'
       + '<div><label for="r-date">Date</label><input class="inp" id="r-date" type="date" value="' + esc(m.date || '') + '"></div>'
       + '<div><label for="r-time">Time</label><input class="inp" id="r-time" type="time" value="' + esc(m.time || '19:45') + '"></div>'
       + '<div><label for="r-place">Where</label><input class="inp" id="r-place" maxlength="120" value="' + esc(m.place || 'In the church and online') + '"></div>'
@@ -401,7 +404,7 @@
     var zoom = $('r-zoom').getAttribute('aria-pressed') === 'true';
     var date = $('r-date').value;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { toast('Choose the date first.'); return; }
-    var body = { title: $('r-title').value.trim() || 'Church Members’ Meeting', date: date, time: $('r-time').value,
+    var body = { title: $('r-title').value.trim() || A.meetingWord(), date: date, time: $('r-time').value,
       place: $('r-place').value.trim(), joinKind: zoom ? 'zoom' : 'room', updatedAt: new Date().toISOString(), updatedBy: u.uid || '' };
     var zurl = zoom ? $('r-zurl').value.trim() : '';
     if (zurl && !/^https:\/\/\S+$/.test(zurl)) { toast('The Zoom link should start with https://'); return; }

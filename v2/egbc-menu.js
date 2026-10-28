@@ -413,6 +413,8 @@
     /* Members' meetings: church members and whoever runs them. */
     if (node.cmm && !who.isChurchMember && !who.isMaster
         && !['office', 'trustees'].some(function (j) { return (who.jobs || []).indexOf(j) !== -1; })) return false;
+    /* ...named by the church's own word for them (Your church). */
+    if (node.cmm && window.EGBCAuth && EGBCAuth.meetingWord) node.title = EGBCAuth.meetingWord(true);
     if (node.admin && !who.isAdmin) return false;
     /* adminOf: an admin of one of these areas (or a master admin), the same
        test the page's own guard makes. Plain admin: true lets in an admin of

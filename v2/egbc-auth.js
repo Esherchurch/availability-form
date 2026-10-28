@@ -914,12 +914,14 @@
      them: read with the profile, so a page draws them first time. */
   var SERVICES = { S: null, cfg: null };
   /* The church's own words (H-12; Comms' your-church.html writes them):
-     memberWord ('' = "Church member"), ministerTitle, serviceDay. */
-  var WORDS = { memberWord: '', ministerTitle: '', serviceDay: '' };
+     memberWord ('' = "Church member"), ministerTitle, serviceDay,
+     meetingWord ('' = "Church meeting"). */
+  var WORDS = { memberWord: '', ministerTitle: '', serviceDay: '', meetingWord: '' };
   function loadChurchWords() {
     return db.collection('churchSettings').doc('details').get().then(function (s) {
       var d = (s.exists && s.data()) || {};
-      WORDS = { memberWord: String(d.memberWord || ''), ministerTitle: String(d.ministerTitle || ''), serviceDay: String(d.serviceDay || '') };
+      WORDS = { memberWord: String(d.memberWord || ''), ministerTitle: String(d.ministerTitle || ''), serviceDay: String(d.serviceDay || ''),
+        meetingWord: String(d.meetingWord || '') };
     }, function () {});
   }
   function loadServiceRoles() {
@@ -2083,6 +2085,15 @@
     memberWord: function () { return WORDS.memberWord || 'Church member'; },
     ministerTitle: function () { return WORDS.ministerTitle || 'minister'; },
     serviceDay: function () { return WORDS.serviceDay || 'Sunday'; },
+    /* What the church calls the meeting where its members vote (Your
+       church; "Church meeting" unless it has its own, a parish's "Annual
+       parish meeting"). many: "…meetings". inSentence: the first letter
+       small, unless it starts with capitals ("APCM"). */
+    meetingWord: function (many, inSentence) {
+      var w = WORDS.meetingWord || 'Church meeting';
+      if (inSentence && !/^[A-Z][A-Z]/.test(w)) w = w.charAt(0).toLowerCase() + w.slice(1);
+      return w + (many ? 's' : '');
+    },
     /* [[role name, who]] for a service's slides and cards (H-11): EGBC's
        Service Leader and Speaker unless the church has its own roles. */
     /* Is this kind a service (H-11)? With nothing stored, the page's own

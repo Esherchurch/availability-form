@@ -82,8 +82,7 @@ ok('no EGBC name, Esher, person’s name, EGBC logo, "switch-over" or Baptist wo
 
 /* The allowed-for-now list stays what FINDINGS-comms says, so it can only shrink. */
 const hubAddr = FILES.filter(f => /esherchurch\\?\.github\\?\.io/.test(shown(fs.readFileSync(path.join(V2, f), 'utf8'))));
-ok('EGBC’s address (esherchurch.github.io) only as the social icons’ default and in the sign-up functions’ allowed sites: every link takes the hub’s web address setting',
-  hubAddr.every(f => ['egbc-mailblocks.js', 'functions/enews.js'].includes(f)), hubAddr);
+ok('EGBC’s address (esherchurch.github.io) nowhere: every link takes the hub’s web address setting', hubAddr.length === 0, hubAddr);
 
 const pass = R.filter(Boolean).length;
 console.log('\n' + pass + '/' + R.length + ' passed' + (BREAK ? '   (deliberate break: ' + BREAK + ', so this run SHOULD be red)' : ''));

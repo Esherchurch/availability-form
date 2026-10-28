@@ -149,8 +149,8 @@
         var jobs = Au.myJobs ? Au.myJobs() : [];
         S.runner = Au.isMaster() || jobs.indexOf('office') !== -1 || jobs.indexOf('trustees') !== -1;
         return Au.db.collection('churchMeetings').doc(S.mid).get().then(function (d) {
-          S.title = (d.exists && d.data().title) || 'Members’ meeting';
-        }, function () { S.title = 'Members’ meeting'; }).then(function () { return S.proxies(); });
+          S.title = (d.exists && d.data().title) || Au.meetingWord();
+        }, function () { S.title = Au.meetingWord(); }).then(function () { return S.proxies(); });
       }
       return Au.db.collection('meetings').doc(S.eventId).get().then(function (d) {
         var part = d.exists ? d.data() : {};
@@ -319,7 +319,7 @@
       + '<p class="ev-hint">' + esc(S.title) + '</p>'
       + '<div class="ev-row"><button type="button" class="ev-b sec" data-qr="1">People in the room: show the QR code</button></div>'
       + '<h4>' + (S.members ? 'This meeting’s votes' : 'Votes so far') + '</h4>'
-      + (list || '<p class="ev-hint">' + (S.members ? 'No votes prepared. Prepare them on the members’ meeting page, or start one below.' : 'None yet.') + '</p>')
+      + (list || '<p class="ev-hint">' + (S.members ? 'No votes prepared. Prepare them on the ' + esc(A().meetingWord(false, true)) + ' page, or start one below.' : 'None yet.') + '</p>')
       + '<h4>' + (S.members ? 'A vote not prepared beforehand' : 'Quick vote') + '</h4>'
       + '<label class="ev-hint" for="ev-new-q">The question</label><textarea class="ev-inp" id="ev-new-q" maxlength="300" rows="2"></textarea>'
       + '<label class="ev-hint" for="ev-new-c">Choices, separated by commas</label><input class="ev-inp" id="ev-new-c" value="Yes, No, Abstain">'

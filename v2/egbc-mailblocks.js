@@ -498,7 +498,9 @@
      network's colour with a white mark, 10px apart, centred. PNG pictures
      the hub serves (img/social/), never fonts or SVG, so Outlook shows them. */
   var SOCIAL = { facebook: 'Facebook', instagram: 'Instagram', youtube: 'YouTube', website: 'Website', email: 'Email', x: 'X', tiktok: 'TikTok', whatsapp: 'WhatsApp', linkedin: 'LinkedIn' };
-  var ASSETS = 'https://esherchurch.github.io/availability-form/v2';
+  /* Without the caller's hub address, the page's own folder: the hub the
+     page is served from, never one church's address typed in. */
+  var ASSETS = typeof location !== 'undefined' && /^https?:$/.test(location.protocol) ? location.href.replace(/[?#].*$/, '').replace(/\/[^\/]*$/, '') : '';
   function socialRow(list, base) {
     var cells = (Array.isArray(list) ? list : []).map(function (x) {
       var k = String(x && x.kind || ''); if (!SOCIAL[k]) return '';

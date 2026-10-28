@@ -35,6 +35,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { createHash, randomBytes } from 'node:crypto';
 import { under18Emails } from './under18.js';
+import { meetingWordOf } from './church-words.js';
 /* A church's link says which church (H-5); no entry is EGBC. */
 import { codeHash, indexCode, dbForCode } from './hq-codes.js';
 
@@ -132,7 +133,7 @@ export async function runPapers({ db, bucket, query = {}, now = Date.now() }) {
   const list = papers.length
     ? '<ul>' + papers.map((pp, i) => '<li><a class="p" href="?t=' + encodeURIComponent(t) + '&amp;f=' + i + '">' + esc(pp.name || 'Paper ' + (i + 1)) + '</a></li>').join('') + '</ul>'
     : '<p>No papers yet. They will appear here when the church office adds them: this link keeps working until ' + esc(new Date(L.expires).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'Europe/London' })) + '.</p>';
-  return { status: 200, type: 'text/html; charset=utf-8', body: page(M.title || 'Church members\u2019 meeting', '<p><strong>' + esc(when) + '</strong></p>' + list +
+  return { status: 200, type: 'text/html; charset=utf-8', body: page(M.title || await meetingWordOf(db), '<p><strong>' + esc(when) + '</strong></p>' + list +
     '<p class="m">Your own link, for you alone: please don\u2019t pass it on. It lasts 30 days after the meeting.</p>', church) };
 }
 

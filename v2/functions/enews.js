@@ -143,14 +143,27 @@ function confirmEmail(church, link) {
 }
 
 /* ---- sign-up ----------------------------------------------------------- */
-/* The sites the sign-up and confirm pages are served from: github.io, Church
-   HQ's own addresses (<slug>.churchhq.co.uk; the main window, 26 Oct 2026,
-   asked in FINDINGS-comms), and a local test. */
-const SIGNUP_SITES = [/^https:\/\/esherchurch\.github\.io$/, /^https:\/\/[a-z0-9-]+\.churchhq\.co\.uk$/, /^http:\/\/(localhost|127\.0\.0\.1):\d+$/];
-export const enewsSignup = onRequest({ region: REGION, cors: SIGNUP_SITES, invoker: 'public' }, async (req, res) => {
+/* The sites the sign-up and confirm pages are served from: Church HQ's own
+   addresses (<slug>.churchhq.co.uk; the main window, 26 Oct 2026, asked in
+   FINDINGS-comms), a local test, and the church's own hub address (its
+   setting, hub-address.js), so no church's address is typed here.
+   Answers the browser's check before a POST; true when that was all. */
+const HQ_SITES = /^(https:\/\/[a-z0-9-]+\.churchhq\.co\.uk|http:\/\/(localhost|127\.0\.0\.1):\d+)$/;
+async function fromOurSite(req, res, D) {
+  const o = String(req.get('origin') || '');
+  const ok = HQ_SITES.test(o) || (!!o && await hubOf(D || root()).then((u) => new URL(u).origin === o, () => false));
+  res.set('Vary', 'Origin');
+  if (ok) res.set('Access-Control-Allow-Origin', o);
+  if (req.method !== 'OPTIONS') return false;
+  if (ok) res.set({ 'Access-Control-Allow-Methods': 'POST', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Max-Age': '3600' });
+  res.status(204).send('');
+  return true;
+}
+export const enewsSignup = onRequest({ region: REGION, cors: false, invoker: 'public' }, async (req, res) => {
+  const D = await dbForSite(req);
+  if (await fromOurSite(req, res, D)) return;
   if (req.method !== 'POST') return res.status(405).json({ ok: false });
   const b = req.body || {};
-  const D = await dbForSite(req);
   if (!D) return res.status(404).json({ ok: false, error: 'church' });
   const S = await settings(D);
   if (!S.on) return res.json({ ok: false, off: true });
@@ -199,9 +212,10 @@ export const enewsSignup = onRequest({ region: REGION, cors: SIGNUP_SITES, invok
 });
 
 /* ---- confirm ------------------------------------------------------------ */
-export const enewsConfirm = onRequest({ region: REGION, cors: SIGNUP_SITES, invoker: 'public' }, async (req, res) => {
-  if (req.method !== 'POST') return res.status(405).json({ ok: false });
+export const enewsConfirm = onRequest({ region: REGION, cors: false, invoker: 'public' }, async (req, res) => {
   const t = (req.body || {}).t, D = await dbForToken(t);
+  if (await fromOurSite(req, res, D)) return;
+  if (req.method !== 'POST') return res.status(405).json({ ok: false });
   const S = await settings(D);
   if (!S.open) return res.json({ ok: false, shut: true });
   const doc = await findByToken(D, 'confirmToken', t);

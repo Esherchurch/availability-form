@@ -74,7 +74,8 @@ const APPROVED = [
   ['People and messages', null, [
     ['Address book', c => c.messages], ['Send an email', c => c.messages], ['Team emails', c => c.master],
     /* Members' meetings (21 Oct 2026): members, and whoever runs them. */
-    ['Members’ meetings', c => c.member || c.master || c.on('Church office') || c.on('Elders')],
+    // Named by the church's meetingWord (Your church); the test church has none.
+    ['Church meetings', c => c.member || c.master || c.on('Church office') || c.on('Elders')],
     ['Notices', c => c.messages],
     /* The comms window's add-ons, switched on for this run (below). */
     ['E-news', c => c.office], ['Card maker', c => c.office], ['From Canva', c => c.office],

@@ -46,6 +46,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { churchOf } from './church-scope.js';
 import { readTeamJobs, teamsFor } from './team-jobs.js';
 import { mayManage } from './meeting-manage.js';
+import { meetingWordOf, inSentence } from './church-words.js';
 
 const REGION = 'europe-west2';
 /* The teams running meetings: the office job's and the trustees job's. */
@@ -57,7 +58,6 @@ export async function runnerTeams(db) {
 const ID = /^[A-Za-z0-9_-]{1,120}$/;
 export const isRunner = (u, teams) => !!u && u.status !== 'archived'
   && (u.masterAdmin === true || (Array.isArray(u.teams) && u.teams.concat(u.covers || []).some(t => teams.includes(t))));
-const RUNS = 'Only the church office, the trustees and master admins run a members’ meeting.';
 export const isVoter = (u) => !!u && u.status === 'active' && u.churchMember === true && !!u.memberId;
 
 async function who(db, uid) {
@@ -224,7 +224,8 @@ export async function unappoint({ db, uid, data }) {
 /* A members' meeting's runner, or a quick vote's host. */
 async function mayRun(db, uid, data) {
   if (data && data.quick === true) return mayHost(db, uid, data);
-  if (!isRunner(await who(db, uid), await runnerTeams(db))) throw new HttpsError('permission-denied', RUNS);
+  if (!isRunner(await who(db, uid), await runnerTeams(db)))
+    throw new HttpsError('permission-denied', 'Only the church office, the trustees and master admins run a ' + inSentence(await meetingWordOf(db)) + '.');
 }
 
 export async function open({ db, uid, data }) {

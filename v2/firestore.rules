@@ -3281,7 +3281,7 @@ service cloud.firestore {
                        && request.resource.data.get('opensOn', '').size() <= 40);
       allow write: if (isAdmin() && id == 'details'
                        && request.resource.data.keys().hasOnly(['name', 'enquiryEmail', 'logoUrl', 'logoPath', 'hubUrl', 'ministerTitle',
-                            'address', 'serviceDay', 'memberWord', 'updatedAt', 'updatedBy'])
+                            'address', 'serviceDay', 'memberWord', 'meetingWord', 'shortName', 'updatedAt', 'updatedBy'])
                        // YOUR CHURCH (the setup step, 29 Oct 2026; Comms): its
                        // postal address, its main day of worship (ChurchShow's
                        // words read it; 'Sunday' when unset) and what it calls a
@@ -3290,6 +3290,14 @@ service cloud.firestore {
                        && request.resource.data.get('serviceDay', 'Sunday') in ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
                        && request.resource.data.get('memberWord', '') is string && request.resource.data.get('memberWord', '').size() <= 40
                        && !request.resource.data.get('memberWord', '').matches('.*[<>"&].*')
+                       // What it calls the meeting where members vote ('' meaning
+                       // "Church meeting"; Comms, 28 Oct 2026).
+                       && request.resource.data.get('meetingWord', '') is string && request.resource.data.get('meetingWord', '').size() <= 60
+                       && !request.resource.data.get('meetingWord', '').matches('.*[<>"&].*')
+                       // Its short name, for the hub's bar and calendar entries
+                       // (main, 28 Oct 2026; tools/church-details.mjs).
+                       && request.resource.data.get('shortName', '') is string && request.resource.data.get('shortName', '').size() <= 40
+                       && !request.resource.data.get('shortName', '').matches('.*[<>"&].*')
                        // THE MINISTER'S TITLE (26 Oct 2026; Comms' C-53): a word
                        // for a sentence, '' meaning "minister"; any admin.
                        && request.resource.data.get('ministerTitle', '') is string && request.resource.data.get('ministerTitle', '').size() <= 40

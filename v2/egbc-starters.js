@@ -51,8 +51,8 @@
       blocks: [hero, { type: 'heading', text: '[Carol service]' }, text('', P('<strong>[Day, date and time]</strong><br>[Where]') + P('[What to expect: carols, readings, mince pies.]')), btn('Tickets and details')] },
     { id: 'speaker', group: 'Events', name: 'Guest speaker', about: 'Who is coming, a photo and a few lines about them.', subject: '[Name] is coming to [Church]', preheader: '[Day and time]', audience: 'subscribers',
       blocks: [{ type: 'heading', text: '[Name] is coming' }, card('[Name]'), text('', P('<strong>[Day, date and time]</strong><br>[Where]')), btn('Find out more')] },
-    { id: 'cmm', group: 'Church life', name: 'Church members’ meeting', about: 'The agenda and papers, and the meeting with Join. Church members only.', subject: 'Church members’ meeting, {date}', preheader: 'For church members: the agenda and how to join', audience: 'members',
-      blocks: [text('Church members’ meeting', P('Dear {{first_name}},') + P('You are warmly invited to our church members’ meeting on <strong>[day and date at time]</strong>, at [place].') + P('[The agenda, or a line about it.]')), btn('See the agenda and papers'), { type: 'meeting', room: 'CMM', members: true }, sign] },
+    { id: 'cmm', group: 'Church life', name: '[Meeting]', about: 'The agenda and papers, and the meeting with Join. Church members only.', subject: '[Meeting], {date}', preheader: 'For church members: the agenda and how to join', audience: 'members',
+      blocks: [text('[Meeting]', P('Dear {{first_name}},') + P('You are warmly invited to our [meeting] on <strong>[day and date at time]</strong>, at [place].') + P('[The agenda, or a line about it.]')), btn('See the agenda and papers'), { type: 'meeting', room: 'CMM', members: true }, sign] },
     { id: 'after', group: 'Events', name: 'After the event', about: 'Thank you for coming, a few pictures, and what’s next.', subject: 'Thank you for coming to [event]', preheader: 'A few pictures', audience: 'subscribers',
       blocks: [{ type: 'heading', text: 'Thank you for coming' }, text('', P('[A few lines: how it went, a thank you.]')), { type: 'pictures', urls: ['', ''] }, text('What’s next', P('[The next thing to come to.]'))] },
     { id: 'service', group: 'Church life', name: 'Service change', about: 'A short notice: what’s changed and when.', subject: 'Change to [service] on [date]', preheader: '', audience: 'subscribers',
@@ -86,11 +86,16 @@
   /* THE CHURCH'S OWN WORDS (C-53; CLAUDE.md section 3): "[minister]" is the
      title of the church's minister, a church setting
      (churchSettings/details.ministerTitle: vicar, rector, minister,
-     pastor...), "minister" when none is set. o: { minister }. */
+     pastor...), "minister" when none is set. "[Meeting]" is what it calls
+     the meeting where members vote (meetingWord: "Members’ meeting",
+     "Annual parish meeting"; "Church meeting" when none is set), and
+     "[meeting]" the same mid-sentence. o: { minister, meeting }. */
   function titleOf(o) { var t = String((o && o.minister) || '').replace(/[<>"&]/g, '').trim().slice(0, 40); return t || 'minister'; }
   function forChurch(t, o) {
     if (!t) return t;
     var m = titleOf(o).replace(/["\\]/g, ''), s = JSON.stringify(t).replace(/\[minister\]/g, m);
+    var w = String((o && o.meeting) || '').replace(/[<>"&\\]/g, '').trim().slice(0, 60) || 'Church meeting';
+    s = s.replace(/\[Meeting\]/g, w).replace(/\[meeting\]/g, /^[A-Z][A-Z]/.test(w) ? w : w.charAt(0).toLowerCase() + w.slice(1));
     return JSON.parse(s);
   }
   function get(id, o) { var s = LIST.filter(function (x) { return x.id === id; })[0]; return s ? forChurch(JSON.parse(JSON.stringify(s)), o) : null; }

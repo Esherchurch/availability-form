@@ -1,5 +1,7 @@
 # Members' meetings
 
+Your church may call these something else, such as church meetings or annual parish meetings: the page uses your church's own word, set in Your church.
+
 Everything for the church's members' meetings in one place: when and where the meeting is, how to join, the papers, proxies, and afterwards the results. The meeting itself, and its votes, happen in the meeting's own video call; people there in person vote on their phone.
 
 ## Who can use it

@@ -24,11 +24,11 @@
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { getFirestore } from 'firebase-admin/firestore';
 import { churchFromPath } from './church-scope.js';
+import { meetingWordOf } from './church-words.js';
 
 const REGION = 'europe-west2';
 /* The id of a members' meeting's matching meeting. */
 export const meetingIdOf = (mid) => 'cm-' + mid;
-const TYPE = 'Members’ meeting';
 
 /* "19:45" -> "21:45": an end for the room, which closes a day after. */
 export function endOf(time) {
@@ -61,7 +61,8 @@ export async function syncMembersMeeting({ db, mid, after }) {
     return 'removed';
   }
   const startTime = /^\d{2}:\d{2}$/.test(String(after.time || '')) ? after.time : '19:30';
-  const common = { type: TYPE, date: after.date, startTime, endTime: endOf(startTime), teams: [], videoRoom: 'm-' + id, membersMeeting: true };
+  /* Its kind is the church's own word for it (functions/church-words.js). */
+  const common = { type: await meetingWordOf(db), date: after.date, startTime, endTime: endOf(startTime), teams: [], videoRoom: 'm-' + id, membersMeeting: true };
   await Promise.all([
     ev.set(Object.assign({ meeting: true, churchMeeting: mid, termLabel: termOf(after.date), roles: [], archived: false }, common), { merge: true }),
     part.set(Object.assign({ description: String(after.title || '').slice(0, 200), organiserUid: String(after.createdBy || ''), invitees: [],

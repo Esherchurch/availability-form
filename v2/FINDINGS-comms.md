@@ -2233,3 +2233,19 @@ The hub's bar and tab ("EGBC Hub") and the rota calendar entries ("EGBC: Drums")
 - Only the office can read e-news settings, so other people need `details.shortName`.
 - **Please add a "Short name" box to Your church** (your-church.html; up to 40 characters, for example "the church's initials"), saved as `details.shortName`. That keeps one place to edit it.
 - Until then, Martin can set EGBC's with `node ../tools/church-details.mjs --short "EGBC" --apply` (from v2/functions).
+
+## The church's own words: the meeting where members vote, and no EGBC address (28 Oct 2026)
+
+**The setting:** `churchSettings/details.meetingWord`, on Your church under "Your words" ("Members’ meeting", "Church meeting", "Annual parish meeting"…). Empty, it reads "Church meeting".
+- Pages: `EGBCAuth.meetingWord(many, inSentence)`. The server: `meetingWordOf(db)` in functions/church-words.js (new).
+- It names church-meeting.html (title, bar, empty and blocked words, a new meeting's title), the Menu entry, the e-news button and the starter template (`[Meeting]` / `[meeting]`), the in-call vote panel, a members' meeting's kind on its meeting (membersMeetingSync), the "only the office…" refusal (voteOpen/voteClose) and the papers page's title.
+- No fixed members' meeting wording is left in what anyone sees (tools/find-egbc-words.cjs: 22 → 1, the example in Your church's list).
+- **EGBC sees no change once its word is stored.** From v2/functions: `node ../tools/set-meeting-word.mjs --word "Members’ meeting" --apply` (Martin; writes only that field).
+
+**Short name** (main's ask): a box on Your church, saved as `details.shortName`.
+
+**No EGBC address in my files:** the e-news sign-up and confirm now accept the church's own hub address from its setting (`fromOurSite`, functions/enews.js), plus Church HQ's addresses and a local test. The social icons default to the page's own hub, not esherchurch.github.io.
+
+**Rules:** `details` also allows `meetingWord` (up to 60) and `shortName` (up to 40), no `< > " &`. Rebuilt, not deployed: they go live when the church goes live.
+
+**Functions to deploy:** membersMeetingSync (+Church), voteOpen, voteClose, castVote (same file), meetingPapers, enewsSignup, enewsConfirm.
