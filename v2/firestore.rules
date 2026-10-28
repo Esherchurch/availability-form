@@ -1900,10 +1900,16 @@ service cloud.firestore {
       allow get, list: if canSeeEvent();
       // A Sunday service from the rota (calEvents/rota_<id>) is the server's
       // (rotaWhatsOn, F-218 from the main window): no page writes one.
+      // heldBy is the server's (functions/data-links.js): an event with
+      // payments or safeguarding, health and safety or accident records is
+      // cancelled, never deleted, so those records keep their event.
       allow create: if isAdmin() && audienceAgrees() && !calEventId.matches('rota_.*')
-                    && request.resource.data.get('createdBy', '') == request.auth.uid;
-      allow update: if canEditEvent() && audienceAgrees() && !calEventId.matches('rota_.*');
-      allow delete: if canEditEvent() && !calEventId.matches('rota_.*');
+                    && request.resource.data.get('createdBy', '') == request.auth.uid
+                    && !('heldBy' in request.resource.data);
+      allow update: if canEditEvent() && audienceAgrees() && !calEventId.matches('rota_.*')
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['heldBy']);
+      allow delete: if canEditEvent() && !calEventId.matches('rota_.*')
+                    && resource.data.get('heldBy', []).size() == 0;
 
       // Ticket types and questions are part of the sign-up form, so a guest
       // has to be able to read them. They hold no personal data: a name, a

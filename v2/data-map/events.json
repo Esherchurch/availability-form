@@ -1,0 +1,344 @@
+{
+  "owner": "events",
+  "about": "The events window's collections: events, sign-ups and payments for events, bookings, rooms and buildings, hire, kids and check-in, small groups, safeguarding, health and safety, fire, risk assessments, Present and ChurchShow lessons. Read by tools/data-map-build.mjs (into functions/data-map.json), by the server's tidying after a delete (functions/data-links.js) and by orphanSweep.",
+  "format": {
+    "collections": "name -> record. A subcollection is named parent/*/child. EGBC's are top level; each church's are the same under churches/<id>/.",
+    "what": "What one record is.",
+    "self": "How the record itself goes: delete (may be deleted), archive (never deleted, only marked: archiveField says how) or retention (a legal record: removed only by retention.html or the privacy tools).",
+    "legal": "true for safeguarding, health and safety, accident and finance records. Nothing cascades into them; the build refuses it.",
+    "links": "Every id this record stores that points at another record.",
+    "links[].field": "The field holding the id. $parent: a subcollection of that record. $id: this record's id is the other's id. $idPrefix: this record's id starts with the other's id and _. A field holding a list of ids has array: true.",
+    "links[].to": "The collection pointed at.",
+    "links[].rule": "What happens to THIS record when the one pointed at is deleted: cascade (deleted too), block (the other can't be deleted or taken out of use while this exists; only narrows which ones count), keep-history (kept, marked parentGone.<field> with the other's name) or archive (the other is never deleted, so nothing to do; orphanSweep only reports).",
+    "links[].then": "A server step as well as the rule (freeBooking: a booking still to come is cancelled and its room time given back).",
+    "links[].holds": "For block: the word the parent's heldBy gets while this exists (the rules read heldBy)."
+  },
+  "collections": {
+    "calEvents": {
+      "what": "An event on What's on: title, time, place, who it is for, sign-up settings.",
+      "self": "delete",
+      "links": [
+        { "field": "location.siteId", "to": "sites", "rule": "archive", "why": "Sites are taken out of use, never deleted." },
+        { "field": "location.roomId", "to": "rooms", "rule": "archive", "why": "Rooms are taken out of use, never deleted." },
+        { "field": "seriesId", "to": "calEvents", "rule": "keep-history", "why": "The other events of a series stand alone when one goes." }
+      ]
+    },
+    "calEvents/*/ticketTypes": {
+      "what": "A ticket type on an event's sign-up form (name, price, places).",
+      "self": "delete",
+      "links": [ { "field": "$parent", "to": "calEvents", "rule": "cascade", "why": "Part of the event's form; means nothing alone. Sign-ups copy the ticket's name and price." } ]
+    },
+    "calEvents/*/questions": {
+      "what": "A question on an event's sign-up form.",
+      "self": "delete",
+      "links": [ { "field": "$parent", "to": "calEvents", "rule": "cascade", "why": "Part of the event's form; the answers are kept on each sign-up." } ]
+    },
+    "capacity": {
+      "what": "How many places an event has taken (a counter).",
+      "self": "delete",
+      "links": [ { "field": "$id", "to": "calEvents", "rule": "cascade", "why": "A count for one event; nothing to count once it has gone." } ]
+    },
+    "signups": {
+      "what": "One person's sign-up to an event, with their answers.",
+      "self": "delete",
+      "links": [
+        { "field": "calEventId", "to": "calEvents", "rule": "keep-history", "why": "Who came, and what they paid for, is kept; the page already says sign-ups are not deleted." },
+        { "field": "memberUid", "to": "users", "rule": "archive", "why": "People are archived; erasure goes through the privacy tools." }
+      ]
+    },
+    "signupPayments": {
+      "what": "The payment for a sign-up (amount, method, paid or not).",
+      "self": "retention",
+      "legal": true,
+      "links": [
+        { "field": "$id", "to": "signups", "rule": "keep-history", "why": "A finance record stays whatever happens to the sign-up." },
+        { "field": "calEventId", "to": "calEvents", "rule": "block", "only": { "paid": true }, "holds": "payments", "why": "An event that has taken money is cancelled, not deleted, so the accounts still add up." }
+      ]
+    },
+    "seriesSignups": {
+      "what": "A sign-up to several events of a series at once.",
+      "self": "delete",
+      "links": [
+        { "field": "calEventIds", "array": true, "to": "calEvents", "rule": "keep-history", "why": "The sign-up stands for the events still there." },
+        { "field": "seriesId", "to": "calEvents", "rule": "keep-history", "why": "As above." }
+      ]
+    },
+    "eventInvites": {
+      "what": "An invitation to an event, with its reply link.",
+      "self": "delete",
+      "links": [
+        { "field": "calEventId", "to": "calEvents", "rule": "cascade", "why": "An invitation to something that isn't happening means nothing." },
+        { "field": "memberId", "to": "addressBook", "rule": "archive", "why": "People are archived." }
+      ]
+    },
+    "eventChecklists": {
+      "what": "The organiser's to-do list for one event.",
+      "self": "delete",
+      "links": [ { "field": "$id", "to": "calEvents", "rule": "cascade", "why": "The event's own working list." } ]
+    },
+    "checklistTemplates": { "what": "A starting to-do list the office keeps.", "self": "delete", "links": [] },
+    "checklistReminders": {
+      "what": "A note that a checklist reminder was sent.",
+      "self": "delete",
+      "links": [ { "field": "$idPrefix", "to": "calEvents", "rule": "cascade", "why": "Only stops a reminder going twice (its id starts with the event id)." } ]
+    },
+    "eventNotes": {
+      "what": "The team's private notes on one event.",
+      "self": "delete",
+      "links": [ { "field": "$id", "to": "calEvents", "rule": "cascade", "why": "Working notes for the event only." } ]
+    },
+    "eventChanges": {
+      "what": "A log line: what was changed on an event, and by whom.",
+      "self": "delete",
+      "links": [ { "field": "calEventId", "to": "calEvents", "rule": "keep-history", "why": "The log is how the office sees what happened." } ]
+    },
+    "commsLog": {
+      "what": "A log line: an email sent about an event.",
+      "self": "delete",
+      "links": [ { "field": "calEventId", "to": "calEvents", "rule": "keep-history", "why": "A record of what people were told." } ]
+    },
+    "downloadsLog": {
+      "what": "A log line: who downloaded an event's list.",
+      "self": "delete",
+      "links": [ { "field": "calEventId", "to": "calEvents", "rule": "keep-history", "why": "Data protection: who took personal data off the hub." } ]
+    },
+    "calEventsDeleted": { "what": "A line for each deleted event (title, when, who deleted it).", "self": "delete", "links": [] },
+    "eventCategories": { "what": "A kind of event (for filtering What's on).", "self": "delete", "links": [] },
+    "eventFeeds": { "what": "A private calendar-feed key.", "self": "delete", "links": [ { "field": "uid", "to": "users", "rule": "archive", "why": "People are archived." } ] },
+    "importKeys": { "what": "A ChurchSuite item already imported, so the import never makes it twice.", "self": "delete", "links": [] },
+    "labelSettings": { "what": "How name labels print.", "self": "delete", "links": [] },
+    "pictureLibrary": { "what": "A picture events can use.", "self": "delete", "links": [] },
+    "signupUsual": { "what": "A person's usual sign-up answers, to fill the form next time.", "self": "delete", "links": [] },
+    "headcounts": {
+      "what": "A head count taken at an event.",
+      "self": "delete",
+      "links": [ { "field": "calEventId", "to": "calEvents", "rule": "keep-history", "why": "Attendance figures are kept for the church's records." } ]
+    },
+    "checkins": {
+      "what": "One person or child checked in to an event or a Kids Church morning.",
+      "self": "retention",
+      "legal": true,
+      "links": [
+        { "field": "calEventId", "to": "calEvents", "rule": "keep-history", "why": "Past check-ins are a safeguarding and fire record." },
+        { "field": "childId", "to": "kidsChildren", "rule": "archive", "why": "Children are archived, never deleted." },
+        { "field": "familyId", "to": "kidsFamilies", "rule": "archive", "why": "Families are archived." }
+      ]
+    },
+    "checkinSettings": {
+      "what": "How check-in works for one event.",
+      "self": "delete",
+      "links": [ { "field": "$id", "to": "calEvents", "rule": "cascade", "why": "Settings for that event only." } ]
+    },
+    "uploadLinks": {
+      "what": "A link people use to send the office files for an event.",
+      "self": "delete",
+      "links": [ { "field": "calEventId", "to": "calEvents", "rule": "cascade", "why": "Nothing to upload to once the event has gone." } ]
+    },
+    "uploadItems": {
+      "what": "One file sent through an upload link.",
+      "self": "delete",
+      "links": [ { "field": "linkId", "to": "uploadLinks", "rule": "cascade", "why": "Belongs to the link; the link going means the files are no longer wanted." } ]
+    },
+    "forms": {
+      "what": "A form the office makes (consent, medical, booking forms).",
+      "self": "delete",
+      "links": [ { "field": "siteId", "to": "sites", "rule": "archive", "why": "Sites are taken out of use." } ]
+    },
+    "eventForms": {
+      "what": "Which forms an event asks for.",
+      "self": "delete",
+      "links": [ { "field": "$id", "to": "calEvents", "rule": "cascade", "why": "Settings for that event only." } ]
+    },
+    "formRequests": {
+      "what": "A request for someone to fill a form.",
+      "self": "delete",
+      "links": [
+        { "field": "formId", "to": "forms", "rule": "cascade", "why": "A request for a form that no longer exists can't be answered." },
+        { "field": "calEventId", "to": "calEvents", "rule": "cascade", "why": "Asked only for that event." }
+      ]
+    },
+    "formResponses": {
+      "what": "Someone's answers to a form.",
+      "self": "retention",
+      "links": [
+        { "field": "formId", "to": "forms", "rule": "block", "holds": "answers", "why": "A form with answers is kept until the answers reach their retention date, so the answers still make sense." },
+        { "field": "calEventId", "to": "calEvents", "rule": "keep-history", "why": "Consent and medical answers follow their own retention period." }
+      ]
+    },
+    "sensitiveResponses": {
+      "what": "The private part of a form's answers (medical, consent).",
+      "self": "retention",
+      "links": [ { "field": "responseId", "to": "formResponses", "rule": "cascade", "why": "The private half of one set of answers; retention.html deletes both together." } ]
+    },
+    "eventLeaders": {
+      "what": "Who leads an event, by member.",
+      "self": "delete",
+      "links": [ { "field": "$id", "to": "calEvents", "rule": "cascade", "why": "Settings for that event only; the safeguarding record keeps its own copy of who led." } ]
+    },
+    "eventExceptions": {
+      "what": "Someone allowed into one event's records as an exception.",
+      "self": "delete",
+      "links": [ { "field": "calEventId", "to": "calEvents", "rule": "cascade", "why": "Access to something that no longer exists." } ]
+    },
+    "leaderChecks": { "what": "A leader's DBS and training checks.", "self": "retention", "legal": true, "links": [ { "field": "$id", "to": "addressBook", "rule": "archive", "why": "People are archived." } ] },
+    "sgActivities": { "what": "A kind of activity safeguarding plans for.", "self": "archive", "archiveField": "archived", "legal": true, "links": [] },
+    "sgRisks": {
+      "what": "A safeguarding risk and what is done about it.",
+      "self": "retention", "legal": true,
+      "links": [
+        { "field": "calEventId", "to": "calEvents", "rule": "block", "holds": "safeguarding", "why": "A safeguarding record never loses its event: cancel the event instead." },
+        { "field": "activityId", "to": "sgActivities", "rule": "archive", "why": "Activities are archived." }
+      ]
+    },
+    "sgNoted": { "what": "Leaders' note that they have read an event's safeguarding plan.", "self": "retention", "legal": true, "links": [ { "field": "$id", "to": "calEvents", "rule": "block", "holds": "safeguarding", "why": "A safeguarding record: cancel the event instead." } ] },
+    "sgPolicyReads": { "what": "Who has read the policy for an event.", "self": "retention", "legal": true, "links": [ { "field": "$id", "to": "calEvents", "rule": "block", "holds": "safeguarding", "why": "A safeguarding record: cancel the event instead." } ] },
+    "sgAssessments": { "what": "An event's safeguarding assessment and sign-off.", "self": "retention", "legal": true, "links": [ { "field": "$id", "to": "calEvents", "rule": "block", "holds": "safeguarding", "why": "A safeguarding record: cancel the event instead." } ] },
+    "sgGate": { "what": "Whether an event's sign-ups wait for safeguarding sign-off.", "self": "delete", "links": [ { "field": "$id", "to": "calEvents", "rule": "cascade", "why": "A switch for that event only." } ] },
+    "sgWarnings": { "what": "A site's safeguarding warnings, worked out by the server.", "self": "delete", "links": [ { "field": "$id", "to": "sites", "rule": "archive", "why": "Sites are taken out of use." } ] },
+    "sgDashboard": { "what": "A site's safeguarding summary, worked out by the server.", "self": "delete", "links": [ { "field": "$id", "to": "sites", "rule": "archive", "why": "Sites are taken out of use." } ] },
+    "sgReviews": { "what": "A safeguarding review of a record.", "self": "retention", "legal": true, "links": [] },
+    "sgAiLog": { "what": "A line for each safeguarding AI draft.", "self": "retention", "legal": true, "links": [] },
+    "sgSnapshots": { "what": "A copy of a safeguarding record at sign-off.", "self": "retention", "legal": true, "links": [] },
+    "incidents": {
+      "what": "An accident or incident report.",
+      "self": "retention", "legal": true,
+      "links": [ { "field": "calEventId", "to": "calEvents", "rule": "block", "holds": "safeguarding", "why": "An accident record never loses its event: cancel the event instead." } ]
+    },
+    "concerns": {
+      "what": "A safeguarding concern.",
+      "self": "retention", "legal": true,
+      "links": [ { "field": "calEventId", "to": "calEvents", "rule": "block", "holds": "safeguarding", "why": "A safeguarding record never loses its event: cancel the event instead." } ]
+    },
+    "safeguardingSettings": { "what": "The church's safeguarding leads and settings.", "self": "delete", "links": [] },
+    "retentionLog": { "what": "A line for each record retention removed.", "self": "retention", "legal": true, "links": [] },
+
+    "sites": { "what": "A building or place the church uses.", "self": "archive", "archiveField": "active", "links": [] },
+    "rooms": {
+      "what": "A room in a building.",
+      "self": "archive", "archiveField": "active",
+      "links": [ { "field": "siteId", "to": "sites", "rule": "block", "only": { "active": "not-false" }, "why": "A building can't be taken out of use while its rooms are in use: take the rooms out first." } ]
+    },
+    "roomProfiles": { "what": "A room's health and safety details.", "self": "archive", "links": [ { "field": "$id", "to": "rooms", "rule": "archive", "why": "Rooms are taken out of use." } ] },
+    "roomDays": {
+      "what": "One room's day as 96 quarter-hours, taken or free.",
+      "self": "delete",
+      "links": [ { "field": "roomId", "to": "rooms", "rule": "archive", "why": "Rooms are taken out of use; past days are history." } ]
+    },
+    "roomClosures": { "what": "A room closed for a time (repairs, an event).", "self": "delete", "links": [ { "field": "siteId", "to": "sites", "rule": "archive", "why": "Sites are taken out of use." } ] },
+    "roomClosedDays": {
+      "what": "One day of a room closure, for the booking rules.",
+      "self": "delete",
+      "links": [
+        { "field": "closureId", "to": "roomClosures", "rule": "cascade", "why": "A day of a closure that no longer exists." },
+        { "field": "roomId", "to": "rooms", "rule": "archive", "why": "Rooms are taken out of use." }
+      ]
+    },
+    "bookings": {
+      "what": "A room booking (a member's, a hire, or an event's).",
+      "self": "delete",
+      "links": [
+        { "field": "roomId", "to": "rooms", "rule": "block", "only": { "status": ["confirmed", "requested"], "day": "today-or-later" }, "why": "A room with bookings still to come can't be taken out of use: move or cancel them first." },
+        { "field": "calEventId", "to": "calEvents", "rule": "keep-history", "then": "freeBooking", "why": "An event's booking still to come is cancelled and the room given back; past ones stay as history." },
+        { "field": "hirerId", "to": "hirers", "rule": "archive", "why": "Hirers are kept for the accounts." }
+      ]
+    },
+    "cateringOrders": { "what": "The kitchen's list for one booking.", "self": "delete", "links": [ { "field": "$id", "to": "bookings", "rule": "cascade", "why": "The kitchen's copy of the booking (cateringSync already removes it)." } ] },
+    "bookingTypes": { "what": "A kind of booking and its rules.", "self": "archive", "archiveField": "active", "links": [] },
+    "bookableResources": { "what": "Kit a booking can reserve (projector, urn).", "self": "archive", "archiveField": "active", "links": [] },
+    "venues": { "what": "A place outside the church's buildings.", "self": "archive", "archiveField": "active", "links": [] },
+    "menus": { "what": "A refreshments menu.", "self": "archive", "archiveField": "active", "links": [] },
+    "rateCards": { "what": "Hire prices for rooms.", "self": "archive", "archiveField": "active", "links": [] },
+    "terms": { "what": "Hire terms and conditions, by version.", "self": "archive", "links": [] },
+    "hirers": { "what": "Someone who hires rooms.", "self": "archive", "archiveField": "archived", "links": [] },
+    "invoices": { "what": "A hire invoice.", "self": "retention", "legal": true, "links": [ { "field": "chargeIds", "array": true, "to": "charges", "rule": "archive", "why": "Finance records are never deleted." } ] },
+    "charges": { "what": "A charge for a hire or a booking.", "self": "retention", "legal": true, "links": [ { "field": "bookingKey", "to": "bookings", "rule": "keep-history", "why": "A finance record stays whatever happens to the booking." } ] },
+    "counters": { "what": "Invoice numbers.", "self": "archive", "links": [] },
+    "accountsFor": { "what": "Who does a site's accounts.", "self": "delete", "links": [] },
+    "accountsQueue": { "what": "An item waiting for the treasurer.", "self": "retention", "legal": true, "links": [] },
+    "raHire": { "what": "The risk assessment for one hire.", "self": "retention", "legal": true, "links": [ { "field": "$id", "to": "bookings", "rule": "keep-history", "why": "A health and safety record stays." } ] },
+    "maintJobs": { "what": "A maintenance job.", "self": "delete", "links": [ { "field": "roomId", "to": "rooms", "rule": "archive", "why": "Rooms are taken out of use." } ] },
+
+    "kidsSettings": { "what": "A site's Kids Church settings.", "self": "delete", "links": [] },
+    "kidsGroups": { "what": "A Kids Church group (age band).", "self": "archive", "archiveField": "archived", "links": [] },
+    "kidsFamilies": { "what": "A family registered for Kids Church.", "self": "archive", "archiveField": "archived", "links": [] },
+    "kidsChildren": {
+      "what": "A child registered for Kids Church.",
+      "self": "archive", "archiveField": "archived",
+      "links": [
+        { "field": "familyId", "to": "kidsFamilies", "rule": "archive", "why": "Families are archived, never deleted." },
+        { "field": "groupId", "to": "kidsGroups", "rule": "archive", "why": "Groups are archived." }
+      ]
+    },
+    "kidsMedical": { "what": "A child's medical and allergy notes.", "self": "retention", "links": [ { "field": "$id", "to": "kidsChildren", "rule": "cascade", "why": "Only ever about that child; erasure of the child removes it." } ] },
+    "kidsMornings": { "what": "One Kids Church morning (who leads, which room).", "self": "retention", "legal": true, "links": [] },
+    "kidsRoll": {
+      "what": "A child on one morning's register.",
+      "self": "retention", "legal": true,
+      "links": [ { "field": "childId", "to": "kidsChildren", "rule": "archive", "why": "Attendance is a safeguarding record; children are archived." } ]
+    },
+    "kidsLeaderIns": { "what": "A leader signed in on a morning.", "self": "retention", "legal": true, "links": [] },
+    "kidsTerms": { "what": "A site's Kids Church term dates.", "self": "delete", "links": [] },
+    "kidsCounts": { "what": "Numbers per morning, worked out by the server.", "self": "delete", "links": [] },
+    "kidsScreenNos": { "what": "Numbers shown on the screen to call parents.", "self": "delete", "links": [] },
+    "screenPages": { "what": "A page for the Kids Church screen.", "self": "delete", "links": [] },
+
+    "groupsSettings": { "what": "Small groups settings.", "self": "delete", "links": [] },
+    "smallGroups": { "what": "A small group.", "self": "archive", "archiveField": "archived", "links": [] },
+    "smallGroupPrivate": { "what": "A group's private details (address).", "self": "delete", "links": [ { "field": "$id", "to": "smallGroups", "rule": "cascade", "why": "Part of the group." } ] },
+    "smallGroupMembers": { "what": "Someone in a small group.", "self": "delete", "links": [ { "field": "groupId", "to": "smallGroups", "rule": "cascade", "why": "Membership of a group that no longer exists." } ] },
+    "smallGroupMeetings": { "what": "A group's meeting.", "self": "delete", "links": [ { "field": "groupId", "to": "smallGroups", "rule": "cascade", "why": "The group's own diary." } ] },
+    "smallGroupAttendance": { "what": "Who came to a group meeting.", "self": "delete", "links": [ { "field": "groupId", "to": "smallGroups", "rule": "keep-history", "why": "Attendance is kept for pastoral follow-up." } ] },
+    "smallGroupMessages": { "what": "A message in a group.", "self": "delete", "links": [ { "field": "groupId", "to": "smallGroups", "rule": "cascade", "why": "The group's own messages." } ] },
+    "smallGroupRequests": { "what": "A request to join a group.", "self": "delete", "links": [ { "field": "groupId", "to": "smallGroups", "rule": "cascade", "why": "A request to join something that has gone." } ] },
+    "smallGroupExceptions": { "what": "Someone allowed into a group's records as an exception.", "self": "delete", "links": [ { "field": "groupId", "to": "smallGroups", "rule": "cascade", "why": "Access to something that has gone." } ] },
+
+    "raSettings": { "what": "Risk assessment settings.", "self": "delete", "links": [] },
+    "raSiteRoles": { "what": "A site's health and safety and fire leads.", "self": "delete", "links": [ { "field": "$id", "to": "sites", "rule": "archive", "why": "Sites are taken out of use." } ] },
+    "raAssessments": {
+      "what": "A risk assessment.",
+      "self": "retention", "legal": true,
+      "links": [ { "field": "calEventId", "to": "calEvents", "rule": "block", "holds": "health and safety", "why": "A health and safety record never loses its event: cancel the event instead." } ]
+    },
+    "raEvents": { "what": "Which risk assessments an event uses.", "self": "retention", "legal": true, "links": [ { "field": "$id", "to": "calEvents", "rule": "block", "holds": "health and safety", "why": "A health and safety record: cancel the event instead." } ] },
+    "raReads": { "what": "Who has read a risk assessment.", "self": "retention", "legal": true, "links": [] },
+    "raStatus": { "what": "Where a risk assessment has got to.", "self": "retention", "legal": true, "links": [] },
+    "raCounts": { "what": "Counts for the risk dashboard.", "self": "delete", "links": [] },
+    "raSigned": { "what": "A risk assessment signed off.", "self": "retention", "legal": true, "links": [] },
+    "raReports": { "what": "A report read into a risk assessment.", "self": "retention", "legal": true, "links": [] },
+    "hazards": { "what": "A hazard reported in a building.", "self": "retention", "legal": true, "links": [] },
+    "riskSnapshots": { "what": "A copy of the risks at a date.", "self": "retention", "legal": true, "links": [] },
+    "complianceTemplates": { "what": "A building check template (seeded by a tool).", "self": "archive", "links": [] },
+    "buildingProfiles": { "what": "A building's health and safety details.", "self": "archive", "links": [ { "field": "$id", "to": "sites", "rule": "archive", "why": "Sites are taken out of use." } ] },
+    "buildingChecks": { "what": "A building check that is due regularly.", "self": "archive", "archiveField": "removed", "legal": true, "links": [] },
+    "checkRecords": { "what": "One time a building check was done.", "self": "retention", "legal": true, "links": [ { "field": "checkId", "to": "buildingChecks", "rule": "archive", "why": "Checks are removed, never deleted." } ] },
+    "buildingWork": { "what": "Work done on a building.", "self": "retention", "legal": true, "links": [] },
+    "fireEquipment": { "what": "A fire extinguisher, alarm point or similar.", "self": "archive", "archiveField": "removed", "legal": true, "links": [] },
+    "complianceStatus": { "what": "A site's checks summary, worked out by the server.", "self": "delete", "links": [] },
+    "complianceReminders": { "what": "A note that a reminder was sent.", "self": "delete", "links": [] },
+    "complianceSignoffs": { "what": "A check signed off.", "self": "retention", "legal": true, "links": [] },
+    "complianceLog": { "what": "A log of building check changes.", "self": "retention", "legal": true, "links": [] },
+    "fireRollCall": { "what": "A fire roll call.", "self": "retention", "legal": true, "links": [] },
+    "geeps": { "what": "A site's general evacuation plan.", "self": "archive", "links": [] },
+    "peeps": { "what": "A person's own evacuation plan.", "self": "delete", "links": [] },
+    "peepToday": { "what": "Today's evacuation list, worked out by the server.", "self": "delete", "links": [] },
+    "peepLog": { "what": "A log of who saw evacuation plans.", "self": "retention", "legal": true, "links": [] },
+    "loneSettings": { "what": "Lone working settings.", "self": "delete", "links": [] },
+    "loneVisits": { "what": "A lone working visit and its check-in.", "self": "retention", "legal": true, "links": [] },
+    "loneContacts": { "what": "Who to call for lone working.", "self": "delete", "links": [] },
+    "transportSettings": { "what": "Transport settings.", "self": "delete", "links": [] },
+    "drivers": { "what": "A volunteer driver.", "self": "delete", "links": [] },
+    "driverOk": { "what": "A driver's checks passed.", "self": "delete", "links": [ { "field": "$id", "to": "drivers", "rule": "cascade", "why": "Only means something for a current driver (the page removes both together)." } ] },
+    "vehicles": { "what": "A vehicle the church uses.", "self": "archive", "archiveField": "archived", "links": [] },
+    "vehicleChecks": { "what": "A vehicle check.", "self": "retention", "legal": true, "links": [ { "field": "vehicleId", "to": "vehicles", "rule": "archive", "why": "Vehicles are archived." } ] },
+
+    "presentDecks": { "what": "A set of slides in Present.", "self": "delete", "links": [] },
+    "presentNotes": { "what": "A deck's speaker notes.", "self": "delete", "links": [ { "field": "$id", "to": "presentDecks", "rule": "cascade", "why": "Part of the deck." } ] },
+    "presentAllow": { "what": "Someone allowed to present in a meeting.", "self": "delete", "links": [] },
+    "presentHere": { "what": "Someone watching a presentation now.", "self": "delete", "links": [] },
+    "presentNow": { "what": "Which slide is showing now.", "self": "delete", "links": [] },
+    "quizRuns": { "what": "A quiz being played.", "self": "delete", "links": [] },
+    "planGroups": { "what": "A group with a teaching plan (Kids Church, youth).", "self": "delete", "links": [] },
+    "planSessions": { "what": "One session's plan, shown by ChurchShow.", "self": "delete", "links": [ { "field": "groupId", "to": "planGroups", "rule": "keep-history", "why": "The page promises a group's plans stay when the group is removed." } ] },
+    "sermonLinks": { "what": "A sermon's link to a plan, kept by the server.", "self": "delete", "links": [] }
+  }
+}

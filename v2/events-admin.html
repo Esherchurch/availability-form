@@ -368,8 +368,18 @@
       });
     });
   }
+  /* Kept, not deleted: an event holding payments or safeguarding, health
+     and safety or accident records (heldBy, set by the server; the rules
+     refuse the delete). The words say why and what to do instead. */
+  function heldSay(evs) {
+    var held = evs.filter(function (ev) { return (ev.heldBy || []).length; });
+    if (held.length) alert(held.map(function (ev) { return '“' + (ev.title || 'Event') + '” has ' + ev.heldBy.join(' and ') + ' records'; }).join('\n') +
+      '\n\nSo ' + (held.length === 1 ? 'it stays' : 'they stay') + ' in the records and can\'t be deleted. Cancel ' + (held.length === 1 ? 'it' : 'them') + ' instead: everyone who signed up is told, and the rooms are given back.');
+    return evs.filter(function (ev) { return !(ev.heldBy || []).length; });
+  }
   function bulkDelete() {
-    var list = picked();
+    var list = heldSay(picked());
+    if (!list.length) return;
     if (!confirm('Delete ' + list.length + ' event' + (list.length === 1 ? '' : 's') + '? Their rooms are given back. Sign-ups are not deleted.')) return;
     bulkSay('Deleting ' + list.length + '…');
     var done = 0;
@@ -1936,6 +1946,8 @@
   function deleteSeries() {
     if (!confirm('Delete every date in this series? Sign-ups are not deleted.')) return;
     db().collection('calEvents').where('seriesId', '==', CUR.seriesId).get().then(function (snap) {
+      var all = snap.docs.map(function (d) { return d.data(); });
+      if (heldSay(all).length < all.length) throw new Error('Nothing was deleted.');
       /* What, when and who, written FIRST (F-180): if it cannot be written,
          nothing is deleted. */
       var first = snap.docs.map(function (d) { return d.data(); }).sort(function (a, b) { return (a.startUtc || 0) - (b.startUtc || 0); })[0] || CUR;

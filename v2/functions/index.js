@@ -893,3 +893,5 @@ export { churchShowServicesToday, churchShowWords } from './churchshow-services.
 export { hqJoinChurch, churchBookToUsers } from './church-join.js';
 /* The privacy tools on the information asset register (UK GDPR). */
 export { privacyFind, privacyExport } from './privacy-tools.js';
+/* Records that link to other records: the data map carried out (on-delete rules). */
+export { tidyAfterDelete, holdParent, removeCheck, takeOutOfUse } from './data-links.js';

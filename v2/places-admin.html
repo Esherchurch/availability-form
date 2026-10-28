@@ -731,6 +731,16 @@
     if (d.tog) {
       var list = d.tog === 'sites' ? sites : d.tog === 'rooms' ? rooms : d.tog === 'venues' ? venues : d.tog === 'menus' ? menus : d.tog === 'bookingTypes' ? types : kit;
       var rec = list.find(function (x) { return x.id === d.id; });
+      /* A room or building is taken out of use by the server, which first
+         checks nothing still needs it (bookings to come, rooms in use). */
+      if ((d.tog === 'rooms' || d.tog === 'sites') && rec && rec.active !== false && EGBCAuth.call) {
+        EGBCAuth.call('takeOutOfUse', { collection: d.tog, id: d.id }).then(function (r) {
+          if (r && r.ok) return toast('Taken out of use.');
+          alert('“' + (rec.name || '') + '” is still needed, so it stays in use.\n\n' +
+            ((r && r.blockers) || []).map(function (x) { return x.count + (x.count >= 500 ? '+' : '') + ' ' + (x.collection === 'bookings' ? 'booking(s) to come' : 'room(s) in use') + '. ' + x.why; }).join('\n'));
+        }).catch(oops);
+        return;
+      }
       db.collection(d.tog).doc(d.id).update({ active: rec && rec.active === false }).catch(oops);
     }
     if (d.unl) {

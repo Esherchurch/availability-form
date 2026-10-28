@@ -791,9 +791,12 @@ return runsThisEvent(resource.data);
 match /calEvents/{calEventId} {
 allow get, list: if canSeeEvent();
 allow create: if isAdmin() && audienceAgrees() && !calEventId.matches('rota_.*')
-&& request.resource.data.get('createdBy', '') == request.auth.uid;
-allow update: if canEditEvent() && audienceAgrees() && !calEventId.matches('rota_.*');
-allow delete: if canEditEvent() && !calEventId.matches('rota_.*');
+&& request.resource.data.get('createdBy', '') == request.auth.uid
+&& !('heldBy' in request.resource.data);
+allow update: if canEditEvent() && audienceAgrees() && !calEventId.matches('rota_.*')
+&& !request.resource.data.diff(resource.data).affectedKeys().hasAny(['heldBy']);
+allow delete: if canEditEvent() && !calEventId.matches('rota_.*')
+&& resource.data.get('heldBy', []).size() == 0;
 match /ticketTypes/{ticketTypeId} {
 allow read: if true;
 allow write: if runsEventId(calEventId);

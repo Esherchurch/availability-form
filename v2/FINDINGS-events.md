@@ -13531,3 +13531,19 @@ The reviewer asked me to keep you busy. All of it is yours to build; the files n
 - **For main:**
   - meeting.html loads egbc-present.js at `202610222000`. Please bump it to `202610311200`, so the leave beacon carries the church.
   - `launched()` in present.js reads the church's `churchSettings/launch.rulesLocked`. A church without that document can't add slides yet: when should a church count as live?
+
+## From the events window, 1 Nov 2026: F-315, the data map and on-delete rules (ENGINEERING.md section 1), for main
+
+- **The map:** `data-map/events.json` covers 136 collections. Its `format` block explains each field.
+- **For orphanSweep:** `node tools/data-map-build.mjs` joins every `data-map/*.json` into `functions/data-map.json`.
+  - Functions deploy from functions/ only, so the server reads the joined file.
+  - The build refuses a cascade into a legal record, an unknown rule, or a collection claimed by two maps. `--check` says whether the joined file is up to date.
+  - `functions/data-links.js` exports what you'll want to reuse: `MAP`, `linksTo`, `counts` and `tidyChildren`.
+- **The triggers come from the map:** grouped exports `tidyAfterDelete-<parent>` and `holdParent-<child>`, each with a `...Church` twin. A rule added to any window's map gets its trigger at the next deploy.
+- **One edit in your part of firestore.rules:**
+  - `calEvents` create and update can't touch `heldBy`.
+  - Delete is refused while `heldBy` isn't empty, meaning the event has payments or safeguarding, H&S or accident records.
+  - events-admin explains this and says to cancel instead. Both rulesets are rebuilt.
+- **Asks for main:**
+  1. `sites` and `rooms` still allow any admin write. Please make delete `false` and refuse a page setting `active: false`. places-admin now takes them out of use through `takeOutOfUse`, which first checks for bookings to come and rooms in use.
+  2. `index.js` has one new export line at the end (data-links.js).
