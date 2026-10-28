@@ -686,7 +686,8 @@ const permsToday = () => londonDay(new Date());
 /* THE MEETINGS SPLIT (Martin, 28 Oct 2026): a meeting's own words never
    stay on its rota event (functions/meeting-split.js). */
 export const [meetingSplit, meetingSplitChurch] = twins(onDocumentWritten, 'events/{id}', async (ch, event) => {
-  if (!event.data.after.exists) return dropMeeting(ch.db, event.params.id);
+  /* A deleted meeting's own part, guest links and sends: the data map's cascade (data-links.js). */
+  if (!event.data.after.exists) return null;
   return splitMeeting(ch.db, event.params.id, event.data.after.data(), await meetingServiceKinds(ch.db));
 });
 export const [permsOnSettings, permsOnSettingsChurch] = twins(onDocumentWritten, 'churchSettings/{id}', async (ch, event) => {
@@ -835,7 +836,8 @@ export { meetingRoom, meetingInvite, meetingGuestJoin, meetingCancel } from './m
 /* Two meetings never share a link at the same time (27 Oct 2026). */
 export { meetingOwnRoom, meetingOwnRoomChurch } from './meeting-rooms.js';
 import { dbForAddress } from './church-address.js';
-import { splitOne as splitMeeting, dropOne as dropMeeting, serviceKinds as meetingServiceKinds } from './meeting-split.js';
+import { splitOne as splitMeeting, serviceKinds as meetingServiceKinds } from './meeting-split.js';
+export { orphanSweep } from './orphan-sweep.js';
 export { castVote, voteOpen, voteClose, proxyAppoint, proxyCancel, proxyPeople } from './meetings.js';
 /* Sermon plans, the other way: sermonLinks for the Preaching plan (F-229), the events window's file. */
 export { sermonLinkKeep } from './sermon-links.js';

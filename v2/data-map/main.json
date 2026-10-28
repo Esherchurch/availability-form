@@ -1,0 +1,199 @@
+{
+  "owner": "main",
+  "about": "The main window's collections: people (address book), sign-in accounts, teams, the rota and availability, meetings, pastoral visits, care, prayer, permissions and settings. The format is the one described in events.json. Read by tools/data-map-build.mjs (into functions/data-map.json), by the server's tidying after a delete (functions/data-links.js) and by orphanSweep (functions/orphan-sweep.js).",
+  "collections": {
+    "addressBook": {
+      "what": "A person in the church's address book.",
+      "self": "archive",
+      "archiveField": "archived: true",
+      "links": [
+        { "field": "householdId", "to": "addressBook", "rule": "archive", "why": "People are archived, never deleted; erasure goes through the privacy tools." }
+      ]
+    },
+    "users": {
+      "what": "A sign-in account: its person, teams, admin areas and status.",
+      "self": "delete",
+      "links": [
+        { "field": "memberId", "to": "addressBook", "rule": "archive", "why": "People are archived, never deleted." },
+        { "field": "teams", "array": true, "to": "teams", "rule": "archive", "why": "Teams are archived, never deleted." },
+        { "field": "adminFor", "array": true, "to": "teams", "rule": "archive", "why": "Teams are archived, never deleted." }
+      ]
+    },
+    "teams": {
+      "what": "A team or group: its name, colour, rota flag, parent and what it covers.",
+      "self": "archive",
+      "archiveField": "archived: true",
+      "links": [
+        { "field": "parent", "to": "teams", "rule": "archive", "why": "Teams are archived, never deleted." },
+        { "field": "coreFor", "array": true, "to": "teams", "rule": "archive", "why": "Teams are archived, never deleted." }
+      ]
+    },
+    "events": {
+      "what": "A rota date: a service or a meeting, its teams, roles and people.",
+      "self": "delete",
+      "links": [
+        { "field": "teams", "array": true, "to": "teams", "rule": "archive", "why": "Teams are archived, never deleted; old terms are archived by Data tools, not deleted." }
+      ]
+    },
+    "meetings": {
+      "what": "A meeting's private part: title, notes, organiser and the people invited by name.",
+      "self": "delete",
+      "links": [
+        { "field": "$id", "to": "events", "rule": "cascade", "why": "Half of the meeting; without its rota event it means nothing." },
+        { "field": "organiserUid", "to": "users", "rule": "keep-history", "why": "The meeting still happens if its organiser's account closes; a master admin can host it." },
+        { "field": "invitees", "array": true, "to": "addressBook", "rule": "archive", "why": "People are archived, never deleted." }
+      ]
+    },
+    "meetingGuests": {
+      "what": "A guest's link to one meeting (only its hash), their name and email.",
+      "self": "delete",
+      "links": [
+        { "field": "meetingId", "to": "events", "rule": "cascade", "why": "A guest link to a meeting that is gone must stop working and not keep an outsider's address." }
+      ]
+    },
+    "meetingSends": {
+      "what": "Who was emailed about a meeting, so a cancellation reaches the same people.",
+      "self": "delete",
+      "links": [
+        { "field": "$id", "to": "events", "rule": "cascade", "why": "Only needed while the meeting exists." }
+      ]
+    },
+    "availability": {
+      "what": "One person's answer for one rota date: available, unavailable or maybe.",
+      "self": "delete",
+      "links": [
+        { "field": "eventId", "to": "events", "rule": "cascade", "why": "An answer for a date no longer on the rota means nothing." },
+        { "field": "memberId", "to": "addressBook", "rule": "archive", "why": "People are archived, never deleted." }
+      ]
+    },
+    "availabilityRequests": {
+      "what": "A term's request for availability: its dates and when it closes.",
+      "self": "delete",
+      "links": []
+    },
+    "rotaExceptions": {
+      "what": "Leave to put a person on the rota despite a missing check, with the reason.",
+      "self": "delete",
+      "links": [
+        { "field": "$id", "to": "addressBook", "rule": "archive", "why": "People are archived, never deleted." }
+      ]
+    },
+    "rotaSignoff": {
+      "what": "A team's sign-off of a term's rota (id: term__team).",
+      "self": "delete",
+      "links": []
+    },
+    "pastoralVisits": {
+      "what": "A pastoral visit: who was visited (name copied in), when, by whom, follow-up.",
+      "self": "retention",
+      "links": [
+        { "field": "memberId", "to": "addressBook", "rule": "archive", "why": "People are archived, never deleted; the visit keeps the name it was made with." },
+        { "field": "by", "array": true, "to": "addressBook", "rule": "archive", "why": "People are archived, never deleted." }
+      ]
+    },
+    "pastoralReminded": {
+      "what": "A follow-up reminder already sent for a visit (id: visit_followUp).",
+      "self": "delete",
+      "links": [
+        { "field": "$idPrefix", "to": "pastoralVisits", "rule": "cascade", "why": "It only stops a reminder being sent twice for that visit." }
+      ]
+    },
+    "pastoralSettings": {
+      "what": "Who the pastoral visitors are.",
+      "self": "delete",
+      "links": [
+        { "field": "visitorIds", "array": true, "to": "addressBook", "rule": "archive", "why": "People are archived, never deleted." }
+      ]
+    },
+    "worries": {
+      "what": "\"I'm worried about someone\": a care or safeguarding concern, who it is about and who dealt with it.",
+      "self": "retention",
+      "legal": true,
+      "links": [
+        { "field": "aboutMemberId", "to": "addressBook", "rule": "archive", "why": "People are archived, never deleted; a concern follows the retention rules." }
+      ]
+    },
+    "prayers": {
+      "what": "A prayer request and its answer (the name it was sent with copied in).",
+      "self": "delete",
+      "links": [
+        { "field": "by", "to": "users", "rule": "keep-history", "why": "The request was shared with the prayer team; it stays as they saw it." }
+      ]
+    },
+    "prayerAnswers": {
+      "what": "An answered-prayer story shared with the church.",
+      "self": "delete",
+      "links": [
+        { "field": "by", "to": "users", "rule": "keep-history", "why": "As prayers." }
+      ]
+    },
+    "prayerSundayList": {
+      "what": "The prayer list for one Sunday (id: the date).",
+      "self": "delete",
+      "links": []
+    },
+    "permissionExceptions": {
+      "what": "A permission given to or taken from one person, with why and until when.",
+      "self": "delete",
+      "links": [
+        { "field": "memberId", "to": "addressBook", "rule": "archive", "why": "People are archived, never deleted." },
+        { "field": "uid", "to": "users", "rule": "cascade", "why": "An exception for a closed account must not apply to anyone." }
+      ]
+    },
+    "permissionsLog": {
+      "what": "Who changed whose permissions, and how.",
+      "self": "delete",
+      "links": [
+        { "field": "memberId", "to": "addressBook", "rule": "archive", "why": "People are archived, never deleted; an audit log is kept." }
+      ]
+    },
+    "notifyPrefs": {
+      "what": "An account's notification choices and quiet hours.",
+      "self": "delete",
+      "links": [
+        { "field": "$id", "to": "users", "rule": "cascade", "why": "Belongs to the account alone." }
+      ]
+    },
+    "pushTokens": {
+      "what": "A device registered for an account's notifications.",
+      "self": "delete",
+      "links": [
+        { "field": "uid", "to": "users", "rule": "cascade", "why": "A closed account's devices must stop being sent anything." }
+      ]
+    },
+    "calendarKeys": {
+      "what": "An account's private calendar feed keys.",
+      "self": "delete",
+      "links": [
+        { "field": "$id", "to": "users", "rule": "cascade", "why": "Belongs to the account alone." }
+      ]
+    },
+    "calendarFeeds": {
+      "what": "One private calendar feed: whose it is and what it shows.",
+      "self": "delete",
+      "links": [
+        { "field": "uid", "to": "users", "rule": "cascade", "why": "A closed account's feed must stop working." },
+        { "field": "memberId", "to": "addressBook", "rule": "archive", "why": "People are archived, never deleted." }
+      ]
+    },
+    "teamContent": {
+      "what": "A team's home-page panels (id: the team).",
+      "self": "delete",
+      "links": [
+        { "field": "$id", "to": "teams", "rule": "archive", "why": "Teams are archived, never deleted." }
+      ]
+    },
+    "teamMailboxes": {
+      "what": "Who reads a team's shared email (id: the team).",
+      "self": "delete",
+      "links": [
+        { "field": "$id", "to": "teams", "rule": "archive", "why": "Teams are archived, never deleted." },
+        { "field": "memberIds", "array": true, "to": "addressBook", "rule": "archive", "why": "People are archived, never deleted." }
+      ]
+    },
+    "careRouting": { "what": "Where care, pastoral and prayer messages go.", "self": "delete", "links": [] },
+    "prayerSettings": { "what": "Who the prayer team is and how prayer requests work.", "self": "delete", "links": [] },
+    "churchSettings": { "what": "The church's settings, one document per area (details, services, video, features...).", "self": "delete", "links": [] },
+    "orphanSweeps": { "what": "What the nightly orphan check found and fixed (id: the date).", "self": "delete", "links": [] }
+  }
+}

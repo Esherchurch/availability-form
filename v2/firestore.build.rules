@@ -157,7 +157,8 @@ allow write: if isAdmin() && adminOf(request.resource.data.team);
 match /addressBook/{personId} {
 allow get: if isAdmin() || volunteer() || bookIsMine(personId);
 allow list: if isAdmin() || volunteer();
-allow write: if raOffice() || bookLeaderOk();
+allow create, update: if raOffice() || bookLeaderOk();
+allow delete: if false;
 }
 function bookLeaderOk() {
 let mine = me().get('adminFor', []);
@@ -232,6 +233,10 @@ allow read, write: if false;
 match /meetingSends/{id} {
 allow read, write: if false;
 }
+match /orphanSweeps/{id} {
+allow read: if isMaster();
+allow write: if false;
+}
 function sgLeadOrDeputy() {
 return exists(/databases/$(database)/documents/safeguardingSettings/defaults)
 && sgLeadOf(get(/databases/$(database)/documents/safeguardingSettings/defaults).data.get('leadSiteId', ''));
@@ -299,7 +304,8 @@ allow delete: if false;
 }
 match /teams/{teamId} {
 allow read: if active();
-allow write: if (isMaster() || (raOffice()
+allow delete: if false;
+allow create, update: if (isMaster() || (raOffice()
 && request.resource.data.get('runs', []) == (resource == null ? [] : resource.data.get('runs', []))
 && request.resource.data.get('coreFor', []) == (resource == null ? [] : resource.data.get('coreFor', []))
 && request.resource.data.get('board', '') == (resource == null ? '' : resource.data.get('board', ''))))
@@ -724,13 +730,20 @@ allow read, write: if volunteer();
 function activeRecord() {
 return resource.data.get('active', false) == true;
 }
+function notTakenOutHere() {
+return !(request.resource.data.get('active', true) == false && resource.data.get('active', true) != false);
+}
 match /sites/{siteId} {
 allow read: if active() || activeRecord();
-allow write: if isAdmin();
+allow create: if isAdmin();
+allow update: if isAdmin() && notTakenOutHere();
+allow delete: if false;
 }
 match /rooms/{roomId} {
 allow read: if active() || activeRecord();
-allow write: if isAdmin();
+allow create: if isAdmin();
+allow update: if isAdmin() && notTakenOutHere();
+allow delete: if false;
 }
 match /bookableResources/{resourceId} {
 allow read: if active();

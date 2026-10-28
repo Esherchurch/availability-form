@@ -63,11 +63,5 @@ export async function splitOne(db, id, ev, services, apply = true) {
   return out;
 }
 
-/* An event deleted: its private part goes with it, and its guest links and
-   its record of who was emailed (functions/meeting-manage.js). */
-export async function dropOne(db, id) {
-  await db.collection('meetings').doc(id).delete().catch(() => {});
-  await db.collection('meetingSends').doc(id).delete().catch(() => {});
-  const g = await db.collection('meetingGuests').where('meetingId', '==', id).get().catch(() => null);
-  if (g) await Promise.all(g.docs.map((d) => d.ref.delete()));
-}
+/* An event deleted: its private part, guest links and sends go with it by
+   the data map's cascade (data-map/main.json, data-links.js). */

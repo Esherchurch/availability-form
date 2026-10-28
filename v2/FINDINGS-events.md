@@ -13560,3 +13560,8 @@ The reviewer asked me to keep you busy. All of it is yours to build; the files n
 3. **Help (ENGINEERING 8a):** please write help/<page>.md for each of your pages, in plain words. Use the same headings as help/enews.md: what it's for, Who can use it, tasks, Good to know, Who to ask.
    - Add `<script src="egbc-help.js?v=202610281800"></script>` after egbc-auth.js, until main's shell loads it everywhere.
    - Then run node tools/help-build.mjs.
+## From main: the data map (main.json is in, in your format)
+
+- **`$idPrefix` in data-links.js `childrenOf` finds nothing.** The query is `id >= x_` and `id < x_`, an empty range. Please make the upper bound `id + '`'` (the character after `_`), or `id + '_'` with `<=`. main.json's `pastoralReminded` (`$idPrefix` → `pastoralVisits`, cascade) depends on it. orphanSweep catches what it misses each night.
+- **orphanSweep** is in functions/orphan-sweep.js and reads your joined `data-map.json`. It covers every map file. Only `cascade` and `keep-history` are fixed; `archive` and `block` are counted. Each church's first run only counts. Counts go in `orphanSweeps/<date>`.
+- **firebase.json** gains a functions `predeploy` running `node tools/data-map-build.mjs`, so the joined map is never stale at deploy time.

@@ -532,7 +532,10 @@ service cloud.firestore {
       // admin, master or under-18 ticks. A new person they add is on their
       // teams only. Removing somebody is the office's, or the leader's when
       // the person is on no team but theirs.
-      allow write: if raOffice() || bookLeaderOk();
+      // Archive, never delete (data-map/main.json): records all over the hub
+      // point at a person. Erasure is the privacy tools', on the server.
+      allow create, update: if raOffice() || bookLeaderOk();
+      allow delete: if false;
     }
 
     function bookLeaderOk() {
@@ -678,6 +681,12 @@ service cloud.firestore {
     }
     match /meetingSends/{id} {
       allow read, write: if false;
+    }
+    // What the nightly orphan check found (orphan-sweep.js): written by the
+    // server only; a master admin may look.
+    match /orphanSweeps/{id} {
+      allow read: if isMaster();
+      allow write: if false;
     }
 
     // ---- "I'M WORRIED ABOUT SOMEONE" (NEXT-BRIEF §24) ------------------
@@ -847,7 +856,8 @@ service cloud.firestore {
       // coreFor (H-15): the teams this one is the core team for. Like runs,
       // it gives people access, so it is a master admin's: the office may
       // keep the list but not change what a team covers.
-      allow write: if (isMaster() || (raOffice()
+      allow delete: if false;
+      allow create, update: if (isMaster() || (raOffice()
                         && request.resource.data.get('runs', []) == (resource == null ? [] : resource.data.get('runs', []))
                         && request.resource.data.get('coreFor', []) == (resource == null ? [] : resource.data.get('coreFor', []))
                         && request.resource.data.get('board', '') == (resource == null ? '' : resource.data.get('board', ''))))
@@ -1735,14 +1745,24 @@ service cloud.firestore {
       return resource.data.get('active', false) == true;
     }
 
+    // Buildings and rooms are taken out of use, never deleted, and only by
+    // the server's takeOutOfUse, which first checks nothing still needs
+    // them (data-links.js): a page may not delete one or set active: false.
+    function notTakenOutHere() {
+      return !(request.resource.data.get('active', true) == false && resource.data.get('active', true) != false);
+    }
     match /sites/{siteId} {
       allow read: if active() || activeRecord();
-      allow write: if isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin() && notTakenOutHere();
+      allow delete: if false;
     }
 
     match /rooms/{roomId} {
       allow read: if active() || activeRecord();
-      allow write: if isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin() && notTakenOutHere();
+      allow delete: if false;
     }
 
     // Projectors, the PA, chairs, the urn - things a booking reserves

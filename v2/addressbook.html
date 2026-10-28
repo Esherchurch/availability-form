@@ -16,7 +16,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { db, ready } from './egbc-db.js';
-        import { collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { collection, addDoc, query, orderBy, onSnapshot, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         /* One signed-in connection. Nothing below runs until the session is
            restored: a query sent before then goes out anonymous, whatever the
@@ -32,13 +32,21 @@
 
         function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
-        // 1. DELETE - look up member by id (Unicode-safe, no btoa)
+        /* ARCHIVE, NEVER DELETE (data-map/main.json): rotas, visits, care
+           records and logs point at people, so a person is hidden, not
+           removed. Erasing someone is the privacy tools' job. */
         window.deleteMember = async (id) => {
             const m = memberCache[id];
             if(m && !canEditMember(m)){ alert('That person is not on a team you administer.'); return; }
             const name = m ? m.name : '';
-            if(confirm(`Remove ${name} permanently?`)) await deleteDoc(doc(db, "addressBook", id));
+            if(!confirm(`Archive ${name}?\n\nThey disappear from lists, rotas and pickers. Nothing linked to them is lost, and "Show archived" brings them back.`)) return;
+            await updateDoc(doc(db, "addressBook", id), { archived: true, archivedAt: new Date().toISOString(), archivedBy: (EGBCAuth.user() || {}).uid || '' });
         };
+        window.restoreMember = async (id) => {
+            await updateDoc(doc(db, "addressBook", id), { archived: false, archivedAt: '', archivedBy: '' });
+        };
+        let showArchived = false;
+        window.toggleArchived = (on) => { showArchived = on; if (lastSnapshot) renderSnapshot(lastSnapshot); };
 
         /* A Kids Church role stored under a name this page no longer offers.
            It is added as a ticked box of its own rather than dropped, because
@@ -162,6 +170,7 @@
             const mine = EGBCAuth.adminAreas ? EGBCAuth.adminAreas() : [];
             snapshot.forEach((d) => {
                 const m = {id: d.id, ...d.data()};
+                if (m.archived === true && !showArchived) return;
                 if (seesAll || (m.markers || []).some(t => mine.includes(t))) allMembers.push(m);
             });
 
@@ -187,7 +196,7 @@
                               display:flex;align-items:center;justify-content:center;flex:none;font-size:12px;font-weight:600">
                               ${escapeHtml((member.name||'?').split(/\s+/).map(w=>w[0]||'').join('').slice(0,2).toUpperCase())}</span>
                             <div style="min-width:0">
-                              <div style="font-size:14px;font-weight:600;color:#111827">${escapeHtml(member.name)}</div>
+                              <div style="font-size:14px;font-weight:600;color:#111827">${escapeHtml(member.name)}${member.archived === true ? ' <span style="font-size:12px;font-weight:500;color:#9ca3af">(archived)</span>' : ''}</div>
                               <div style="font-size:13px;color:#6b7280">${member.email ? escapeHtml(member.email) : '—'}</div>
                             </div>
                           </div>
@@ -201,7 +210,9 @@
                         <td class="p-4 text-right space-x-3">
                             ${canEditMember(member)
                               ? `<button onclick="editMember('${member.id}')" class="text-[#3d6263] font-medium text-xs uppercase hover:underline hover:text-[#9bc34a]">Edit</button>
-                                 <button onclick="deleteMember('${member.id}')" class="text-red-300 hover:text-red-500 font-medium text-xl leading-none">&times;</button>`
+                                 ${member.archived === true
+                                   ? `<button onclick="restoreMember('${member.id}')" class="text-[#3d6263] font-medium text-xs uppercase hover:underline">Restore</button>`
+                                   : `<button onclick="deleteMember('${member.id}')" title="Archive" aria-label="Archive ${escapeHtml(member.name)}" class="text-red-300 hover:text-red-500 font-medium text-xs uppercase">Archive</button>`}`
                               : `<span class="text-[10px] text-gray-300 font-medium uppercase" title="Not one of your teams">&mdash;</span>`}
                         </td>
                     </tr>
@@ -712,6 +723,7 @@ document.addEventListener('egbc-ready',()=>{
             </div>
             <p id="abNone" class="text-sm text-gray-500" style="display:none">Nobody matches that.</p>
             <div class="table-container">
+                <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#374151;margin:0 0 10px"><input type="checkbox" onchange="toggleArchived(this.checked)" style="width:16px;height:16px;accent-color:#3d6263"> Show archived</label>
                 <table class="w-full text-left">
                     <thead>
                         <tr class="text-[10px] uppercase font-semibold text-gray-400 tracking-[0.08em] border-b border-[#dde7e6]">
