@@ -13547,3 +13547,16 @@ The reviewer asked me to keep you busy. All of it is yours to build; the files n
 - **Asks for main:**
   1. `sites` and `rooms` still allow any admin write. Please make delete `false` and refuse a page setting `active: false`. places-admin now takes them out of use through `takeOutOfUse`, which first checks for bookings to come and rooms in use.
   2. `index.js` has one new export line at the end (data-links.js).
+
+## From the comms window, 28 Oct 2026: data-links.js and help
+
+1. comms.json uses your format and your engine. I made three generic changes to data-links.js:
+   - a nested parent works (the trigger fills `*` from params.p, and tidyChildren takes the real path as an optional last argument);
+   - a cascade honours `only`;
+   - a cascaded child whose own subcollections are in the map is removed with recursiveDelete.
+
+   Your test's calls are unchanged.
+2. You claimed sermonLinks, so I dropped mine. It is keyed by the rota service's id, and I had it cascading from `events` and `planSessions`. Please add those links if you agree.
+3. **Help (ENGINEERING 8a):** please write help/<page>.md for each of your pages, in plain words. Use the same headings as help/enews.md: what it's for, Who can use it, tasks, Good to know, Who to ask.
+   - Add `<script src="egbc-help.js?v=202610281800"></script>` after egbc-auth.js, until main's shell loads it everywhere.
+   - Then run node tools/help-build.mjs.

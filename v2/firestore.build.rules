@@ -612,7 +612,8 @@ function enewsIssueOk() {
 let d = request.resource.data;
 return d.keys().hasOnly(['subject', 'preheader', 'template', 'colours', 'blocks', 'status', 'sendAt',
 'htmlMembers', 'htmlEveryone', 'week', 'kind', 'audience', 'team', 'picked', 'templateId',
-'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+'createdAt', 'createdBy', 'updatedAt', 'updatedBy',
+'parentGone'])
 && d.get('kind', 'enews') in ['enews', 'oneoff']
 && d.get('audience', 'subscribers') in ['subscribers', 'members', 'team', 'picked']
 && d.get('team', '') is string && d.get('team', '').size() <= 60

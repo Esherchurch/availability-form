@@ -1,6 +1,403 @@
 {
  "built": "by tools/data-map-build.mjs from data-map/*.json; edit those, not this",
  "collections": {
+  "enewsIssues": {
+   "owner": "comms",
+   "what": "An e-news or one-off email: a draft, scheduled, sending or sent.",
+   "self": "delete",
+   "selfWhy": "Only a draft can be deleted (the rules); a sent issue is the record of what went out.",
+   "links": [
+    {
+     "field": "templateId",
+     "to": "emailTemplates",
+     "rule": "keep-history",
+     "why": "The issue holds its own copy of the blocks; the template was only where it started."
+    }
+   ]
+  },
+  "enewsIssues/*/sends": {
+   "owner": "comms",
+   "what": "One person an issue was sent to, written as it goes.",
+   "self": "delete",
+   "links": [
+    {
+     "field": "$parent",
+     "to": "enewsIssues",
+     "rule": "cascade",
+     "why": "A list of who was sent a deleted draft means nothing alone."
+    },
+    {
+     "field": "$id",
+     "to": "enewsSubscribers",
+     "rule": "keep-history",
+     "why": "It records a send that happened, whoever has since left the list."
+    }
+   ]
+  },
+  "enewsPreview": {
+   "owner": "comms",
+   "what": "The 'view in your browser' copy of an issue before it is sent, at an unguessable link.",
+   "self": "delete",
+   "links": [
+    {
+     "field": "issueId",
+     "to": "enewsIssues",
+     "rule": "cascade",
+     "why": "A preview of a deleted draft must stop being readable by its link."
+    }
+   ]
+  },
+  "enewsWeb": {
+   "owner": "comms",
+   "what": "The public web copy of a sent issue, without the members-only blocks.",
+   "self": "archive",
+   "archiveField": "Never deleted: it is the e-news archive anyone can read.",
+   "links": [
+    {
+     "field": "$id",
+     "to": "enewsIssues",
+     "rule": "keep-history",
+     "why": "Sent issues can't be deleted; if one ever were, its public copy is still what went out."
+    }
+   ]
+  },
+  "enewsSubscribers": {
+   "owner": "comms",
+   "what": "A subscriber's address and the history of how they agreed.",
+   "self": "retention",
+   "selfWhy": "Unsubscribing keeps the record of consent; erasing a person goes through the privacy tools.",
+   "links": [
+    {
+     "field": "memberId",
+     "to": "addressBook",
+     "rule": "keep-history",
+     "why": "A subscriber's agreement stands on their own email address, not on the address book."
+    }
+   ]
+  },
+  "emailTemplates": {
+   "owner": "comms",
+   "what": "The church's own email templates.",
+   "self": "delete",
+   "links": []
+  },
+  "emailDrafts": {
+   "owner": "comms",
+   "what": "The email compiler's drafts: wording only, the addresses are chosen when it is sent.",
+   "self": "delete",
+   "links": []
+  },
+  "enewsSettings": {
+   "owner": "comms",
+   "what": "The e-news look, footer and welcome email switches.",
+   "self": "archive",
+   "archiveField": "Settings; changed, never deleted.",
+   "links": []
+  },
+  "welcomeSent": {
+   "owner": "comms",
+   "what": "Who has had a welcome email.",
+   "self": "delete",
+   "links": [
+    {
+     "field": "$id",
+     "to": "enewsSubscribers",
+     "rule": "keep-history",
+     "why": "It still stops a second welcome if the same person signs up again."
+    }
+   ]
+  },
+  "hqMailEvents": {
+   "owner": "comms",
+   "what": "Receipts from the email service: delivered, bounced, complained.",
+   "self": "delete",
+   "links": []
+  },
+  "integrationSecrets": {
+   "owner": "comms",
+   "what": "Canva's sign-in tokens; the server's alone.",
+   "self": "delete",
+   "links": []
+  },
+  "unsplashCache": {
+   "owner": "comms",
+   "what": "Picture searches kept for a day.",
+   "self": "delete",
+   "links": []
+  },
+  "socialPosts": {
+   "owner": "comms",
+   "what": "A day's countdown or post, until it is posted.",
+   "self": "delete",
+   "links": [
+    {
+     "field": "eventId",
+     "to": "calEvents",
+     "rule": "cascade",
+     "only": {
+      "status": [
+       "ready"
+      ]
+     },
+     "why": "A countdown to an event that no longer exists must not be posted; one already posted stays, with the event's title copied in."
+    }
+   ]
+  },
+  "socialSettings": {
+   "owner": "comms",
+   "what": "The card maker's hashtags, verse of the day and reminders.",
+   "self": "archive",
+   "archiveField": "Settings; changed, never deleted.",
+   "links": []
+  },
+  "news": {
+   "owner": "comms",
+   "what": "A notice.",
+   "self": "delete",
+   "links": [
+    {
+     "field": "teams",
+     "array": true,
+     "to": "teams",
+     "rule": "archive",
+     "why": "Teams are archived, not deleted; a notice keeps who it was for."
+    }
+   ]
+  },
+  "churchMeetings": {
+   "owner": "comms",
+   "what": "A members' meeting: date, place, papers (files under churchMeetings/<id>/papers/).",
+   "self": "archive",
+   "archiveField": "status; the rules refuse a delete, because a meeting and its votes are part of the church's record.",
+   "links": []
+  },
+  "churchMeetings/*/private": {
+   "owner": "comms",
+   "what": "A meeting's Zoom link and passcode, for members only.",
+   "self": "delete",
+   "links": [
+    {
+     "field": "$parent",
+     "to": "churchMeetings",
+     "rule": "cascade",
+     "why": "The joining details mean nothing without the meeting."
+    }
+   ]
+  },
+  "churchMeetings/*/proxies": {
+   "owner": "comms",
+   "what": "Who holds whose vote at a meeting.",
+   "self": "delete",
+   "links": [
+    {
+     "field": "$parent",
+     "to": "churchMeetings",
+     "rule": "cascade",
+     "why": "A proxy is for one meeting."
+    },
+    {
+     "field": "holderId",
+     "to": "addressBook",
+     "rule": "keep-history",
+     "why": "Part of the record of how the meeting's votes were held."
+    }
+   ]
+  },
+  "churchMeetings/*/votes": {
+   "owner": "comms",
+   "what": "A question put to a meeting.",
+   "self": "delete",
+   "selfWhy": "Only while a draft (the rules); once open it is part of the record.",
+   "links": [
+    {
+     "field": "$parent",
+     "to": "churchMeetings",
+     "rule": "cascade",
+     "why": "A vote is for one meeting; its ballots and count go with it."
+    }
+   ]
+  },
+  "churchMeetings/*/votes/*/ballots": {
+   "owner": "comms",
+   "what": "Who voted, and how on an open vote.",
+   "self": "delete",
+   "links": [
+    {
+     "field": "$parent",
+     "to": "churchMeetings/*/votes",
+     "rule": "cascade",
+     "why": "A ballot is for one vote (and a vote is only deleted while a draft, before anyone can vote)."
+    },
+    {
+     "field": "$id",
+     "to": "addressBook",
+     "rule": "keep-history",
+     "why": "Part of the meeting's record."
+    }
+   ]
+  },
+  "churchMeetings/*/votes/*/tally": {
+   "owner": "comms",
+   "what": "A vote's running count.",
+   "self": "delete",
+   "links": [
+    {
+     "field": "$parent",
+     "to": "churchMeetings/*/votes",
+     "rule": "cascade",
+     "why": "The count is for one vote."
+    }
+   ]
+  },
+  "meetingPaperLinks": {
+   "owner": "comms",
+   "what": "A member's own link to a meeting's papers, kept as its hash.",
+   "self": "delete",
+   "links": [
+    {
+     "field": "meetingId",
+     "to": "churchMeetings",
+     "rule": "cascade",
+     "why": "A link to a meeting that is gone must stop working."
+    },
+    {
+     "field": "personId",
+     "to": "addressBook",
+     "rule": "cascade",
+     "why": "A personal link for someone no longer in the address book must stop working."
+    }
+   ]
+  },
+  "sermons": {
+   "owner": "comms",
+   "what": "A sermon: uploaded, or read from the podcast feed.",
+   "self": "archive",
+   "archiveField": "published; the rules refuse a delete, and the podcast's episode ids must never be reused.",
+   "links": [
+    {
+     "field": "seriesId",
+     "to": "sermonSeries",
+     "rule": "archive",
+     "why": "Series are never deleted (the rules refuse it)."
+    }
+   ]
+  },
+  "sermonSeries": {
+   "owner": "comms",
+   "what": "A sermon series, with its artwork.",
+   "self": "archive",
+   "archiveField": "The rules refuse a delete; sermons point at it.",
+   "links": []
+  },
+  "sermonShow": {
+   "owner": "comms",
+   "what": "The podcast feed's address, what its last read found, and who looks after sermons.",
+   "self": "archive",
+   "archiveField": "Settings; changed, never deleted.",
+   "links": []
+  },
+  "listenProgress/*/sermons": {
+   "owner": "comms",
+   "what": "A listener's place in a sermon.",
+   "self": "archive",
+   "archiveField": "Never deleted from a page; the listener's own.",
+   "links": [
+    {
+     "field": "$parent",
+     "to": "users",
+     "rule": "archive",
+     "why": "People are archived; erasure goes through the privacy tools."
+    },
+    {
+     "field": "$id",
+     "to": "sermons",
+     "rule": "archive",
+     "why": "Sermons are never deleted."
+    }
+   ]
+  },
+  "videos": {
+   "owner": "comms",
+   "what": "The channel's videos (hidden, not deleted) and members-only service videos.",
+   "self": "delete",
+   "links": []
+  },
+  "watchShow": {
+   "owner": "comms",
+   "what": "The church's channel, and this week's live link.",
+   "self": "archive",
+   "archiveField": "Settings; changed, never deleted.",
+   "links": []
+  },
+  "giftAid": {
+   "owner": "comms",
+   "what": "A Gift Aid declaration.",
+   "self": "retention",
+   "legal": true,
+   "selfWhy": "HMRC may ask to see it: cancelled, never deleted, kept as retention.html says.",
+   "links": [
+    {
+     "field": "memberId",
+     "to": "addressBook",
+     "rule": "keep-history",
+     "why": "It holds the giver's own name and address, which is what HMRC needs."
+    }
+   ]
+  },
+  "regularGifts": {
+   "owner": "comms",
+   "what": "A regular gift by Direct Debit.",
+   "self": "retention",
+   "legal": true,
+   "selfWhy": "Money: a gift is ended, never deleted.",
+   "links": [
+    {
+     "field": "memberId",
+     "to": "addressBook",
+     "rule": "keep-history",
+     "why": "The gift holds the giver's own name."
+    }
+   ]
+  },
+  "donations": {
+   "owner": "comms",
+   "what": "A gift collected.",
+   "self": "retention",
+   "legal": true,
+   "selfWhy": "The finance record, and Gift Aid is claimed from it.",
+   "links": [
+    {
+     "field": "regularGiftKey",
+     "to": "regularGifts",
+     "rule": "archive",
+     "why": "Regular gifts are never deleted; the donation copies the giver's name anyway."
+    },
+    {
+     "field": "memberId",
+     "to": "addressBook",
+     "rule": "keep-history",
+     "why": "The finance record stands on its own."
+    }
+   ]
+  },
+  "helpAiUse": {
+   "owner": "comms",
+   "what": "How many help questions were asked today, for the daily caps.",
+   "self": "delete",
+   "links": []
+  },
+  "helpAiLog": {
+   "owner": "comms",
+   "what": "Each help question: the page, its length and the outcome, never the words.",
+   "self": "delete",
+   "links": []
+  },
+  "helpAiState": {
+   "owner": "comms",
+   "what": "Whether the help AI's key last worked.",
+   "self": "delete",
+   "links": []
+  },
   "calEvents": {
    "owner": "events",
    "what": "An event on What's on: title, time, place, who it is for, sign-up settings.",

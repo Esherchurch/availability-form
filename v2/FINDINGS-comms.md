@@ -2168,3 +2168,32 @@ Martin: "you took the schematics app and the performance app off. Those need to 
 3. **`EGBCAuth.memberWord()`** ("Church member" unless set), `ministerTitle()` ("minister") and `serviceDay()` ("Sunday") read `churchSettings/details` with the profile.
 4. **church-settings.html:** its card now shows the name, email and logo with a link to Your church. The hub's address stays there, because nobody types it. One place to edit, never two.
    - Giving is still on both pages (the shared egbc-giving-form.js) and on giving-details.html. Tell me if you'd like Church settings' Giving card to become a link too.
+
+## ENGINEERING.md sections 1 and 8a, 28 Oct 2026
+
+**The data map:** data-map/comms.json, in events' format, carried out by events' functions/data-links.js. There is one engine, not two.
+- Every comms collection is listed, with its parent, its links, its on-delete rule and why.
+- Gift Aid, regular gifts and donations are `legal`, so they are never cascaded. When the person goes, they are kept and marked `parentGone`.
+- Three small changes to the shared engine, all generic:
+  1. A nested parent works (`churchMeetings/*/votes`).
+  2. A cascade can have `only`, so an event's unposted countdowns go and its posted ones stay.
+  3. A cascaded record's own subcollections go with it (a meeting's votes take their ballots).
+- One rules change: an e-news issue may carry the server's `parentGone` mark.
+- Tests are written, not run: functions/comms-links.test.mjs.
+
+**Built-in help:** there is now one system.
+- The page script is egbc-help.js. It shows a "?" bottom right, or takes over a page's own #helpBtn, and only when help/<page>.md exists.
+- The panel shows that help. Below it is an Ask box for signed-in people.
+- Ask calls helpAsk. It answers from that page's help only, using functions/help-texts.json, which tools/help-build.mjs builds from help/*.md.
+  - The AI is told the kinds of job the person does, never names or church data.
+  - It says "I don't know" and who to ask when the help doesn't cover something.
+  - It uses the existing CHQ_ANTHROPIC_API_KEY (no new secret) and claude-haiku-5-5, through ra-ai.js's caps, log and set-up checks.
+  - Caps: 40 questions a day per person, 400 per church. The log keeps the page and the length, never the words.
+  - Test: functions/help-ask.test.mjs.
+- Help is written for 12 comms pages.
+- socialmaker.html has no help, because it is Calla's tool and not a Church HQ page.
+- **After editing any help/*.md, run node tools/help-build.mjs before deploying functions.**
+
+**Functions to deploy:**
+- helpAsk;
+- tidyAfterDelete (it now includes churchMeetings, churchMeetings___votes, emailTemplates, enewsIssues and enewsSubscribers, and calEvents now also tidies socialPosts).

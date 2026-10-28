@@ -69,7 +69,7 @@ const nameOf = (p) => String((p && (p.title || p.name)) || '').slice(0, 200);
 /** The key a link is marked under in parentGone. @param {string} field */
 const goneKey = (field) => (field.startsWith('$') ? field.slice(1) : field.replace(/\./g, '_'));
 
-/** Every child of one parent for one link, page by page. @returns {AsyncGenerator<FirebaseFirestore.QueryDocumentSnapshot>} */
+/** Every child of one parent for one link, page by page. parent is the parent's collection path, its own ids filled in for a subcollection. @returns {AsyncGenerator<FirebaseFirestore.QueryDocumentSnapshot>} */
 async function* childrenOf(dbi, parent, id, child, link) {
   let q;
   if (link.field === '$parent') q = dbi.collection(parent).doc(id).collection(child.split('/').pop());
@@ -112,17 +112,23 @@ const THEN = { freeBooking };
 /**
  * Carries out the data map for one deleted record. Safe to run twice.
  * @param {object} dbi the church's db (scopedDb) @param {string} parent @param {string} id @param {object|null} before the deleted record
+ * @param {object} [map] @param {string} [path] the parent's real collection path, for a subcollection (churchMeetings/m1/votes)
  * @returns {Promise<object>} what was done, by child collection
  */
-export async function tidyChildren(dbi, parent, id, before, map = MAP) {
+export async function tidyChildren(dbi, parent, id, before, map = MAP, path = parent) {
   const done = {}, today = londonDay(), at = new Date().toISOString(), name = nameOf(before);
   for (const { child, link } of linksTo(map, parent)) {
     if (link.rule === 'archive') continue;
     const writer = dbi.bulkWriter();
+    /* a child with subcollections of its own in the map takes them with it */
+    const deep = link.rule === 'cascade' && Object.keys(map).some((k) => k.startsWith(child + '/*/'));
     let n = 0;
-    for await (const d of childrenOf(dbi, parent, id, child, link)) {
+    for await (const d of childrenOf(dbi, path, id, child, link)) {
+      /* a cascade's "only" says which children go; the rest stay as they are */
+      if (link.rule === 'cascade' && link.only && !counts(link.only, d.data(), today)) continue;
       if (link.then && THEN[link.then]) await THEN[link.then](dbi, d.ref, today, 'The event was deleted.');
-      if (link.rule === 'cascade') writer.delete(d.ref);
+      if (deep) await db().recursiveDelete(d.ref);
+      else if (link.rule === 'cascade') writer.delete(d.ref);
       else writer.set(d.ref, { parentGone: { [goneKey(link.field)]: { at, name, from: parent } } }, { merge: true });
       n++;
     }
@@ -181,7 +187,7 @@ const HOLDERS = Object.keys(MAP).filter((c) => (MAP[c].links || []).some((l) => 
 
 export const tidyAfterDelete = pairs(PARENTS, onDocumentDeleted, (parent) => async (event) => {
   const ch = churchFromPath(event, db());
-  const done = await tidyChildren(ch.db, parent, event.params.id, event.data ? event.data.data() : null);
+  const done = await tidyChildren(ch.db, parent, event.params.id, event.data ? event.data.data() : null, MAP, parent.replace('/*/', '/' + event.params.p + '/'));
   if (Object.keys(done).length) console.log('data-links: ' + (ch.id || 'egbc') + ' ' + parent + '/' + event.params.id, done);
 });
 export const holdParent = pairs(HOLDERS, onDocumentWritten, (child) => async (event) => {

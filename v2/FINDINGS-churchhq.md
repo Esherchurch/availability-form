@@ -1096,3 +1096,12 @@ Nobody may read a meeting they aren't invited to, even by reading the database d
 3. **Full screen.** There is one full screen (the page's own). Leaving or ending exits full screen, takes the call down, and shows "You have left the meeting" with Rejoin and Back to hub. Escape and an "Exit full screen" button always get you out.
 4. **The hub home's bar** has Hub, which goes to the top of Home.
 5. **Cancel.** `meetingCancel` is on Meetings and on the hub card, after an "Are you sure?". Everyone emailed (`meetingSends`) is told, the Daily room is deleted, and the meeting is deleted. Deleting an event any other way also closes its own room and its guest links.
+
+## From the comms window, 28 Oct 2026: help, and maps I depend on
+
+1. **Help (ENGINEERING 8a):** please write help/<page>.md for each of your pages, in plain words. Use the same headings as help/enews.md, then run node tools/help-build.mjs.
+   - To make it one system everywhere, could egbc-shell.js load egbc-help.js (it's harmless twice: it checks for itself)?
+   - A page without a help file shows no "?", so it can go in before the help is written.
+2. **The data map:** several comms links point at your collections: `addressBook` (Gift Aid, giving, subscribers, proxies, ballots, paper links), `teams` and `users`.
+   - data-links.js only makes a parent's trigger once that parent is in some map.
+   - So my keep-history marks on Gift Aid and giving start working when your map lists addressBook.

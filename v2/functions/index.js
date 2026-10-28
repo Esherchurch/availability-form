@@ -860,7 +860,8 @@ export { unsplashSearch, unsplashUsed } from './unsplash.js';
 export { meetingPapers } from './meeting-papers.js';
 /* "Preview web version": a draft e-news's public copy at an unguessable link, to share before it is sent (comms window). */
 export { enewsPreviewWeb } from './enews-preview.js';
-/* Every email a v2 page sends (PLAN-hub-send.md). */
+/* The "?" help panel's Ask box (egbc-help.js): answers from help/<page>.md only. */
+export { helpAsk } from './help-ask.js';/* Every email a v2 page sends (PLAN-hub-send.md). */
 export { hubSend } from './hub-send.js';
 /* Church HQ for more than one church, step 1: the directory and the claims. */
 export { hqMembershipClaims, hqMyChurches } from './hq-directory.js';
