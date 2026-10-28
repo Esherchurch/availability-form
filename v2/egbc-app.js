@@ -206,11 +206,11 @@
      because the bar has room for a few letters, not a whole name. With no
      name set, a plain "Hub" and a house: a blank is honest, a guess is not.
      The name arrives after the first draw, so the app redraws once it has. */
-  /* The church's own short name (Your church), the same one the website's
-     hub bar uses; the initials only stand in when it has none. */
-  var SHORT = '';
+  /* The church's own short name (egbc-church.js), the same one the
+     website's hub bar uses; the initials only stand in when it has none. */
   function churchShort() {
-    if (SHORT) return SHORT.slice(0, 12);
+    var short = global.EGBCChurch && EGBCChurch.shortName && EGBCChurch.shortName();
+    if (short) return String(short).slice(0, 12);
     var n = (global.EGBCChurch && EGBCChurch.name && EGBCChurch.name()) || '';
     return n.split(/\s+/).filter(function (w) { return /^[A-Z0-9]/.test(w); })
       .map(function (w) { return w.charAt(0); }).join('').slice(0, 5);
@@ -1098,10 +1098,6 @@
        tiles. */
     start: function () {
       if (global.EGBCChurch && EGBCChurch.load && !churchShort()) EGBCChurch.load().then(function () { if (churchShort()) draw(); });
-      if (global.EGBCAuth && EGBCAuth.db) EGBCAuth.db.collection('churchSettings').doc('details').get().then(function (s) {
-        var v = String(((s.exists && s.data()) || {}).shortName || '').trim();
-        if (v && v !== SHORT) { SHORT = v; draw(); }
-      }, function () { /* the initials stand */ });
       /* THE SPACES NEED THE TEAM JOBS (fillTeamSpaces), and which mode to
          open in turns on the spaces, so the first choice waits for them -
          but never for long: a slow read opens on what is known. */

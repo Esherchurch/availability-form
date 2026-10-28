@@ -16,18 +16,54 @@
    Attributes:
      data-title  — what to call the page in the bar (defaults to <title>)
      data-width  — page | wide | full   (default page)
+     data-church-title — the bar's page name gets the church's short name
+                   in front, as <html data-church-title> does for the tab
    =================================================================== */
 
 (function () {
   'use strict';
 
   var script = document.currentScript;
-  var pageTitle = (script && script.getAttribute('data-title')) ||
-                  (document.title || '').replace(/\s*[|\u2013-]\s*EGBC.*$/i, '').trim() ||
-                  'EGBC';
+  /* A page without data-title is named from its tab title, with the
+     church's name taken off the end once the church is known (churchTitle):
+     the bar already says which church it is, underneath. */
+  var ownTitle = !!(script && script.getAttribute('data-title'));
+  var churchFirst = !!(script && script.hasAttribute('data-church-title'));
+  var pageTitle = (script && script.getAttribute('data-title')) || (document.title || '').trim();
   var width = (script && script.getAttribute('data-width')) || 'page';
 
-  var LOGO = 'https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/copilot_image_1775806874083.jpeg?alt=media&token=7e9040a5-1d29-47e1-8f31-6e003db53ec8';
+  /* The church's name, short name and logo, from churchSettings/details.
+     A page that loads egbc-church.js reads them there. The many pages that
+     do not get the same document read here, rather than egbc-church.js
+     loaded for them, because that would also change their tab titles.
+     A church with nothing set gets a bar with no name and no logo. */
+  var churchLoading = null;
+  function church() {
+    if (churchLoading) return churchLoading;
+    var C = window.EGBCChurch, A = window.EGBCAuth;
+    if (C && C.load) {
+      churchLoading = C.load().then(function (d) { return d || {}; }, function () { return {}; });
+    } else if (A && A.db) {
+      var known = A.churchFromAddress ? A.churchFromAddress().catch(function () {}) : Promise.resolve();
+      churchLoading = known.then(function () {
+        return A.db.collection('churchSettings').doc('details').get();
+      }).then(function (s) { return (s && s.exists && s.data()) || {}; }, function () { return {}; });
+    } else {
+      churchLoading = Promise.resolve({});
+    }
+    return churchLoading;
+  }
+
+  /* "Meeting | Our Church" -> "Meeting": the church's name comes off the
+     end of a tab title. A title that is only the church's name becomes
+     its short name. */
+  function churchTitle(t, d) {
+    [d.shortName, d.name].filter(Boolean).forEach(function (n) {
+      var q = String(n).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      t = t.replace(new RegExp('\\s*[|\\u2013-]\\s*' + q + '.*$', 'i'), '').trim();
+    });
+    return t || d.shortName || d.name || '';
+  }
 
   var WIDTHS = { page: '1120px', wide: '1400px', full: 'none' };
 
@@ -173,6 +209,21 @@
       .join('').slice(0, 2).toUpperCase();
   }
 
+  /* The church's logo and name go in once read. Until then the logo keeps
+     its place, so the bar does not shift; a church with no logo loses it. */
+  function fillChurch(d) {
+    church().then(function (c) {
+      var img = d.querySelector('.eb-l img'), k = d.querySelector('.eb-k'), n = d.querySelector('.eb-n');
+      if (img) {
+        if (c.logoUrl) { img.src = c.logoUrl; img.alt = c.shortName || c.name || ''; img.style.visibility = ''; }
+        else img.style.display = 'none';
+      }
+      if (k) k.textContent = c.name || '';
+      if (n && !ownTitle) n.textContent = churchTitle(pageTitle, c);
+      else if (n && churchFirst && c.shortName) n.textContent = c.shortName + ' ' + pageTitle;
+    });
+  }
+
   function bar(profile) {
     if (document.getElementById('egbc-bar')) return;
 
@@ -208,15 +259,16 @@
 
     d.innerHTML =
       '<a class="eb-l" href="hub.html">' +
-        '<img src="' + LOGO + '" alt="EGBC">' +
+        '<img alt="" style="visibility:hidden">' +
         '<div style="min-width:0">' +
           '<div class="eb-n">' + pageTitle.replace(/</g, '&lt;') + '</div>' +
-          '<div class="eb-k">Esher Green Baptist Church</div>' +
+          '<div class="eb-k">&nbsp;</div>' +
         '</div>' +
       '</a>' +
       '<div class="eb-r">' + right + '</div>';
 
     document.body.insertBefore(d, document.body.firstChild);
+    fillChurch(d);
     unflex(d);
     pushDownStickyHeaders(d);
     checkFresh();
@@ -681,7 +733,7 @@
        website's chrome is laid out and then hidden. */
     if (window.EGBCAppMode && EGBCAppMode.on()) {
       font();
-      EGBCAppMode.start({ title: pageTitle });
+      EGBCAppMode.start({ title: pageTitle, churchFirst: churchFirst });
       return;
     }
     css();

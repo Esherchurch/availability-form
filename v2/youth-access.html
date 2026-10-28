@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-church-title-after>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Youth access — EGBC</title>
+<title>Youth access</title>
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="theme-color" content="#5f7a4a">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -11,7 +11,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202611010900"></script>
+<script src="egbc-auth.js?v=202611011200"></script>
+<script src="egbc-church.js?v=202611011200"></script>
 <!-- Inter and the Lucide icons, the suite's look. This page has no Menu by
      design - a young person with a code, not an account - so it loads the UI
      helper itself rather than through egbc-shell.js, the same as login.html
@@ -34,9 +35,9 @@
 <div class="w-full max-w-md">
 
   <div class="text-center mb-8">
-    <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/copilot_image_1775806874083.jpeg?alt=media&token=7e9040a5-1d29-47e1-8f31-6e003db53ec8" alt="EGBC" class="w-20 h-20 rounded-full object-cover mx-auto mb-5 shadow-lg" style="border:3px solid #fff">
+    <img id="churchLogo" data-church-logo alt="" class="w-20 h-20 rounded-full object-cover mx-auto mb-5 shadow-lg" style="border:3px solid #fff;visibility:hidden">
     <h1 class="text-2xl font-bold tracking-tight text-[#14201f]">Youth</h1>
-    <p class="text-sm font-medium opacity-50 mt-1">Esher Green Baptist Church</p>
+    <p class="text-sm font-medium opacity-50 mt-1" id="churchName" data-church-name>&nbsp;</p>
   </div>
 
   <div class="bg-white rounded-[14px] border border-[#dde7e6] shadow-lg p-8">

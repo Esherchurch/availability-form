@@ -1,13 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-own-title>
 <head>
-<script src="egbc-nosend.js?v=202610212000"></script>
+<script src="egbc-nosend.js?v=202611011200"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202611010900"></script>
-<script src="egbc-manifest.js?v=202610311800"></script>
+<script src="egbc-auth.js?v=202611011200"></script>
+<script src="egbc-manifest.js?v=202611011200"></script>
+<script src="egbc-church.js?v=202611011200"></script>
 <script src="egbc-plan-store.js?v=202610252100"></script>
 
 <meta charset="UTF-8">
@@ -1929,7 +1930,7 @@ async function emailSchedule() {
     const statusEl = document.getElementById('modalStatus');
     if (statusEl) { statusEl.textContent = 'Sending…'; statusEl.style.color = '#3d6263'; }
     try {
-      const result = await EGBCAuth.sendEmail(Object.assign({ source: 'servicePlan' }, { to: toAddresses, subject: subj, html, replyTo: document.getElementById('senderEmail')?.value || 'worship@esherchurch.org' }));
+      const result = await EGBCAuth.sendEmail(Object.assign({ source: 'servicePlan' }, { to: toAddresses, subject: subj, html, replyTo: document.getElementById('senderEmail')?.value || (await EGBCAuth.teamAddress('worship')) || (window.EGBCChurch && EGBCChurch.email()) || undefined }));
       if (result.ok) {
         if (statusEl) { statusEl.textContent = 'Sent'; statusEl.style.color = '#3B7D23'; }
         setTimeout(() => modal.classList.remove('active'), 1800);

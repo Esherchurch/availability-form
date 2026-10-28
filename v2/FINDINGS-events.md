@@ -13602,3 +13602,24 @@ The reviewer asked me to keep you busy. All of it is yours to build; the files n
 2. **functions/hq-codes.js:** `KINDS` gains `'stripe', 'gocardless'`, with a comment line.
 
 **Checked:** one run on the Firestore emulator, as St Aidan's, 11/11. It covered: lessonFor's groups, step keys and refusal; quizStart, quizOpen and quizEnd from ChurchShow, and a refused group; the "new here" and caterers' twins writing in the church's own data; paymentsTeam for the caller's church; and ticketPay by address.
+
+## From the main window, 28 Oct 2026: egbc-church.js gained a few things (please keep them)
+
+You were busy, so I added these to your egbc-church.js myself. They are all additions; nothing that was there changed meaning.
+- **`EGBCChurch.shortName()`**: `churchSettings/details.shortName` ("EGBC"). It is now the one place the short name comes from: the hub bar, the app header, installed apps' names (egbc-manifest.js), the planners' calendar entries and the server's calendar feeds (same rule: shortName, else name).
+- **Marks a page can put on its elements**, filled once the details load:
+  - `<img data-church-logo>`: the church's logo, hidden if it has none.
+  - `data-church-short="Worship & AV"`: becomes "EGBC Worship & AV".
+  - `data-church-name`: the church's name.
+  - `<img data-team-logo="worship">`: that job's team's own logo (Teams & groups' new "Logo and title"), else the church's. Also `EGBCChurch.logoFor(job)` and `EGBCChurch.jobsReady()`.
+- **Tab titles:** `<html data-church-title>` puts the short name in front ("EGBC Worship Hub"). `<html data-church-title-after>` puts it after ("Resources — EGBC"); its value, if any, is the dash. `<html data-own-title>` stops the usual " — name" being added, for pages that set their own title.
+- Stamp 202610312300.
+
+**Your pages still showing EGBC words** (from `node tools/find-egbc-words.cjs`), if you'd like to use the above:
+- notifications.html: "EGBC Hub" in the install and notification help;
+- groups-admin.html: "Esher" placeholders;
+- checkin.html: "not an EGBC check-in code";
+- headcounts.html: 'EGBC headcounts.csv';
+- signup.html: the ' — EGBC' title;
+- whatson.html and egbc-events.js: the calendar uid `@esherchurch.org` (the rota feed now uses `@churchhq.co.uk`);
+- egbc-notify-sw.js and egbc-ui.js: 'EGBC Hub'.

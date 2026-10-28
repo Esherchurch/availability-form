@@ -417,94 +417,6 @@ function renderCharterSwitch() {
 }
 
 
-/* ---- CHARTER DEFAULTS ----------------------------------------------
-   The charter pages hold their text as a default inside the file, so it
-   never reached Firestore. These are those exact defaults, lifted from
-   the pages, so they can be written once and then edited normally.
-   AVteamlandingpage.html has no default text - it starts empty. */
-
-const CHARTER_DEFAULTS = {
- "wider-worship-charter": {
-  "title": "Worship & AV Team Charter",
-  "html": "<h2>Worship &amp; AV Team Charter</h2>\n<blockquote>We are worshippers first, team members second, musicians and technicians third.</blockquote>\n\n<h3>Who We Are</h3>\n<p>We are a family of worshippers who serve together with humility, joy, and unity. Every person — musician, vocalist, or AV — plays a vital role in helping the church encounter God.</p>\n\n<h3>When We Disagree</h3>\n<p>We understand that we may not always share the same theological views or ways of doing things. When differences arise, we commit to talking with love, respect, and humility, keeping Jesus at the centre. Unity is not about agreeing on everything — it's about choosing love in everything.</p>\n\n<h3>Living as Followers of Jesus</h3>\n<p>As people who serve visibly, our lives should reflect the way of Jesus — not perfectly, but sincerely. We aim to honour Him in our relationships, decisions, and behaviour.</p>\n<p>We recognise that lifestyle choices shaped by a hedonistic or self-centred approach to life do not align with the calling of serving in worship ministry. This applies to choices, not to identity or things people cannot control.</p>\n<p>We choose to grow, to be accountable, and to live lives that point others to Jesus.</p>\n\n<h3>How We Serve Together</h3>\n<ul>\n<li><strong>We prepare well</strong> — learning our parts, listening to the set, and arriving ready</li>\n<li><strong>We stay flexible</strong> — songs and arrangements may change</li>\n<li><strong>We honour one another</strong> — with kindness and encouragement</li>\n<li><strong>We communicate early</strong> — about availability or challenges</li>\n<li><strong>We follow the worship leader's direction</strong> — with unity and trust</li>\n<li><strong>We partner with AV as one team</strong> — not two</li>\n<li><strong>We pray together</strong> — because worship is spiritual before it is musical</li>\n</ul>\n\n<h3>Sunday Expression</h3>\n<ul>\n<li>We arrive prepared, prayerful, and ready to bless the church</li>\n<li>We support the worship leader and each other with unity</li>\n<li>We respond to the Holy Spirit with sensitivity and trust</li>\n<li>We serve with cheerful hearts, remembering our goal is to help others see Jesus</li>\n</ul>"
- },
- "core-team-charter": {
-  "title": "Core Team Charter",
-  "html": "<h2>Core Team Charter</h2>\n<blockquote>We lead not by talent or title, but by character, humility, and a servant heart.</blockquote>\n\n<h3>Our Identity &amp; How We Carry Ourselves</h3>\n<p>The Core Team exists to set the culture of the Worship &amp; AV Ministry. We model what we want the whole team to become: worshippers first, musicians second, servants always.</p>\n\n<h3>When We Disagree</h3>\n<p>We recognise that we may not always share the same theological views or ministry preferences. When differences arise, we commit to speaking with love, humility, and respect, keeping Jesus at the centre of every conversation. Our unity is not built on sameness, but on Christ-like love (John 13:35).</p>\n\n<h3>Visible Lives of Discipleship</h3>\n<p>Because we serve in a visible ministry, our lives should reflect the character and way of Jesus — not perfectly, but sincerely. We commit to living in a way that honours Christ in our relationships, choices, and conduct.</p>\n<p>We recognise that certain lifestyle choices that reflect a hedonistic or self-centred way of living are not compatible with the calling of leading others in worship. This applies to behaviours we choose, not to aspects of identity or circumstances people cannot control.</p>\n<p>We choose integrity, accountability, and holiness, seeking to grow in Christ.</p>\n\n<h3>How We Lead</h3>\n<ul>\n<li><strong>Servant leadership</strong> — we lead by example, not position</li>\n<li><strong>Visible support on Sundays</strong> — present, engaged, and encouraging</li>\n<li><strong>Teachable spirits</strong> — always willing to learn and grow</li>\n<li><strong>Culture carriers</strong> — we set the tone for the whole team</li>\n<li><strong>Spiritual sensitivity</strong> — attuned to God and to one another</li>\n</ul>\n\n<h3>Our Commitment</h3>\n<ul>\n<li>We lead by example</li>\n<li>We protect unity</li>\n<li>We champion others</li>\n<li>We communicate clearly</li>\n<li>We honour AV as equal partners</li>\n<li>We steward Sundays with prayer</li>\n</ul>"
- },
- "youth-charter": {
-  "title": "Youth Worship & AV Charter",
-  "html": "<h2>Youth Worship &amp; AV Team Charter</h2>\n<blockquote>We are a team of young worshippers who want to help our church meet with God.</blockquote>\n\n<h3>Who We Are</h3>\n<p>We serve with love, joy, and unity — on instruments, with our voices, or on the AV team. Every one of us matters.</p>\n\n<h3>When We Don't Agree</h3>\n<p>Sometimes we might see things differently about faith or worship. That's okay. What matters is that we talk kindly, listen well, and treat each other with respect, keeping Jesus at the centre.</p>\n\n<h3>Living Like Jesus Outside of Sundays</h3>\n<p>Because we're on a team that people can see, our lives should show that we follow Jesus — not perfectly, but honestly. We choose to live in ways that honour Him, including the choices we make and the things we do when no one is watching.</p>\n<p>A lifestyle that's all about pleasure, partying, or doing whatever we want doesn't fit with being part of a worship team. This is about choices, not identity or things people cannot control.</p>\n<p>We choose to grow, to ask for help when we need it, and to live in a way that points people to Jesus.</p>\n\n<h3>How We Serve</h3>\n<ul>\n<li><strong>We show up ready</strong> — prepared and on time</li>\n<li><strong>We stay flexible</strong> — things change, and that's okay</li>\n<li><strong>We encourage each other</strong> — words build up, not tear down</li>\n<li><strong>We follow the leader</strong> — with trust and unity</li>\n<li><strong>We work with AV as one team</strong> — everyone counts</li>\n<li><strong>We pray together</strong> — because this is about more than music</li>\n</ul>\n\n<h3>Sundays</h3>\n<ul>\n<li>We arrive early</li>\n<li>We support the leader</li>\n<li>We help create a joyful atmosphere</li>\n<li>We worship wholeheartedly</li>\n<li>We serve visibly and kindly</li>\n</ul>"
- }
-};
-
-/* Write every charter we have text for, in one go, rather than making
-   somebody switch teams and press the same button three times. */
-/* Some Worship pages are for the whole church - the live rota.
-   They stay under Worship but need to reach everyone, which is the `everyone`
-   flag. NOT the pin board (Martin, 26 Oct 2026: "pin board is showing for
-   everyone"): a board is for everyone on its team, and nobody else. */
-/* Team Resources is no longer one of them: Worship & AV's (the access
-   matrix, approved by Martin 27 Oct 2026, proposals 2 and 4). */
-const SHARED_PAGES = ['view-only-rota.html', 'trainingportalhub.html'];
-
-async function markSharedPages() {
-  if (!EGBCAuth.isMaster()) { alert('Only a master admin can do this.'); return; }
-
-  const hits = PAGES.filter(p => SHARED_PAGES.includes((p.url || '').toLowerCase()) && !p.everyone);
-  if (!hits.length) { alert('Nothing to change - the shared pages are already open to everyone.'); return; }
-
-  if (!confirm(`Open these to everyone, whatever team they are on?\n\n${hits.map(h => '\u2022 ' + h.title).join('\n')}`)) return;
-
-  try {
-    const batch = db.batch();
-    hits.forEach(h => batch.update(db.collection('hubPages').doc(h.id), { everyone: true }));
-    await batch.commit();
-    await loadPages();
-    renderTools();
-    renderAdminPages();
-    alert(`${hits.length} now open to everyone.`);
-  } catch (e) { alert('Could not update: ' + e.message); }
-}
-
-async function importAllCharters() {
-  if (!EGBCAuth.isMaster()) { alert('Only a master admin can do this.'); return; }
-  const ids = Object.keys(CHARTER_DEFAULTS);
-  if (!confirm(`Bring across ${ids.length} charters exactly as they appear on the charter pages?\n\nAnything already saved is left alone.`)) return;
-
-  let done = 0, skipped = 0;
-  for (const id of ids) {
-    try {
-      const existing = (await db.collection('pageContent').doc(id).get()).data();
-      if (existing && existing.html) { skipped++; continue; }
-      await db.collection('pageContent').doc(id)
-        .set({ title: CHARTER_DEFAULTS[id].title, html: CHARTER_DEFAULTS[id].html }, { merge: true });
-      done++;
-    } catch (e) { console.error('Charter import failed for', id, e); }
-  }
-  loadCharter();
-  alert(`${done} brought across${skipped ? `, ${skipped} already had text and were left alone` : ''}.`);
-}
-
-async function importCharter() {
-  /* The charter the CARD is showing, not the team the page is on. Leaving
-     these as TEAM would have written one team's charter into another's
-     document the moment somebody switched the card and pressed Edit. */
-  const cfg = charterFor(CHARTER_TEAM);
-  if (!cfg) return;
-  if (!EGBCAuth.isAdminOf(CHARTER_TEAM)) { alert('That is not one of your teams.'); return; }
-
-  const def = CHARTER_DEFAULTS[cfg.id];
-  if (!def) { alert('There is no saved text for this team to bring across - write it here instead.'); return; }
-
-  if (!confirm(`Bring across the ${TEAM} charter as it appears on the charter page?\n\nYou can edit it afterwards.`)) return;
-
-  try {
-    await db.collection('pageContent').doc(cfg.id).set({ title: def.title, html: def.html }, { merge: true });
-    loadCharter();
-  } catch (e) { alert('Could not bring it across: ' + e.message); }
-}
-
 async function loadCharter() {
   const card = document.getElementById('charterCard');
 
@@ -539,22 +451,14 @@ async function loadCharter() {
   CHARTER_HTML = (d && d.html) || '';
 
   if (!CHARTER_HTML) {
-    /* The charter pages hold their text as a default in the file and only
-       write to Firestore once someone edits there. So there may be nothing
-       stored yet even though the page looks full. */
+    /* Nothing stored yet: its admins are asked to write it. */
     if (!EGBCAuth.isAdminOf(CHARTER_TEAM)) { card.style.display = 'none'; return; }
     document.getElementById('charterTitle').textContent = (d && d.title) || `${c.label} charter`;
     body.classList.remove('short');
-    const canImport = !!CHARTER_DEFAULTS[cfg.id];
-    body.innerHTML = (canImport
-        ? `<p style="color:var(--faint);font-style:italic;margin-bottom:14px">
-             The charter page keeps its text inside the file, so it never reached the
-             database. Bring it across and it will show here from now on.</p>
-           <button class="btn solid" onclick="importCharter()">Bring across the existing charter</button>`
-        : `<p style="color:var(--faint);font-style:italic;margin-bottom:14px">
+    body.innerHTML = `<p style="color:var(--faint);font-style:italic;margin-bottom:14px">
              No charter for ${esc(c.label)} yet. This is where people land, so it is
              worth setting out what the team is expected to do.</p>
-           <button class="btn solid" onclick="editCharter()">Write the charter</button>`);
+           <button class="btn solid" onclick="editCharter()">Write the charter</button>`;
     more.style.display = 'none';
     if (edit) edit.style.display = '';
     card.style.display = '';
@@ -1646,15 +1550,12 @@ db.collection('churchSettings').doc('details').get().then(s => {
   if (k) k.textContent = CHURCH_NAME;
   const h = document.getElementById('heroTitle');
   if (h && !h.textContent.trim()) h.textContent = welcomeLine();
-  return shortName(s.exists ? s.data() : {});
+  return shortName();
 }).then(hubName).catch(() => {});
 
-/* The church's short name ("EGBC"): Your church's, else the e-news
-   footer's (which only the office can read; anyone else simply gets none). */
-function shortName(d) {
-  if (d && d.shortName) return Promise.resolve(String(d.shortName));
-  return db.collection('enewsSettings').doc('main').get()
-    .then(s => String(((s.exists && s.data().church) || {}).shortName || ''), () => '');
+/* The church's short name ("EGBC"), from the one helper (egbc-church.js). */
+function shortName() {
+  return window.EGBCChurch ? EGBCChurch.load().then(() => EGBCChurch.shortName()) : Promise.resolve('');
 }
 /* "EGBC Hub" in the bar and the tab: the short name in front of "Hub". */
 function hubName(short) {
@@ -2358,260 +2259,10 @@ function isCharterPage(url) {
 }
 
 
-/* ---- IMPORT THE EXISTING MENU ---------------------------------------
-   portal/menuItems is the real navigation: nested parent/child, with a
-   `role` of worship or core. Importing it keeps the structure people
-   already know instead of inventing a new arrangement. */
-
-async function importOldMenu() {
-  if (!EGBCAuth.isMaster()) { alert('Only a master admin can do this.'); return; }
-
-  let items;
-  try {
-    const d = (await db.collection('portal').doc('menuItems').get()).data() || {};
-    items = d.items || d.menu || (Array.isArray(d) ? d : null);
-  } catch (e) { alert('Could not read the menu: ' + e.message); return; }
-
-  if (!items || !items.length) { alert('No menu found in portal/menuItems.'); return; }
-
-  /* 'none' is how the original stores "no parent" - treating it as a real id
-     orphans the item and it never renders. */
-  const clean = items.map(it => ({
-    id: String(it.id || ''),
-    name: it.name || '',
-    url: it.url || '',
-    icon: it.icon || '',
-    role: it.role || '',
-    parent: (!it.parent || it.parent === 'none') ? '' : String(it.parent)
-  }));
-
-  const byId = {};
-  clean.forEach(it => { byId[it.id] = it; });
-
-  /* The original menu has exactly two levels of visibility: `worship` and
-     `core`. `worship` does NOT mean the Worship Team - it means everyone
-     signed in. Rota, the music databases, Youth Worship and AV Team are all
-     marked worship, because they are shared. Only Core Team and what sits
-     under it is restricted. */
-  const isCore = it => {
-    let cur = it, guard = 0;
-    while (cur && guard++ < 8) {
-      if (cur.role === 'core') return true;
-      cur = cur.parent ? byId[cur.parent] : null;
-    }
-    return false;
-  };
-
-  const tidyUrl = u => {
-    if (!u || u === 'landing' || u === '#') return '';
-    return u.replace(/^https?:\/\/esherchurch\.github\.io\/availability-form\/+/, '').replace(/^\/+/, '');
-  };
-
-  const ICONS = { home: '\u{1F3E0}', calendar: '\u{1F4C5}', music: '\u{1F3B5}', users: '\u{1F465}',
-                  mail: '\u2709', settings: '\u2699', book: '\u{1F4D8}', video: '\u{1F3AC}',
-                  tool: '\u{1F6E0}', file: '\u{1F4C4}' };
-
-  /* Build the whole thing before touching anything, so a menu that yields
-     nothing cannot wipe what is already there. */
-  const rows = [];
-  clean.forEach((it, i) => {
-    const url = tidyUrl(it.url);
-    const hasKids = clean.some(x => x.parent === it.id);
-    if (!url && !hasKids) return;
-    const core = isCore(it);
-    rows.push({
-      title: it.name || 'Untitled',
-      url,
-      description: '',
-      icon: ICONS[it.icon] || '\u{1F4C4}',
-      team: core ? 'Core Team' : 'Worship Team',
-      everyone: !core,
-      legacyId: it.id,
-      legacyParent: it.parent,
-      heading: !url,
-      order: (i + 1) * 10,
-      enabled: true
-    });
-  });
-
-  const pages = rows.filter(r => !r.heading).length;
-  if (!pages) {
-    alert(`Found ${items.length} menu entries but none of them point at a page, so nothing has been changed.\n\nThe menu may only contain headings.`);
-    return;
-  }
-
-  const shared = rows.filter(r => r.everyone && !r.heading).length;
-  const coreOnly = pages - shared;
-
-  if (!confirm(`Found ${pages} page${pages === 1 ? '' : 's'} and ${rows.length - pages} heading${rows.length - pages === 1 ? '' : 's'}.\n\n` +
-    `${shared} open to everyone\n${coreOnly} for Core Team only\n\n` +
-    'That is how the menu has them: everything marked "worship" is shared, ' +
-    'and only what sits under Core Team is restricted.' +
-    (PAGES.length ? `\n\nThis replaces the ${PAGES.length} currently listed.` : '')
-  )) return;
-
-  try {
-    const batch = db.batch();
-    PAGES.forEach(p => batch.delete(db.collection('hubPages').doc(p.id)));
-    rows.forEach(r => batch.set(db.collection('hubPages').doc(), r));
-    await batch.commit();
-
-    await loadPages();
-    renderTools();
-    renderAdminPages();
-    alert(`${pages} brought across - ${shared} open to everyone, ${coreOnly} for Core Team.\n\nYour menu only covers part of the suite, so add whatever is missing.`);
-  } catch (e) { alert('Could not import: ' + e.message); }
-}
-
-
-/* ---- THE REST OF THE SUITE ------------------------------------------
-   The old menu covers about a dozen pages. The other thirty-odd were
-   reachable only from SharePoint, which means the day SharePoint goes off
-   they exist but nobody can get to them - and nobody reports a page that
-   never errors, they just stop using it.
-
-   This is the migration checklist. Adding is additive: anything already
-   registered, by url, is left exactly as it is. Run it as often as you
-   like; run it again after adding a page by hand.
-
-   Deliberately absent, so their absence is a decision rather than an
-   oversight:
-     studio, sitemaker, socialmaker, photoeditor - Calla Design. A
-       production suite, not EGBC team content.
-     birthday, Videoeditor                       - out of scope.
-     Handover                                    - not part of this suite.
-     hubresources                                - superseded by resources.html,
-       and it carries a password in plain source.
-     SharepointHeader                            - the iframe header inside the
-       old site. Dies with it.
-   None of them are guarded or deleted by leaving them out. They stay
-   reachable by bookmark exactly as they are today.
-
-   hub, login and youth-access are absent too - they are the way in, not
-   destinations. */
-
-const WORSHIP_AV = ['Worship Team', 'AV Team'];
-
 /* The teams doing the worship and AV jobs, for a page "seen by" both: the
-   church's own teams, each once (EGBC's: Worship Team and AV Team). The
-   seed list above keeps its fixed pair because it is the original site's
-   menu brought across, page by page. */
+   church's own teams, each once (EGBC's: Worship Team and AV Team). */
 function worshipPairTeams() { return jobTeams(['worship', 'av']); }
 function worshipPairLabels() { return jobTeamLabels(['worship', 'av']); }
-
-const REGISTRY = [
-
-  /* -- the live menu, as it actually is ------------------------------
-     Read off portal/menuItems in the browser rather than reconstructed
-     from filenames. "worship" in that data means everyone signed in, not
-     the Worship Team, which is why almost all of these are `everyone`. */
-
-  { url: 'view-only-rota.html', title: 'Rota', icon: '\u{1F4C5}', team: 'Worship Team', everyone: true,
-    description: 'Who is on, and when' },
-  { url: 'Worshipteamcharter.html', title: 'Worship & AV', icon: '\u{1F4DC}', team: 'Worship Team',
-    description: 'How we serve together' },
-  { url: 'EGBC-PlayThrough.html', title: 'Play-Through', icon: '\u{1F3AC}', team: 'Worship Team',
-    description: 'Practice videos' },
-  { url: 'EGBC-Training-Worship.html', title: 'Worship Training', icon: '\u{1F4D8}', team: 'Worship Team',
-    description: 'Training material for the worship team' },
-  /* The one visibility change you asked for: the song library goes to
-     Worship and AV rather than everyone. AV need the lyrics. */
-  { url: 'Library.html', title: 'Music Database', icon: '\u{1F3B5}', team: 'Worship Team', teams: WORSHIP_AV,
-    description: 'Every song, with keys and usage' },
-  { url: 'batchupload.html', title: 'Music Uploader', icon: '\u{1F4E4}', team: 'Worship Team',
-    description: 'Add music to the library' },
-  { url: 'EGBC-HowTo-AV.html', title: 'How-To AV', icon: '\u{1F4D8}', team: 'AV Team',
-    description: 'Running the desk, step by step' },
-  { url: 'EGBC-Troubleshoot-AV.html', title: 'AV Troubleshoot', icon: '\u{1F6E0}', team: 'AV Team',
-    description: 'When something is not working' },
-  { url: 'Youthcharter.html', title: 'Youth', icon: '\u{1F4DC}', team: 'Youth Worship',
-    description: 'How the youth team serve' },
-  { url: 'youthserviceplanner.html', title: 'Youth Service Planner', icon: '⛪', team: 'Youth Worship',
-    description: 'Planning a youth-led service' },
-  { url: 'stickynotes.html', title: "Idea's pin board", icon: '\u{1F4CC}', team: 'Worship Team',
-    description: 'Song suggestions and ideas' },
-  /* Not superseded by resources.html - this is where the phone apps are
-     downloaded from, which is why worshiphubapp, CoreTeamApp, youthapp2
-     and Performancenotes need no tiles of their own. */
-  { url: 'hubresources.html', title: 'Apps and downloads', icon: '\u{1F4F2}', team: 'Worship Team', everyone: true,
-    description: 'Get the apps on your phone or tablet' },
-
-  { url: 'Coreteamcharter.html', title: 'Core Team', icon: '\u{1F4DC}', team: 'Core Team',
-    description: 'How the core team work' },
-  { url: 'EmailBuilder2.html', title: 'Email Compiler', icon: '✉', team: 'Core Team',
-    description: 'Write and send to a team' },
-  /* One file holds every department's rota, so it belongs to all of them.
-     adminOnly keeps it off an ordinary member's hub - it sends email. */
-  { url: 'Planner.html', title: 'Rota Planner', icon: '\u{1F4C5}', team: 'Core Team',
-    teams: ['Worship Team', 'Kids Church', 'Youth Worship'], adminOnly: true,
-    description: 'Build and send the rota' },
-  { url: 'SundayServicePlanner.html', title: 'Sunday Service Planner', icon: '⛪', team: 'Core Team',
-    description: 'Plan the running order' },
-  { url: 'addressbook.html', title: 'Address Book', icon: '\u{1F465}', team: 'Core Team', adminOnly: true,
-    description: 'People, households and teams' },
-  /* Sites, rooms, bookable kit and outside venues. adminOnly because it is
-     where a room is taken out of use, which changes what everybody else can
-     book. Any team admin may open it, which matches isAdmin() in the rules. */
-  { url: 'places-admin.html', title: 'Places', icon: '\u{1F3E0}', team: 'Core Team', adminOnly: true,
-    description: 'Sites, rooms, kit and venues' },
-
-  /* Events. What's on carries `everyone`, because it is the one page a
-     visitor with no account is meant to reach - the tile is there for a
-     member who wants to see what is coming up, and the same page is what a
-     poster or a WhatsApp message links to. The admin side is adminOnly,
-     like the other tools that send email on the church's behalf. */
-  { url: 'whatson.html', title: "What's on", icon: 'calendar-days', team: 'Core Team', everyone: true,
-    description: 'Church events, and signing up to them' },
-  { url: 'events-admin.html', title: 'Events', icon: 'calendar-plus', team: 'Core Team',
-    teams: ['Worship Team', 'Kids Church', 'Youth Worship'], adminOnly: true,
-    description: 'Create events, open sign-ups, see who is coming' },
-
-  /* -- reachable only from SharePoint today --------------------------
-     Nothing in the repo links to these, and they are not in the menu.
-     They are the pages that genuinely disappear when the old site goes,
-     which is the whole point of the registry. */
-
-  { url: 'inventory-system-2.html', title: 'EGBC Inventory', icon: '\u{1F4E6}', team: 'AV Team',
-    description: 'Equipment and where it lives' },
-  { url: 'schematic.html', title: 'AV Infrastructure Mapper', icon: '\u{1F50C}', team: 'AV Team',
-    description: 'What is plugged into what' },
-  { url: 'MonitorStageMap.html', title: 'Monitor Setup', icon: '\u{1F39A}', team: 'AV Team',
-    description: 'Stage monitor positions and mixes' },
-  { url: 'AVteamlandingpage.html', title: 'AV Team Charter', icon: '\u{1F4DC}', team: 'AV Team',
-    description: 'Shared with the worship team' },
-  /* On the Menu (Worship & AV) and the app's Team tab (a69c27cf). */
-  { url: 'Performancenotes.html', title: 'Performance Notes', icon: '\u{1F4DD}', team: 'Worship Team',
-    description: 'On-stage view: your part, your monitor mix' },
-  /* A whole shadow copy of the site, so someone can learn the rota planner
-     without touching live data. Nothing points at it while the real tools
-     are still being finished, so it is registered but hidden - `hidden`
-     writes enabled:false, which keeps it off both the hub and the Where to?
-     menu without losing the entry. Turn it back on when the rest is done. */
-  { url: 'trainingportalhub.html', title: 'Training Portal', icon: '\u{1F4DA}', team: 'Core Team', hidden: true,
-    description: 'Practice copies of the main tools' },
-  /* EGBCWorship&AV.html was here and is not registered any more (17a). The
-     hub does everything it did - its news (with "show until"), its banner,
-     its welcome words and its team panels - so nothing in v2 should offer a
-     second way in. Do not put it back.
-
-     The file itself stays. The phone app still opens it until that app is
-     updated, and no app is being retired. A hubPages row for it may still
-     exist in the live database from before: it draws nothing now, and it is
-     Martin's to delete from Administration, Pages. */
-  { url: 'index.html', title: 'Availability Form', icon: '\u{1F4CB}', team: 'Core Team',
-    description: 'The public form - this is the link to send out' },
-
-  /* -- shipped in the hub package, never registered ------------------- */
-
-  { url: 'resources.html', title: 'Team Resources', icon: '\u{1F4C1}', team: 'Worship Team',
-    description: 'Documents and links for your teams' },
-  { url: 'videos.html', title: 'Team Videos', icon: '\u{1F3AC}', team: 'Worship Team',
-    description: 'Watch your team\'s videos, and search inside them' },
-  { url: 'data-tools.html', title: 'Backup & Restore', icon: '\u{1F4BE}', team: 'Core Team', adminOnly: true,
-    description: 'Take a copy of everything, or put one back' },
-  { url: 'meeting.html', title: 'Meetings', icon: '\u{1F4F9}', team: 'Core Team',
-    description: 'Video meetings - your upcoming calls and your meeting rooms' }
-];
 
 /* AVteamlandingpage carries no text of its own, so a tile pointing at it
    leads to a blank page. It belongs on the AV landing page like the other
@@ -2667,82 +2318,6 @@ async function checkRegistryLinks() {
   }
 }
 
-
-/* ---- ADD THE MISSING PAGES ------------------------------------------ */
-
-async function seedRegistry() {
-  if (!EGBCAuth.isMaster()) { alert('Only a master admin can do this.'); return; }
-
-  const have = new Set(PAGES.map(p => (p.url || '').toLowerCase()).filter(Boolean));
-  const missing = REGISTRY.filter(r => !have.has(r.url.toLowerCase()));
-
-  if (!missing.length) {
-    alert(`Nothing to add - all ${REGISTRY.length} pages are already registered.`);
-    return;
-  }
-
-  const btn = document.getElementById('btnSeed');
-  const was = btn ? btn.textContent : '';
-
-  /* Check before writing, not after. A registry full of 404s is worse than
-     an incomplete one, because it looks finished. */
-  let bad = [];
-  try {
-    if (btn) btn.textContent = 'Checking...';
-    bad = await checkUrls(missing.map(r => r.url),
-      (a, b) => { if (btn) btn.textContent = `Checking ${a}/${b}`; });
-  } catch (e) { /* offline or blocked - fall through and let the admin decide */ }
-  if (btn) btn.textContent = was;
-
-  const badSet = new Set(bad);
-  const good = missing.filter(r => !badSet.has(r.url));
-
-  let msg = `${missing.length} page${missing.length === 1 ? '' : 's'} not yet registered.\n\n`;
-  if (bad.length) {
-    msg += `${bad.length} of them did not load and will be SKIPPED:\n` +
-           bad.map(u => '• ' + u).join('\n') +
-           '\n\nThat is almost always a filename spelt differently in the repo.\n\n';
-  }
-  if (!good.length) { alert(msg + 'Nothing left to add.'); return; }
-  msg += `Add the remaining ${good.length}?\n\n` +
-         `Nothing already registered is changed, and nothing is deleted.`;
-  if (!confirm(msg)) return;
-
-  /* Order after whatever is already there, so an import that ran first keeps
-     its arrangement. */
-  let next = PAGES.reduce((m, p) => Math.max(m, p.order || 0), 0) + 10;
-
-  try {
-    const batch = db.batch();
-    good.forEach(r => {
-      const row = {
-        title: r.title,
-        url: r.url,
-        description: r.description || '',
-        icon: r.icon || '\u{1F4C4}',
-        team: r.team,
-        everyone: !!r.everyone,
-        adminOnly: !!r.adminOnly,
-        order: next,
-        enabled: !r.hidden
-      };
-      if (r.teams) row.teams = r.teams;
-      if (r.helpFor) row.helpFor = r.helpFor;
-      batch.set(db.collection('hubPages').doc(), row);
-      next += 10;
-    });
-    await batch.commit();
-
-    await loadPages();
-    renderTools();
-    renderAdminPages();
-
-    const tiles = good.filter(r => !r.helpFor).length;
-    alert(`${good.length} added.\n\n` +
-      `${tiles} as tiles, ${good.length - tiles} attached to the tool they explain.` +
-      (bad.length ? `\n\n${bad.length} skipped - see above.` : ''));
-  } catch (e) { alert('Could not add: ' + e.message); }
-}
 
 /* ---- My calendar (Step R) ------------------------------------------
    The rota, in a person's own calendar, kept up to date without another
@@ -3438,7 +3013,7 @@ function renderPagesList(){
       : 'Nothing registered - the menu will be empty.';
   }
   const mine=PAGES.filter(p=>teams.includes(p.team));
-  if(!mine.length){list.innerHTML='<div class="empty"><div class="t">Nothing registered yet</div><div style="font-size:12px;font-weight:600;margin-top:6px">Use <strong>Bring across the old menu</strong> to start from the menu people already know.</div></div>';return;}
+  if(!mine.length){list.innerHTML='<div class="empty"><div class="t">Nothing registered yet</div><div style="font-size:12px;font-weight:600;margin-top:6px">Press <strong>+ Add</strong> to put a page on the menu.</div></div>';return;}
   list.innerHTML=mine.map(p=>{
     const cfg=EGBCAuth.TEAMS[p.team]||{label:p.team,colour:'#3d6263'};
     /* Say who sees it and why it might not be a tile, so an entry that looks
@@ -3814,10 +3389,7 @@ function renderAdminPages(){
           <span id="pagesCount" style="display:block;margin-top:4px;font-weight:600"></span>
         </p>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn solid" id="btnSeed" onclick="seedRegistry()">Add the missing pages</button>
           <button class="btn" id="btnCheckLinks" onclick="checkRegistryLinks()">Check every link</button>
-          <button class="btn" onclick="importOldMenu()">Bring across the old menu</button>
-          <button class="btn" onclick="importAllCharters()">Bring across all charters</button>
           <button class="btn" onclick="markSharedPages()">Open shared pages to everyone</button>
           <button class="btn" id="btnAddPage" onclick="newPage()">+ Add</button>
         </div>

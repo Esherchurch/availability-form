@@ -57,6 +57,12 @@
      whichever of the church's teams does it, and master admins. In place
      of data-team, so no page names a church's team. */
   var job = script ? script.getAttribute('data-job') : null;
+  /* data-core-of="worship" - the core team over the teams doing a job
+     (Teams & groups' "Core team for"), as data-team would name it.
+     data-youth-groups - the church's youth groups (EGBCAuth.youthGroups):
+     the youth job's teams and the under-18 groups their core team covers. */
+  var coreOf = script ? script.getAttribute('data-core-of') : null;
+  var youthGroups = script ? script.hasAttribute('data-youth-groups') : false;
   /* data-allow-pending="parent" (FINDINGS-notify N-5.5): the app alone
      lets in a verified address the church holds no record for, as a
      parent, to Parents' Sunday and Notifications and nothing else. */
@@ -176,15 +182,14 @@
   }
 
   /**
-   * The team-and-role check for data-job with data-role, run once require()
-   * has let the person in on everything else. The job becomes the church's
-   * teams for it and the ordinary team+role check decides, so core teams,
-   * the teams' admins and master admins count exactly as they do for
-   * data-team. require() checks a job only as "doing it", which cannot say
-   * "a leader of" nor let in a team's admin who is not on the team. Done
+   * The team-and-role check for a guard naming teams by job (data-job with
+   * data-role, data-core-of, data-youth-groups), run once require() has let
+   * the person in on everything else. EGBCAuth.guardTeams turns it into the
+   * church's teams and guardVerdict checks them as it does data-team, so
+   * core teams, the teams' admins and master admins count the same. Done
    * after sign-in because the church's team jobs can be read only then.
    * @param {Object} profile the signed-in person's profile from require()
-   * @param {Object} opts the guard's other options (data-also-team and the rest)
+   * @param {Object} opts the guard's options, the job ones included
    * @returns {Promise<Object|null>} the profile, or null once the page is refused
    */
   function jobAsTeams(profile, opts) {
@@ -192,10 +197,7 @@
        already narrowed what the page shows them. */
     if (profile && profile.parentOnly) return Promise.resolve(profile);
     return EGBCAuth.loadPerms().catch(function () {}).then(function () {
-      var teams = [];
-      job.split(',').forEach(function (j) {
-        EGBCAuth.teamsForJob(j.trim()).forEach(function (t) { if (teams.indexOf(t) === -1) teams.push(t); });
-      });
+      var teams = EGBCAuth.guardTeams(opts) || [];
       /* No team does the job yet: an empty team list would let everybody
          in, so only master admins pass until the church chooses one. */
       if (!teams.length && !EGBCAuth.isMaster()) {
@@ -204,13 +206,7 @@
           'A master admin can choose the team in Church settings.', profile);
         return null;
       }
-      var full = {};
-      Object.keys(opts).forEach(function (k) { full[k] = opts[k]; });
-      if (teams.length) full.team = teams.join(',');
-      /* "member" is the lowest rank: being on the team, which is all a
-         plain data-team asks. */
-      if (role !== 'member') full.role = role;
-      var no = EGBCAuth.guardVerdict(full);
+      var no = EGBCAuth.guardVerdict(opts);
       if (!no) return profile;
       /* The words require() uses for a team page. */
       var T = EGBCAuth.TEAMS || {};
@@ -236,9 +232,9 @@
     var opts = {};
     if (team) opts.team = team;
     if (role) opts.role = role;
-    /* A job with a role is checked as the job's teams (jobAsTeams), after
+    /* Teams named by job are checked as those teams (jobAsTeams), after
        require() has checked everything else. */
-    var jobTeams = !!(job && role && !team);
+    var jobTeams = !team && (!!(job && role) || !!coreOf || youthGroups);
     if (jobTeams) delete opts.role;
     if (adminAny) opts.adminAny = true;
     if (alsoTeam) opts.alsoTeam = alsoTeam;
@@ -252,7 +248,14 @@
     setTimeout(sayStuck, SETTLE_MS);
 
     EGBCAuth.require(opts).then(function (profile) {
-      return jobTeams ? jobAsTeams(profile, opts) : profile;
+      if (!jobTeams) return profile;
+      var byJob = {};
+      Object.keys(opts).forEach(function (k) { byJob[k] = opts[k]; });
+      if (job) byJob.job = job;
+      if (role) byJob.role = role;
+      if (coreOf) byJob.coreOf = coreOf;
+      if (youthGroups) byJob.youthGroups = true;
+      return jobAsTeams(profile, byJob);
     }).then(function (profile) {
       settled = true;
       if (jobTeams && profile === null) return; /* refused: jobAsTeams said so */

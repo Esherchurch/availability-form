@@ -1,19 +1,31 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-own-title>
 <head>
-<script src="egbc-appmode.js?v=202610201500"></script>
-<script src="egbc-shell.js?v=202611011100" data-title="Play-Through"></script>
+<script src="egbc-appmode.js?v=202611011200"></script>
+<script src="egbc-shell.js?v=202611011200" data-title="Play-Through"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202611010900"></script>
+<script src="egbc-auth.js?v=202611011200"></script>
+<script src="egbc-church.js?v=202611011200"></script>
 <script src="egbc-kbupload.js?v=202610062000"></script>
-<script src="egbc-guard.js?v=202610311900" data-job="worship" data-role="member"></script>
+<script src="egbc-guard.js?v=202611011200" data-job="worship" data-role="member"></script>
 <script src="egbc-kbadmin.js?v=202610262000" data-action="kbUpload" data-admin-team="Worship Team"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EGBC — Play Through</title>
+  <title>Play Through</title>
+  <script>
+    /* The tab and the heading start with the church's short name
+       (churchSettings/details); none set, they name the page alone. */
+    EGBCChurch.load().then(function (c) {
+      if (!c.shortName) return;
+      document.title = c.shortName + ' — ' + document.title;
+      var kick = function () { var k = document.getElementById('churchKicker');
+        if (k) k.textContent = c.shortName + ' — Worship Knowledge Base'; };
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', kick); else kick();
+    });
+  </script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
 
@@ -53,7 +65,7 @@
   <!-- HEADER -->
   <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-10 gap-6 border-b border-[#d1dfdf] pb-10">
     <div>
-      <div class="text-[12px] font-semibold tracking-[0.3em] opacity-50 mb-1">EGBC — Worship Knowledge Base</div>
+      <div class="text-[12px] font-semibold tracking-[0.3em] opacity-50 mb-1" id="churchKicker">Worship Knowledge Base</div>
       <h1 class="text-3xl font-semibold tracking-tight">Play Through</h1>
       <p class="text-sm font-semibold opacity-60 mt-1">Our arrangements — how we play it</p>
     </div>

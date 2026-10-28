@@ -1543,18 +1543,20 @@
      scoping it - and someone on Kids Church AND Worship gets both, because
      the list is a union of everything they are on. */
 
-  var WORSHIP_SIDE = ['Worship Team', 'AV Team', 'Youth Worship'];
+  /* The teams doing the worship, AV and youth jobs (EGBC: Worship Team, AV
+     Team, Youth Worship); before the team jobs load, EGBC's. */
+  function worshipSide() { return jobTeamIds(['worship', 'av', 'youth']); }
   /* WORSHIP AND AV ARE ONE TEAM FOR PAGES (Martin, 12 Oct 2026: "if worship
      team want to turn on the sound desk they should be able to see how").
      Someone on any of these counts as on all of them for page checks. Rank
      gates (data-role leader/admin) are unchanged. */
-  var WORSHIP_AV = ['Worship Team', 'AV Team', 'Choir'];
+  function worshipAv() { return jobTeamIds(['worship', 'av', 'choir']); }
 
   function teamsVisibleTo(teams) {
     var out = teams.slice();
-    var onWorshipSide = WORSHIP_SIDE.some(function (t) { return out.indexOf(t) !== -1; });
+    var onWorshipSide = worshipSide().some(function (t) { return out.indexOf(t) !== -1; });
     if (onWorshipSide) {
-      ['Worship Team', 'AV Team'].forEach(function (t) {
+      jobTeamIds(['worship', 'av']).forEach(function (t) {
         if (out.indexOf(t) === -1) out.push(t);
       });
     }
@@ -1879,9 +1881,10 @@
             }
 
             var no = guardRefusal(opts, profile);
-            /* Book a room counts the office job (team jobs, H-9), which
+            /* Book a room counts the office job (team jobs, H-9), and the
+               worship side's teams share by job (inTeam), both of which
                loadPerms() reads: asked for only when the answer turns on it. */
-            if (no && (opts.leadsOrCore || opts.alsoJob || opts.job) && !PERMS.ready) {
+            if (no && (opts.leadsOrCore || opts.alsoJob || opts.job || opts.team) && !PERMS.ready) {
               loadPerms().catch(function () {}).then(function () {
                 var again = guardRefusal(opts, profile);
                 if (again) { EGBCAuth._blockPage(again[0], again[1], profile); return; }
@@ -1967,8 +1970,9 @@
     inTeam: function (team) {
       var mine = EGBCAuth.effectiveTeams();
       if (mine.indexOf(team) !== -1) return true;
-      if (WORSHIP_AV.indexOf(team) !== -1 &&
-          mine.some(function (t) { return WORSHIP_AV.indexOf(t) !== -1; })) return true;
+      var side = worshipAv();
+      if (side.indexOf(team) !== -1 &&
+          mine.some(function (t) { return side.indexOf(t) !== -1; })) return true;
       return coversOf(mine).indexOf(team) !== -1;
     },
     /* The teams this person covers through their core teams (H-15). */
@@ -1981,22 +1985,57 @@
     /* WOULD A PAGE'S GUARD LET THIS PERSON IN? (the access matrix, H-16).
        opts as the page's egbc-guard.js tag gives them; '' for yes, or the
        refusal's title. The same decision require() makes. */
+    /**
+     * The teams a guard means when it names them by job (egbc-guard.js):
+     * data-job with data-role (the job's teams), data-core-of (the core
+     * teams over a job's teams) and data-youth-groups (youthGroups). null
+     * for a guard that names none this way. After loadPerms().
+     * @param {Object} opts the guard's options @returns {string[]|null}
+     */
+    guardTeams: function (opts) {
+      var split = function (v) { return String(v).split(',').map(function (j) { return j.trim(); }); };
+      if (opts.team) return null;
+      if (opts.coreOf) {
+        var of = jobTeamIds(split(opts.coreOf));
+        return Object.keys(TEAMS).filter(function (t) {
+          return !TEAMS[t].archived && (TEAMS[t].coreFor || []).some(function (c) { return of.indexOf(c) !== -1; });
+        });
+      }
+      if (opts.youthGroups) return EGBCAuth.youthGroups();
+      if (opts.job && opts.role) return jobTeamIds(split(opts.job));
+      return null;
+    },
+    /**
+     * The church's youth groups: the youth job's teams, and the under-18
+     * teams the core team over them covers - not the children's teams nor
+     * core teams themselves. functions/family.js youthGroupsOf is its twin.
+     * @returns {string[]} team ids
+     */
+    youthGroups: function () {
+      var youth = jobTeamIds(['youth']), kids = jobTeamIds(['children']), out = youth.slice();
+      Object.keys(TEAMS).forEach(function (c) {
+        var covers = TEAMS[c].coreFor || [];
+        if (!covers.some(function (t) { return youth.indexOf(t) !== -1; })) return;
+        covers.forEach(function (t) {
+          var T = TEAMS[t];
+          if (T && T.under18 && !(T.coreFor || []).length && kids.indexOf(t) === -1 && out.indexOf(t) === -1) out.push(t);
+        });
+      });
+      return out;
+    },
     guardVerdict: function (opts) {
       var p = currentProfile;
       if (!p) return 'Signed out';
       if (p.status !== 'active') return 'Not active (' + (p.status || 'pending') + ')';
       opts = opts || {};
-      /* data-job with data-role (egbc-guard.js): the job's teams, checked as
-         data-team is; "member" is being on one of them. A job no team does
-         yet is master admins only. After loadPerms(), as egbc-guard waits. */
-      if (opts.job && opts.role && !opts.team) {
-        var teams = [];
-        String(opts.job).split(',').forEach(function (j) {
-          EGBCAuth.teamsForJob(j.trim()).forEach(function (t) { if (teams.indexOf(t) === -1) teams.push(t); });
-        });
+      /* A guard that names teams by job (guardTeams): those teams, checked
+         as data-team is; "member" is being on one of them. None yet is
+         master admins only. After loadPerms(), as egbc-guard waits. */
+      var teams = EGBCAuth.guardTeams(opts);
+      if (teams) {
         if (!teams.length) return EGBCAuth.isMaster() ? '' : 'No access to this page';
         var o2 = {};
-        Object.keys(opts).forEach(function (k) { if (k !== 'job') o2[k] = opts[k]; });
+        Object.keys(opts).forEach(function (k) { if (['job', 'coreOf', 'youthGroups'].indexOf(k) === -1) o2[k] = opts[k]; });
         o2.team = teams.join(',');
         if (o2.role === 'member') delete o2.role;
         opts = o2;

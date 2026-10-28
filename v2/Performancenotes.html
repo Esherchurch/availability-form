@@ -1,19 +1,20 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-church-title>
 <head>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202611010900"></script>
+<script src="egbc-auth.js?v=202611011200"></script>
+<script src="egbc-church.js?v=202611011200"></script>
 <script src="egbc-plan-store.js?v=202610252100"></script>
-<script src="egbc-guard.js?v=202610311900" data-job="worship" data-role="member"></script>
+<script src="egbc-guard.js?v=202611011200" data-job="worship" data-role="member"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Performance">
 <meta name="theme-color" content="#3d6263">
-<title>EGBC Performance Notes</title>
+<title>Performance Notes</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 
@@ -1604,12 +1605,12 @@ window.cacheAllPDFs = async () => {
 <!-- ══ START SCREEN ══ -->
 <div id="startScreen">
   <div class="start-hero">
-    <img class="start-logo"
-      src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/copilot_image_1775806874083.jpeg?alt=media&token=7e9040a5-1d29-47e1-8f31-6e003db53ec8"
-      alt="EGBC" onerror="this.style.display='none'">
+    <img class="start-logo" id="startChurchLogo" data-church-logo alt="" style="visibility:hidden" onerror="this.style.display='none'">
     <div class="start-hero-title">Performance Notes</div>
-    <div class="start-hero-sub">EGBC Worship &amp; AV</div>
+    <div class="start-hero-sub" id="startChurchSub" data-church-short="Worship &amp; AV">Worship &amp; AV</div>
   </div>
+  <script>
+  </script>
 
   <div class="start-form">
     <div>

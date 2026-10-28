@@ -1,8 +1,8 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="egbc-nosend.js?v=202610212000"></script>
-<script src="egbc-shell.js?v=202611011100" data-title="Youth Service Planner"></script>
+<script src="egbc-nosend.js?v=202611011200"></script>
+<script src="egbc-shell.js?v=202611011200" data-title="Youth Service Planner"></script>
 <!-- Sign-in. The page reads the address book to build its name list and the
      events collection for its dates; both are shut to strangers now
      (PRIVACY-OPEN-COLLECTIONS.md), so it has to know who is asking. The guard
@@ -16,10 +16,10 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202611010900"></script>
-<script src="egbc-manifest.js?v=202610311800"></script>
-<script src="egbc-church.js?v=202610311000"></script>
-<script src="egbc-guard.js?v=202610311900" data-job="youth" data-role="member"></script>
+<script src="egbc-auth.js?v=202611011200"></script>
+<script src="egbc-manifest.js?v=202611011200"></script>
+<script src="egbc-church.js?v=202611011200"></script>
+<script src="egbc-guard.js?v=202611011200" data-job="youth" data-role="member"></script>
 <script src="egbc-plan-audience.js?v=202610131430"></script>
 <script src="egbc-plan-store.js?v=202610252100"></script>
 <meta charset="UTF-8">
@@ -974,6 +974,8 @@ window.emailSchedule = async () => {
     /* The church's name, logo and reply address (churchSettings/details) and
        its worship teams' names, never typed in here; blanks are left out. */
     const church = await (window.EGBCChurch ? EGBCChurch.load() : Promise.resolve({ name: '', enquiryEmail: '', logoUrl: '' }));
+    /* The worship team's own logo (Teams & groups), else the church's. */
+    if (window.EGBCChurch) { await EGBCChurch.jobsReady(); church.logoUrl = EGBCChurch.logoFor('worship') || church.logoUrl; }
     await youthReady;
     const escH = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     /* Replies go to "Sending as" (remembered on this device), else the

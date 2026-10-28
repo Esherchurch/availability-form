@@ -70,7 +70,7 @@
     var entry = { ok: true, stubbed: true, blocked: true, at: new Date().toISOString(), url: url, payload: payload };
     window.__egbcOutbox.push(entry);
     var to = (payload && payload.to) || [];
-    console.info('[EGBC] localhost: a send was stopped here. ' +
+    console.info('[no-send] localhost: a send was stopped here. ' +
       ((payload && payload.subject) || '(no subject)') + ' -> ' +
       (Array.isArray(to) ? to.length : 1) + ' recipient(s)');
     return entry;
@@ -126,5 +126,5 @@
     clear: function () { window.__egbcOutbox.length = 0; }
   };
 
-  console.info('[EGBC] localhost: no email can leave this machine (egbc-nosend.js)');
+  console.info('[no-send] localhost: no email can leave this machine (egbc-nosend.js)');
 })();

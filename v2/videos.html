@@ -1,18 +1,19 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-own-title>
 <head>
-<script src="egbc-shell.js?v=202611011100" data-title="Team Videos"></script>
+<script src="egbc-shell.js?v=202611011200" data-title="Team Videos"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EGBC — Team Videos</title>
+<title>Team Videos</title>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202611010900"></script>
+<script src="egbc-auth.js?v=202611011200"></script>
+<script src="egbc-church.js?v=202611011200"></script>
 <script src="egbc-orientation.js?v=202610160500"></script>
-<script src="egbc-guard.js?v=202610311900" data-job="worship,av"></script>
+<script src="egbc-guard.js?v=202611011200" data-job="worship,av"></script>
 
 <style>
   :root{
@@ -147,7 +148,7 @@
   <div class="wrap">
     <div class="hrow">
       <div class="brand">
-        <div class="sup" id="teamSup">Esher Green Baptist Church</div>
+        <div class="sup" id="teamSup">&nbsp;</div>
         <h1 id="pageTitle">Team Videos</h1>
       </div>
     </div>
@@ -393,7 +394,10 @@ function applyTeam(){
   const cfg = EGBCAuth.TEAMS[TEAM] || { label: TEAM };
   document.getElementById('teamSup').textContent = cfg.label;
   document.getElementById('pageTitle').textContent = cfg.label + ' Videos';
-  document.title = 'EGBC — ' + cfg.label + ' Videos';
+  /* The tab names the church first, by its short name (churchSettings/details). */
+  EGBCChurch.load().then(function (c) {
+    document.title = (c.shortName ? c.shortName + ' — ' : '') + cfg.label + ' Videos';
+  });
 
   /* Switching team closes the panel: whatever was half typed belonged to
      the team you have just left. */

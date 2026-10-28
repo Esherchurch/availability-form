@@ -1,16 +1,16 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="egbc-nosend.js?v=202610212000"></script>
-<script src="egbc-shell.js?v=202611011100" data-title="Rota Planner"></script>
+<script src="egbc-nosend.js?v=202611011200"></script>
+<script src="egbc-shell.js?v=202611011200" data-title="Rota Planner"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202611010900"></script>
-<script src="egbc-manifest.js?v=202610311800"></script>
+<script src="egbc-auth.js?v=202611011200"></script>
+<script src="egbc-manifest.js?v=202611011200"></script>
 <script src="egbc-video.js?v=202610311600"></script>
-<script src="egbc-church.js?v=202610311000"></script>
-<script src="egbc-guard.js?v=202610311900" data-job="worship,children,youth" data-role="leader"></script>
+<script src="egbc-church.js?v=202611011200"></script>
+<script src="egbc-guard.js?v=202611011200" data-job="worship,children,youth" data-role="leader"></script>
     <meta charset="UTF-8">
     <link rel="manifest" href="./manifest-planner.json">
     <link rel="apple-touch-icon" href="icon-192.png">
@@ -143,7 +143,10 @@
             const d = await churchDetails();
             const reply = await replyAddress();
             const words = rotaWords();
-            const logo = d.logoUrl ? `<td style="vertical-align:top;text-align:right;padding-left:20px;"><div style="display:inline-block;background:#ffffff;border-radius:10px;padding:8px 12px;"><img src="${escE(d.logoUrl)}" height="44" style="display:block;height:44px;border:0;" alt="${escE(d.name)}"></div></td>` : '';
+            /* The worship team's own logo (Teams & groups), else the church's. */
+            await (window.EGBCChurch ? EGBCChurch.jobsReady() : null);
+            const logoSrc = (window.EGBCChurch && EGBCChurch.logoFor('worship')) || d.logoUrl;
+            const logo = logoSrc ? `<td style="vertical-align:top;text-align:right;padding-left:20px;"><div style="display:inline-block;background:#ffffff;border-radius:10px;padding:8px 12px;"><img src="${escE(logoSrc)}" height="44" style="display:block;height:44px;border:0;" alt="${escE(d.name)}"></div></td>` : '';
             const foot = [d.name, words ? words + ' Team' : ''].filter(Boolean).map(escE).join(' &bull; ');
             return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background-color:#eaf2f2;">
@@ -170,17 +173,13 @@ ${body}
         /* The church's name before a calendar entry's title, or nothing when
            the church has no name set. */
         const churchPrefix = (sep) => (shortName ? shortName + sep : '');
-        /* The church's short name ("EGBC"), in the same order the server's
-           rota feed uses: details.shortName, then the e-news footer's short
-           name, then the full name. The e-news settings are the office's, so
-           for anyone else that read is refused and simply skipped. */
-        let shortName = '', shortNameP = null;
-        const churchShortName = () => shortNameP || (shortNameP = (async () => {
-            const get = (c, d) => getDoc(doc(db, c, d)).then(s => (s.exists() ? s.data() : {}), () => ({}));
-            const [det, en] = await Promise.all([get('churchSettings', 'details'), get('enewsSettings', 'main')]);
-            shortName = String(det.shortName || (en.church || {}).shortName || det.name || '').trim();
+        /* The church's short name ("EGBC"), else its name - the same as the
+           server's rota feed - from the one helper (egbc-church.js). */
+        let shortName = '';
+        const churchShortName = () => churchDetails().then(d => {
+            shortName = String((window.EGBCChurch && EGBCChurch.shortName()) || d.name || '').trim();
             return shortName;
-        })());
+        });
         /* The send itself, with the reply address above (none if both are blank). */
         const sendRota = async (opts) => {
             const reply = await replyAddress();
@@ -367,13 +366,15 @@ ${body}
         const FORM_LINK = location.origin + location.pathname.replace(/[^/]*$/, '') + 'index.html'; /* the availability form, at the address this page is open at (github.io, or egbc.churchhq.co.uk, whose bare address opens the hub) */
 
         let logoLoadPromise = null;
-        /* The church's logo (churchSettings/details.logoUrl) for the PDFs;
-           none set, no logo. */
+        /* The worship team's logo for the PDFs, else the church's; none set,
+           no logo. */
         const getLogoBase64 = () => {
             if (logoLoadPromise) return logoLoadPromise;
             logoLoadPromise = new Promise(async (resolve) => {
                 try {
-                    const url = (await churchDetails()).logoUrl;
+                    const d = await churchDetails();
+                    await (window.EGBCChurch ? EGBCChurch.jobsReady() : null);
+                    const url = (window.EGBCChurch && EGBCChurch.logoFor('worship')) || d.logoUrl;
                     if (!url) return resolve(null);
                     const img = new Image();
                     img.setAttribute('crossOrigin', 'anonymous');

@@ -10,6 +10,11 @@
  *
  *   covers       the teams their core teams cover
  *   adminCovers  the teams covered by the core teams they administer
+ *   shares       the worship side's other teams, for someone on one of
+ *                them: the teams doing the worship, AV and choir jobs count
+ *                as one for reading (Martin: "if worship team want to turn
+ *                on the sound desk they should be able to see how"). Kept
+ *                apart from covers, which also means "leads these".
  *   jobs         the team jobs their teams and covered teams do (H-9 part 2;
  *                the events window's F-298: a rule asking a job reads the
  *                record it already has, not churchSettings/teamJobs too)
@@ -21,7 +26,7 @@
  * Kids & Youth Core Team covers Kids Church, Lazers, ReNu and Youth Worship.
  */
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
-import { JOBS, onJob, readTeamJobs } from './team-jobs.js';
+import { JOBS, onJob, readTeamJobs, teamsFor } from './team-jobs.js';
 
 export const DEFAULT_CORES = {
   'Core Team': ['Worship Team', 'AV Team', 'Choir'],
@@ -52,6 +57,19 @@ export function coversFor(teams, cores) {
   return out.sort();
 }
 
+/**
+ * The worship side's teams a person is not on but reads as if they were:
+ * someone on a team doing the worship, AV or choir job gets the others.
+ * @param {string[]} teams their own teams @param {object} tj readTeamJobs(db)
+ * @returns {string[]}
+ */
+export function sharesFor(teams, tj) {
+  const mine = Array.isArray(teams) ? teams : [];
+  const side = [...new Set(['worship', 'av', 'choir'].flatMap((j) => teamsFor(tj.map, j, tj.set)))];
+  if (!mine.some((t) => side.includes(t))) return [];
+  return side.filter((t) => !mine.includes(t)).sort();
+}
+
 const same = (a, b) => JSON.stringify((a || []).slice().sort()) === JSON.stringify((b || []).slice().sort());
 
 /* The jobs a person's teams (and the teams they cover) do. tj is
@@ -68,12 +86,13 @@ export async function syncCovers(db, uid, cores, tj) {
   const s = await ref.get();
   if (!s.exists) return { skipped: 'no record' };
   const u = s.data() || {};
+  tj = tj || await readTeamJobs(db);
   const covers = coversFor(u.teams, cores), adminCovers = coversFor(u.adminFor, cores);
-  const jobs = jobsFor(u.teams, covers, tj || await readTeamJobs(db));
-  if (same(u.covers, covers) && same(u.adminCovers, adminCovers) && same(u.jobs, jobs)
-      && Array.isArray(u.covers) && Array.isArray(u.adminCovers) && Array.isArray(u.jobs)) return { unchanged: true, covers, adminCovers, jobs };
-  await ref.set({ covers, adminCovers, jobs }, { merge: true });
-  return { written: true, covers, adminCovers, jobs };
+  const jobs = jobsFor(u.teams, covers, tj), shares = sharesFor(u.teams, tj);
+  if (same(u.covers, covers) && same(u.adminCovers, adminCovers) && same(u.jobs, jobs) && same(u.shares, shares)
+      && Array.isArray(u.covers) && Array.isArray(u.adminCovers) && Array.isArray(u.jobs) && Array.isArray(u.shares)) return { unchanged: true, covers, adminCovers, jobs, shares };
+  await ref.set({ covers, adminCovers, jobs, shares }, { merge: true });
+  return { written: true, covers, adminCovers, jobs, shares };
 }
 
 /* Everyone on, or administering, one of these teams. */
@@ -113,7 +132,7 @@ export async function syncEveryone(db) {
 export async function onUserWrite(db, uid, before, after) {
   if (!after) return { skipped: 'deleted' };
   const changed = !before || !same(before.teams, after.teams) || !same(before.adminFor, after.adminFor)
-    || !Array.isArray(after.covers) || !Array.isArray(after.adminCovers) || !Array.isArray(after.jobs);
+    || !Array.isArray(after.covers) || !Array.isArray(after.adminCovers) || !Array.isArray(after.jobs) || !Array.isArray(after.shares);
   if (!changed) return { skipped: 'nothing that matters changed' };
   return syncCovers(db, uid, await coresMap(db));
 }

@@ -27,17 +27,17 @@ import {
 import { readTeamJobs, teamsFor } from './team-jobs.js';
 
 /**
- * What a church's feeds are called and cover: its short name (Your church,
- * else the e-news footer's, else its name), its full-rota choices, and
+ * What a church's feeds are called and cover: its short name (Your church),
+ * else its name, as the pages have it (egbc-church.js), its full-rota choices, and
  * which team each rota place belongs to (its teams' roles, Teams & groups).
  * @param {object} cdb one church's database
  */
 async function feedChurch(cdb) {
   const get = (c, d) => cdb.collection(c).doc(d).get().then((s) => (s.exists ? s.data() || {} : {}), () => ({}));
-  const [details, enews, jobs, teams] = await Promise.all([get('churchSettings', 'details'), get('enewsSettings', 'main'),
+  const [details, jobs, teams] = await Promise.all([get('churchSettings', 'details'),
     readTeamJobs(cdb), cdb.collection('teams').get().then((s) => s.docs, () => [])]);
   const labels = Object.fromEntries(teams.map((d) => [d.id, (d.data() || {}).label || d.id]));
-  const church = String(details.shortName || (enews.church || {}).shortName || details.name || '').trim();
+  const church = String(details.shortName || details.name || '').trim();
   const rt = roleTeams(teams.map((d) => ({ id: d.id, data: d.data() || {} })),
     teamsFor(jobs.map || null, 'worship', jobs.set || {})[0] || '');
   return { church, scopes: fullScopes(jobs, (t) => labels[t] || t), roleTeams: rt,
@@ -708,6 +708,8 @@ export const [jobsOnPrayerTeam, jobsOnPrayerTeamChurch] = COVERS.prayer;
 export const [accountsForNewSite, accountsForNewSiteChurch] = makeAccountsTriggers(twins).site;
 /* The teams that work with under-18s, in one record the rules read (teamFlags/under18; the events window's under18-teams.js). */
 export const [under18OnTeam, under18OnTeamChurch] = makeUnder18Triggers(twins).team;
+/* Which team each pin board belongs to, in one record the rules read (teamFlags/boards; team-boards.js). */
+export const [boardsOnTeam, boardsOnTeamChurch] = makeBoardTriggers(twins).team;
 
 /* WHO MAY DO WHAT (H-14): each person's permissions on their sign-in, for
    the Storage rules (functions/permissions.js). */
@@ -904,6 +906,7 @@ export { hubAddress, hqSlugCheck } from './hub-address.js';
 import { makeCoverTriggers } from './core-teams.js';
 import { makeAccountsTriggers } from './accounts-copy.js';
 import { makeUnder18Triggers } from './under18-teams.js';
+import { makeBoardTriggers } from './team-boards.js';
 import * as Perms from './permissions.js';
 /* The two welcome emails the hub sends by itself: a confirmed subscriber, and a hello on "I'm new here" (comms window; plan G). */
 export { welcomeSubscriber, welcomeSubscriberChurch, welcomeNewcomer, welcomeNewcomerChurch } from './welcome-mail.js';

@@ -92,28 +92,26 @@ service cloud.firestore {
     // or a page opens and the data behind it is refused - which is the
     // fault this whole helper was written for.
     //
-    // ONE LIST FOR BOTH, because they are the same three teams: what
-    // Core Team covers and what the three cover between them.
-    //
     // THIS WIDENS READING AND NOT WRITING. Every leader-only write in
     // this file goes through canAct()/adminOf(), which read adminFor
     // directly and never myTeams() - so an AV member reading the worship
     // team's videos does not become able to change them. That is worth
     // stating because widening a helper that everything leans on is
     // exactly how a read gate turns into a write gate by accident.
-    function worshipAv() { return ['Worship Team', 'AV Team', 'Choir']; }
-    function coreCovers() { return worshipAv(); }
     // CORE TEAMS COVER CHOSEN TEAMS (H-15, 26 Oct 2026): `covers` is the
     // teams a person's core teams cover - the Worship Core Team, Worship, AV
     // and Choir; the Kids & Youth Core Team, Kids Church, Lazers, ReNu and
     // Youth - kept on their users record by the server (functions/
-    // core-teams.js), never by a page. Core Team keeps worshipAv() until its
-    // record has covers, so nothing changes on the day.
+    // core-teams.js), never by a page. tools/sync-team-flags.mjs fills
+    // them in for everyone before the rules go live.
+    // THE WORSHIP SIDE READS AS ONE: `shares` is the other teams doing the
+    // worship, AV and choir jobs, for someone on one of them - kept on the
+    // users record by the server too (core-teams.js sharesFor), so no team
+    // is named here. Apart from covers, which also means "leads these".
     function myTeams() {
       return me().teams
         .concat(me().get('covers', []))
-        .concat('Core Team' in me().teams ? worshipAv() : [])
-        .concat(me().teams.hasAny(worshipAv()) ? worshipAv() : []);
+        .concat(me().get('shares', []));
     }
 
     function onTeam(team) {
@@ -366,7 +364,7 @@ service cloud.firestore {
                     // familyGroups opens boards (6c), covers / adminCovers
                     // what core teams give (H-15), and jobs the team jobs
                     // (H-9 part 2): the server's to write.
-                    && !request.resource.data.keys().hasAny(['familyGroups', 'covers', 'adminCovers', 'jobs'])
+                    && !request.resource.data.keys().hasAny(['familyGroups', 'covers', 'adminCovers', 'jobs', 'shares'])
                     && (claimsNothing(request.resource.data)
                         || mirrorsBook(request.resource.data));
 
@@ -934,10 +932,14 @@ service cloud.firestore {
     // window's under18OnTeam, F-304); EGBC's five when nothing is stored.
     function under18Teams() {
       let p = /databases/$(database)/documents/teamFlags/under18;
-      return exists(p) ? get(p).data.teams : ['Kids Church', 'Youth Worship', 'Lazers', 'ReNu', 'Kids & Youth Core Team'];
+      return exists(p) ? get(p).data.teams : [];
     }
+    // With no record yet (functions/under18-teams.js keeps it), every event
+    // that names a team counts as one with under-18s: the check fails safe.
     function eventIsUnder18() {
-      return request.resource.data.get('teams', []).hasAny(under18Teams());
+      return exists(/databases/$(database)/documents/teamFlags/under18)
+        ? request.resource.data.get('teams', []).hasAny(under18Teams())
+        : request.resource.data.get('teams', []).size() > 0;
     }
 
     // In-date DBS and training, judged by checksInDate() - the events
@@ -1067,13 +1069,12 @@ service cloud.firestore {
 
     // Which group a board belongs to, in one place, so the board rules and
     // the suggestion rules cannot drift apart.
+    // The team a pin board belongs to (Teams & groups), from the record the
+    // server keeps (teamFlags/boards; functions/team-boards.js); '' for a
+    // shared board or none.
     function boardGroup(boardId) {
-      return boardId == 'renu' ? 'ReNu'
-           : boardId == 'lazers' ? 'Lazers'
-           : boardId == 'kids-church' ? 'Kids Church'
-           : boardId == 'youth' ? 'Youth Worship'
-           : boardId == 'core-team' ? 'Core Team'
-           : '';
+      let p = /databases/$(database)/documents/teamFlags/boards;
+      return exists(p) ? get(p).data.get('boards', {}).get(boardId, '') : '';
     }
 
     function boardIsMine(boardId) {

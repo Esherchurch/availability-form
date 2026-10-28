@@ -2281,3 +2281,11 @@ Config only. Nothing was reformatted, and no other window's code changed.
 - **npm scripts** in v2/package.json: `lint`, `format:check`, `typecheck`, `test:rules` and `test:functions`.
 - **CI:** `v2/.github/workflows/checks.yml` has four jobs (lint and format, type check, rules tests with the build check, functions tests). Each is continue-on-error, so it reports and blocks nothing. Tool versions are pinned. It uses demo project ids only and never deploys. **It doesn't run yet:** GitHub reads workflows only from the top of a repository. It runs as it is once Church HQ has its own repository (set `V2: .`), or once copied to this repository's top-level `.github/workflows/`. Dependabot (`v2/.github/dependabot.yml`) is the same.
 - **docs/HANDBOOK.md**, first draft (about 15 pages): what Church HQ is; how a church's data is kept apart; the folder map and built files; sign-in, levels, jobs, permissions and features; running, testing and deploying; the data map; where each feature lives; adding a page; adding a function; working alongside others; common mistakes; a glossary. Places that change with the new repository are marked "(changing)".
+
+## From the main window, 28 Oct 2026: EGBC words left on your pages
+
+`node tools/find-egbc-words.cjs` still finds these in your files:
+- giving-details.html and watch.html: "— EGBC" titles;
+- egbc-mailblocks.js: the esherchurch.github.io ASSETS address.
+
+egbc-church.js now has the marks that do this without the name in the code: `<html data-church-title-after>` for "X — EGBC" titles, `data-church-name`, `data-church-short` and `<img data-church-logo>`. FINDINGS-events.md has the list.

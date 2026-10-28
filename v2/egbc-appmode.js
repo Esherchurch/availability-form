@@ -327,6 +327,36 @@
     }
   }
 
+  /* The app's header names the page, not the church: "Meeting | Our
+     Church" shows as "Meeting", and a title that is only the church's name
+     shows its short name. The church's names come from
+     churchSettings/details - through egbc-church.js where the page has it,
+     otherwise read here (loading egbc-church.js would also change the
+     page's tab title). Nothing set: the title is left as it is.
+     churchFirst (the shell's data-church-title): the short name goes in
+     front instead, "Inventory" showing as "Our Church Inventory". */
+  function nameWithoutChurch(el, t, churchFirst) {
+    if (!el) return;
+    var C = global.EGBCChurch, A = global.EGBCAuth, got;
+    if (C && C.load) got = C.load();
+    else if (A && A.db) {
+      got = (A.churchFromAddress ? A.churchFromAddress().catch(function () {}) : Promise.resolve())
+        .then(function () { return A.db.collection('churchSettings').doc('details').get(); })
+        .then(function (s) { return (s && s.exists && s.data()) || {}; });
+    } else return;
+    got.then(function (d) {
+      d = d || {};
+      var out = t;
+      [d.shortName, d.name].filter(Boolean).forEach(function (n) {
+        var q = String(n).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        out = out.replace(new RegExp('\\s*[|\\u2013-]\\s*' + q + '.*$', 'i'), '').trim();
+      });
+      out = out || d.shortName || d.name || '';
+      if (churchFirst && d.shortName) out = d.shortName + ' ' + t;
+      if (out !== t) el.textContent = out;
+    }, function () {});
+  }
+
   var started = false;
   function start(opts) {
     if (!on() || started) return false;
@@ -345,8 +375,9 @@
       document.head.appendChild(st);
     }
 
-    var title = String(opts.title || document.title || 'EGBC')
-      .replace(/\s*[|–-]\s*EGBC.*$/i, '').trim() || 'EGBC';
+    /* The page's name; the church's name comes off the end of a tab title
+       once the church is known (nameWithoutChurch, below). */
+    var title = String(opts.title || document.title || '').trim();
 
     /* "I'M WORRIED ABOUT SOMEONE" BELONGS HERE TOO (NEXT-BRIEF §24,
        Martin 12 Oct 2026). It is in the app's own top bar on every
@@ -382,6 +413,7 @@
         ? '<button type="button" class="am-switch" aria-haspopup="dialog" aria-label="Switch to another part of the app">'
           + ic('arrow-left-right') + '<span class="am-sl">Switch</span></button>' : '');
     document.body.insertBefore(top, document.body.firstChild);
+    nameWithoutChurch(top.querySelector('.am-title'), title, opts.churchFirst);
     var swb = top.querySelector('.am-switch');
     if (swb) swb.addEventListener('click', openModes);
     rememberHere();

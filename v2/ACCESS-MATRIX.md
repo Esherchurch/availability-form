@@ -66,7 +66,7 @@ Martin's decisions first; "(reviewer)" marks the reviewer's findings of 27 Oct, 
 | Address book <small>(addressbook.html)</small> | an admin of any team, or doing the office job | – | – | – | – | – | – | – | ✓ | ✓ | ✓ | – | – | – | ✓ | – | – | – | – | – | – | – | ✓ |
 | Send an email <small>(EmailBuilder2.html)</small> | an admin of any team, or on Church office | – | – | – | – | – | – | – | ✓ | ✓ | ✓ | – | – | – | ✓ | – | – | – | – | – | – | – | ✓ |
 | Team emails <small>(team-mail.html)</small> | no guard | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ |
-| Members’ meetings <small>(church-meeting.html)</small> | anyone signed in | – | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Church meetings <small>(church-meeting.html)</small> | anyone signed in | – | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | E-news <small>(enews.html)</small> | no guard | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | ✓ |
 | Card maker <small>(cardmaker.html)</small> | no guard | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | ✓ |
 | From Canva <small>(canva.html)</small> | no guard | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | ✓ |
@@ -136,11 +136,11 @@ Martin's decisions first; "(reviewer)" marks the reviewer's findings of 27 Oct, 
 | Monitor Setup <small>(MonitorStageMap.html)</small> | doing the av job | – | – | – | – | – | ✓ | ✓ | ✓ | – | ✓ | ✓ | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
 | Performance Notes <small>(Performancenotes.html)</small> | doing the worship job | – | – | – | – | – | ✓ | ✓ | ✓ | – | ✓ | ✓ | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
 | Connect ChurchShow <small>(churchshow.html)</small> | doing the av,worship job | – | – | – | – | – | – | – | ✓ | – | ✓ | – | – | – | – | – | – | – | – | – | – | – | ✓ |
-| Youth <small>(Youthcharter.html)</small> | on Youth Worship, Lazers, ReNu | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | – | ✓ |
+| Youth <small>(Youthcharter.html)</small> | anyone signed in | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | – | ✓ |
 | Youth Service Planner <small>(youthserviceplanner.html)</small> | doing the youth job | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | – | ✓ |
 | Children's register <small>(kids-admin.html)</small> | anyone signed in | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | – | – | – | – | – | ✓ |
 | Sunday check-in <small>(kids-checkin.html)</small> | anyone signed in | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | – | – | – | – | – | ✓ |
-| Core Team <small>(Coreteamcharter.html)</small> | on Core Team | – | – | – | – | – | – | – | – | – | ✓ | – | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
+| Core Team <small>(Coreteamcharter.html)</small> | anyone signed in | – | – | – | – | – | – | – | – | – | ✓ | – | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
 | Music Upload <small>(music-uploader.html)</small> | doing the worship job | – | – | – | – | – | – | ◐ | ◐ | – | ✓ | – | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
 
 ## Resources

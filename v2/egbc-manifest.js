@@ -7,7 +7,7 @@
    details.shortName, by handing the browser a copy of the page's manifest
    with the name filled in. With no short name set, the plain name stands.
 
-   A page with egbc-auth.js loads this after it and needs nothing else.
+   A page with egbc-church.js loads this after it and needs nothing else.
    A page without it (the availability form) calls
    EGBCManifest.name(shortName) itself once it has read the details.
    =================================================================== */
@@ -48,13 +48,10 @@
     }).catch(function () { done = false; /* the plain name stands */ });
   }
 
-  /* On a page with EGBCAuth: the address's church first, then its details. */
+  /* On a page with egbc-church.js: its short name, the one every page uses. */
   function start() {
-    var A = global.EGBCAuth;
-    if (!A || !A.db) return;
-    (A.churchFromAddress ? A.churchFromAddress().catch(function () {}) : Promise.resolve())
-      .then(function () { return A.db.collection('churchSettings').doc('details').get(); })
-      .then(function (s) { name(((s.exists && s.data()) || {}).shortName); }, function () {});
+    var C = global.EGBCChurch;
+    if (C && C.load) C.load().then(function () { name(C.shortName()); }, function () {});
   }
 
   global.EGBCManifest = { name: name };

@@ -1,7 +1,7 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-church-title>
 <head>
-<script src="egbc-nosend.js?v=202610212000"></script>
+<script src="egbc-nosend.js?v=202611011200"></script>
 <!-- Opened from the phone app: no website strips ("View as") over it (audit, 15 Oct 2026). -->
 <script>if (/[?&]app=1/.test(location.search)) document.documentElement.setAttribute("data-egbc-no-strips", "");</script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -9,9 +9,10 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="egbc-plan-audience.js?v=202610131430"></script>
-<script src="egbc-auth.js?v=202611010900"></script>
-<script src="egbc-manifest.js?v=202610311800"></script>
-<script src="egbc-guard.js?v=202610311900" data-team="Core Team"></script>
+<script src="egbc-auth.js?v=202611011200"></script>
+<script src="egbc-manifest.js?v=202611011200"></script>
+<script src="egbc-guard.js?v=202611011200" data-core-of="worship"></script>
+<script src="egbc-church.js?v=202611011200"></script>
 <meta charset="UTF-8">
     <link rel="manifest" href="./manifest-coreteam.json">
     <link rel="apple-touch-icon" href="icon-192.png">
@@ -24,7 +25,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Worship Planner">
 <meta name="theme-color" content="#3d6263">
-<title>EGBC Worship Planner</title>
+<title>Worship Planner</title>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <style>
 :root {
@@ -522,9 +523,9 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
 <!-- The service planner, shared with the phone app (APP-DESIGN-BRIEF §7b).
      It was inline in this file until 11 Oct 2026. -->
 <script src="egbc-plan-store.js?v=202610252100"></script>
-<script src="egbc-core-planner.js?v=202610311900"></script>
+<script src="egbc-core-planner.js?v=202611011200"></script>
 <script src="egbc-core-meetings.js?v=202610311600"></script>
-<script src="egbc-core-rota.js?v=202610312000"></script>
+<script src="egbc-core-rota.js?v=202611011200"></script>
 </head>
 <body>
 
@@ -545,14 +546,14 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
   <!-- ══ HOME ══ -->
   <div id="screen-home" class="screen active">
     <div class="home-hero">
-      <img class="home-logo"
-        src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/copilot_image_1775806874083.jpeg?alt=media&token=7e9040a5-1d29-47e1-8f31-6e003db53ec8"
-        alt="EGBC" onerror="this.style.display='none'">
+      <img class="home-logo" id="homeChurchLogo" data-church-logo alt="" style="visibility:hidden" onerror="this.style.display='none'">
       <div>
         <div class="home-hero-title">Worship Planner</div>
-        <div class="home-hero-sub">EGBC Worship &amp; AV</div>
+        <div class="home-hero-sub" id="homeChurchSub" data-church-short="Worship &amp; AV">Worship &amp; AV</div>
       </div>
     </div>
+    <script>
+    </script>
     <div class="home-tiles">
       <div class="home-tile tile-service" onclick="openSection('service')">
         <div class="home-tile-icon"><i data-lucide="calendar-days"></i></div>
@@ -2141,7 +2142,7 @@ async function compileEmail() {
   const header = `<table width="100%" border="0" cellpadding="0" cellspacing="0" style="background:#fff;border-bottom:1px solid #d1dfdf;">
     <tr>
       <td style="padding:32px 40px;">
-        <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300" width="160" style="display:block;">
+        <img src="" data-team-logo="worship" alt="" width="160" style="display:block;">
       </td>
       <td align="right" style="padding:32px 40px;font-family:Segoe UI,sans-serif;font-size:16px;color:#3d6263;font-weight:600;">
         Worship &amp; AV Team

@@ -14,13 +14,10 @@ return myRecord().data;
 function active() {
 return signedIn() && myRecord() != null && me().status == 'active';
 }
-function worshipAv() { return ['Worship Team', 'AV Team', 'Choir']; }
-function coreCovers() { return worshipAv(); }
 function myTeams() {
 return me().teams
 .concat(me().get('covers', []))
-.concat('Core Team' in me().teams ? worshipAv() : [])
-.concat(me().teams.hasAny(worshipAv()) ? worshipAv() : []);
+.concat(me().get('shares', []));
 }
 function onTeam(team) {
 return active() && (team in myTeams());
@@ -116,7 +113,7 @@ match /users/{uid} {
 allow read: if signedIn() && (request.auth.uid == uid || volunteer());
 allow create: if signedIn()
 && request.auth.uid == uid
-&& !request.resource.data.keys().hasAny(['familyGroups', 'covers', 'adminCovers', 'jobs'])
+&& !request.resource.data.keys().hasAny(['familyGroups', 'covers', 'adminCovers', 'jobs', 'shares'])
 && (claimsNothing(request.resource.data)
 || mirrorsBook(request.resource.data));
 allow update: if signedIn() && request.auth.uid == uid
@@ -350,10 +347,12 @@ allow create, update: if (isMaster() || (raOffice()
 }
 function under18Teams() {
 let p = /databases/$(database)/documents/teamFlags/under18;
-return exists(p) ? get(p).data.teams : ['Kids Church', 'Youth Worship', 'Lazers', 'ReNu', 'Kids & Youth Core Team'];
+return exists(p) ? get(p).data.teams : [];
 }
 function eventIsUnder18() {
-return request.resource.data.get('teams', []).hasAny(under18Teams());
+return exists(/databases/$(database)/documents/teamFlags/under18)
+? request.resource.data.get('teams', []).hasAny(under18Teams())
+: request.resource.data.get('teams', []).size() > 0;
 }
 function rotaCleared(memberId) {
 return memberId is string && memberId != ''
@@ -417,12 +416,8 @@ allow read: if volunteer();
 allow write: if adminOf(team);
 }
 function boardGroup(boardId) {
-return boardId == 'renu' ? 'ReNu'
-: boardId == 'lazers' ? 'Lazers'
-: boardId == 'kids-church' ? 'Kids Church'
-: boardId == 'youth' ? 'Youth Worship'
-: boardId == 'core-team' ? 'Core Team'
-: '';
+let p = /databases/$(database)/documents/teamFlags/boards;
+return exists(p) ? get(p).data.get('boards', {}).get(boardId, '') : '';
 }
 function boardIsMine(boardId) {
 return isMaster()

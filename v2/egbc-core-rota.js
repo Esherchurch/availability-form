@@ -1144,10 +1144,15 @@
 
     var fmt = function (d) { return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); };
 
+    /* The email is headed with the church's name, and replies go to its
+       enquiry address (churchSettings/details); unset, neither is added. */
+    var church = window.EGBCChurch ? await EGBCChurch.load().catch(function () { return {}; }) : {};
+    church = church || {};
+
     var body = function (n, onlyNew) {
       var dates = (onlyNew ? n.fresh : [...n.dates]).sort();
       return '<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px">'
-        + '<p style="font-size:13px;font-weight:600;text-transform:none;letter-spacing:3px;color:#3d6263;margin:0 0 18px">Esher Green Baptist Church</p>'
+        + (church.name ? '<p style="font-size:13px;font-weight:600;text-transform:none;letter-spacing:3px;color:#3d6263;margin:0 0 18px">' + escA(church.name) + '</p>' : '')
         + '<p style="font-size:15px;color:#3a4d4c;line-height:1.6">Hi ' + n.member.name.split(' ')[0] + ',</p>'
         + '<p style="font-size:15px;color:#3a4d4c;line-height:1.6">' + (onlyNew
           ? 'A few more dates have been added to ' + sel + '. Could you let us know about these ones?'
@@ -1174,7 +1179,8 @@
             to: [n.member.email],
             subject: 'Availability for ' + sel,
             html: body(n, onlyNew),
-            replyTo: 'av@esherchurch.org'
+            /* The AV team's own address (Team mail), else the enquiry email. */
+            replyTo: (await EGBCAuth.teamAddress('av')) || church.enquiryEmail || undefined
           }));
         if (!r.ok) throw new Error(r.error || 'send failed');
         sentPatch[n.member.id] = {

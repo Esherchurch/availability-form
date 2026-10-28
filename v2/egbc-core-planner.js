@@ -1211,7 +1211,11 @@
     var spRecipients = [...new Set(spAddressBook.filter(function (p) { return rosterNames.includes(p.name && p.name.trim()) && p.email; }).map(function (p) { return p.email; }))];
     var spSubject = 'Service Plan: ' + EGBCUKDates.long(date);
     var senderBox = document.getElementById('spSenderEmail');
-    var senderEmail = (senderBox && senderBox.value) || localStorage.getItem('egbc-sender-email') || 'worship@esherchurch.org';
+    /* Replies go to the address typed in, else the worship team's own
+       address (Team mail), else the church's enquiry address; with none,
+       the send has none. */
+    var senderEmail = (senderBox && senderBox.value) || localStorage.getItem('egbc-sender-email') ||
+      (await EGBCAuth.teamAddress('worship')) || (window.EGBCChurch && EGBCChurch.email()) || undefined;
 
     if (spRecipients.length > 0) {
       toast('Sending plan...');

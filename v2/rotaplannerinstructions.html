@@ -1,12 +1,13 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="egbc-shell.js?v=202611011100" data-title="Rota Planner - how to"></script>
+<script src="egbc-shell.js?v=202611011200" data-title="Rota Planner - how to"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202611010900"></script>
-<script src="egbc-guard.js?v=202610311900"></script>
+<script src="egbc-auth.js?v=202611011200"></script>
+<script src="egbc-guard.js?v=202611011200"></script>
+<script src="egbc-church.js?v=202611011200"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Rota Planner — How to Use | Worship & AV Hub</title>
@@ -89,7 +90,7 @@
 <body>
 
 <div class="site-header">
-  <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300"
+  <img src="" data-team-logo="worship" alt=""
        style="height:75px;width:auto;margin-top:8px;" alt="Church logo">
   <div style="text-align:right;margin-top:8px;">
     <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;font-weight:800;">Secure Portal</div>
@@ -113,6 +114,14 @@
 </div>
 
 <script>
+/* The church's short name and enquiry address (churchSettings/details), as
+   the Rota Sender and its emails show them; unset, they are left out. The
+   step on screen is drawn again once they are known. */
+const churchShort = () => (window.EGBCChurch && EGBCChurch.shortName()) || '';
+const senderName = () => (churchShort() ? churchShort() + ' ' : '') + 'Rota Sender';
+const escH = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+let finished = false;
+if (window.EGBCChurch) EGBCChurch.load().then(() => { finished ? changeStep(1) : render(); });
 const ICON_SRC = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAAEACAYAAABccqhmAAAH10lEQVR4nO3dz7EbxxEH4JHLgTACZSAl4CxEHZ2Aq+yTXeUEfBSVhROQMnAEykQ+0KwHkwCxAHZm+s/3nVnkYrr7h94FHt8YAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwOm+2X0BzPHdD+9/P/vv/PXnD/qlGAVNbMaQP0s45KRoSUQa9qOEQnwKFFTGgb9HIMSjIEFUHPh7BMJ+CrBRx6G/RRjs4dAXM/T3CYN1HPQiBv9xgmA+BzyZwX+dIJjHwU5g6OcRBudymCcy+OsIgnM4xBMY/H0EwWsc3gsMfhyC4Dl/2H0BWRn+WNTjOVLzQRotPtvAcQ7qIIOfjyC4zy3AAYY/J3W7T0J+hQaqwzZwnQ3gBsNfi3peJxU/o1Hqsw28sQFcMPw9qPMbAfA/mqIX9f6o/SqkEeh8S9B6AzD8jNG7D9oGQOei86Wu/dAyALoWm6/r2BftAqBjkTmuW3+0efjRrbC8rsPDwRYbgOHnGR36pnwAdCgi81Tvn9IBUL14rFG5j8oGQOWisV7VfioZAFWLxV4V+6pcAFQsEnFU669yAQAcVyoAqqUzMVXqszIBUKkoxFel30oEQJVikEuFvksfABWKQF7Z+y91AGQ/fGrI3IepAwB4TdoAyJy61JO1H1MGQNbDpraMfZkuADIeMn1k6890AQCcJ1UAZEtXesrUp2kCINOhQpZ+TRMAwPlSBECWNIVLGfo2fABkOES4JXr/hg8AYJ7QARA9PeGIyH0cOgCAucIGQOTUhEdF7eeQARD1sOAVEfs6ZAAAa4T75YdHU/Jff/vr7EuBw/78938c/rORfunoH3dfwLO+ffdujDHGf377bet10NunPswq1C3AM/dI2QtAXs/2XqRnAWk3gEu2AVaq9KYTZgM4IxUrFYaYzuqxKFtAiQ3gkm2AGaq+uYTZAM5WtWCsV7mXQgTArHXo23fvShePuWb3T4TbgBABMJsQ4FFdemZ7AKxKQdsAR6zuk91bwPYAWE0IcEvH3tgaALvSzzbApd39sHMLaLcBXBICve0e/AhaB8AYmqArNf9oWwDsfvjxOQ3RQ9TA3zUP7TeAS1Gbg3Oo7ZcEwBUapRbBftuWAIi2/l+jaWrIVMMdc1Huh4HO5oeLcso0+Du5BThIQ+WhVsfZAB5gG4jN4D9u+QaQ4f7/Ho0WT5WarJ4PG8CTbAMxVBn8XTwDeJEG3MOnNOcQACfQjGs56/MsDYAK9/9fozHn6hK0K+fEBnCyLk26mjOdQwBMomHPIVDnEgATad7XOLv5BMACGvkxgnOdZQFQ/QHgPZr6GGf00ap5sQEspsGvE5B7+CbgBr5F+MbQ72UD2Kh783d//RHYADbruA0Y/DhsAEF0GYourzMLG0AglbcBgx/Tkg2g+0eAj6r2RLzSa1lpxdy4BQgs++BUC7KKBEBwWYco4zV3JACSyDJQWQOrKwGQSPThinxtXCcAEoo2aNGDidt8DJhUhI8MDX1+NoDkdg2h4a/BBlDAym3A4NdiAyhk9nAa/npsAMXM2AYMfl02gKLOGlrDX5sNoLBXtgGD34MNoIFHh9nw92EDaOLINmDw+7EBNHNryA1/TzaAhi63AYPfmw2gMcOPAIDGBAA0JgCgsSUB8OvPH75Z8e9AJSvmxgYAjQkAaEwAQGO+CHTD9+9//Pfua+Acv3z46U+7ryEqGwA0JgCgsWUB4KNAOG7VvNgAoDEBAI0JAGhMAEBjSwPAg0C4b+Wc2ACgMQEAjfkq8A2+PkoHyzcAzwHgttXz4RYAGhMA0JgAgMa2BIDnAPClHXPhU4Abvn//4192X0M0v3z46Z+7r4FzuQWAxrYFgNsAeLNrHmwA0JgAgMa2BoDbANg7BzYAaGx7ANgC6Gx3/28PAGCfEAGwOwVhhwh9HyIAgD18FfgGX3ulgzAbQIR1CFaJ0u9hAgBYL1QARElFmClSn4cKAGCtcAEQKR3hbNH6O1wAAOuEDIBoKQlniNjXIQNgjJiHBc+K2s9hAwCYL3QARE1NeETkPg4dAMBc4QMgcnrCPdH7N3wAjBH/EOGaDH2bIgCAOdIEQIY0hU+y9GuaABgjz6HSW6Y+TRUAwLnSJNWl7354//vua4BrMr37j5F0A8h2yPSQsS9TBsAYOQ+burL2Y9oAAF6XOgCypi61ZO7D1AEwRu7DJ7/s/Zc+AMbIXwRyqtB3JQJgjBrFII8q/VYmAMaoUxRiq9RnpQIAeEy5AKiUzsRTrb/KBcAY9YpEDBX7qmQAjFGzWOxTtZ/KBsAYdYvGWpX7qHQAjFG7eMxXvX/KB8AY9YvIHB36pvwL/Jz/S4B7Ogz+Jy02gEudisvjuvVHuwAYo1+ROaZjX7QMgDF6FpvbuvZD2wAYo2/R+X+d+6DtC/+ch4P9dB78T1pvAJc0Qy/q/ZEAuKApelDnNw7iBrcE9Rj8L9kAbtAstajndQ7lANtAXgb/62wAB2iinNTtPgf0INtAfAb/OAf1JEEQj8F/nFuAJ2m2WNTjOQ7tBLaBfQz+axzeiQTBOgb/HA5xAkEwj8E/l8OcTBi8ztDP42AXEQSPM/jzOeDFBMF9Bn8dB72RMHhj6Pdw6EF0DANDv58CBFUxEAx8PAqSRMZAMPDxKVBikULBsOekaEXNCAdDDgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcNx/AWF7VaYoqCmuAAAAAElFTkSuQmCC";
 
 const chapters = [
@@ -303,7 +312,7 @@ const steps = [
           <div style="border:1px solid #d1dfdf;border-radius:10px;overflow:hidden;font-size:12px">
             <div style="background:#f4f8f8;padding:8px 14px;font-weight:700;color:#3d6263;font-size:11px">Email preview</div>
             <div style="padding:12px 14px">
-              <div style="margin-bottom:4px"><span style="color:#7a9a9a;font-weight:700">To:</span> av@esherchurch.org</div>
+              <div style="margin-bottom:4px"><span style="color:#7a9a9a;font-weight:700">To:</span> ${escH((window.EGBCChurch && EGBCChurch.email()) || '')}</div>
               <div style="margin-bottom:4px"><span style="color:#7a9a9a;font-weight:700">BCC:</span> sarah@example.com; james@example.com; ruth@example.com ...</div>
               <div style="margin-bottom:4px"><span style="color:#7a9a9a;font-weight:700">Subject:</span> Availability Request</div>
               <div style="color:#4a6060">Please click here: [availability form link]</div>
@@ -619,15 +628,15 @@ const steps = [
     chapter: 5,
     badge: "Chapter 6 — Sending Rotas",
     title: "Step 3: Run the Rota Sender",
-    desc: "Double-click the <strong>EGBC Rota Sender</strong> icon on your desktop. A black command window will flash open briefly &#8212; this is normal. Your browser will then open automatically with the Rota Sender app, and Outlook will launch in the background if it&#8217;s not already open.",
-    tip: "If the EGBC Rota Sender shortcut is not on your desktop, contact admin to have it installed.",
+    get desc() { return "Double-click the <strong>" + escH(senderName()) + "</strong> icon on your desktop. A black command window will flash open briefly &#8212; this is normal. Your browser will then open automatically with the Rota Sender app, and Outlook will launch in the background if it&#8217;s not already open."; },
+    get tip() { return "If the " + escH(senderName()) + " shortcut is not on your desktop, contact admin to have it installed."; },
     render: () => `
       <div class="sim-area">
         <div class="sim-topbar">Double-click the desktop shortcut</div>
         <div class="sim-body" style="text-align:center;padding:20px 16px">
           <div style="display:inline-block;background:#f4f8f8;border:2px solid #d1dfdf;border-radius:16px;padding:20px 28px;margin-bottom:14px">
-            <img src="${ICON_SRC}" style="width:72px;height:72px;display:block;margin:0 auto 8px;" alt="EGBC Rota Sender icon">
-            <div style="font-size:13px;font-weight:800;color:#3d6263">EGBC Rota Sender</div>
+            <img src="${ICON_SRC}" style="width:72px;height:72px;display:block;margin:0 auto 8px;" alt="${escH(senderName())} icon">
+            <div style="font-size:13px;font-weight:800;color:#3d6263">${escH(senderName())}</div>
             <div style="font-size:10px;color:#7a9a9a;margin-top:2px">Double-click to run</div>
           </div>
           <div style="font-size:12px;color:#4a6060">A command window flashes briefly, then your browser opens with the Rota Sender app</div>
@@ -651,8 +660,8 @@ const steps = [
           <div class="send-card" style="margin-bottom:8px">
             <div style="font-size:12px;font-weight:800;color:#3d6263;margin-bottom:8px">Compose Email</div>
             <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap">
-              <input class="sim-input" value="Your Worship &amp; AV Rota - EGBC" style="flex:1;min-width:160px;font-weight:400;font-size:11px">
-              <input class="sim-input" value="EGBC Worship &amp; AV Team" style="flex:1;min-width:120px;font-weight:400;font-size:11px">
+              <input class="sim-input" value="Your Worship &amp; AV Rota${churchShort() ? ' - ' + escH(churchShort()) : ''}" style="flex:1;min-width:160px;font-weight:400;font-size:11px">
+              <input class="sim-input" value="${escH((churchShort() ? churchShort() + ' ' : '') + 'Worship & AV Team')}" style="flex:1;min-width:120px;font-weight:400;font-size:11px">
             </div>
             <textarea class="sim-input" style="width:100%;resize:none;min-height:36px;font-weight:400;font-size:11px;margin-bottom:0" readonly>Please find your rota attached for the upcoming term...</textarea>
           </div>
@@ -696,6 +705,7 @@ function jumpToChapter(chIdx) {
 }
 
 function render() {
+  finished = false;
   const s = steps[current];
   const pct = Math.round(((current + 1) / steps.length) * 100);
   document.getElementById('prog').style.width = pct + '%';
@@ -717,13 +727,14 @@ function render() {
 function changeStep(dir) {
   if (current + dir < 0) return;
   if (current + dir >= steps.length) {
+    finished = true;
     document.getElementById('step-content').innerHTML = `
       <div class="finish-box">
         <h2>All done! &#x1F389;</h2>
         <p>You now know how to use the Master Rota Planner from start to finish.</p>
         <button class="nav-btn primary" onclick="current=0;render()">Start again from the beginning</button>
       </div>
-      <div class="tip-box" style="margin-top:1.5rem">If you need the EGBC Rota Sender shortcut installed on your desktop, contact admin.</div>
+      <div class="tip-box" style="margin-top:1.5rem">If you need the ${escH(senderName())} shortcut installed on your desktop, contact admin.</div>
     `;
     document.getElementById('btn-next').style.display = 'none';
     document.getElementById('btn-prev').style.display = 'none';

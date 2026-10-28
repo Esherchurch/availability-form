@@ -66,6 +66,9 @@ site still reads and writes the same database without signing in.
       - Set `KB_EGBC` in tools/rules-build.mjs to the same new line, then run `node tools/rules-build.mjs`.
       - The claim is already on everyone's sign-in (functions/permissions.js).
       - Nothing else in the rules changes on the day.
+    - **Just before deploying, what the rules read about teams:** `node ../tools/sync-team-flags.mjs` from v2/functions (a dry run), then `--apply`. The rules name no team; they read each person's covers and shares and the under-18s and pin-board records, which this fills in for anyone the server hasn't reached yet.
+      - **Who:** Martin or the reviewing window.
+      - **Check:** a second run says "missing or out of date: 0" and both records "up to date".
     - **At the same moment, each event's leaders by member id** (F-287): `node tools/migrate-leader-info.mjs`, check its list, then `--write` (the reviewing window). Not before the rules: the rules live today would refuse later saves of a migrated record.
     - **Check:**
       - signed out, a read of `addressBook` is refused;
@@ -106,6 +109,7 @@ site still reads and writes the same database without signing in.
 17a. **Each team's email address** (Team emails, team-mail.html; it saves only once the hub is live). Replies to the rota emails, service plans and youth codes go to the team's own address, and fall back to the enquiry email until it is set.
     - Worship Team = **worship@esherchurch.org**.
     - The youth team (Youth Worship) = **youth@esherchurch.org**.
+    - AV Team = **av@esherchurch.org** (the Core Team app's availability emails).
     - **Who:** a master admin.
     - **Check:** `node ../tools/church-details.mjs` from v2/functions shows "replies (worship)" at worship@ and "replies (youth)" at youth@, each "the ... team's own", not "the enquiry email".
 18. **The rest of the events window's set-up** ([SWITCHOVER-events.md Part 3](SWITCHOVER-events.md), in its own order): church details, sites and rooms, safeguarding, Kids Church, small groups, sermons, Watch, What's on, prayer, "I'm new here", Gift Aid, room hire.

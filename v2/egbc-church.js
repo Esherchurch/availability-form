@@ -11,6 +11,17 @@
                                after the address's church is known (H-6)
      EGBCChurch.ready()     -> Promise: the address's church is known
      EGBCChurch.name() / .email() / .logo()   once loaded
+     <html data-church-title>   the tab title gets the short name in front
+     <html data-church-title-after>   ... or after: "Resources — EGBC" (its
+                               value, if any, is the dash to use)
+     <el data-church-name>      the church's name
+     <img data-team-logo="worship">   that job's team's own logo, else the
+                               church's (EGBCChurch.logoFor)
+     <img data-church-logo>     the church's logo (hidden when it has none)
+     <el data-church-short="Worship & AV">   "EGBC Worship & AV"
+     EGBCChurch.shortName() the church's short name ("EGBC"), '' if none:
+                               the hub's bar, the app, installed apps'
+                               names and calendar entries all use this one
      EGBCChurch.wrap(title, body)   an email in the shared shell, with this
                                      church's name as the footer
      EGBCChurch.send(opts)  EGBCEmail.send, replying to the enquiry address
@@ -28,7 +39,7 @@
 (function (global) {
   'use strict';
 
-  var D = { name: '', enquiryEmail: '', logoUrl: '' }, loading = null;
+  var D = { name: '', shortName: '', enquiryEmail: '', logoUrl: '' }, loading = null;
 
   /* On a church's own address (<slug>.churchhq.co.uk) the church is the
      address's (EGBCAuth.churchFromAddress, H-6 step 4), known before the
@@ -43,15 +54,62 @@
       return new Promise(function () {});
     });
   }
+  /* The church's team jobs and teams, which a team's logo needs. */
+  function jobsReady() {
+    var A = global.EGBCAuth;
+    return A && A.loadPerms ? A.loadPerms().catch(function () {}) : Promise.resolve();
+  }
+  /**
+   * The logo for a job's emails and pages: its team's own (Teams & groups),
+   * else the church's. After load() and the team jobs (jobsReady).
+   * @param {string} job a team job id ('worship') @returns {string} '' if none
+   */
+  function logoFor(job) {
+    var A = global.EGBCAuth, team = A && A.teamsForJob ? (A.teamsForJob(job) || [])[0] : '';
+    return (team && A.teamLook ? A.teamLook(team).logo : '') || D.logoUrl;
+  }
+
+  /* The page's marked places (header comment): its logo and short-name
+     lines, filled once the details are in. */
+  function fill() {
+    if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', fill); return; }
+    [].forEach.call(document.querySelectorAll('img[data-church-logo]'), function (img) {
+      if (D.logoUrl) { img.src = D.logoUrl; img.alt = D.shortName || D.name || ''; img.style.visibility = ''; }
+      else img.style.display = 'none';
+    });
+    [].forEach.call(document.querySelectorAll('[data-church-name]'), function (el) { el.textContent = D.name; });
+    var teamLogos = document.querySelectorAll('img[data-team-logo]');
+    if (teamLogos.length) jobsReady().then(function () {
+      [].forEach.call(teamLogos, function (img) {
+        var src = logoFor(img.getAttribute('data-team-logo'));
+        if (src) { img.src = src; img.style.visibility = ''; } else img.style.display = 'none';
+      });
+    });
+    [].forEach.call(document.querySelectorAll('[data-church-short]'), function (el) {
+      var rest = el.getAttribute('data-church-short');
+      el.textContent = D.shortName ? D.shortName + ' ' + rest : rest;
+    });
+  }
+
   function load() {
     if (loading) return loading;
     loading = addressChurch().then(function () { return EGBCAuth.db.collection('churchSettings').doc('details').get(); }).then(function (s) {
       if (s.exists) {
         var d = s.data();
-        D = { name: d.name || '', enquiryEmail: d.enquiryEmail || '', logoUrl: d.logoUrl || '' };
+        D = { name: d.name || '', shortName: d.shortName || '', enquiryEmail: d.enquiryEmail || '', logoUrl: d.logoUrl || '' };
       }
-      /* The tab shows the church, from the setting. */
-      if (D.name && document.title.indexOf(D.name) < 0) document.title = document.title + ' — ' + D.name;
+      /* The tab shows the church, from the setting: its short name in front
+         on a page marked <html data-church-title> ("EGBC Worship Hub"), its
+         name after on others - unless the page names its own tab
+         (<html data-own-title>), as the hub does. */
+      var html = document.documentElement;
+      fill();
+      if (html.hasAttribute('data-church-title-after')) {
+        var dash = ' ' + (html.getAttribute('data-church-title-after') || '—') + ' ';
+        if (D.shortName && document.title.indexOf(dash + D.shortName) < 0) document.title = document.title + dash + D.shortName;
+      } else if (html.hasAttribute('data-church-title')) {
+        if (D.shortName && document.title.indexOf(D.shortName + ' ') !== 0) document.title = D.shortName + ' ' + document.title;
+      } else if (D.name && document.title.indexOf(D.name) < 0 && !html.hasAttribute('data-own-title')) document.title = document.title + ' — ' + D.name;
       return D;
     }).catch(function () { return D; });
     return loading;
@@ -96,7 +154,7 @@
     } catch (e) { /* no sign-in on this page: the public header stays */ }
   }
 
-  var SHELL = 'egbc-shell.js?v=202610082145';
+  var SHELL = 'egbc-shell.js?v=202611011200';
   function hubShell(el) {
     if (document.querySelector('script[src^="egbc-shell.js"]')) return;
     var s = document.createElement('script');
@@ -187,7 +245,8 @@
 
   var api = { ready: function () { return addressChurch(); },
     load: load, wrap: wrap, send: send, header: header, title: title, closeOnLeave: closeOnLeave, uses: uses,
-    name: function () { return D.name; }, email: function () { return D.enquiryEmail; }, logo: function () { return D.logoUrl; },
+    logoFor: logoFor, jobsReady: jobsReady,
+    name: function () { return D.name; }, shortName: function () { return D.shortName; }, email: function () { return D.enquiryEmail; }, logo: function () { return D.logoUrl; },
     giving: giving, givingReady: givingReady,
     givingNow: function () { return G ? Object.assign({}, G) : null; }
   };

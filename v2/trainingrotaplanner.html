@@ -1,15 +1,16 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-church-title>
 <head>
-<script src="egbc-shell.js?v=202611011100" data-title="Training - Rota Planner"></script>
+<script src="egbc-shell.js?v=202611011200" data-title="Training - Rota Planner"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202611010900"></script>
-<script src="egbc-guard.js?v=202610311900"></script>
+<script src="egbc-auth.js?v=202611011200"></script>
+<script src="egbc-guard.js?v=202611011200"></script>
+<script src="egbc-church.js?v=202611011200"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EGBC Master Rota Planner — TRAINING</title>
+    <title>Master Rota Planner — TRAINING</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -231,8 +232,16 @@
         const MANDATORY_SUNDAY_ROLES= ["Worship Leader","Keyboard","Guitar","Drums","Bass","Sound","Words","Cameras"];
         const EVENT_TYPES           = ['Sunday Morning Worship','Sunday Team Practice','Evening Carol Service','Midnight Service','Special Service','Worship and AV Team Meeting','All Team Practice','Core Team Meeting','Worship Team Meeting','AV Team Meeting','Song Writing Workshop','LOUD Worship'];
         const FORM_LINK             = location.origin + location.pathname.replace(/[^/]*$/, '') + 'index.html'; /* the availability form, where this page is open */
-        const LOGO_URL              = "https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1777880144841.png?alt=media";
+        /* The worship team's own logo (Teams & groups), else the church's. */
+        const logoUrl = () => (window.EGBCChurch && EGBCChurch.logoFor('worship')) || '';
         const TS_KEY                = "EGBC_TR";
+        /* The church's own name, short name and enquiry address (churchSettings/details)
+           in the simulated emails, as the real sender writes them; unset, they are left out. */
+        const churchShort           = () => (window.EGBCChurch && EGBCChurch.shortName()) || '';
+        const teamSignoff           = () => (churchShort() ? churchShort() + ' ' : '') + 'Worship & AV Team';
+        /* Words on the page that carry the short name (the Rota Sender's name) are filled once it is known. */
+        if (window.EGBCChurch) EGBCChurch.load().then(c => { const go = () => document.querySelectorAll('.church-short').forEach(el => { el.textContent = c.shortName ? c.shortName + ' ' : ''; }); document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', go) : go(); });
+        const escAttr               = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
         // ── Session state ──────────────────────────────────────────────────────────
         function loadTS() { try { return JSON.parse(sessionStorage.getItem(TS_KEY)||'null')||{}; } catch(e) { return {}; } }
@@ -291,7 +300,8 @@
             if(_lp) return _lp;
             _lp=new Promise(async resolve=>{
                 try {
-                    const url=await getDownloadURL(ref(storage,'1777880144841.png'));
+                    if(window.EGBCChurch){ await EGBCChurch.load(); await EGBCChurch.jobsReady(); }
+                    const url=logoUrl(); if(!url) return resolve(null);
                     const img=new Image(); img.setAttribute('crossOrigin','anonymous');
                     img.onload=()=>{
                         logoNaturalWidth=img.naturalWidth; logoNaturalHeight=img.naturalHeight;
@@ -355,10 +365,10 @@
 
         function openAvailEmailModal(total, pending) {
             const bcc=addressBook.map(m=>m.email).filter(Boolean).join('; ');
-            document.getElementById('ep-to').innerText='av@esherchurch.org';
+            EGBCAuth.teamAddress('av').then(a=>{document.getElementById('ep-to').innerText=a||(window.EGBCChurch && EGBCChurch.email())||'';});
             document.getElementById('ep-bcc').innerText=bcc.length>400?bcc.substr(0,400)+'…':bcc;
             document.getElementById('ep-subject').innerText='Availability Request';
-            document.getElementById('ep-body').innerText=`Hi everyone,\n\nPlease submit your availability for the upcoming term by clicking the link below:\n\n${FORM_LINK}\n\nThank you!\nEGBC Worship & AV Team`;
+            document.getElementById('ep-body').innerText=`Hi everyone,\n\nPlease submit your availability for the upcoming term by clicking the link below:\n\n${FORM_LINK}\n\nThank you!\n${teamSignoff()}`;
             document.getElementById('ep-note').innerText=`TRAINING: In the live system this email goes to all ${total} team members.\n\nSimulated result: ${total-pending} members responded (random per service — avail/unavailable varies by date), ${pending} members did not respond (shown as Pending on all services, as in real life).`;
             document.getElementById('emailPreviewModal').classList.add('show');
         }
@@ -406,8 +416,8 @@
             <div class="card">
                 <h2>Compose Email</h2>
                 <div class="row">
-                    <div class="col"><label>Subject</label><input id="s-subject" value="Your Worship &amp; AV Rota - EGBC"></div>
-                    <div class="col"><label>Sign-off Name</label><input id="s-signoff" value="EGBC Worship &amp; AV Team"></div>
+                    <div class="col"><label>Subject</label><input id="s-subject" value="Your Worship &amp; AV Rota${churchShort() ? ' - ' + escAttr(churchShort()) : ''}"></div>
+                    <div class="col"><label>Sign-off Name</label><input id="s-signoff" value="${escAttr(teamSignoff())}"></div>
                 </div>
                 <div class="row"><div class="col"><label>Opening Message</label>
                     <textarea id="s-intro" rows="3">Please find your rota attached for the upcoming term. We are really grateful for your faithful service and look forward to worshipping together with you.</textarea>
@@ -444,7 +454,7 @@
         function buildSenderEmailHtml(firstName) {
             const intro   =(document.getElementById('s-intro')  ?.value||'').replace(/\n/g,'<br>');
             const closing =(document.getElementById('s-closing') ?.value||'').replace(/\n/g,'<br>');
-            const signoff = document.getElementById('s-signoff') ?.value||'EGBC Worship & AV Team';
+            const signoff = document.getElementById('s-signoff') ?.value||teamSignoff();
             let h='';
             h+='<!DOCTYPE html><html><head><meta charset="UTF-8"></head>';
             h+='<body style="margin:0;padding:0;background-color:#f0f6f6;">';
@@ -452,7 +462,7 @@
             h+='<tr><td align="center" style="padding:40px 20px;">';
             h+='<table width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="border:1px solid #d1dfdf;">';
             // Header
-            h+=`<tr><td bgcolor="#3d6263" style="padding:28px 40px;"><img src="${LOGO_URL}" alt="EGBC" height="52" style="display:block;border:0;height:52px;"></td></tr>`;
+            h+=`<tr><td bgcolor="#3d6263" style="padding:28px 40px;"><img src="${logoUrl()}" alt="${escAttr(churchShort())}" height="52" style="display:block;border:0;height:52px;"></td></tr>`;
             h+='<tr><td bgcolor="#d1dfdf" style="height:3px;font-size:0;line-height:0;">&nbsp;</td></tr>';
             h+='<tr><td bgcolor="#ffffff" style="height:8px;font-size:0;">&nbsp;</td></tr>';
             // Greeting
@@ -480,7 +490,7 @@
             // Closing
             h+=`<tr><td bgcolor="#ffffff" style="padding:0 40px 36px 40px;"><p style="margin:0 0 20px 0;font-family:Arial,sans-serif;font-size:15px;line-height:26px;color:#444444;">${closing}</p><p style="margin:0 0 4px 0;font-family:Arial,sans-serif;font-size:15px;color:#666;">With thanks,</p><p style="margin:0;font-family:Arial,sans-serif;font-size:16px;font-weight:bold;color:#3d6263;">${signoff}</p></td></tr>`;
             // Footer
-            h+='<tr><td bgcolor="#3d6263" style="padding:18px 40px;text-align:center;"><p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#a8c5c5;letter-spacing:0.5px;">Esher Green Baptist Church &bull; Worship &amp; AV</p></td></tr>';
+            h+='<tr><td bgcolor="#3d6263" style="padding:18px 40px;text-align:center;"><p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#a8c5c5;letter-spacing:0.5px;">'+(window.EGBCChurch && EGBCChurch.name() ? escAttr(EGBCChurch.name())+' &bull; ' : '')+'Worship &amp; AV</p></td></tr>';
             h+='</table></td></tr></table></body></html>';
             return h;
         }
@@ -868,7 +878,7 @@
 <div id="senderModal" class="t-modal">
     <div class="t-modal-box" style="max-width:780px;padding:0;overflow:hidden;">
         <div class="sender-header">
-            <h1>🚀 EGBC Rota Sender</h1>
+            <h1>🚀 <span class="church-short"></span>Rota Sender</h1>
             <button class="sender-close" onclick="closeSenderModal()">✕ Close</button>
         </div>
         <div id="senderInner" style="font-family:'Segoe UI',Arial,sans-serif;background:#f0f6f6;color:#3d6263;padding:24px;max-height:82vh;overflow-y:auto;"></div>

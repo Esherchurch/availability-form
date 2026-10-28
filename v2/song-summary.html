@@ -1,5 +1,5 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-church-title-after="–">
 <head>
 <!-- APP MODE, because the app can now send somebody here. Home offers
      "You are on the plan for Sunday …" to anyone in that plan's audience
@@ -8,12 +8,13 @@
      like every other one. check-app-mode.mjs builds its list from every
      open: the app can produce, so it started demanding this page the
      same day the card was added, and found it bare. -->
-<script src="egbc-appmode.js?v=202610201500"></script>
-<script src="egbc-shell.js?v=202611011100" data-title="Song Summary"></script>
+<script src="egbc-appmode.js?v=202611011200"></script>
+<script src="egbc-shell.js?v=202611011200" data-title="Song Summary"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202611010900"></script>
+<script src="egbc-auth.js?v=202611011200"></script>
+<script src="egbc-church.js?v=202611011200"></script>
 <!-- EVERYONE ON THE PLAN EMAIL CAN READ THE PLAN (Martin, 12 Oct 2026:
      "That includes the preachers and service leader"). This page is what
      the email's summary link opens, and it was guarded on Worship Team -
@@ -26,10 +27,10 @@
      database and the page says so in plain words. That is the right way
      round: the page cannot know who is on a particular Sunday without
      reading the plan, which is the very thing being gated. -->
-<script src="egbc-guard.js?v=202610311900"></script>
+<script src="egbc-guard.js?v=202611011200"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Song Summary – EGBC</title>
+<title>Song Summary</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
 <style>
     :root{
@@ -422,7 +423,8 @@ if (!date) {
             const leader = data.worshipLeader || "—";
 
             document.getElementById('subline').textContent = `${EGBCUKDates.long(date.slice(0, 10))} · Worship Leader: ${leader}`;
-            document.getElementById('footer').textContent = `EGBC Worship Planner · Printed ${new Date().toLocaleDateString()}`;
+            const churchShort = (await EGBCChurch.load()).shortName;   /* the printed footer names the church */
+            document.getElementById('footer').textContent = `${churchShort ? churchShort + ' ' : ''}Worship Planner · Printed ${new Date().toLocaleDateString()}`;
 
             // Support both old format (songs array) and new format (items array)
             const items = data.items || (data.songs || []).map(s => ({ type: "song", ...s }));

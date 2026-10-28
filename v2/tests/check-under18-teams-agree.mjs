@@ -58,10 +58,19 @@ const fromAuth = [];
 /* From the rules: the names inside under18Teams(). */
 const fromRules = [];
 {
-  /* The default list (teamFlags/under18 when stored, F-304). */
-  const m = /function\s+under18Teams\s*\(\s*\)\s*\{[^}]*?:\s*\[([^\]]*)\]/.exec(rules);
-  if (!m) ok('under18Teams() is in firestore.rules', false, 'could not find the function');
+  /* The rules name no team: they read teamFlags/under18, which the server
+     keeps (functions/under18-teams.js), with its EGBC_UNDER18 for a team
+     that has stored no tick. So the second copy is the server's. */
+  const srv = fs.readFileSync(path.join(V2, 'functions', 'under18-teams.js'), 'utf8');
+  const m = /EGBC_UNDER18\s*=\s*\[([^\]]*)\]/.exec(srv);
+  if (!m) ok('EGBC_UNDER18 is in functions/under18-teams.js', false, 'could not find it');
   else for (const q of m[1].match(/'([^']+)'/g) || []) fromRules.push(q.slice(1, -1));
+  const fn = /function\s+under18Teams\s*\(\s*\)\s*\{([^}]*)\}/.exec(rules);
+  ok('the rules read the server\'s record and name no team', !!fn && /teamFlags\/under18/.test(fn[1]) && !/'[A-Z][^']*'/.test(fn[1]),
+    fn ? fn[1].trim() : 'could not find under18Teams()');
+  ok('with no record yet, every event naming a team counts as under-18s (fails safe)',
+    /function\s+eventIsUnder18\s*\(\s*\)\s*\{[\s\S]*?exists\([\s\S]*?teamFlags\/under18\)[\s\S]*?size\(\)\s*>\s*0/.test(rules),
+    'eventIsUnder18() no longer fails safe without teamFlags/under18');
 }
 
 const sort = a => [...a].sort();
@@ -70,7 +79,7 @@ const show = a => a.length ? sort(a).join(', ') : '(none)';
 console.log('\nthe "Works with under-18s" tick, in both places');
 console.log('  the brief says        ' + show(BRIEF));
 console.log('  egbc-auth.js says     ' + show(fromAuth));
-console.log('  firestore.rules says  ' + show(fromRules));
+console.log('  the server says       ' + show(fromRules));
 
 const missingFromAuth = BRIEF.filter(t => !fromAuth.includes(t));
 const missingFromRules = BRIEF.filter(t => !fromRules.includes(t));
@@ -80,8 +89,8 @@ const extraInRules = fromRules.filter(t => !BRIEF.includes(t));
 console.log('');
 ok('every team the brief names is ticked in the teams data',
   missingFromAuth.length === 0, 'not ticked in egbc-auth.js: ' + show(missingFromAuth));
-ok('every team the brief names is enforced by the rules',
-  missingFromRules.length === 0, 'missing from under18Teams(): ' + show(missingFromRules));
+ok('every team the brief names is enforced by the rules (the server\'s record)',
+  missingFromRules.length === 0, 'missing from EGBC_UNDER18: ' + show(missingFromRules));
 /* Extras are not a fault - Martin may tick another team later - but they
    must be in BOTH, or the interface and the rules disagree about it. */
 ok('a team ticked in the teams data is enforced too',

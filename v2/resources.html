@@ -1,11 +1,11 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-church-title-after>
 <head>
-<script src="egbc-appmode.js?v=202610201500"></script>
-<script src="egbc-shell.js?v=202611011100" data-title="Team Resources"></script>
+<script src="egbc-appmode.js?v=202611011200"></script>
+<script src="egbc-shell.js?v=202611011200" data-title="Team Resources"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Resources — EGBC</title>
+<title>Resources</title>
 <link rel="manifest" href="./manifest-hub.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="theme-color" content="#3d6263">
@@ -17,8 +17,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202611010900"></script>
-<script src="egbc-manifest.js?v=202610311800"></script>
+<script src="egbc-auth.js?v=202611011200"></script>
+<script src="egbc-manifest.js?v=202611011200"></script>
+<script src="egbc-church.js?v=202611011200"></script>
 <style>
   :root{--canvas:#eef4f3;--ink:#14201f;--body:#3a4d4c;--muted:#6b8281;--hairline:#dde7e6;--hairline-strong:#c9d8d6;--brand:#3d6263;--brand-tint:#e7f0ef;
     --shadow-sm:0 1px 2px rgba(20,32,31,.05);--shadow:0 1px 2px rgba(20,32,31,.04),0 6px 20px rgba(20,32,31,.07);--shadow-lg:0 2px 4px rgba(20,32,31,.05),0 18px 48px rgba(20,32,31,.12)}
@@ -43,9 +44,9 @@
 
   <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-6">
     <div class="flex items-center gap-4">
-      <img src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/copilot_image_1775806874083.jpeg?alt=media&token=7e9040a5-1d29-47e1-8f31-6e003db53ec8" alt="EGBC" class="w-14 h-14 rounded-full object-cover flex-shrink-0" style="border:2px solid #dde7e6">
+      <img id="churchLogo" data-church-logo alt="" class="w-14 h-14 rounded-full object-cover flex-shrink-0" style="border:2px solid #dde7e6;visibility:hidden">
       <div>
-        <div class="text-[13px] text-[#6b7280] mb-1">EGBC Team Hub</div>
+        <div class="text-[13px] text-[#6b7280] mb-1" id="churchHub" data-church-short="Team Hub">Team Hub</div>
         <h1 class="text-3xl font-semibold tracking-tight">Resources</h1>
         <p class="text-sm font-semibold opacity-60 mt-1">Documents, guides and links for your teams</p>
       </div>
