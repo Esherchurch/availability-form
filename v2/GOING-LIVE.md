@@ -80,6 +80,9 @@ site still reads and writes the same database without signing in.
     - **Straight after the rules,** never before.
     - **Who:** a master admin.
     - **Check:** a test prayer request saves, and the pastoral team is told.
+    - **Then every other church counts as live too:** `node ../tools/hq-lock-churches.mjs` from v2/functions, check its list, then `--apply`. It sets each church's `churchSettings/launch.rulesLocked`, which its Present slides and private forms wait for. A church made after today gets it from `hq-create-church.mjs`.
+      - **Who:** Martin or the reviewing window.
+      - **Check:** the second run says "0 to do".
 13. **The events window's straight-after steps** ([SWITCHOVER-events.md Part 2](SWITCHOVER-events.md)): each existing form gets its Team; Accounts is saved once.
     - **Who:** Martin.
     - **Check:** as listed there.

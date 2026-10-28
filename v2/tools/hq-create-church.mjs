@@ -20,6 +20,9 @@
  *   churches/<id>/addressBook/<memberId>   { name, email }
  *   churches/<id>/users/<uid>   { status: 'active', masterAdmin: true, memberId, email }
  *   churches/<id>/churchSettings/details   { name }
+ *   churches/<id>/churchSettings/launch    { rulesLocked: true }, only once
+ *     the hub has gone live (EGBC's own launch.rulesLocked is true): a church
+ *     counts as live when the rules are (GOING-LIVE.md step 12)
  * The admin's sign-in is found by email, or made (no password: they sign in
  * with an email link or Google, as everyone does).
  */
@@ -57,10 +60,13 @@ const held = await db.collection('hqSlugs').doc(cid).get();
 if (held.exists) { console.error('"' + cid + '" is held by ' + held.data().churchId + '. Nothing written.'); process.exit(3); }
 let user = await auth.getUserByEmail(email).catch(() => null);
 const memberId = 'm-' + cid.slice(0, 20) + '-1';
+const launch = await db.collection('churchSettings').doc('launch').get().catch(() => null);
+const live = !!(launch && launch.exists && launch.data().rulesLocked === true);
 
 console.log((APPLY ? 'ADDING' : 'DRY RUN, nothing written') + ' (' + PROJECT + ')');
 console.log('  church:  ' + cid + ' "' + name + '", status setup, address ' + addressFor(cid));
 console.log('  admin:   ' + adminName + ' <' + email + '>' + (user ? ' (signs in already: ' + user.uid + ')' : ' (a sign-in is made)'));
+console.log('  live:    ' + (live ? 'yes, the hub has gone live: Present and the private forms open' : 'not yet: set on going-live day (tools/hq-lock-churches.mjs)'));
 console.log('  then:    they open setup.html?church=' + cid + ' and set the rest up on the screens');
 if (!APPLY) { console.log('Add --apply to write it.'); process.exit(0); }
 
@@ -74,6 +80,7 @@ b.set(root.collection('addressBook').doc(memberId), { name: adminName, email, ar
 b.set(root.collection('users').doc(user.uid), { uid: user.uid, status: 'active', masterAdmin: true, memberId, email, name: adminName,
   teams: [], adminFor: [], covers: [], adminCovers: [], jobs: [], createdAt: now });
 b.set(root.collection('churchSettings').doc('details'), { name, updatedAt: now, updatedBy: 'church-hq' });
+if (live) b.set(root.collection('churchSettings').doc('launch'), { rulesLocked: true, updatedAt: now, updatedBy: 'church-hq' });
 await b.commit();
 await syncClaims({ db, auth, uid: user.uid });
 console.log('Done. ' + adminName + ' signs in, then opens setup.html?church=' + cid + '.');
