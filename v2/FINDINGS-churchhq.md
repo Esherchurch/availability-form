@@ -1088,3 +1088,11 @@ Nobody may read a meeting they aren't invited to, even by reading the database d
   - a member makes both parts at once;
   - nobody takes over as organiser;
   - the dry run writes nothing; the split moves the title and organiser; running it again does nothing; a livestreamed Sunday is left alone.
+
+## Meetings: Martin's five faults (28 Oct 2026)
+
+1. **Own room per meeting.** `EGBCAuth.saveMeeting` saves a meeting that has a call with `videoRoom: "m-<id>"`. `meetingRoom` (functions/meeting-manage.js) and the `meetingOwnRoom` trigger make its Daily room, named from the church, the kind, the date and the id. It is never an existing room. The standing rooms come from the church's teams: one per team with none, made on a team write (`videoRoomsForTeams` and `videoRoomsForTeamsChurch`). EGBC's stored rooms are kept, and no room names are in the code.
+2. **Invite one person.** `meetingInvite` invites someone from the address book (never an under-18 on their own), who is emailed the hub link. Or it invites a guest by name and email, who gets a guest link `meet.html?g=<key>`. Only the key's SHA-256 is stored (`meetingGuests`, server-only). The link opens that one meeting with no sign-in, and stops working on cancel, on removal, or 2 hours after the meeting ends. People invited by name can list their meetings: there is a rules `list` on `meetings` by invitees.
+3. **Full screen.** There is one full screen (the page's own). Leaving or ending exits full screen, takes the call down, and shows "You have left the meeting" with Rejoin and Back to hub. Escape and an "Exit full screen" button always get you out.
+4. **The hub home's bar** has Hub, which goes to the top of Home.
+5. **Cancel.** `meetingCancel` is on Meetings and on the hub card, after an "Are you sure?". Everyone emailed (`meetingSends`) is told, the Daily room is deleted, and the meeting is deleted. Deleting an event any other way also closes its own room and its guest links.

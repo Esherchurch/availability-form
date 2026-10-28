@@ -169,7 +169,7 @@
       var me = document.querySelector('script[src*="egbc-core-meetings.js"]');
       var base = (here || (me && me.src) || '').replace(/[^/]*$/, '');
       var t = document.createElement('script');
-      t.src = base + 'egbc-video.js?v=202610272330';
+      t.src = base + 'egbc-video.js?v=202610311600';
       t.onload = ok; t.onerror = ok;
       document.head.appendChild(t);
     }).then(function () { return global.EGBCVideo ? global.EGBCVideo.load() : []; });

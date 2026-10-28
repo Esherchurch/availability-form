@@ -830,7 +830,8 @@ export { lessonFor } from './lesson.js';
 /* Who may email whom (Martin, 16 Oct 2026): the Email Compiler sends through
    the hub, which checks the sender's teams; logged to emailOutbox. */
 export { compilerSend } from './compiler-send.js';
-export { videoRoomsEnsure, meetingHostToken } from './video.js';
+export { videoRoomsEnsure, meetingHostToken, videoRoomsForTeams, videoRoomsForTeamsChurch } from './video.js';
+export { meetingRoom, meetingInvite, meetingGuestJoin, meetingCancel } from './meeting-manage.js';
 /* Two meetings never share a link at the same time (27 Oct 2026). */
 export { meetingOwnRoom, meetingOwnRoomChurch } from './meeting-rooms.js';
 import { dbForAddress } from './church-address.js';

@@ -31,7 +31,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <!-- Step R: myCalendarLink is a callable, so the hub needs the functions SDK. -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-functions-compat.js"></script>
-<script src="egbc-auth.js?v=202610311400"></script>
+<script src="egbc-auth.js?v=202610311600"></script>
 <script src="egbc-orientation.js?v=202610160500"></script>
 <script src="egbc-fullvideo.js?v=202610160500"></script>
 <!-- watchLive() for the front page's Watch card (F-164). -->
@@ -587,6 +587,9 @@
     </div>
   </a>
   <div class="bar-r">
+    <!-- THE SAME BAR AS EVERY PAGE (Martin's test, 28 Oct 2026): Hub, Menu,
+         Care & support. Here Hub takes you back to the top of Home. -->
+    <button class="btn ghost" id="hubTop" onclick="hubToTop()" title="Back to the top of Home"><i data-lucide="house" style="width:16px;height:16px"></i><span class="hide-sm">Hub</span></button>
     <button class="btn" id="teamSwitch" style="display:none" onclick="openTeamPicker()" title="Switch team"></button>
     <!-- 17b: "Maybe make the latest news a pop out rather than fixed if that
          frees up page real estate?" It did - it was a 340px column. The count
@@ -966,10 +969,10 @@
 
 
 <nav id="egbc-tabbar" aria-label="Main"></nav>
-<script src="egbc-video.js?v=202610272330"></script>
+<script src="egbc-video.js?v=202610311600"></script>
 <script src="egbc-plan-store.js?v=202610252100"></script>
 <script src="egbc-notices.js?v=202610252100"></script>
-<script src="hub-app.js?v=202610311400"></script>
+<script src="hub-app.js?v=202610311600"></script>
 <!-- The one service worker on the v2 scope, so a phone with only the
      installed EGBC Hub can receive notifications (FINDINGS-notify N-5). -->
 <script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').catch(function () {}); }</script>

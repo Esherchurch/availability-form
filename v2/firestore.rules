@@ -639,17 +639,29 @@ service cloud.firestore {
     }
     match /meetings/{meetingId} {
       allow get: if meetingInvited(resource.data);
-      allow list: if false;
+      // Somebody invited by name lists the meetings that name them, and
+      // nothing else (a query on invitees with their own record's id).
+      // Every other list is refused.
+      allow list: if active() && me().get('memberId', '-') in resource.data.get('invitees', []);
       allow create, update: if (isAdmin() || onAnyTeam(request.resource.data.get('teams', []))
                                 || (resource != null && resource.data.get('organiserUid', '') == request.auth.uid)
                                 || (resource == null && request.resource.data.get('organiserUid', '') == request.auth.uid))
                    && request.resource.data.keys().hasOnly(['description', 'organiserUid', 'invitees', 'teams', 'date', 'startTime', 'endTime',
-                        'videoRoom', 'updatedAt', 'updatedBy'])
+                        'videoRoom', 'type', 'updatedAt', 'updatedBy'])
                    && request.resource.data.get('description', '') is string && request.resource.data.get('description', '').size() <= 2000
                    && request.resource.data.get('invitees', []) is list && request.resource.data.get('invitees', []).size() <= 500
                    && request.resource.data.get('teams', []) is list && request.resource.data.get('teams', []).size() <= 100
                    && (resource == null || request.resource.data.get('organiserUid', '') == resource.data.get('organiserUid', ''));
       allow delete: if isAdmin() || (resource != null && resource.data.get('organiserUid', '') == request.auth.uid);
+    }
+    // A meeting's guest links (only their hashes) and who was emailed about
+    // it (functions/meeting-manage.js): the server's alone. No page reads or
+    // writes them, so a guest's address is never in a page.
+    match /meetingGuests/{id} {
+      allow read, write: if false;
+    }
+    match /meetingSends/{id} {
+      allow read, write: if false;
     }
 
     // ---- "I'M WORRIED ABOUT SOMEONE" (NEXT-BRIEF §24) ------------------

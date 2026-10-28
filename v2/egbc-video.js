@@ -23,6 +23,7 @@
      EGBCVideo.inUse(key, events, now?) -> the meeting in that room right
                                   now, or null
      EGBCVideo.until(ev)       -> when it ends, "HH:MM"
+     EGBCVideo.add(room)       a meeting's own room, just made (EGBCAuth.meetingRoom)
 
    ROOMS IN USE (27 Oct 2026; Martin: "a link for a particular time should
    somehow say it is in use. If we have a small group link we could have 5
@@ -121,6 +122,11 @@
       return 'meeting.html?room=' + encodeURIComponent(key) + (ev && ev.id ? '&event=' + encodeURIComponent(ev.id) : '');
     },
     byType: function () { return Object.assign({}, state.byType); },
+    add: function (room) {
+      if (!room || !room.key) return;
+      var had = find(room.key);
+      if (had) Object.assign(had, room); else state.rooms.push(room);
+    },
     onReady: function (fn) { if (state.ready) fn(); else waiting.push(fn); }
   };
 })(window);

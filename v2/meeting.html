@@ -17,9 +17,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202610311400"></script>
+<script src="egbc-auth.js?v=202610311600"></script>
 <script src="egbc-present.js?v=202610311200"></script>
-<script src="egbc-video.js?v=202610272330"></script>
+<script src="egbc-video.js?v=202610311600"></script>
 <script src="https://unpkg.com/@daily-co/daily-js"></script>
 <style>
   :root{--canvas:#f6f7f7;--ink:#111827;--body:#374151;--muted:#6b7280;--faint:#9ca3af;--line:#e5e7eb;--line-2:#d1d5db;
@@ -60,6 +60,17 @@
   body.in-call #egbc-bar{margin-bottom:8px!important}
   body.in-call #stage{min-height:0}
   #stage:fullscreen{border-radius:0}
+  /* FULL SCREEN ALWAYS HAS A WAY OUT (Martin's test, 28 Oct 2026): Escape,
+     and this button, which only shows while the call fills the screen. */
+  #mtExitFs{display:none;position:absolute;top:10px;right:10px;z-index:5;min-height:36px}
+  #stage:fullscreen #mtExitFs{display:inline-flex}
+  #invScrim{display:none;position:fixed;inset:0;background:rgba(17,24,39,.45);z-index:300;overflow:auto;padding:24px 12px;box-sizing:border-box}
+  #invScrim.on{display:block}
+  #invBox{max-width:600px;margin:0 auto;display:block}
+  #invBox input{width:100%;box-sizing:border-box;height:40px;padding:0 12px;border:1px solid var(--line-2);border-radius:8px;font:400 14px Inter,sans-serif;color:var(--ink);background:#fff}
+  #invBox .lbl{display:block;font-size:13px;font-weight:600;color:var(--ink);margin:16px 0 6px}
+  #invBox .hit{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+  #invBox .hit .n{flex:1;min-width:0;font-weight:500;color:var(--ink)}
 </style>
 </head>
 <body>
@@ -78,6 +89,8 @@
      a host presents; the call becomes a strip beside them (below on a
      phone). egbc-present.js draws in here and lays the page out itself. -->
 <div id="present"></div>
+<!-- Invite people to one meeting (28 Oct 2026). -->
+<div id="invScrim" onclick="if(event.target===this)closeInvite()"><div class="row" id="invBox"></div></div>
 <div id="stage"><div class="msg" id="msg"><div class="s">Getting the meeting ready&hellip;</div></div></div>
 
 <script>
@@ -172,16 +185,29 @@ function callBar() {
   }
 }
 
+/* One meeting, its own part merged in. Somebody invited by name who is on
+   no team cannot read the rota, so for them it comes from the meeting's
+   own part, which carries its kind, date, times, teams and room. */
+async function meetingById(id) {
+  if (!id) return null;
+  try {
+    const d = await EGBCAuth.db.collection('events').doc(id).get();
+    return d.exists ? (await EGBCAuth.meetingDetails([{ id: d.id, ...d.data() }]))[0] : null;
+  } catch (e) {
+    const m = await EGBCAuth.db.collection('meetings').doc(id).get().catch(() => null);
+    return m && m.exists ? Object.assign({ id, meeting: true }, m.data()) : null;
+  }
+}
+
 async function describe(db) {
   document.getElementById('mtTitle').textContent = roomLabel(room);
   document.getElementById('mtSub').textContent = hostToken ? 'You are the host' : 'Video meeting';
   callBar();
   if (!eventId) return;
   try {
-    const d = await db.collection('events').doc(eventId).get();
-    if (!d.exists) return;
     /* Its title is on its own part (the meetings split). */
-    const ev = (await EGBCAuth.meetingDetails([{ id: d.id, ...d.data() }]))[0];
+    const ev = await meetingById(eventId);
+    if (!ev) return;
     const day = new Date(ev.date + 'T12:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
     const time = ev.startTime ? ` · ${ev.startTime}${ev.endTime ? '–' + ev.endTime : ''}` : '';
     document.getElementById('mtTitle').textContent = ev.type + (ev.description ? ' · ' + ev.description : '');
@@ -217,14 +243,25 @@ async function lobby(profile) {
        among them (§21) - so this list is simply empty for them, rather
        than a refusal on the console (audit, 15 Oct 2026). */
     const me = EGBCAuth.profile() || {};
-    if (!me.masterAdmin && !(me.teams || []).length && !(me.adminFor || []).length && !every) throw { quiet: true };
-    const snap = await EGBCAuth.db.collection('events').where('date', '>=', today).orderBy('date').limit(150).get();
-    all = await EGBCAuth.meetingDetails(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    if (me.masterAdmin || (me.teams || []).length || (me.adminFor || []).length || every) {
+      const snap = await EGBCAuth.db.collection('events').where('date', '>=', today).orderBy('date').limit(150).get();
+      all = await EGBCAuth.meetingDetails(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }
+    /* Invited by name (28 Oct 2026): the meetings that name me, whether or
+       not I am on a team. */
+    if (me.memberId) {
+      const mine = await EGBCAuth.db.collection('meetings').where('invitees', 'array-contains', me.memberId).get().catch(() => null);
+      (mine ? mine.docs : []).forEach(d => {
+        if (!all.some(ev => ev.id === d.id) && (d.data().date || '') >= today) all.push(Object.assign({ id: d.id, meeting: true }, d.data()));
+      });
+    }
+    SHOWN = {};
+    all.forEach(ev => { SHOWN[ev.id] = ev; });
     upcoming = all
       .filter(ev => !ev.archived && roomExists(videoRoomFor(ev)) && forMe(ev)
                     && EGBCAuth.mayJoinRoom(videoRoomFor(ev)))
       .sort((a, b) => (a.date + (a.startTime || '')).localeCompare(b.date + (b.startTime || '')));
-  } catch (e) { if (!e || !e.quiet) console.error('Could not load meetings', e); }
+  } catch (e) { console.error('Could not load meetings', e); }
 
   const I = (n, s) => `<i data-lucide="${n}" style="width:${s || 18}px;height:${s || 18}px"></i>`;
   let html = canSchedule() ? `<div style="margin:16px 0 0;display:flex;justify-content:flex-end">
@@ -238,6 +275,8 @@ async function lobby(profile) {
     const time = ev.startTime ? ` · ${ev.startTime}${ev.endTime ? '–' + ev.endTime : ''}` : '';
     html += `<div class="row"><div class="ic">${I('calendar-clock')}</div><div style="flex:1;min-width:170px"><div class="t">${esc(ev.type)}${ev.description ? ' · ' + esc(ev.description) : ''}</div>
       <div class="s">${esc(day + time)} · ${esc(roomLabel(r))}</div></div>
+      ${EGBCAuth.mayManageMeeting(ev) ? `<button class="btn sm" onclick="openInvite('${escAttr(ev.id)}')">${I('user-plus', 15)}Invite</button>
+        <button class="btn sm" onclick="cancelMeeting('${escAttr(ev.id)}')">${I('trash-2', 15)}Cancel</button>` : ''}
       <a class="btn sm solid" href="meeting.html?room=${encodeURIComponent(r)}&event=${encodeURIComponent(ev.id)}">Join</a></div>`;
   });
 
@@ -259,6 +298,95 @@ async function lobby(profile) {
 
   /* Arrived from the hub card's "New meeting". */
   if (params.get('new') === '1' && canSchedule() && !document.getElementById('nmType')) openNewMeeting();
+  if (params.get('invite') && SHOWN[params.get('invite')] && !document.getElementById('invScrim').classList.contains('on')) openInvite(params.get('invite'));
+}
+let SHOWN = {};
+
+/* ---- Cancel a meeting (28 Oct 2026) -------------------------------- */
+async function cancelMeeting(id) {
+  const ev = SHOWN[id];
+  if (ev && await EGBCAuth.cancelMeeting(ev)) lobby(CURRENT_PROFILE);
+}
+
+/* ---- Invite people (28 Oct 2026; Martin: "invite any single person") --
+   Anyone in the address book (not an under-18 on their own), or somebody
+   who is not in it by name and email - an interview candidate. Each is
+   emailed at once by the hub (functions/meeting-manage.js): a hub link for
+   an address book person, a guest link for this one meeting for anyone
+   else. */
+let BOOK = null, INV = null;
+async function addressBook() {
+  if (BOOK) return BOOK;
+  try {
+    const s = await EGBCAuth.db.collection('addressBook').get();
+    BOOK = s.docs.map(d => ({ id: d.id, ...d.data() }))
+      .filter(p => p.name && p.archived !== true && p.status !== 'archived' && p.isMinor !== true && p.under18 !== true)
+      .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  } catch (e) { BOOK = []; }
+  return BOOK;
+}
+const fieldCss = 'width:100%;box-sizing:border-box;height:40px;padding:0 12px;border:1px solid var(--line-2);border-radius:8px;font:400 14px Inter,sans-serif;color:var(--ink);background:#fff';
+async function openInvite(id) {
+  INV = SHOWN[id] || await meetingById(id);
+  if (!INV) { alert('That meeting is not there any more.'); return; }
+  document.getElementById('invScrim').classList.add('on');
+  invDraw(null, 'Loading who is invited…');
+  try { const r = await EGBCAuth.call('meetingInvite', { event: id }, { timeoutMs: 20000 }); invDraw(r.invited); }
+  catch (e) { invDraw([], 'Could not load who is invited: ' + (e.message || e)); }
+  addressBook();
+}
+function closeInvite() { document.getElementById('invScrim').classList.remove('on'); INV = null; }
+function invDraw(list, note) {
+  const ev = INV, r = videoRoomFor(ev);
+  const day = new Date(ev.date + 'T12:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+  const I = (n, s) => `<i data-lucide="${n}" style="width:${s || 15}px;height:${s || 15}px"></i>`;
+  const teams = (ev.teams || []).map(t => teamLabel(t));
+  const people = (list || []).map(p => `<div class="hit"><div class="n">${esc(p.name)}<div class="s" style="margin:0">${p.kind === 'guest' ? 'Guest · ' + esc(p.email) : 'Address book'}</div></div>
+      <button class="btn sm" onclick='invRemove(${JSON.stringify(p.kind === 'guest' ? { email: p.email } : { memberId: p.memberId }).replace(/'/g, '&#39;')})'>Remove</button></div>`).join('');
+  document.getElementById('invBox').innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px"><div class="t" style="flex:1">Invite people</div><button class="btn sm" onclick="closeInvite()">Done</button></div>
+    <div class="s">${esc(ev.type + (ev.description ? ' · ' + ev.description : ''))} · ${esc(day)}${ev.startTime ? ' · ' + esc(ev.startTime) : ''}</div>
+    ${r && roomUrl(r) ? `<span class="lbl">Its video room</span><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><div class="s" style="flex:1;margin:0">${esc(roomUrl(r))}</div>
+      <button class="btn sm" onclick="copyLink('${escAttr(r)}')">${I('link')}Copy link</button></div>` : ''}
+    <span class="lbl">Someone in the address book</span>
+    <input id="invFind" placeholder="Type a name" oninput="invFind()" autocomplete="off"><div id="invHits"></div>
+    <span class="lbl">Someone who is not in the address book</span>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><input id="invName" placeholder="Their name" style="flex:1;min-width:150px">
+      <input id="invEmail" type="email" placeholder="Their email" style="flex:1.4;min-width:190px"></div>
+    <div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap"><div class="s" style="flex:1;min-width:200px;margin:0">They are emailed a link for this meeting only. No hub account needed: they type their name and knock, and the host lets them in.</div>
+      <button class="btn sm solid" onclick="invGuest()">Invite by email</button></div>
+    <span class="lbl">Invited by name</span>
+    ${people || '<div class="s">Nobody yet.</div>'}
+    ${teams.length ? `<div class="s" style="margin-top:10px">And everyone on ${esc(teams.join(', '))}, who see it in the hub.</div>` : ''}
+    <div class="s" id="invNote" style="margin-top:10px;color:#b45309;font-weight:600">${esc(note || '')}</div>`;
+  if (window.lucide) lucide.createIcons();
+}
+async function invFind() {
+  const q = document.getElementById('invFind').value.trim().toLowerCase();
+  const box = document.getElementById('invHits');
+  if (q.length < 2) { box.innerHTML = ''; return; }
+  const hits = (await addressBook()).filter(p => String(p.name).toLowerCase().includes(q)).slice(0, 8);
+  box.innerHTML = hits.length ? hits.map(p => `<div class="hit"><div class="n">${esc(p.name)}${p.email ? '' : '<div class="s" style="margin:0">No email address: they will see it in the hub</div>'}</div>
+      <button class="btn sm solid" onclick="invPerson('${escAttr(p.id)}')">Invite</button></div>`).join('')
+    : '<div class="s">Nobody by that name. Add them below by name and email.</div>';
+}
+async function invSend(data, done) {
+  const note = document.getElementById('invNote');
+  if (note) note.textContent = 'Sending…';
+  try {
+    const r = await EGBCAuth.call('meetingInvite', Object.assign({ event: INV.id }, data), { timeoutMs: 30000 });
+    invDraw(r.invited, r.emailed === false ? 'Invited, but the email did not go. They can still see it in the hub if they have an account.' : (done || ''));
+  } catch (e) { if (note) note.textContent = (e && e.message) || 'Could not invite them.'; }
+}
+function invPerson(id) { invSend({ memberId: id }, 'Invited and emailed.'); }
+function invGuest() {
+  const name = document.getElementById('invName').value.trim(), email = document.getElementById('invEmail').value.trim();
+  if (!name || !email) { document.getElementById('invNote').textContent = 'Their name and email, please.'; return; }
+  invSend({ guest: { name, email } }, 'Invited: ' + name + ' has been emailed their link.');
+}
+function invRemove(who) {
+  if (!confirm('Take them off this meeting? A guest’s link stops working.')) return;
+  invSend({ remove: who }, 'Taken off.');
 }
 
 /* ---- + New meeting -------------------------------------------------
@@ -334,8 +462,10 @@ function openNewMeeting() {
       <div style="flex:1;min-width:100px"><label style="${label}">Start</label><input id="nmStart" type="time" value="19:30" style="${field}"></div>
       <div style="flex:1;min-width:100px"><label style="${label}">End</label><input id="nmEnd" type="time" value="21:00" style="${field}"></div>
     </div>
-    <label style="${label}">Video room</label>
-    <select id="nmRoom" style="${field}"><option value="">No video call</option>${roomList().map(([r, l]) => `<option value="${esc(r)}">${esc(l)}</option>`).join('')}</select>
+    <label style="${label}">Video call</label>
+    <!-- EVERY MEETING ITS OWN ROOM (Martin's test, 28 Oct 2026): never a
+         standing room, so two meetings never share a link. -->
+    <select id="nmRoom" style="${field}"><option value="own">Yes, in a room of its own</option><option value="">No video call</option></select>
     <label style="${label}">Who is it for?</label>
     <div id="nmTeams" style="display:flex;gap:14px;flex-wrap:wrap;font-size:13px;font-weight:700;color:var(--ink)">
       ${teams.map(t => `<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" value="${escAttr(t)}" style="width:18px;height:18px;accent-color:#3d6263">${esc(ROTA_TEAMS.includes(t) ? t : teamLabel(t))}</label>`).join('')}
@@ -352,10 +482,6 @@ function openNewMeeting() {
 function nmTypeChanged() {
   const type = document.getElementById('nmType').value;
   const want = teamsByType()[type] || [];
-  /* The type's usual room, else the first room for its team (Kids Church's
-     own room for a Kids Church meeting). */
-  const teamRoom = window.EGBCVideo ? (EGBCVideo.rooms().find(r => (r.teams || []).some(t => want.includes(t))) || {}).key : '';
-  document.getElementById('nmRoom').value = (window.EGBCVideo ? EGBCVideo.byType()[type] : '') || teamRoom || '';
   document.querySelectorAll('#nmTeams input').forEach(c => { c.checked = want.includes(c.value); });
 }
 
@@ -371,19 +497,10 @@ async function saveNewMeeting() {
   const btn = document.getElementById('nmSave');
   btn.disabled = true; btn.textContent = 'Saving…';
   try {
-    /* Taken then by another meeting? This one gets its own room (the hub
-       makes it, functions/meeting-rooms.js), and the person booking is told. */
-    const want = document.getElementById('nmRoom').value;
-    let taken = null;
-    if (want) {
-      const same = await EGBCAuth.db.collection('events').where('date', '==', date).get().catch(() => null);
-      const myEnd = EGBCVideo.until({ startTime, endTime: endTime || startTime });
-      taken = same ? same.docs.map(d => d.data()).find(ev => !ev.archived && videoRoomFor(ev) === want
-        && (ev.startTime || '00:00') < myEnd && startTime < EGBCVideo.until(ev)) : null;
-    }
     /* Both parts at once: what the rota needs on the event, and its title
-       and organiser where only the invited read them (the meetings split). */
-    await EGBCAuth.saveMeeting({
+       and organiser where only the invited read them (the meetings split).
+       With a call, the hub makes its own room before this resolves. */
+    const id = await EGBCAuth.saveMeeting({
       date, termLabel: termLabel(date),
       type: document.getElementById('nmType').value,
       description: document.getElementById('nmDesc').value.trim(),
@@ -393,9 +510,9 @@ async function saveNewMeeting() {
       organiserUid: (EGBCAuth.user() || {}).uid || '',
       archived: false,
     });
-    if (taken) alert(roomLabel(want) + ' is taken then (' + taken.type
-      + '), so this meeting has a room of its own. Its link is on Meetings.');
-    lobby(CURRENT_PROFILE);
+    await lobby(CURRENT_PROFILE);
+    /* Straight on to inviting people, with its link to copy. */
+    openInvite(id);
   } catch (e) {
     console.error('Could not save meeting', e);
     alert('Could not save the meeting: ' + e.message);
@@ -418,7 +535,7 @@ async function start(profile) {
   if (EGBCAuth.loadPerms) await EGBCAuth.loadPerms().catch(() => {});
   if (!room) { lobby(profile); return; }
   if (!roomExists(room)) {
-    showMsg('Meeting room not found', 'This link does not point to one of the EGBC meeting rooms.', '<a class="btn" href="hub.html">Back to hub</a>');
+    showMsg('Meeting room not found', 'This link does not point to one of the church’s meeting rooms. If the meeting was cancelled, its room has closed.', '<a class="btn" href="hub.html">Back to hub</a>');
     return;
   }
   /* Hiding the room cannot cover a pasted address, so this one has to be
@@ -473,8 +590,7 @@ async function mayEnter() {
   if (EGBCAuth.roomForMe(room)) return true;
   if (!eventId) return false;
   try {
-    const d = await EGBCAuth.db.collection('events').doc(eventId).get();
-    const ev = d.exists ? (await EGBCAuth.meetingDetails([{ id: d.id, ...d.data() }]))[0] : null;
+    const ev = await meetingById(eventId);
     return !!ev && videoRoomFor(ev) === room && EGBCAuth.invitedTo(ev);
   } catch (e) { return false; }
 }
@@ -493,8 +609,7 @@ async function mayHostHere(profile) {
   if (hostTeams.some(t => mine.includes(t))) return true;
   if (!eventId) return false;
   try {
-    const d = await EGBCAuth.db.collection('events').doc(eventId).get();
-    const ev = d.exists ? (await EGBCAuth.meetingDetails([{ id: d.id, ...d.data() }]))[0] : null;
+    const ev = await meetingById(eventId);
     const me = EGBCAuth.user();
     return !!(ev && me && ev.organiserUid === me.uid && videoRoomFor(ev) === room);
   } catch (e) { return false; }
@@ -535,7 +650,9 @@ function join(profile) {
   document.querySelector('#stage .msg')?.remove();
   frame = DailyIframe.createFrame(document.getElementById('stage'), {
     showLeaveButton: true,
-    showFullscreenButton: true,
+    /* One full screen, the page's own (the bar's Full screen fills the
+       screen with #stage), so the page can always take it back. */
+    showFullscreenButton: false,
     theme: THEME,
     iframeStyle: { position: 'absolute', inset: '0', width: '100%', height: '100%', border: '0', borderRadius: '12px' },
   });
@@ -548,17 +665,36 @@ function join(profile) {
     /* Daily's call, so leaving it ends a host's say-so (F-264) even before the page closes. */
     frame });
 
-  frame.on('left-meeting', () => {
-    showMsg('You have left the meeting', '', `<button class="btn" onclick="location.reload()">Rejoin</button><a class="btn" href="hub.html">Back to hub</a>`);
-  });
-  frame.on('error', e => {
-    showMsg('The meeting could not start', (e && e.errorMsg) || '', `<button class="btn" onclick="location.reload()">Try again</button>`);
-  });
+  /* LEAVING OR ENDING (Martin's test, 28 Oct 2026: in full screen, when
+     the meeting ended nothing worked). Out of full screen first, the call
+     taken down, then the left screen, whose Rejoin and Back to hub work. */
+  let over = false;
+  const ended = (title, sub, again) => {
+    if (over) return; over = true;
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    document.body.classList.remove('in-call');
+    const f = frame; frame = null;
+    try { f && f.destroy(); } catch (e) {}
+    showMsg(title, sub, `<button class="btn solid" onclick="location.reload()">${again}</button><a class="btn" href="hub.html">Back to hub</a>`);
+  };
+  frame.on('left-meeting', () => ended('You have left the meeting', '', 'Rejoin'));
+  let joined = false;
+  frame.on('joined-meeting', () => { joined = true; });
+  frame.on('error', e => ended(joined ? 'The meeting has ended' : 'The meeting could not start', (e && e.errorMsg) || '', joined ? 'Rejoin' : 'Try again'));
+  if (!document.getElementById('mtExitFs')) {
+    const x = document.createElement('button');
+    x.id = 'mtExitFs'; x.className = 'btn'; x.textContent = 'Exit full screen';
+    x.onclick = () => document.exitFullscreen().catch(() => {});
+    document.getElementById('stage').appendChild(x);
+  }
 
   const opts = { url: roomUrl(room), userName: (profile && profile.name) || '' };
   if (hostToken) opts.token = hostToken;
   frame.join(opts).catch(e => console.error('join failed', e));
 }
+
+/* Escape always leaves full screen, wherever the focus is on this page. */
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.fullscreenElement) document.exitFullscreen().catch(() => {}); });
 
 EGBCAuth.require().then(start);
 </script>

@@ -25,6 +25,23 @@
 
      clashWith(me, others, byType)  -> the meeting that keeps the room, or null
      settleRoom({ db, daily, cid, id, after, created }) -> the own room's key, or null
+
+   EVERY MEETING ITS OWN ROOM (Martin's test, 28 Oct 2026: a "Maintenance"
+   meeting went out with the Worship Core Team's link). A meeting set up
+   on the Meetings page or the rota (EGBCAuth.saveMeeting) is saved with
+   videoRoom "m-<event id>" and gets a Daily room of its own, named from
+   the church, the kind of meeting, its date and its id
+   (egbc-maintenance-meeting-261030-ab12cd) - never an existing room, so
+   never another meeting's. The page asks for it at once (meetingRoom,
+   functions/meeting-manage.js) so it can show the link; this trigger
+   makes it too, in case the page closed first. roomFrom on the event (a
+   standing room it was booked into) lends the room its hosts and its
+   members-only. The standing rooms stay, for drop-in use.
+
+     makeOwnRoom({ db, daily, cid, id, ev })  -> the room's entry
+     closeOwnRoom({ db, daily, id })          the meeting cancelled or deleted:
+                                              its Daily room is deleted and it
+                                              comes off the church's list
    =================================================================== */
 
 import { dailyName, londonMs } from './video.js';
@@ -71,22 +88,83 @@ export async function settleRoom({ db, daily, cid, id, after, created }) {
   const churchId = v0.churchId || cid || 'egbc';
   const exp = Math.floor((span(after)[1] + 864e5) / 1000);
   const made = daily ? await daily.room(dailyName(churchId, key), { exp }) : null;
-  await db.runTransaction(async (t) => {
-    const s = await t.get(vref);
-    const v = s.exists ? s.data() : {};
-    const rooms = Array.isArray(v.rooms) ? v.rooms.slice() : [];
-    if (rooms.some((r) => r.key === key)) return;
-    const from = rooms.find((r) => r.key === room) || {};
-    const byKey = Object.assign({}, v.roomsByKey || {});
-    const entry = { key, label: titleOf(after).slice(0, 80), teams: from.teams || [], hostTeams: from.hostTeams || [],
-      members: from.members === true, meeting: id, from: room, until: after.date };
-    if (made) { entry.daily = made.name; entry.url = made.url; }
-    rooms.push(entry);
-    byKey[key] = { teams: entry.teams, hostTeams: entry.hostTeams, members: entry.members };
-    t.set(vref, { rooms, roomsByKey: byKey, updatedAt: new Date().toISOString() }, { merge: true });
-  });
+  const from = (v0.rooms || []).find((r) => r.key === room) || {};
+  const entry = { key, label: titleOf(after).slice(0, 80), teams: from.teams || [], hostTeams: from.hostTeams || [],
+    members: from.members === true, meeting: id, from: room, until: after.date };
+  if (made) { entry.daily = made.name; entry.url = made.url; }
+  await register(db, entry);
   await db.collection('events').doc(id).update({ videoRoom: key, ownRoom: { from: room, because: titleOf(keeps).slice(0, 120) } });
   return key;
+}
+
+/* Onto the church's list (and roomsByKey, for the rules), once. Own rooms
+   two days past their meeting come off the list as it goes: their Daily
+   room has ended by then. */
+async function register(db, entry) {
+  const vref = db.collection('churchSettings').doc('video');
+  const old = new Date(Date.now() - 2 * 864e5).toISOString().slice(0, 10);
+  return db.runTransaction(async (t) => {
+    const s = await t.get(vref);
+    const v = s.exists ? s.data() : {};
+    const had = (v.rooms || []).find((r) => r.key === entry.key);
+    if (had && had.url) return had;
+    const byKey = Object.assign({}, v.roomsByKey || {});
+    const rooms = (Array.isArray(v.rooms) ? v.rooms : []).filter((r) => {
+      const gone = r.key === entry.key || (r.meeting && r.until && r.until < old);
+      if (gone) delete byKey[r.key];
+      return !gone;
+    });
+    rooms.push(entry);
+    byKey[entry.key] = { teams: entry.teams, hostTeams: entry.hostTeams, members: entry.members };
+    /* update, not a merged set: a merge would keep the keys taken out. */
+    const out = { rooms, roomsByKey: byKey, updatedAt: new Date().toISOString() };
+    if (s.exists) t.update(vref, out); else t.set(vref, out);
+    return entry;
+  });
+}
+
+/* The Daily name of a meeting's own room: the church, the kind, the day
+   and the meeting (n: tried again after a name that was taken). */
+export function ownRoomName(churchId, ev, id, n) {
+  const kind = String(ev.type || 'meeting').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 20) || 'meeting';
+  const day = String(ev.date || '').replace(/-/g, '').slice(2, 8);
+  return dailyName(churchId, kind + '-' + day + '-' + String(id).slice(0, 6) + (n ? '-' + n : ''));
+}
+
+export async function makeOwnRoom({ db, daily, cid, id, ev }) {
+  const v0 = (await db.collection('churchSettings').doc('video').get()).data() || {};
+  const key = OWN(id);
+  const had = (v0.rooms || []).find((r) => r.key === key);
+  if (had && had.url) return had;
+  const churchId = v0.churchId || cid || 'egbc';
+  const exp = Math.floor((span(ev)[1] + 864e5) / 1000);
+  let made = null;
+  for (let n = 0; daily && !made && n < 6; n++) made = await daily.room(ownRoomName(churchId, ev, id, n), { exp }, true);
+  if (daily && !made) throw new Error('Daily would not make a room for meeting ' + id);
+  const from = (v0.rooms || []).find((r) => r.key === ev.roomFrom && !r.meeting) || {};
+  const entry = { key, label: titleOf(ev).slice(0, 80), teams: Array.from(new Set((ev.teams || []).concat(from.teams || []))),
+    hostTeams: from.hostTeams || [], members: from.members === true, meeting: id, until: ev.date || '' };
+  if (ev.roomFrom) entry.from = String(ev.roomFrom);
+  if (made) { entry.daily = made.name; entry.url = made.url; }
+  /* The page and this trigger may both have made one: the other is closed. */
+  const kept = await register(db, entry);
+  if (made && kept.daily !== made.name) await daily.remove(made.name).catch(() => {});
+  return kept;
+}
+
+export async function closeOwnRoom({ db, daily, id }) {
+  const vref = db.collection('churchSettings').doc('video');
+  const key = OWN(id);
+  const entry = ((await vref.get()).data() || {}).rooms?.find((r) => r.key === key);
+  if (!entry) return false;
+  if (daily && entry.daily) await daily.remove(entry.daily);
+  await db.runTransaction(async (t) => {
+    const v = (await t.get(vref)).data() || {};
+    const byKey = Object.assign({}, v.roomsByKey || {});
+    delete byKey[key];
+    t.update(vref, { rooms: (v.rooms || []).filter((r) => r.key !== key), roomsByKey: byKey, updatedAt: new Date().toISOString() });
+  });
+  return true;
 }
 
 /* On every rota event written: EGBC's top-level path and each church's. */
@@ -98,8 +176,13 @@ import { makeDaily, DAILY_API_KEY } from './video.js';
 const keyNow = () => { try { return DAILY_API_KEY.value() || ''; } catch (e) { return ''; } };
 const onEvent = async (event) => {
   const after = event.data && event.data.after && event.data.after.exists ? event.data.after : null;
-  if (!after) return null;
+  const before = event.data && event.data.before && event.data.before.exists ? event.data.before.data() : null;
   const ch = churchFromPath(event, getFirestore());
+  const id = event.params.id;
+  /* Deleted: a meeting's own room closes with it. */
+  if (!after) return before && before.videoRoom === OWN(id) ? closeOwnRoom({ db: ch.db, daily: makeDaily(keyNow()), id }) : null;
+  const ev = after.data();
+  if (ev.videoRoom === OWN(id) && !ev.archived) return makeOwnRoom({ db: ch.db, daily: makeDaily(keyNow()), cid: ch.id, id, ev });
   return settleRoom({ db: ch.db, daily: makeDaily(keyNow()), cid: ch.id, id: event.params.id, after: after.data(),
     created: after.createTime ? after.createTime.toMillis() : 0 });
 };

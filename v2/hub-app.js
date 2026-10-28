@@ -1152,6 +1152,13 @@ function localToday() {
 }
 function meetingsToday() { return MEETINGS.filter(ev => ev.date === localToday()); }
 
+/* Cancel a meeting from the card (28 Oct 2026): "Are you sure?", then the
+   hub tells whoever was emailed and closes its room (EGBCAuth.cancelMeeting). */
+async function cancelHubMeeting(id) {
+  const ev = MEETINGS.find(m => m.id === id);
+  if (ev && await EGBCAuth.cancelMeeting(ev)) loadMeetings();
+}
+
 function renderMeetings() {
   const box = document.getElementById('meetingsCard');
   if (!box) return;
@@ -1187,6 +1194,8 @@ function renderMeetings() {
           <div class="s">${I('clock')}${dow}${time ? ' ' + time : ''} <span>&middot;</span> ${I('video')}${esc(videoRoomLabel(videoRoomFor(ev)))}</div>
         </div>
         ${ev.date === today ? '<span class="pill">Today</span>' : ''}
+        ${EGBCAuth.mayManageMeeting && EGBCAuth.mayManageMeeting(ev) ? `<a class="btn sm ghost" href="meeting.html?invite=${encodeURIComponent(ev.id)}" title="Invite people" aria-label="Invite people">${I('user-plus')}</a>
+          <button class="btn sm ghost" onclick="cancelHubMeeting('${esc(ev.id)}')" title="Cancel this meeting" aria-label="Cancel this meeting">${I('trash-2')}</button>` : ''}
         <a class="btn sm primary" href="${link}">Join</a>
       </div>`;
   }).join('');
@@ -2979,6 +2988,15 @@ function openTools() {
   document.getElementById('panel').classList.add('on');
   document.body.style.overflow = 'hidden';
   setTimeout(() => document.getElementById('toolSearch').focus(), 220);
+}
+/* The bar's Hub, on Home itself: anything open is closed and Home goes
+   back to its top (Martin's test, 28 Oct 2026). */
+function hubToTop() {
+  closeTools();
+  document.querySelectorAll('.modal.on, #adminModal.on').forEach(m => m.classList.remove('on'));
+  document.body.style.overflow = '';
+  if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 function closeTools() {
   document.getElementById('scrim').classList.remove('on');

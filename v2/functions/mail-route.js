@@ -57,7 +57,10 @@ export const KNOWN_SOURCES = [
   ['welcomeSettings', 'notifyEmail'],
   ['careRouting', 'care.email'],
   ['careRouting', 'pastoral.email'],
-  ['careRouting', 'prayer.email']
+  ['careRouting', 'prayer.email'],
+  /* Somebody invited to one meeting by name and address (main window,
+     28 Oct 2026; functions/meeting-manage.js). */
+  ['meetingGuests', 'email']
 ];
 export const HOURLY_RECIPIENTS = 2000;
 /* Church HQ's whole Resend account, every church together (batch 8): its own

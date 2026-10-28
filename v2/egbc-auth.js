@@ -2049,8 +2049,14 @@
        office has ticked people, CMM is invisible to everybody. */
     MEMBERS_ONLY_ROOMS: ['CMM'],
 
+    /* A members' room: the church's own list says so (churchSettings/video,
+       members: true; a meeting's own room booked from one keeps it). */
+    membersRoom: function (room) {
+      var Vd = global.EGBCVideo;
+      return !!room && (EGBCAuth.MEMBERS_ONLY_ROOMS.indexOf(room) !== -1 || !!(Vd && Vd.members && Vd.members(room)));
+    },
     mayJoinRoom: function (room) {
-      if (EGBCAuth.MEMBERS_ONLY_ROOMS.indexOf(room) === -1) return true;
+      if (!EGBCAuth.membersRoom(room)) return true;
       return EGBCAuth.isChurchMember();
     },
 
@@ -2085,16 +2091,59 @@
       }));
     },
     /* A new meeting, both parts at once: fields as an event's, description
-       and organiserUid included. Resolves its id. */
+       and organiserUid included. Resolves its id.
+       EVERY MEETING ITS OWN ROOM (Martin's test, 28 Oct 2026): a meeting
+       with a video call is saved with videoRoom "m-<its id>", and the hub
+       makes its Daily room (functions/meeting-rooms.js) - never a standing
+       room, so never another meeting's link. A standing room it was booked
+       into is kept as roomFrom (its hosts, members-only). */
     saveMeeting: function (fields) {
       var ref = db.collection('events').doc(), ev = Object.assign({}, fields, { meeting: true }), mine = {};
+      if (ev.videoRoom) {
+        if (ev.videoRoom !== 'own' && !/^m-/.test(ev.videoRoom)) ev.roomFrom = ev.videoRoom;
+        ev.videoRoom = 'm-' + ref.id;
+      }
       ['description', 'organiserUid', 'invitees'].forEach(function (k) { if (ev[k] !== undefined) { mine[k] = ev[k]; delete ev[k]; } });
-      ['teams', 'date', 'startTime', 'endTime', 'videoRoom'].forEach(function (k) { if (ev[k] !== undefined) mine[k] = ev[k]; });
+      ['teams', 'date', 'startTime', 'endTime', 'videoRoom', 'type'].forEach(function (k) { if (ev[k] !== undefined) mine[k] = ev[k]; });
       mine.updatedAt = new Date().toISOString(); mine.updatedBy = (currentUser && currentUser.uid) || '';
       var b = db.batch();
       b.set(db.collection('meetings').doc(ref.id), mine);
       b.set(ref, ev);
-      return b.commit().then(function () { MEETING_CACHE[ref.id] = mine; return ref.id; });
+      return b.commit().then(function () {
+        MEETING_CACHE[ref.id] = mine;
+        if (!ev.videoRoom) return ref.id;
+        /* Its room now, so its link is there to share at once. */
+        return EGBCAuth.meetingRoom(ref.id).then(function () { return ref.id; }, function () { return ref.id; });
+      });
+    },
+    /* A meeting's own room: made if it is not yet, and added to this page's
+       list of rooms. Resolves { key, url, label }. */
+    meetingRoom: function (id) {
+      return EGBCAuth.call('meetingRoom', { event: id }, { timeoutMs: 30000 }).then(function (r) {
+        if (r && r.url && global.EGBCVideo && global.EGBCVideo.add) global.EGBCVideo.add({ key: r.key, label: r.label, url: r.url, meeting: id });
+        return r;
+      });
+    },
+    /* May I invite people to it, or cancel it: its organiser, a master
+       admin, or an admin of one of its teams (the server decides,
+       functions/meeting-manage.js). ev: with its own part merged in. */
+    mayManageMeeting: function (ev) {
+      if (!ev || ev.private) return false;
+      if (EGBCAuth.isMaster()) return true;
+      if (currentUser && ev.organiserUid && ev.organiserUid === currentUser.uid) return true;
+      var admin = (currentProfile && currentProfile.adminFor) || [];
+      return (ev.teams || []).some(function (t) { return admin.indexOf(t) !== -1; });
+    },
+    /* Cancel a meeting: "Are you sure?", then the hub tells whoever was
+       emailed, closes its room and deletes it. Resolves true when done. */
+    cancelMeeting: function (ev) {
+      var what = (ev.type || 'This meeting') + (ev.description ? ' · ' + ev.description : '');
+      if (!global.confirm('Cancel and delete "' + what + '"?\n\nAnyone who was emailed an invitation is told it is cancelled, and its video room is closed. This cannot be undone.')) return Promise.resolve(false);
+      return EGBCAuth.call('meetingCancel', { event: ev.id }, { timeoutMs: 60000 }).then(function (r) {
+        delete MEETING_CACHE[ev.id];
+        global.alert('Cancelled.' + (r && r.emailed ? ' ' + r.told + ' of ' + r.emailed + ' people invited by email were told.' : ''));
+        return true;
+      }, function (e) { global.alert('Could not cancel it: ' + ((e && e.message) || e)); return false; });
     },
     /* A meeting's title or notes changed. */
     setMeetingField: function (id, field, value) {
@@ -2108,7 +2157,7 @@
       var room = global.EGBCVideo ? global.EGBCVideo.roomFor(ev) : (ev.videoRoom || '');
       if (room && !EGBCAuth.mayJoinRoom(room)) return false;
       if (EGBCAuth.seesAllMeetings()) return true;
-      if (room && EGBCAuth.MEMBERS_ONLY_ROOMS.indexOf(room) !== -1) return true;
+      if (room && EGBCAuth.membersRoom(room)) return true;
       var mine = EGBCAuth.effectiveTeams();
       mine = mine.concat(coversOf(mine));
       if ((ev.teams || []).some(function (t) { return mine.indexOf(t === 'Youth' ? 'Youth Worship' : t) !== -1; })) return true;
@@ -2128,7 +2177,7 @@
       if (!room || !EGBCAuth.mayJoinRoom(room)) return false;
       if (EGBCAuth.seesAllMeetings()) return true;
       var Vd = global.EGBCVideo;
-      if (EGBCAuth.MEMBERS_ONLY_ROOMS.indexOf(room) !== -1 || (Vd && Vd.members && Vd.members(room))) return true;
+      if (EGBCAuth.membersRoom(room)) return true;
       var mine = EGBCAuth.effectiveTeams();
       mine = mine.concat(coversOf(mine));
       var admin = EGBCAuth.adminAreas ? EGBCAuth.adminAreas() : [];

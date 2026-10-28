@@ -9,8 +9,8 @@
      description  its title and notes
      organiserUid who set it up (may start it as host)
      invitees     anyone named on it
-   meetings/{id} also carries a copy of the event's teams, date, times and
-   room, because the rules decide "invited" from the teams.
+   meetings/{id} also carries a copy of the event's teams, date, times,
+   room and kind (so somebody invited by name, on no team, can open it), because the rules decide "invited" from the teams.
 
    WHAT IS A MEETING: an event marked meeting: true (the pages mark the
    ones they make), or any event with a video room whose kind is not a
@@ -24,7 +24,7 @@
    the meetings already there (a dry run first).
    ===================================================================== */
 const PRIVATE = ['description', 'organiserUid', 'invitees', 'publicTitle'];
-const COPY = ['teams', 'date', 'startTime', 'endTime', 'videoRoom'];
+const COPY = ['teams', 'date', 'startTime', 'endTime', 'videoRoom', 'type'];
 const EGBC_SERVICES = ['Sunday Morning Worship', 'Evening Carol Service', 'Midnight Service', 'Special Service', 'LOUD Worship'];
 
 export async function serviceKinds(db) {
@@ -63,7 +63,11 @@ export async function splitOne(db, id, ev, services, apply = true) {
   return out;
 }
 
-/* An event deleted: its private part goes with it. */
+/* An event deleted: its private part goes with it, and its guest links and
+   its record of who was emailed (functions/meeting-manage.js). */
 export async function dropOne(db, id) {
   await db.collection('meetings').doc(id).delete().catch(() => {});
+  await db.collection('meetingSends').doc(id).delete().catch(() => {});
+  const g = await db.collection('meetingGuests').where('meetingId', '==', id).get().catch(() => null);
+  if (g) await Promise.all(g.docs.map((d) => d.ref.delete()));
 }

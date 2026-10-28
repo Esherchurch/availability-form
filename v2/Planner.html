@@ -6,8 +6,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610311400"></script>
-<script src="egbc-video.js?v=202610272330"></script>
+<script src="egbc-auth.js?v=202610311600"></script>
+<script src="egbc-video.js?v=202610311600"></script>
 <script src="egbc-guard.js?v=202610282000" data-team="Worship Team,Kids Church,Youth Worship,Core Team" data-role="leader"></script>
     <meta charset="UTF-8">
     <link rel="manifest" href="./manifest-planner.json">
@@ -1507,6 +1507,8 @@
             (V() ? V().rooms() : []).forEach(({ key: r, label }) => {
                 html += '<option value="' + r + '"' + (vRoom === r ? ' selected' : '') + '>' + label + '</option>';
             });
+            /* A meeting's own room (functions/meeting-rooms.js), as the rota shows it. */
+            if (vRoom && V() && !V().rooms().some(x => x.key === vRoom)) html += '<option value="' + escP(vRoom) + '" selected>Its own room</option>';
             html += '</select>';
             if (vRoom && V()) html += '<a href="' + V().link(vRoom, ev) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="bg-green-600 text-white px-4 py-2 rounded-full font-semibold text-[10px] uppercase shadow-sm hover:bg-black transition-all">Join</a>';
             // ── The church's service roles (H-11; EGBC: Service Leader, Speaker) ──

@@ -24,7 +24,7 @@ Martin's decisions first; "(reviewer)" marks the reviewer's findings of 27 Oct, 
 - (reviewer) **Payments: the money team (EGBC: Finance) and master admins** (payments.html): matches
 - (reviewer) **Connect ChurchShow: admins of AV or Worship (an admin of the core team covering them too, H-15), and master admins** (churchshow.html): matches
 - (reviewer) **Check-in: core team admins, the event's own team, master admins** (checkin.html): matches
-- **Meetings: anybody on or leading a team, whoever may see every meeting, and master admins (each sees only the meetings they are invited to)** (meeting.html): Kids Ch should not, Kids lead should not, Worship should not, Wor lead should not, Wor admin should not, Kids admin should not, Core admin should not, AV should not, Wor core should not, K&Y core should not, Office should not, Elders should not, Finance should not, Pastoral should not, Master should not
+- **Meetings: anybody on or leading a team, whoever may see every meeting, and master admins (each sees only the meetings they are invited to)** (meeting.html): matches
 - (reviewer) **Your church: master admins** (your-church.html): matches
 - **Performance Notes (and the Schematic and Performance apps on Apps and downloads): the Worship and AV teams, their admins, the core teams covering them, master admins** (Performancenotes.html): matches
 - (reviewer) **Registers: core team admins, the event's own team, master admins** (attendance.html): matches
