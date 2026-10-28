@@ -11,6 +11,10 @@ match /hqMemberships/{id} {
 allow read: if signedIn() && resource.data.uid == request.auth.uid;
 allow write: if false;
 }
+match /hqSlugs/{slug} {
+allow get: if true;
+allow list, write: if false;
+}
 match /churches/{cid} {
 function signedIn() { return request.auth != null && cid in request.auth.token.churches; }
 allow read: if signedIn();

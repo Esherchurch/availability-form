@@ -86,7 +86,7 @@
 /* The same named app egbc-auth.js uses - see login.html. */
 const app=EGBCAuth.app;   /* egbc-auth.js owns it, and brings the emulator hook */
 const auth=firebase.auth(app);
-const db=firebase.firestore(app);
+const db=EGBCAuth.db;   /* the chosen church's data on a church's page (H-6) */
 
 const WEEKS=6;
 

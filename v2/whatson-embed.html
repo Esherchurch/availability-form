@@ -26,8 +26,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202610302200"></script>
-<script src="egbc-church.js?v=202610192330"></script>
-<script src="egbc-events.js?v=202610281600"></script>
+<script src="egbc-church.js?v=202610311000"></script>
+<script src="egbc-events.js?v=202610311000"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{--accent:#3d6263;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--tint:#eef5f4}
@@ -197,7 +197,7 @@
   if (window.EGBCChurch && EGBCChurch.uses && !EGBCChurch.uses('publicWhatson')) {
     box.innerHTML = '<p class="none">Not available.</p>'; tellHeight(); return;
   }
-  E.lookups().then(function (l) { LOOK = l; }, function () {}).then(function () { if (VIEW === 'month') drawMonth(); else if (VIEW === 'featured') drawFeatured(); else drawList(); });
+  EGBCChurch.ready().then(function () { return E.lookups(); }).then(function (l) { LOOK = l; }, function () {}).then(function () { if (VIEW === 'month') drawMonth(); else if (VIEW === 'featured') drawFeatured(); else drawList(); });
   window.addEventListener('resize', tellHeight);
 })();
 </script>

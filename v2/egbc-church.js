@@ -7,7 +7,9 @@
    page the events window builds reads them from here and writes none of
    them into the page itself: this is meant to work for any church.
 
-     EGBCChurch.load()      -> Promise of { name, enquiryEmail, logoUrl }
+     EGBCChurch.load()      -> Promise of { name, enquiryEmail, logoUrl },
+                               after the address's church is known (H-6)
+     EGBCChurch.ready()     -> Promise: the address's church is known
      EGBCChurch.name() / .email() / .logo()   once loaded
      EGBCChurch.wrap(title, body)   an email in the shared shell, with this
                                      church's name as the footer
@@ -28,9 +30,22 @@
 
   var D = { name: '', enquiryEmail: '', logoUrl: '' }, loading = null;
 
+  /* On a church's own address (<slug>.churchhq.co.uk) the church is the
+     address's (EGBCAuth.churchFromAddress, H-6 step 4), known before the
+     first read. An address no church has: the page says so, and stops. */
+  function addressChurch() {
+    var A = global.EGBCAuth;
+    if (!A || !A.churchFromAddress) return Promise.resolve('');
+    return A.churchFromAddress().catch(function (e) {
+      if (!e || e.code !== 'not-found') return '';
+      document.body.innerHTML = '<div style="max-width:560px;margin:12vh auto;padding:24px 18px;font:400 16px/1.5 Inter,system-ui,sans-serif;color:#374151;text-align:center">' +
+        '<h1 style="font-size:22px;color:#111827;margin:0 0 8px">This church isn’t here</h1><p style="margin:0">Nothing is at this address. Check the link you were given, or ask the church for it.</p></div>';
+      return new Promise(function () {});
+    });
+  }
   function load() {
     if (loading) return loading;
-    loading = EGBCAuth.db.collection('churchSettings').doc('details').get().then(function (s) {
+    loading = addressChurch().then(function () { return EGBCAuth.db.collection('churchSettings').doc('details').get(); }).then(function (s) {
       if (s.exists) {
         var d = s.data();
         D = { name: d.name || '', enquiryEmail: d.enquiryEmail || '', logoUrl: d.logoUrl || '' };
@@ -170,7 +185,7 @@
      document (sundaysInWhatsOn, false meaning off). */
   function uses(name) { return global.EGBCAuth && EGBCAuth.uses ? EGBCAuth.uses(name) : true; }
 
-  var api = {
+  var api = { ready: function () { return addressChurch(); },
     load: load, wrap: wrap, send: send, header: header, title: title, closeOnLeave: closeOnLeave, uses: uses,
     name: function () { return D.name; }, email: function () { return D.enquiryEmail; }, logo: function () { return D.logoUrl; },
     giving: giving, givingReady: givingReady,

@@ -13486,3 +13486,34 @@ The reviewer asked me to keep you busy. All of it is yours to build; the files n
    - **On today's address** nothing changes for EGBC.
    - Comms has the e-news sign-up pages, and I have index.html (the availability form). We can both use your helper once it exists.
 4. **Your church's words:** `EGBCAuth.memberWord()`, `EGBCAuth.ministerTitle()` and `EGBCAuth.serviceDay()` are new, read with the profile. Any page of yours that says "member", "minister" or "Sunday" can use them (H-12).
+
+## From the events window, 31 Oct 2026: F-312, Storage, two pages and the public pages (H-6 steps 2 and 4), for main
+
+**Storage:**
+- A church's files are under `churches/<id>/` + the same path as EGBC's. That is what storage.churches.rules generates and what ra-report, canva and meeting-papers already write. So it isn't `files/`.
+- `EGBCAuth.storage()` puts every path under the church. A path that already has the prefix is left alone, and a URL is a URL.
+- egbc-db.js's `storage` is the folder `ref(storageService, 'churches/<id>')`, so `ref(storage, path)` works unchanged. Firebase's own Storage object is `storageService`.
+
+**youth-access.html and worshiphubapp.html** now use `EGBCAuth.db` (and `EGBCAuth.storage()`). worshiphubapp no longer starts its own default app.
+
+**The address (egbc-auth.js):**
+- On `<slug>.churchhq.co.uk` the page is that church's, and `?church=` isn't used. On localhost, `?address=<slug>` stands in for the address.
+- The slug is the first guess. `EGBCAuth.churchFromAddress()` reads `hqSlugs/<slug>` and corrects it (`EGBCAuth.db` reads the church on each call).
+- An address nobody has: `EGBCChurch.load()` shows "This church isn't here" and stops.
+- Also `EGBCAuth.addressSlug()`. `churchLink` adds nothing on a church's own address. The claim check never "forgets" a church that came from the address.
+
+**Rules:** `hqSlugs`: anyone may get one, nobody may list or write (firestore.rules, plus `hqSlugs` added to tools/rules-build.mjs's directory lists). Both rulesets are rebuilt. Probe: 6/6.
+
+**Server:**
+- `functions/church-address.js`: `dbForAddress(root, req)` (Origin, then Referer), `dbForSlug`, `churchForSlug`, `slugOfAddress`.
+- `eventsFeed`: a key finds its church through the codes index (`feed`); the public feed through `?site=<slug>`. `myEventsFeed` and `emailMyFeedLink` use the caller's church.
+
+**For main:**
+1. Please bump egbc-auth.js's stamp on every page. I bumped egbc-church and egbc-events only on the seven pages I touched.
+2. index.html (the availability form) can use `EGBCAuth.churchFromAddress()`, or `dbForAddress` on the server.
+
+**For Comms:**
+- church-meeting.html uses `firebase.storage(A.app)` directly (lines 371 and 440), so its files stay at EGBC's top level. `EGBCAuth.storage()` fixes that.
+- enews.js's `dbForSite` could use church-address.js.
+
+**Not church-aware yet** (data as well as files; not part of this job): present.js (and the converter), sg-ai.js and lesson.js.

@@ -3055,6 +3055,13 @@ service cloud.firestore {
       allow read: if signedIn() && resource.data.uid == request.auth.uid;
       allow write: if false;
     }
+    // A church's web address (<slug>.churchhq.co.uk) to its id, for a page
+    // with nobody signed in (EGBCAuth.churchFromAddress, H-6 step 4). Only
+    // one address at a time, by name: nothing private, and never the list.
+    match /hqSlugs/{slug} {
+      allow get: if true;
+      allow list, write: if false;
+    }
 
     /* One job's teams on churchSettings/teamJobs: absent, or a list of at
        most 500 (the team ids are checked by the page, which offers only

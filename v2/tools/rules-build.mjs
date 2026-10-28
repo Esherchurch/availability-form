@@ -57,7 +57,7 @@ export function build(src) { return HEADER + strip(src); }
    Church HQ's directory: every one of these is also a church's, under
    churches/{cid} in the church ruleset. For the checks, so a collection
    added to the rules is covered without a list to keep up. */
-export const DIRECTORY_COLLECTIONS = ['hqChurches', 'hqMemberships'];
+export const DIRECTORY_COLLECTIONS = ['hqChurches', 'hqMemberships', 'hqSlugs'];
 export function churchCollections(src) {
   const text = String(src).replace(/\r\n/g, '\n');
   const names = new Set([...text.matchAll(/^ {4}match \/([A-Za-z0-9_]+)\//gm)].map((m) => m[1]));
@@ -122,11 +122,11 @@ function blockBody(text, head) {
 }
 
 const LEFT_OUT = [
-  /^match \/churches\/\{cid\}$/, /^match \/hqChurches\//, /^match \/hqMemberships\//, /^match \/\{document=\*\*\}$/,
+  /^match \/churches\/\{cid\}$/, /^match \/hqChurches\//, /^match \/hqMemberships\//, /^match \/hqSlugs\//, /^match \/\{document=\*\*\}$/,
   /^match \/users\/\{uid\}$/,
   /^function (signedIn|inChurch|churchMeAt|churchActive|churchMaster|churchAdmin|churchVolunteer|churchSgLead)\(/
 ];
-const DIRECTORY = [/^match \/hqChurches\//, /^match \/hqMemberships\//];
+const DIRECTORY = [/^match \/hqChurches\//, /^match \/hqMemberships\//, /^match \/hqSlugs\//];
 
 export function buildChurch(src) {
   const docs = blockBody(strip(src), 'match /databases/{database}/documents');

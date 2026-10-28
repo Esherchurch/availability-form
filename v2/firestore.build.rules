@@ -1560,6 +1560,10 @@ match /hqMemberships/{id} {
 allow read: if signedIn() && resource.data.uid == request.auth.uid;
 allow write: if false;
 }
+match /hqSlugs/{slug} {
+allow get: if true;
+allow list, write: if false;
+}
 function teamJobList(d, job) {
 return !(job in d) || (d[job] is list && d[job].size() <= 500);
 }

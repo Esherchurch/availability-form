@@ -736,7 +736,11 @@
   }
   function feedUrl(st) {
     var mine = st.signedIn && st.mine;
-    return feedBase() + (mine ? '?k=' + encodeURIComponent(st.mine) : '?church=1') + (st.cats && st.cats.length ? '&cat=' + st.cats.join(',') : '');
+    /* A calendar asking for the feed sends no address of its own, so the
+       church's public feed names its web address (the slug, as the
+       hostname does; the server looks it up). A person's own key is enough. */
+    var slug = !mine && global.EGBCAuth && EGBCAuth.addressSlug ? EGBCAuth.addressSlug() : '';
+    return feedBase() + (mine ? '?k=' + encodeURIComponent(st.mine) : '?church=1' + (slug ? '&site=' + encodeURIComponent(slug) : '')) + (st.cats && st.cats.length ? '&cat=' + st.cats.join(',') : '');
   }
   function deviceKind() {
     var ua = (global.navigator && navigator.userAgent) || '';

@@ -77,10 +77,25 @@
      data is the top level, exactly as before. The sign-in must carry the
      church (its `churches` claim, functions/hq-directory.js): checked once
      signed in, and a church that is not the person's is forgotten. Until
-     the address decides it (<church>.churchhq.co.uk, H-6 (a)). */
+     the address decides it (<church>.churchhq.co.uk, H-6 (a)).
+
+     THE ADDRESS DECIDES IT (H-6 step 4; the events window). On
+     <slug>.churchhq.co.uk the page is that church's, signed in or not, and
+     ?church= and the device's choice are not used. The slug is the first
+     guess (a church's id is its first slug); EGBCAuth.churchFromAddress()
+     asks Church HQ's directory (hqSlugs/<slug>.churchId, readable by
+     anyone) and corrects it, so a church that changed its address keeps
+     working. On a local test, ?address=<slug> stands in for the address. */
+  var NOT_CHURCH_HOSTS = ['egbc', 'www', 'account', 'hub', 'hq', 'app'];
+  var ADDRESS = (function () {
+    var h = String(location.hostname || '').toLowerCase(), m = /^([a-z0-9][a-z0-9-]{0,40})\.churchhq\.co\.uk$/.exec(h), s = m ? m[1] : '';
+    if (!s && (h === 'localhost' || h === '127.0.0.1')) { try { s = new URLSearchParams(location.search).get('address') || ''; } catch (e) {} }
+    return /^[a-z0-9][a-z0-9-]{0,40}$/.test(s) && NOT_CHURCH_HOSTS.indexOf(s) < 0 ? s : '';
+  })();
   var CHURCH = (function () {
     var ok = function (v) { return /^[a-z0-9][a-z0-9-]{1,40}$/.test(String(v || '')) && v !== 'egbc'; };
     var asked = null;
+    if (ADDRESS) return ADDRESS;
     try { asked = new URLSearchParams(location.search).get('church'); } catch (e) {}
     try {
       if (asked === 'egbc' || asked === '') { localStorage.removeItem('egbc-church'); return ''; }
@@ -92,22 +107,67 @@
   /* A db that stays inside the church: the same .collection(), .doc(),
      .batch() and .runTransaction() as Firestore's, as the server's scopedDb
      (functions/church-scope.js). Batches and transactions take references,
-     which already carry the church. */
-  function scopedDb(raw, cid) {
-    var root = raw.collection('churches').doc(cid);
-    return {
-      churchId: cid, raw: raw, app: raw.app,
-      collection: function (name) { return root.collection(name); },
-      doc: function (p) { return raw.doc('churches/' + cid + '/' + String(p).replace(/^\/+/, '')); },
+     which already carry the church. The church is read on every call, so
+     the address's answer from the directory (above) can correct it. */
+  function scopedDb(raw) {
+    var o = {
+      raw: raw, app: raw.app,
+      collection: function (name) { return raw.collection('churches').doc(CHURCH).collection(name); },
+      doc: function (p) { return raw.doc('churches/' + CHURCH + '/' + String(p).replace(/^\/+/, '')); },
       batch: function () { return raw.batch(); },
       runTransaction: function (fn) { return raw.runTransaction(fn); },
       collectionGroup: function () { throw new Error('A collection group reaches every church: use the church\'s own collection.'); },
       enablePersistence: function () { return Promise.resolve(); },
       settings: function () {}
     };
+    Object.defineProperty(o, 'churchId', { get: function () { return CHURCH; } });
+    return o;
   }
   var rawDb = firebase.firestore(app);
-  var db = CHURCH ? scopedDb(rawDb, CHURCH) : rawDb;
+  var db = CHURCH ? scopedDb(rawDb) : rawDb;
+
+  /* The church the address names, from Church HQ's directory: resolves to
+     its id; '' on an address that names none (EGBC's, today's, any local
+     test); rejects with code 'not-found' for a church address nobody has.
+     Public pages wait for it before their first read. Asked once. */
+  var addressAnswer = null;
+  function churchFromAddress() {
+    if (!ADDRESS) return Promise.resolve('');
+    if (addressAnswer) return addressAnswer;
+    addressAnswer = rawDb.collection('hqSlugs').doc(ADDRESS).get().then(function (s) {
+      var id = s.exists ? String((s.data() || {}).churchId || '') : '';
+      if (!/^[a-z0-9][a-z0-9-]{1,40}$/.test(id)) { var e = new Error('This church’s address isn’t on Church HQ.'); e.code = 'not-found'; throw e; }
+      /* a church whose address changed: its switches again, from its own data */
+      if (id !== CHURCH) { CHURCH = id; loadFeatures(); }
+      return id;
+    });
+    return addressAnswer;
+  }
+  if (ADDRESS) churchFromAddress().catch(function () {});
+
+  /* A church's files are under churches/<id>/, the same path below it as
+     EGBC's (storage.churches.rules is generated that way, and the server
+     writes there: ra-report.js, canva.js, meeting-papers.js). The pages'
+     Storage: EGBC's is Firebase's own; a church's is the same with every
+     path put under the church, so a page changes nothing. A path that
+     already carries the church (a fullPath kept from an upload, or one the
+     server stored) is left as it is; a URL is a URL. */
+  var rawStorage = null, churchStorage = null;
+  function storageFor() {
+    if (!rawStorage) rawStorage = firebase.storage(app);
+    if (!CHURCH) return rawStorage;
+    if (!churchStorage) churchStorage = {
+      app: rawStorage.app, raw: rawStorage,
+      ref: function (p) {
+        var pre = 'churches/' + CHURCH + '/';
+        p = String(p == null ? '' : p).replace(/^\/+/, '');
+        return rawStorage.ref(!p ? pre.slice(0, -1) : p.indexOf(pre) === 0 ? p : pre + p);
+      },
+      refFromURL: function (u) { return rawStorage.refFromURL(u); },
+      useEmulator: function (h, p) { return rawStorage.useEmulator(h, p); }
+    };
+    return churchStorage;
+  }
 
   /* The hub's functions. Called over plain fetch with the ID token rather
      than through firebase-functions-compat, because that would be a fourth
@@ -1496,7 +1556,7 @@
              page opens again on the person's own data. */
           if (CHURCH && !global.__egbcChurchChecked) {
             global.__egbcChurchChecked = true;
-            user.getIdTokenResult().then(function (t) {
+            churchFromAddress().then(function () { return user.getIdTokenResult(); }).then(function (t) {
               var c = (t && t.claims && t.claims.churches) || [];
               if (c.indexOf(CHURCH) !== -1) return;
               /* Not yet: the church may hold their verified address
@@ -1508,11 +1568,15 @@
                 if (r && r.joined) return user.getIdToken(true).then(function () { location.reload(); });
                 throw new Error('not joined');
               }).catch(function () {
+                /* On the church's own address there is nothing to forget:
+                   the page stays the church's, and its rules show only
+                   what is public. */
+                if (ADDRESS) return;
                 try { localStorage.removeItem('egbc-church'); } catch (e) {}
                 var u = new URL(location.href); u.searchParams.delete('church');
                 location.replace(u.toString());
               });
-            });
+            }).catch(function () {});
           }
 
           /* The teams read goes alongside the profile read, not after it:
@@ -1920,10 +1984,15 @@
        Resolves to a list of church ids; [] when signed out or in none. */
     /* The church this page is for (H-6), or '' for EGBC's top-level data. */
     churchId: function () { return CHURCH; },
+    /* The church the web address names (H-6 step 4): a Promise of its id,
+       '' when the address names none. See churchFromAddress above. */
+    churchFromAddress: churchFromAddress,
+    /* the slug of a church's own address (<slug>.churchhq.co.uk), or '' */
+    addressSlug: function () { return ADDRESS; },
     /* A link to another page of this church's: on today's shared address
        the church goes with it; on the church's own address it is not needed. */
     churchLink: function (url) {
-      if (!CHURCH) return url;
+      if (!CHURCH || ADDRESS) return url;
       var u = new URL(url, location.href); u.searchParams.set('church', CHURCH);
       return u.pathname.split('/').pop() + u.search + u.hash;
     },
@@ -2213,7 +2282,7 @@
        which reach for the default app - the one that now belongs to the page,
        not to us. */
     app: app,
-    storage: function () { return firebase.storage(app); },
+    storage: function () { return storageFor(); },
 
     chooseIdentity: chooseIdentity,
 

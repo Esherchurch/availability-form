@@ -33,6 +33,9 @@ import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { hubUrl } from './notify.js';
 import { makeSender } from './public-mail.js';
+import { churchOf } from './church-scope.js';
+import { codeHash, indexCode, dropCode, dbForCode } from './hq-codes.js';
+import { dbForSlug } from './church-address.js';
 
 const db = () => getFirestore();
 const REGION = 'europe-west2';
@@ -131,9 +134,9 @@ export function visible(ev, audiences, cats) {
 
 /* ------------------------------------------------------------ serving */
 
-async function lookups() {
+async function lookups(D) {
   const look = { sites: {}, rooms: {}, venues: {} };
-  const [s, r, v] = await Promise.all(['sites', 'rooms', 'venues'].map((c) => db().collection(c).get()));
+  const [s, r, v] = await Promise.all(['sites', 'rooms', 'venues'].map((c) => D.collection(c).get()));
   s.docs.forEach((d) => { look.sites[d.id] = d.data().name || ''; });
   r.docs.forEach((d) => { look.rooms[d.id] = d.data().name || ''; });
   v.docs.forEach((d) => { look.venues[d.id] = d.data().name || ''; });
@@ -145,29 +148,34 @@ export const eventsFeed = onRequest({ region: REGION, cors: false, invoker: 'pub
   try {
     const key = String(req.query.k || '').trim(), pub = String(req.query.church || '') === '1';
     const cats = String(req.query.cat || '').split(',').map((c) => c.trim()).filter((c) => /^[a-z0-9-]{1,40}$/.test(c)).slice(0, 20);
-    let audiences = ['public'], who = '';
+    let audiences = ['public'], who = '', D;
+    /* Which church (H-6 step 4): a person's key is in the codes index
+       (a church's) or not (EGBC's); the public feed names the church's web
+       address (?site=<slug>, functions/church-address.js), none for EGBC. */
     if (key) {
       if (!/^[A-Za-z0-9]{24,64}$/.test(key)) return no();
-      const f = await db().collection('eventFeeds').doc(key).get();
+      D = await dbForCode(db(), 'feed', codeHash(key));
+      const f = await D.collection('eventFeeds').doc(key).get();
       if (!f.exists) return no();
-      const u = await db().collection('users').doc(f.data().uid).get();
+      const u = await D.collection('users').doc(f.data().uid).get();
       if (!u.exists || u.data().status !== 'active') return no();
       audiences = audiencesFor(u.data()); who = ' (mine)';
     } else if (!pub) return no();
+    else if (!(D = await dbForSlug(db(), String(req.query.site || '').trim().toLowerCase()))) return no();
     const now = Date.now();
-    const snap = await db().collection('calEvents').where('startUtc', '>=', now - 30 * 864e5).where('startUtc', '<=', now + 548 * 864e5).get();
+    const snap = await D.collection('calEvents').where('startUtc', '>=', now - 30 * 864e5).where('startUtc', '<=', now + 548 * 864e5).get();
     const events = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((e) => visible(e, audiences, cats));
-    const church = await db().collection('churchSettings').doc('details').get();
+    const church = await D.collection('churchSettings').doc('details').get();
     const name = (church.exists && church.data().name) || 'Church';
     let catNames = '';
     if (cats.length) {
-      const cs = await db().collection('eventCategories').get(), names = {};
+      const cs = await D.collection('eventCategories').get(), names = {};
       cs.docs.forEach((d) => { names[d.id] = d.data().name; });
       catNames = ' - ' + cats.map((c) => names[c] || c).join(', ');
     }
-    const hub = await hubUrl(db());
+    const hub = await hubUrl(D);
     let host = 'church-hub'; try { host = new URL(hub).host || host; } catch (e) {}
-    const body = buildEventsFeed({ events, look: await lookups(), calName: name + ' \u2013 What\'s on' + catNames + who, host, hub, now });
+    const body = buildEventsFeed({ events, look: await lookups(D), calName: name + ' \u2013 What\'s on' + catNames + who, host, hub, now });
     res.set('Content-Type', 'text/calendar; charset=utf-8');
     res.set('Content-Disposition', 'inline; filename="whats-on.ics"');
     res.set('Cache-Control', 'public, max-age=900');
@@ -180,33 +188,38 @@ export const eventsFeed = onRequest({ region: REGION, cors: false, invoker: 'pub
 
 /* The signed-in person's own link: made once, kept, and Reset makes a new
    one (the old link stops working at once). */
+/* The caller's church (its sign-in's), and their record in it. */
 async function activeUser(req) {
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
-  const u = await db().collection('users').doc(uid).get();
+  const D = churchOf(req, db()).db;
+  const u = await D.collection('users').doc(uid).get();
   if (!u.exists || u.data().status !== 'active') throw new HttpsError('permission-denied', 'Your account is not active.');
-  return { uid, user: u.data() };
+  return { uid, user: u.data(), D };
 }
-async function keyFor(uid, reset) {
-  const mine = await db().collection('eventFeeds').where('uid', '==', uid).get();
+/* A church's key also goes in the codes index, so the feed finds its church. */
+async function keyFor(D, uid, reset) {
+  const mine = await D.collection('eventFeeds').where('uid', '==', uid).get();
   if (mine.size && !reset) return mine.docs[0].id;
-  const batch = db().batch();
+  const batch = D.batch();
   mine.docs.forEach((d) => batch.delete(d.ref));
   const key = crypto.randomBytes(24).toString('base64').replace(/[^A-Za-z0-9]/g, '').slice(0, 32);
-  batch.set(db().collection('eventFeeds').doc(key), { uid, createdAt: FieldValue.serverTimestamp() });
+  batch.set(D.collection('eventFeeds').doc(key), { uid, createdAt: FieldValue.serverTimestamp() });
   await batch.commit();
+  await Promise.all(mine.docs.map((d) => dropCode(D, 'feed', codeHash(d.id))));
+  await indexCode(D, 'feed', codeHash(key));
   return key;
 }
 export const myEventsFeed = onCall({ region: REGION }, async (req) => {
-  const { uid } = await activeUser(req);
+  const { uid, D } = await activeUser(req);
   const reset = !!(req.data && req.data.reset);
-  return { key: await keyFor(uid, reset), ...(reset ? { reset: true } : {}) };
+  return { key: await keyFor(D, uid, reset), ...(reset ? { reset: true } : {}) };
 });
 
 /* The feed's own address, as the pages build it (egbc-events.js feedUrl). */
-export function feedLink({ project, emulator, key, cats }) {
+export function feedLink({ project, emulator, key, cats, site }) {
   const base = emulator ? 'http://localhost:5102/' + project + '/europe-west2/eventsFeed' : 'https://europe-west2-' + project + '.cloudfunctions.net/eventsFeed';
-  return base + (key ? '?k=' + encodeURIComponent(key) : '?church=1') + (cats.length ? '&cat=' + cats.join(',') : '');
+  return base + (key ? '?k=' + encodeURIComponent(key) : '?church=1' + (site ? '&site=' + encodeURIComponent(site) : '')) + (cats.length ? '&cat=' + cats.join(',') : '');
 }
 const htmlEsc = (t) => String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 export function feedLinkEmail({ link, church, mine }) {
@@ -225,21 +238,23 @@ export function feedLinkEmail({ link, church, mine }) {
 /* Only ever to the signed-in person's own address: nothing in the request
    can choose who it goes to. A few an hour at most. */
 export const emailMyFeedLink = onCall({ region: REGION }, async (req) => {
-  const { uid, user } = await activeUser(req);
+  const { uid, user, D } = await activeUser(req);
   const to = String(user.email || (req.auth.token && req.auth.token.email) || '').trim();
   if (!/^[^@\s]+@[^@\s]+$/.test(to)) throw new HttpsError('failed-precondition', 'There is no email address on your account.');
-  const ref = db().collection('feedLinkSent').doc(uid), now = Date.now();
+  const ref = D.collection('feedLinkSent').doc(uid), now = Date.now();
   const times = ((await ref.get()).data() || {}).times || [];
   const recent = times.filter((t) => t > now - 3600e3);
   if (recent.length >= 5) throw new HttpsError('resource-exhausted', 'That has been sent a few times already. Look in your email, or try again in an hour.');
   const d = req.data || {};
   const cats = (Array.isArray(d.cats) ? d.cats : []).map(String).filter((c) => /^[a-z0-9-]{1,40}$/.test(c)).slice(0, 20);
   const mine = d.mine === true;
-  const link = feedLink({ project: process.env.GCLOUD_PROJECT || JSON.parse(process.env.FIREBASE_CONFIG || '{}').projectId, emulator: process.env.FUNCTIONS_EMULATOR === 'true', key: mine ? await keyFor(uid, false) : '', cats });
-  const church = await db().collection('churchSettings').doc('details').get();
+  const link = feedLink({ project: process.env.GCLOUD_PROJECT || JSON.parse(process.env.FIREBASE_CONFIG || '{}').projectId, emulator: process.env.FUNCTIONS_EMULATOR === 'true', key: mine ? await keyFor(D, uid, false) : '', cats,
+    /* a church's public feed names its address: its first slug is its id (hqSlugs) */
+    site: D.churchId || '' });
+  const church = await D.collection('churchSettings').doc('details').get();
   const msg = feedLinkEmail({ link, church: church.exists ? church.data().name : '', mine });
   await ref.set({ times: recent.concat([now]) });
-  const out = await makeSender({ db: db() })({ to: [to], subject: msg.subject, html: msg.html }, { source: 'events-feed', kind: 'calendar link' });
+  const out = await makeSender({ db: D })({ to: [to], subject: msg.subject, html: msg.html }, { source: 'events-feed', kind: 'calendar link' });
   if (!out.ok) throw new HttpsError('unavailable', 'The email could not be sent. Copy the link instead.');
   return { ok: true };
 });

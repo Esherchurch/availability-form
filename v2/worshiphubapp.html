@@ -2062,15 +2062,10 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
 
 <script>
 // ── FIREBASE ──────────────────────────────────────────────────────────────
-const firebaseConfig = {
-  apiKey: "AIzaSyCl2enA5LPKrHcxYP1K64c1ZNK744RO9R4",
-  authDomain: "egbc-worship-planner.firebaseapp.com",
-  projectId: "egbc-worship-planner",
-  storageBucket: "egbc-worship-planner.firebasestorage.app"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const storage = firebase.storage();
+/* egbc-auth.js's app, signed in, and on a church's page that church's own
+   data and files (H-6): never a second default app of the page's own. */
+const db = EGBCAuth.db;
+const storage = EGBCAuth.storage();
 
 // ── STATE ─────────────────────────────────────────────────────────────────
 let currentSection = 'home';

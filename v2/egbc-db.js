@@ -54,7 +54,7 @@ import './egbc-nosend.js';
 
 import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
 import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, connectFirestoreEmulator, doc as docRef } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
-import { getStorage, connectStorageEmulator } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
+import { getStorage, connectStorageEmulator, ref as storageRef } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
 import { getAuth, connectAuthEmulator, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 import { getFunctions, connectFunctionsEmulator, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js';
 
@@ -111,7 +111,13 @@ export const churchId = (function () {
    runTransaction and collectionGroup need the database itself: use
    `firestore` for those (no modular page does today). */
 export const db = churchId ? docRef(firestore, 'churches', churchId) : firestore;
-export const storage = getStorage(app);
+/* THE PAGES' storage, the same way: a church's is the folder churches/<id>,
+   because the modular ref() takes a reference as the parent, so
+   ref(storage, 'pdfs/a.pdf') reaches churches/<id>/pdfs/a.pdf with no change
+   to the page (storage.churches.rules is that tree; the server writes there
+   too). storageService is Firebase's own, for anything that needs it. */
+export const storageService = getStorage(app);
+export const storage = churchId ? storageRef(storageService, 'churches/' + churchId) : storageService;
 
 /* europe-west2, because that is where functions/index.js deploys them. Get
    the region wrong and every call fails with "not found", from a function
@@ -141,7 +147,7 @@ if (usingEmulator) {
   try {
     connectFirestoreEmulator(firestore, 'localhost', EMU.firestore);
     connectAuthEmulator(auth, 'http://localhost:' + EMU.auth, { disableWarnings: true });
-    connectStorageEmulator(storage, 'localhost', EMU.storage);
+    connectStorageEmulator(storageService, 'localhost', EMU.storage);
     connectFunctionsEmulator(functions, 'localhost', EMU.functions);
     console.info('EGBCDb: using local emulators');
   } catch (e) {
