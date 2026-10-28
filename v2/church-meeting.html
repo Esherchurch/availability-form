@@ -368,7 +368,7 @@
     if (t.dataset.meeting) { GONE = false; load(t.dataset.meeting); return; }
     if (t.dataset.paper !== undefined) {
       var p = (CUR.papers || [])[Number(t.dataset.paper)];
-      if (p && p.path) firebase.storage(A.app).ref(p.path).getDownloadURL().then(function (u) { window.open(u, '_blank', 'noopener'); },
+      if (p && p.path) A.storage().ref(p.path).getDownloadURL().then(function (u) { window.open(u, '_blank', 'noopener'); },
         function () { toast('Could not open it.'); });
       return;
     }
@@ -437,8 +437,13 @@
     if (f.size > 20 * 1024 * 1024) { toast('That file is too big (20MB at most).'); return; }
     btn.disabled = true;
     var path = 'churchMeetings/' + CUR.id + '/papers/' + Date.now() + '-' + f.name.replace(/[^A-Za-z0-9._-]+/g, '-').slice(0, 80);
-    firebase.storage(A.app).ref(path).put(f, { contentType: f.type }).then(function () {
-      var papers = (CUR.papers || []).concat([{ name: f.name.slice(0, 120), path: path }]);
+    /* EGBCAuth.storage(): on a church's page the file goes under
+       churches/<id>/ (F-312), and the paper keeps that whole path - the
+       papers emails (meeting-papers.js) check it starts there. EGBC's is
+       unchanged. */
+    var ref = A.storage().ref(path);
+    ref.put(f, { contentType: f.type }).then(function () {
+      var papers = (CUR.papers || []).concat([{ name: f.name.slice(0, 120), path: ref.fullPath }]);
       return db().collection('churchMeetings').doc(CUR.id).update({ papers: papers, updatedAt: new Date().toISOString() });
     }).then(function () { toast('Added.'); return load(CUR.id); }, function (err) { btn.disabled = false; toast('Could not add it: ' + (err.message || err)); });
   }

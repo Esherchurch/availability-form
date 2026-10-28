@@ -45,6 +45,7 @@ import { hubUrl } from './notify.js';
 import { isOffice } from './comms-office.js';
 import { churchOf, scopedDb } from './church-scope.js';
 import { codeHash, indexCode, dbForCode } from './hq-codes.js';
+import { dbForAddress } from './church-address.js';
 
 const REGION = 'europe-west2';
 /* EACH CHURCH'S OWN LIST (multi-church batch 8): every helper takes the
@@ -59,14 +60,9 @@ const TOKEN = /^[A-Za-z0-9]{20,64}$/;
 async function dbForToken(t) { return TOKEN.test(String(t || '')) ? dbForCode(root(), 'enews', codeHash(String(t))) : root(); }
 /* The church a sign-up page is for: <slug>.churchhq.co.uk is that church
    (hqSlugs); EGBC's own address, github.io and a local test are EGBC's.
-   An address no church has: null, refused. */
-async function dbForSite(req) {
-  const m = /^https:\/\/([a-z0-9-]+)\.churchhq\.co\.uk$/.exec(String(req.get('origin') || ''));
-  if (!m || m[1] === 'egbc') return root();
-  const s = await root().collection('hqSlugs').doc(m[1]).get();
-  const id = s.exists ? String((s.data() || {}).churchId || '') : '';
-  try { return id ? scopedDb(root(), id) : null; } catch (e) { return null; }
-}
+   An address no church has: null, refused. The events window's one rule
+   for every public function (church-address.js, F-312). */
+const dbForSite = req => dbForAddress(root(), req);
 const EMULATOR = () => process.env.FUNCTIONS_EMULATOR === 'true';
 /* The hub's web address: one church setting, churchSettings/details.hubUrl
    (main's hubUrl in notify.js, EGBC's address the default), without its
