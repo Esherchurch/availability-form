@@ -1,7 +1,7 @@
 ﻿{
-  "name": "EGBC Core Team",
+  "name": "Core Team",
   "short_name": "Core Team v2",
-  "description": "EGBC Core Team App",
+  "description": "The core team app",
   "start_url": "CoreTeamApp.html",
   "id": "/availability-form/v2/CoreTeamApp.html",
   "scope": "./",

@@ -1,7 +1,7 @@
 ﻿{
-  "name": "EGBC Youth Planner",
+  "name": "Youth Planner",
   "short_name": "Youth Planner v2",
-  "description": "EGBC Youth Service Planner",
+  "description": "The youth service planner",
   "start_url": "youthserviceplanner.html",
   "id": "/availability-form/v2/youthserviceplanner.html",
   "scope": "./",

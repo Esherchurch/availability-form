@@ -16,7 +16,7 @@
      services(data, opt)           -> how many services the others counted
      csv(tab, rows)                -> { name, text }
 
-   opt: { teams: null (every rota team) | ['Worship Team', ...],
+   opt: { teams: null (every rota team) | [team ids],
           practices: false (practices copy the Sunday's people, so they
           would count everyone twice), today: 'yyyy-mm-dd' (tests) }
 
@@ -30,11 +30,16 @@
 (function (global) {
   'use strict';
 
-  /* The teams that own rota slots (EGBCAuth.roleTeam's answers). */
-  var ROTA_TEAMS = ['Worship Team', 'AV Team', 'Kids Church'];
-  /* Address book markers that count as being on a rota team. Choir sings
-     on the Worship rota. */
-  var MARKER_TEAM = { 'Worship Team': 'Worship Team', 'Choir': 'Worship Team', 'AV Team': 'AV Team', 'Kids Church': 'Kids Church' };
+  /* The rota team an address book marker puts somebody on: the church's
+     own team, folded into its parent when it is a sub-team (a choir sings
+     on its worship team's rota), and only a team that has a rota. '' for
+     anything else. */
+  function markerTeam(m) {
+    var T = (global.EGBCAuth && EGBCAuth.TEAMS) || {};
+    if (!T[m]) return '';
+    var top = T[m].parent || m;
+    return T[top] && T[top].rota !== false && !T[top].parent ? top : '';
+  }
 
   function roleTeam(r) {
     if (global.EGBCAuth && EGBCAuth.roleTeam) return EGBCAuth.roleTeam(r);
@@ -119,11 +124,16 @@
       .map(function (s) { return { date: s.date, service: s.service, role: s.role, team: s.team }; });
   }
 
+  /* Only the teams that own a slot on these services: a rota team with no
+     places of its own (a youth band that plays in the worship team's
+     slots, a core team) would list all its people as never on it. */
   function notOnRota(data, opt) {
     var served = {}; slotsFor(data, opt).forEach(function (s) { served[s.key] = 1; });
-    var teams = (opt && opt.teams) || ROTA_TEAMS;
+    var owns = [];
+    counted(data, opt).forEach(function (ev) { rolesOf(ev).forEach(function (r) { var t = roleTeam(r); if (owns.indexOf(t) < 0) owns.push(t); }); });
+    var teams = owns.filter(function (t) { return !opt || !opt.teams || opt.teams.indexOf(t) >= 0; });
     return (data.people || []).filter(function (p) { return !p.archived && !served[p.key]; }).map(function (p) {
-      var t = []; (p.markers || []).forEach(function (m) { var team = MARKER_TEAM[m]; if (team && teams.indexOf(team) >= 0 && t.indexOf(team) < 0) t.push(team); });
+      var t = []; (p.markers || []).forEach(function (m) { var team = markerTeam(m); if (team && teams.indexOf(team) >= 0 && t.indexOf(team) < 0) t.push(team); });
       return { key: p.key, name: p.name, teams: t.sort() };
     }).filter(function (p) { return p.teams.length; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
   }
@@ -190,5 +200,5 @@
     return { name: spec[0], text: [spec[1].join(',')].concat(rows.map(function (r) { return spec[2](r).map(q).join(','); })).join('\r\n') };
   }
 
-  global.EGBCRotaReports = { ROTA_TEAMS: ROTA_TEAMS, people: people, load: load, unfilled: unfilled, frequency: frequency, history: history, notOnRota: notOnRota, clashes: clashes, overview: overview, services: services, csv: csv };
+  global.EGBCRotaReports = { people: people, load: load, unfilled: unfilled, frequency: frequency, history: history, notOnRota: notOnRota, clashes: clashes, overview: overview, services: services, csv: csv };
 })(typeof window !== 'undefined' ? window : this);

@@ -365,27 +365,8 @@ function htmlToText(h) {
    The charter is pageContent/<board>-charter. The one exception is the
    first board the hub ever had (document 'state', from before boards had
    names), whose charter was already stored as 'wider-worship-charter'. */
-const CHARTER_DOC_FOR_BOARD = { state: 'wider-worship-charter' };
-/* The standalone charter pages in this code base, by the charter they
-   show: a fact about those files, so the card can link to a full page. */
-const CHARTER_FILE = {
-  'wider-worship-charter': 'Worshipteamcharter.html',
-  'youth-charter': 'Youthcharter.html',
-  'core-team-charter': 'Coreteamcharter.html'
-};
-
-/**
- * The charter a team's landing page shows.
- * @param {string} team a team id
- * @returns {{id: string, url?: string}|null} the pageContent document and
- *   any standalone page; null for a team with no charter
- */
-function charterFor(team) {
-  const T = window.EGBCAuth && EGBCAuth.TEAMS[team];
-  if (!T || T.archived || T.parent || !T.board) return null;
-  const id = CHARTER_DOC_FOR_BOARD[T.board] || (T.board + '-charter');
-  return CHARTER_FILE[id] ? { id, url: CHARTER_FILE[id] } : { id };
-}
+/* The rule is egbc-charters.js's, shared with the phone app. */
+const charterFor = (team) => EGBCCharters.forTeam(team);
 
 let CHARTER_OPEN = false;
 
@@ -3698,8 +3679,8 @@ function codeEmail(name,code,parentName){
 
 /**
  * Emails a youth code to a parent: one place for the send and resend, so
- * the two cannot drift apart. Replies go to the church's enquiry address
- * when it has one set; with none, the email simply has no reply-to.
+ * the two cannot drift apart. Replies go to the youth team's own address
+ * (Team mail), else the church's enquiry address; with neither, none.
  * @param {string} to the parent's address
  * @param {string} name the young person's name
  * @param {string} code the access code
@@ -3708,7 +3689,8 @@ function codeEmail(name,code,parentName){
  */
 async function emailCode(to,name,code,parentName){
   const msg={ source:'youthCode', to:[to], subject:`Youth Hub access code for ${name}`, html:codeEmail(name,code,parentName) };
-  if(CHURCH_EMAIL)msg.replyTo=CHURCH_EMAIL;
+  const reply=(await EGBCAuth.teamAddress('youth'))||CHURCH_EMAIL;
+  if(reply)msg.replyTo=reply;
   const r=await EGBCAuth.sendEmail(msg);
   if(!r.ok)throw new Error(r.error||'The email did not send');
 }

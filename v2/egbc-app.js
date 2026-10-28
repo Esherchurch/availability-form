@@ -46,7 +46,14 @@
      yet (APP-DESIGN-BRIEF §6 lists them as ones to confirm with Martin),
      so neither is offered. When the office can add teams - teams as data,
      a later stage - a new team gets a space with the simple three tabs
-     and no code change at all. That is the shape this table is in. */
+     and no code change at all. That is the shape this table is in.
+
+     A SPACE NAMES NO TEAM. Its teams come from the church's own data
+     (fillTeamSpaces): teamJobs - the teams doing those jobs; board - the
+     teams whose pin board is the space's key; coreOf - the core teams
+     looking after a team doing that job. Its name is its teams' own
+     (labelFromTeams) unless the space has a word of its own. The colours,
+     tints and tabs are the app's design, not the church's. */
 
   var SIMPLE_TABS = [
     ['rota', 'Rota', 'calendar-check'],
@@ -61,24 +68,25 @@
              ['listen', 'Listen', 'headphones'], ['me', 'Me', 'circle-user']]
     },
     worship: {
-      label: 'Worship & AV', colour: '#4a5f7a', tint: '#e9eef5',
-      teams: ['Worship Team', 'AV Team', 'Choir'],
+      colour: '#4a5f7a', tint: '#e9eef5', teamJobs: ['worship', 'av', 'choir'],
       tabs: [['rota', 'Rota', 'calendar-check'], ['sunday', 'Sunday', 'list-music'],
              ['learn', 'Learn', 'graduation-cap'], ['team', 'Team', 'users']]
     },
     kids: {
-      label: 'Kids Church', colour: '#7a5f4a', tint: '#f4ede7', teams: ['Kids Church'],
+      colour: '#7a5f4a', tint: '#f4ede7', teamJobs: ['children'],
       tabs: [['today', 'Today', 'sun'], ['children', 'Children', 'baby'],
              ['rota', 'Rota', 'calendar-check'], ['team', 'Team', 'users']]
     },
-    youth: { label: 'Youth', colour: '#5a4a7a', tint: '#efebf6', teams: ['Youth Worship'], tabs: SIMPLE_TABS },
-    lazers: { label: 'Lazers', colour: '#8a4a5e', tint: '#f6ebef', teams: ['Lazers'], tabs: SIMPLE_TABS },
-    renu: { label: 'ReNu', colour: '#6b5a3a', tint: '#f2ede4', teams: ['ReNu'], tabs: SIMPLE_TABS },
+    youth: { colour: '#5a4a7a', tint: '#efebf6', teamJobs: ['youth'], tabs: SIMPLE_TABS },
+    /* Groups with a pin board of their own, by that board: app.html draws
+       these two keys, so a church whose teams use neither board has
+       neither space. */
+    lazers: { colour: '#8a4a5e', tint: '#f6ebef', board: true, tabs: SIMPLE_TABS },
+    renu: { colour: '#6b5a3a', tint: '#f2ede4', board: true, tabs: SIMPLE_TABS },
     maint: {
-      /* The buildings job (team jobs; the events window's F-297): EGBC's
-         Maintenance team, a parish's Fabric team. teams is the answer only
-         until the team jobs are read. */
-      label: 'Maintenance', colour: '#4f5a66', tint: '#eceff2', teams: ['Maintenance'], job: 'buildings',
+      /* The buildings job: whoever the church gives it (a parish's Fabric
+         team), named after them. Who sees it is the job itself (job). */
+      colour: '#4f5a66', tint: '#eceff2', teamJobs: ['buildings'], job: 'buildings',
       tabs: [['jobs', 'Jobs', 'wrench'], ['rooms', 'Rooms', 'door-closed'],
              ['team', 'Team', 'users']]
     },
@@ -107,7 +115,7 @@
        point of the mock-up's colours is telling the spaces apart at a
        glance. The four tabs are §7b's, in its order. */
     core: {
-      label: 'Core Team', colour: '#4a7a5f', tint: '#e8f2ec', teams: ['Core Team'],
+      label: 'Core Team', colour: '#4a7a5f', tint: '#e8f2ec', coreOf: 'worship',
       tabs: [['plan', 'Plan', 'clipboard-list'], ['rota', 'Rota', 'calendar-check'],
              ['meetings', 'Meetings', 'video'], ['team', 'Team', 'users']]
     },
@@ -117,6 +125,51 @@
              ['bookings', 'Bookings', 'door-open'], ['send', 'Send', 'send']]
     }
   };
+
+  /* The charter a team's space offers: egbc-charters.js's rule, the same
+     one the hub's home uses. */
+  function charterFor(team) { return global.EGBCCharters ? EGBCCharters.forTeam(team) : null; }
+
+  /* "Worship & AV": the top-level teams' own names. A sub-team (a choir)
+     goes by its parent's. */
+  function labelFromTeams(ids) {
+    var T = (global.EGBCAuth && EGBCAuth.TEAMS) || {};
+    return ids.filter(function (t) { return T[t] && !T[t].parent; })
+      .map(function (t) { return T[t].label || t; }).join(' & ');
+  }
+
+  /**
+   * Gives each team space its teams, name and charter from the church's
+   * teams and team jobs. Run again whenever they may have changed (the
+   * teams load, the team jobs load): until the jobs are read a job-based
+   * space has no teams, so start() waits for them.
+   */
+  function fillTeamSpaces() {
+    var A = global.EGBCAuth;
+    if (!A || !A.TEAMS) return;
+    var T = A.TEAMS;
+    var jobTeams = function (job) { return A.teamsForJob ? A.teamsForJob(job) : []; };
+    Object.keys(SPACES).forEach(function (k) {
+      var s = SPACES[k], teams = null;
+      if (s.teamJobs) {
+        teams = [];
+        s.teamJobs.forEach(function (j) { jobTeams(j).forEach(function (t) { if (teams.indexOf(t) === -1) teams.push(t); }); });
+      } else if (s.board) {
+        teams = Object.keys(T).filter(function (t) { return T[t].board === k && !T[t].parent && !T[t].archived; });
+      } else if (s.coreOf) {
+        var looked = jobTeams(s.coreOf);
+        teams = Object.keys(T).filter(function (t) {
+          return !T[t].archived && (T[t].coreFor || []).some(function (c) { return looked.indexOf(c) !== -1; });
+        });
+      }
+      if (!teams) return;
+      s.teams = teams;
+      if (!s.coreOf) s.label = labelFromTeams(teams);
+      s.charter = null;
+      teams.some(function (t) { s.charter = charterFor(t); return !!s.charter; });
+    });
+  }
+  fillTeamSpaces();
 
   /* NEVER MORE THAN FOUR (§2). Checked here rather than trusted, because a
      fifth tab is the kind of thing that arrives one request at a time. */
@@ -359,6 +412,9 @@
       var s = SPACES[k];
       if (k === 'me') return;
       if (s.building) { if (buildingPages().length) out.push(k); return; }
+      /* A team space the church has no team for, not even for a master
+         admin: it would be a nameless, empty space. */
+      if ((s.teamJobs || s.board || s.coreOf) && !(s.teams || []).length) return;
       if (s.runsThings) {
         /* NOT "is an admin of anything, or on Core Team" any more
            (NEXT-BRIEF §25). That was wrong both ways: the church
@@ -443,11 +499,14 @@
   var CORE_SCREENS = {};
   function coreSpaceKey(team) { return 'core_' + String(team).toLowerCase().replace(/[^a-z0-9]+/g, ''); }
   function ensureCoreSpaces() {
+    fillTeamSpaces();
     var T = (global.EGBCAuth && EGBCAuth.TEAMS) || {};
     Object.keys(T).forEach(function (id) {
       var t = T[id] || {};
-      if (id === 'Core Team' || t.archived || !(t.coreFor || []).length) return;
       var key = coreSpaceKey(id);
+      /* The core team of the worship space has the Core Team space above. */
+      if ((SPACES.core.teams || []).indexOf(id) !== -1) { delete SPACES[key]; return; }
+      if (t.archived || !(t.coreFor || []).length) return;
       var young = t.coreFor.some(function (c) { return T[c] && T[c].under18; });
       SPACES[key] = {
         label: t.label || id, colour: t.colour || '#7a6b4a', tint: '#f3efe6', teams: [id],
@@ -1009,7 +1068,7 @@
     screen: screen, has: has, sheet: sheet, refresh: refresh, go: go, draw: draw,
     /* A core team's space (H-15): app.html sets CORE_SCREENS.plan, .rota,
        .meetings and .team, each drawn for a space key. */
-    CORE_SCREENS: CORE_SCREENS, coreSpaceKey: coreSpaceKey, coreSpaces: function () { ensureCoreSpaces(); return Object.keys(SPACES).filter(function (k) { return SPACES[k].coreTeam; }); },
+    CORE_SCREENS: CORE_SCREENS, coreSpaceKey: coreSpaceKey, charterFor: charterFor, coreSpaces: function () { ensureCoreSpaces(); return Object.keys(SPACES).filter(function (k) { return SPACES[k].coreTeam; }); },
     who: who, spacesFor: spacesFor, tabsFor: tabsFor,
     MODES: MODES, modesFor: function () { return modesFor(spacesFor(who())).map(function (m) { return m.key; }); },
     mode: function (key) { enterMode(key, true); }, buildingPages: buildingPages,
@@ -1043,13 +1102,24 @@
         var v = String(((s.exists && s.data()) || {}).shortName || '').trim();
         if (v && v !== SHORT) { SHORT = v; draw(); }
       }, function () { /* the initials stand */ });
-      if (fromHash()) return;
-      var mine = spacesFor(who()), modes = modesFor(mine), p = prefs();
-      var teams = modes.filter(function (m) { return m.key !== 'me'; });
-      var pick = (p.always && modes.some(function (m) { return m.key === p.always; })) ? p.always
-        : teams.length === 0 ? 'me' : teams.length === 1 ? teams[0].key : null;
-      if (pick) return enterMode(pick, false);
-      S.mode = null; S.space = 'me'; S.tab = 'home'; draw();
+      /* THE SPACES NEED THE TEAM JOBS (fillTeamSpaces), and which mode to
+         open in turns on the spaces, so the first choice waits for them -
+         but never for long: a slow read opens on what is known. */
+      var A = global.EGBCAuth, begun = false;
+      var begin = function () {
+        if (begun) return;
+        begun = true;
+        if (fromHash()) return;
+        var mine = spacesFor(who()), modes = modesFor(mine), p = prefs();
+        var teams = modes.filter(function (m) { return m.key !== 'me'; });
+        var pick = (p.always && modes.some(function (m) { return m.key === p.always; })) ? p.always
+          : teams.length === 0 ? 'me' : teams.length === 1 ? teams[0].key : null;
+        if (pick) return enterMode(pick, false);
+        S.mode = null; S.space = 'me'; S.tab = 'home'; draw();
+      };
+      if (!A || !A.loadPerms || (A.permsReady && A.permsReady())) return begin();
+      A.loadPerms().then(begin, begin);
+      setTimeout(begin, 4000);
     }
   };
 })(window);

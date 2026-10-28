@@ -16,9 +16,10 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610311800"></script>
+<script src="egbc-auth.js?v=202610311900"></script>
+<script src="egbc-manifest.js?v=202610311800"></script>
 <script src="egbc-church.js?v=202610311000"></script>
-<script src="egbc-guard.js?v=202610282000" data-team="Youth Worship"></script>
+<script src="egbc-guard.js?v=202610311900" data-job="youth" data-role="member"></script>
 <script src="egbc-plan-audience.js?v=202610131430"></script>
 <script src="egbc-plan-store.js?v=202610252100"></script>
 <meta charset="UTF-8">
@@ -973,11 +974,14 @@ window.emailSchedule = async () => {
     await youthReady;
     const escH = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     /* Replies go to "Sending as" (remembered on this device), else the
-       church's enquiry address. */
+       worship team's own address (Team mail), else the church's enquiry
+       address. The team's is asked for now, long before anything is sent. */
+    let teamReply = '';
+    EGBCAuth.teamAddress('worship').then(a => { teamReply = a; });
     const replyAddr = () => {
         let saved = '';
         try { saved = localStorage.getItem('egbc-sender-email') || ''; } catch (e) { /* private window */ }
-        return document.getElementById('senderEmail').value.trim() || saved.trim() || church.enquiryEmail || '';
+        return document.getElementById('senderEmail').value.trim() || saved.trim() || teamReply || church.enquiryEmail || '';
     };
     const teamWords = [...new Set(['worship', 'av'].flatMap(j => EGBCAuth.teamsForJob(j)))].map(t => (EGBCAuth.TEAMS[t] || {}).label || t).join(' & ');
     const footLine = [church.name, teamWords ? teamWords + ' Team' : ''].filter(Boolean).map(escH).join(' &bull; ');

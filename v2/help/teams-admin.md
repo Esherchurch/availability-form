@@ -27,6 +27,15 @@ This is the one list of every team and group the church has. The Home choices, "
 1. Tick **Has a rota** for a rota team.
 2. Untick it for a group without a rota.
 
+## Roles on this team
+1. On a rota team, press **Roles on this team** to open its list.
+2. These are the places the team fills on the rota, in order. The rota planner offers them, and the address book's ticks come from them.
+3. To add one, type it under the list and press **Add**.
+4. To rename one, type over it. It saves when you leave the box.
+5. Use the up and down arrows to change the order, and the **×** to remove one.
+6. A numbered set, such as **Helper 1** and **Helper 2**, is one role that people tick as **Helper**.
+7. A team can have up to 60 roles, each up to 60 letters long.
+
 ## Archive a team, or bring it back
 1. Tick **Archived** on the team. It goes from choices around the hub.
 2. To bring it back, tick **Show archived**, find the team, and untick **Archived**.
@@ -50,6 +59,9 @@ This is the one list of every team and group the church has. The Home choices, "
 - **Works with under-18s (DBS needed)** is shown, not changed here. A core team for an under-18s team works with under-18s too.
 - If nobody does the care and support job, care requests stay closed until a team is named.
 - If nobody does a job, the pages for that job are hidden.
+- Until anybody edits a team's roles, it keeps the roles the hub started with.
+- Renaming or removing a role does not change rotas already made, or what people have already ticked. Those keep the old name.
+- A role that no team lists counts as the worship team's.
 
 ## Who to ask
 - The church office, for adding or tidying teams.

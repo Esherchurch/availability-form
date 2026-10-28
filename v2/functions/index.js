@@ -22,13 +22,14 @@ import { getAuth } from 'firebase-admin/auth';
 import { randomBytes } from 'node:crypto';
 import {
   buildFeed, buildHouseholdFeed, buildFullFeed,
-  householdIds, visibleRoleTeams, fullScopes
+  householdIds, visibleRoleTeams, fullScopes, roleTeams
 } from './rota-feed.js';
-import { readTeamJobs } from './team-jobs.js';
+import { readTeamJobs, teamsFor } from './team-jobs.js';
 
 /**
  * What a church's feeds are called and cover: its short name (Your church,
- * else the e-news footer's, else its name) and its full-rota choices.
+ * else the e-news footer's, else its name), its full-rota choices, and
+ * which team each rota place belongs to (its teams' roles, Teams & groups).
  * @param {object} cdb one church's database
  */
 async function feedChurch(cdb) {
@@ -37,7 +38,9 @@ async function feedChurch(cdb) {
     readTeamJobs(cdb), cdb.collection('teams').get().then((s) => s.docs, () => [])]);
   const labels = Object.fromEntries(teams.map((d) => [d.id, (d.data() || {}).label || d.id]));
   const church = String(details.shortName || (enews.church || {}).shortName || details.name || '').trim();
-  return { church, scopes: fullScopes(jobs, (t) => labels[t] || t) };
+  const rt = roleTeams(teams.map((d) => ({ id: d.id, data: d.data() || {} })),
+    teamsFor(jobs.map || null, 'worship', jobs.set || {})[0] || '');
+  return { church, scopes: fullScopes(jobs, (t) => labels[t] || t), roleTeams: rt };
 }
 import {
   findMe as findMeIn, myDates as myDatesIn, saveAnswer as saveAnswerIn,
@@ -149,8 +152,8 @@ export const rotaFeed = onRequest({ cors: false, invoker: 'public' }, async (req
       const userSnap = uid ? await fdb.collection('users').doc(uid).get() : null;
       const user = userSnap && userSnap.exists ? userSnap.data() : null;
       if (!user || user.status !== 'active') return no();
-      const { church, scopes } = await feedChurch(fdb);
-      body = buildFullFeed({ events, allowedTeams: visibleRoleTeams(user), scope, scopes, church });
+      const { church, scopes, roleTeams: rt } = await feedChurch(fdb);
+      body = buildFullFeed({ events, allowedTeams: visibleRoleTeams(user), scope, scopes, church, roleTeams: rt });
 
     } else {
       const memberSnap = await fdb.collection('addressBook').doc(memberId).get();
@@ -892,6 +895,7 @@ export { helpAsk } from './help-ask.js';/* Every email a v2 page sends (PLAN-hub
 export { hubSend } from './hub-send.js';
 /* Church HQ for more than one church, step 1: the directory and the claims. */
 export { hqMembershipClaims, hqMyChurches } from './hq-directory.js';
+export { teamReplyTo } from './team-reply.js';
 /* The hub's address, made from the church's short name (hub-address.js). */
 export { hubAddress, hqSlugCheck } from './hub-address.js';
 import { makeCoverTriggers } from './core-teams.js';

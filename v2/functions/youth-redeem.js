@@ -26,6 +26,7 @@
  */
 
 import { randomBytes } from 'node:crypto';
+import { youthGroupsOf } from './family.js';
 
 /* Six weeks, matching WEEKS in youth-access.html. If the two ever disagree
    the function wins, because it is the one that writes the record. */
@@ -100,9 +101,9 @@ export async function redeemYouthCode(db, auth, { code, nowMs }) {
      Only the youth groups are copied, nothing else comes with them, and if
      the office moves a child between groups the next code moves them here
      too. Read off the record, never from anything the phone sent. */
-  const YOUTH_GROUPS = ['Lazers', 'ReNu', 'Youth Worship'];
   let groups = [];
   if (outcome.memberId) {
+    const YOUTH_GROUPS = await youthGroupsOf(db);
     const child = await db.collection('addressBook').doc(outcome.memberId).get();
     const markers = child.exists && Array.isArray((child.data() || {}).markers)
       ? child.data().markers : [];

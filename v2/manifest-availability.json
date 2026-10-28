@@ -1,7 +1,7 @@
 ﻿{
-  "name": "EGBC Availability",
+  "name": "Availability",
   "short_name": "Availability v2",
-  "description": "EGBC Rota Availability Form",
+  "description": "Say which dates you can serve",
   "start_url": "index.html",
   "id": "/availability-form/v2/index.html",
   "scope": "./",

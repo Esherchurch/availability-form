@@ -3,8 +3,7 @@
 This page backs up the hub's data to a file, can write a backup into another copy of the hub, and tidies Sundays that were saved more than once. It is a technical page.
 
 ## Who can use it
-- Master admins can open it, and so can the admins of the church's leadership team: whichever team does the leadership job under "Who does each job" in Teams & groups.
-- The admins of the core team over the worship teams can open it too.
+- Master admins can open it, and so can the admins of the core team over the worship teams.
 - Anyone else is told they do not have access, or not enough permissions.
 - The church's name, from Church settings, shows over the heading.
 

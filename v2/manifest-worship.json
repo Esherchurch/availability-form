@@ -1,7 +1,7 @@
 ﻿{
-  "name": "EGBC Worship Hub",
+  "name": "Worship Hub",
   "short_name": "Worship Hub v2",
-  "description": "EGBC Worship & AV Team Hub",
+  "description": "The worship team hub",
   "start_url": "worshiphubapp.html",
   "id": "/availability-form/v2/worshiphubapp.html",
   "scope": "./",

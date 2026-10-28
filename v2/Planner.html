@@ -6,10 +6,11 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610311800"></script>
+<script src="egbc-auth.js?v=202610311900"></script>
+<script src="egbc-manifest.js?v=202610311800"></script>
 <script src="egbc-video.js?v=202610311600"></script>
 <script src="egbc-church.js?v=202610311000"></script>
-<script src="egbc-guard.js?v=202610282000" data-team="Worship Team,Kids Church,Youth Worship,Core Team" data-role="leader"></script>
+<script src="egbc-guard.js?v=202610311900" data-job="worship,children,youth" data-role="leader"></script>
     <meta charset="UTF-8">
     <link rel="manifest" href="./manifest-planner.json">
     <link rel="apple-touch-icon" href="icon-192.png">
@@ -22,7 +23,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
-    <script src="egbc-rota-pdf.js?v=202610121800"></script>
+    <script src="egbc-rota-pdf.js?v=202610311900"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -40,10 +41,14 @@
 
 
 
-        const OPTIONAL_ROLES = ['Sound', 'Words', 'Cameras', 'Violin', 'Congas', '2nd Guitar', '2nd Keys', 'Electric Guitar', 'Oboe', 'Trumpet', 'Cahon', 'Singer 1', 'Singer 2', 'Singer 3', 'Other', 'Other 2', 'Other 3', 'Choir'];
+        /* THE ROTA PLACES ARE THE CHURCH'S (Teams & groups, "Roles on this
+           team"; EGBCAuth.roleChoices): "+ Role" offers the places of the
+           teams doing the AV, worship and choir jobs, in that order. Asked
+           each time, since they follow the teams and jobs once those load. */
+        const OPTIONAL_ROLES = () => EGBCAuth.roleChoices ? EGBCAuth.roleChoices(['av', 'worship', 'choir']) : [];
         const MANDATORY_SUNDAY_ROLES = ["Worship Leader", "Keyboard", "Guitar", "Drums", "Bass", "Sound", "Words", "Cameras"];
         const EVENT_TYPES = ['Sunday Morning Worship', 'Sunday Team Practice', 'Evening Carol Service', 'Midnight Service', 'Special Service', 'Worship and AV Team Meeting', 'All Team Practice', 'Core Team Meeting', 'Worship Team Meeting', 'AV Team Meeting', 'Song Writing Workshop', 'LOUD Worship'];
-        const AV_ROLES = ["Sound", "Words", "Cameras"];
+        const AV_ROLES = () => EGBCAuth.roleChoices ? EGBCAuth.roleChoices(['av']) : [];
         // A part the church has switched off is not offered (HANDOVER-MAIN rule 12).
         const EGBCChurchUses = (n) => !window.EGBCChurch || !EGBCChurch.uses || EGBCChurch.uses(n);
         // ENTER A SUNDAY ONCE: a new Sunday service is in What's On at 10:00
@@ -118,7 +123,10 @@
            enquiry address. A blank detail is simply left out. */
         const escE = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
         const churchDetails = () => (window.EGBCChurch ? EGBCChurch.load() : Promise.resolve({ name: '', enquiryEmail: '', logoUrl: '' }));
-        const replyAddress = () => (document.getElementById('rotaSenderEmail')?.value || '').trim() || (window.EGBCChurch ? EGBCChurch.email() : '');
+        /* Replies go to "Sending as", else the worship team's own address
+           (Team mail), else the church's enquiry email. */
+        const replyAddress = async () => (document.getElementById('rotaSenderEmail')?.value || '').trim()
+            || (await EGBCAuth.teamAddress('worship')) || (window.EGBCChurch ? EGBCChurch.email() : '');
         /* "Worship & AV" for EGBC: the labels of the teams doing the rota's
            worship and AV jobs. */
         const rotaWords = () => jobTeams('worship', 'av').map(teamLabel).join(' & ');
@@ -133,7 +141,7 @@
          */
         async function rotaEmail(title, sub, body) {
             const d = await churchDetails();
-            const reply = replyAddress();
+            const reply = await replyAddress();
             const words = rotaWords();
             const logo = d.logoUrl ? `<td style="vertical-align:top;text-align:right;padding-left:20px;"><div style="display:inline-block;background:#ffffff;border-radius:10px;padding:8px 12px;"><img src="${escE(d.logoUrl)}" height="44" style="display:block;height:44px;border:0;" alt="${escE(d.name)}"></div></td>` : '';
             const foot = [d.name, words ? words + ' Team' : ''].filter(Boolean).map(escE).join(' &bull; ');
@@ -174,8 +182,8 @@ ${body}
             return shortName;
         })());
         /* The send itself, with the reply address above (none if both are blank). */
-        const sendRota = (opts) => {
-            const reply = replyAddress();
+        const sendRota = async (opts) => {
+            const reply = await replyAddress();
             return EGBCAuth.sendEmail(Object.assign({ source: 'rota' }, opts, reply ? { replyTo: reply } : {}));
         };
 
@@ -195,37 +203,30 @@ ${body}
             Object.values(ev.assignments || {}).some(raw => (Array.isArray(raw) ? raw : [raw]).some(a => a?.id === memberId)) ||
             (isMeeting(ev) && inEventTeams(addressBook.find(m => m.id === memberId), ev));
 
-        /* ---- Kids Church ------------------------------------------------
+        /* ---- The children's teams' places --------------------------------
            Slots on the rota, which are not quite the same as the abilities
            held in the address book: a person ticks "Helper" once, but a week
-           can carry up to five helper slots. Which group each helper takes is
-           decided when the week is planned, not here - that is how Karen and
-           Simon work, and forcing it at rota stage would break it. */
-        const KIDS_FIXED_ROLES = ['Session Leader',
-            'Leader (Younger)', 'Leader (Older)', 'Leader (Creche)',
-            'Assistant (Younger)', 'Assistant (Older)', 'Assistant (Creche)'];
-        const KIDS_HELPER_SLOTS = ['Helper 1', 'Helper 2', 'Helper 3', 'Helper 4', 'Helper 5'];
-        const KIDS_ROLES = [...KIDS_FIXED_ROLES, ...KIDS_HELPER_SLOTS];
+           can carry several helper slots. Which group each helper takes is
+           decided when the week is planned, not here. The places are the
+           children's teams' roles (Teams & groups; EGBCAuth.roleChoices),
+           asked each time since they follow the teams once those load. */
+        const KIDS_ROLES = () => EGBCAuth.roleChoices ? EGBCAuth.roleChoices(['children']) : [];
 
-        /* The standard Sunday, confirmed against the Autumn 2026 rota: one
-           Session Leader and two helper slots, nothing more. The two helper
-           slots are interchangeable - the same people appear in either, and
-           which group they take is settled on the day. The fuller slots in
-           KIDS_FIXED_ROLES stay selectable for a week that needs one pinned. */
-        const KIDS_MANDATORY_ROLES = ['Session Leader', 'Helper 1', 'Helper 2'];
+        /* The places a week gets when a children's team is ticked on it: the
+           standard Sunday (EGBC's is one Session Leader and two
+           interchangeable helpers). The fuller places stay selectable for a
+           week that needs one pinned. */
+        const KIDS_MANDATORY_ROLES = () => EGBCAuth.roleStarts ? EGBCAuth.roleStarts(['children']) : [];
 
-        /* A rota slot maps to the ability ticked in the address book.
-           "Helper 4" is just a Helper. */
-        const roleAbility = r => /^Helper \d+$/.test(r) ? 'Helper' : r;
+        /* What someone must have ticked in the address book to fill a place:
+           "Helper 4" is just a Helper; a built-in team may name it its own way. */
+        const roleAbility = r => EGBCAuth.abilityOf ? EGBCAuth.abilityOf(r) : r;
 
-        /* Which team owns a slot. Defined in egbc-auth.js so the read-only
-           rota answers it the same way; this is only a fallback for a page
-           opened without auth. */
+        /* Which team owns a slot: the team whose roles list it (egbc-auth.js),
+           so the read-only rota answers it the same way. */
         function roleTeam(r) {
-            if (typeof EGBCAuth !== 'undefined' && EGBCAuth.roleTeam) return EGBCAuth.roleTeam(r);
-            if (AV_ROLES.includes(r)) return 'AV Team';
-            if (KIDS_ROLES.includes(r) || /^Helper \d+$/.test(r)) return 'Kids Church';
-            return 'Worship Team';
+            if (typeof EGBCAuth === 'undefined') return '';
+            return EGBCAuth.roleTeamOf ? EGBCAuth.roleTeamOf(r) : EGBCAuth.roleTeam(r);
         }
 
         /* null means "everything". A master admin sees the lot - and if a
@@ -526,15 +527,15 @@ ${body}
                 const ev = eventSnap.data();
                 const roles = new Set(ev.roles || []);
                 if (adding) {
-                    KIDS_MANDATORY_ROLES.forEach(r => roles.add(r));
+                    KIDS_MANDATORY_ROLES().forEach(r => roles.add(r));
                 } else {
-                    KIDS_ROLES.forEach(r => { if (!ev.assignments?.[r]) roles.delete(r); });
+                    KIDS_ROLES().forEach(r => { if (!ev.assignments?.[r]) roles.delete(r); });
                 }
                 updates.roles = [...roles];
             }
 
             await updateDoc(eventRef, updates);
-            if (kidsTeam) await clearSignoff(eventId, roleTeam(KIDS_MANDATORY_ROLES[0]));
+            if (kidsTeam) await clearSignoff(eventId, roleTeam(KIDS_MANDATORY_ROLES()[0] || KIDS_ROLES()[0] || ''));
         };
 
         window.addRole = async (eventId, roleName) => {
@@ -947,59 +948,51 @@ ${body}
                 /* The kind's own rota places (Your services); each is filled
                    by someone who plays or does the thing it is named for. */
                 const slots = slotsFor(ev.type);
-                slots.forEach(r => tryAssign(r, r, true));
-                slots.forEach(r => tryAssign(r, r, false));
+                slots.forEach(r => tryAssign(r, roleAbility(r), true));
+                slots.forEach(r => tryAssign(r, roleAbility(r), false));
 
-                [...liveRoles].filter(r => r.startsWith("Singer")).forEach(r => {
-                    tryAssign(r, "Sing", true) || tryAssign(r, "Sing", false);
-                });
+                /* THE EXTRA PLACES are the worship, AV and choir teams' roles
+                   (EGBCAuth.roleFill): `grow` is a numbered family that takes
+                   every available person who ticked it (EGBC's singers);
+                   `fill` adds one place each, in order, for whoever ticked
+                   it. */
+                const plan = EGBCAuth.roleFill ? EGBCAuth.roleFill(['worship', 'av', 'choir']) : { fill: [], grow: [] };
+                const inFamily = (r, base) => r === base || new RegExp('^' + base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\d+$').test(r);
+                plan.grow.forEach(([base, ability]) => {
+                    [...liveRoles].filter(r => inFamily(r, base)).forEach(r => {
+                        tryAssign(r, ability, true) || tryAssign(r, ability, false);
+                    });
 
-                const availableSingers = members.filter(m =>
-                    !alreadyAssignedToday.has(m.id) &&
-                    (m.primaryInstruments?.includes("Sing") || m.secondaryInstruments?.includes("Sing")) &&
-                    (monthlyCounts[monthKey][m.id] || 0) < (parseInt(m.maxFrequency) || 2)
-                ).sort((a, b) => {
-                    const aYouth = isYouthMember(a) ? 1 : 0;
-                    const bYouth = isYouthMember(b) ? 1 : 0;
-                    if (aYouth !== bYouth) return aYouth - bYouth;
-                    const aLast = lastServed[a.id] ? (evDate - lastServed[a.id]) : Infinity;
-                    const bLast = lastServed[b.id] ? (evDate - lastServed[b.id]) : Infinity;
-                    return bLast - aLast;
-                });
+                    const available = members.filter(m =>
+                        !alreadyAssignedToday.has(m.id) &&
+                        (m.primaryInstruments?.includes(ability) || m.secondaryInstruments?.includes(ability)) &&
+                        (monthlyCounts[monthKey][m.id] || 0) < (parseInt(m.maxFrequency) || 2)
+                    ).sort((a, b) => {
+                        const aYouth = isYouthMember(a) ? 1 : 0;
+                        const bYouth = isYouthMember(b) ? 1 : 0;
+                        if (aYouth !== bYouth) return aYouth - bYouth;
+                        const aLast = lastServed[a.id] ? (evDate - lastServed[a.id]) : Infinity;
+                        const bLast = lastServed[b.id] ? (evDate - lastServed[b.id]) : Infinity;
+                        return bLast - aLast;
+                    });
 
-                /* Extra singer places are the worship side's too: only for
-                   someone who may fill them. */
-                for (const m of (canEditRole('Singer 1', ev) ? availableSingers : [])) {
-                    let nextIdx = 1;
-                    while (liveRoles.has(`Singer ${nextIdx}`)) nextIdx++;
-                    const newRole = `Singer ${nextIdx}`;
-                    assignments[newRole] = { id: m.id, name: m.name };
-                    alreadyAssignedToday.add(m.id);
-                    monthlyCounts[monthKey][m.id] = (monthlyCounts[monthKey][m.id] || 0) + 1;
-                    lastServed[m.id] = evDate;
-                    liveRoles.add(newRole);
-                }
-
-                ["Guitar", "Keyboard"].forEach(inst => {
-                    const rName = inst === "Guitar" ? "2nd Guitar" : "2nd Keys";
-                    if (!liveRoles.has(rName)) {
-                        if (tryAssign(rName, inst, true) || tryAssign(rName, inst, false)) liveRoles.add(rName);
+                    /* The extra places are their team's too: only for someone
+                       who may fill them. */
+                    for (const m of (canEditRole(base + ' 1', ev) ? available : [])) {
+                        let nextIdx = 1;
+                        while (liveRoles.has(`${base} ${nextIdx}`)) nextIdx++;
+                        const newRole = `${base} ${nextIdx}`;
+                        assignments[newRole] = { id: m.id, name: m.name };
+                        alreadyAssignedToday.add(m.id);
+                        monthlyCounts[monthKey][m.id] = (monthlyCounts[monthKey][m.id] || 0) + 1;
+                        lastServed[m.id] = evDate;
+                        liveRoles.add(newRole);
                     }
                 });
 
-                if (!liveRoles.has("Electric Guitar")) {
-                    if (tryAssign("Electric Guitar", "Electric Guitar", true) || tryAssign("Electric Guitar", "Electric Guitar", false)) liveRoles.add("Electric Guitar");
-                }
-
-                const extraInstruments = [
-                    { role: "Violin", inst: "Violin" },
-                    { role: "Trumpet", inst: "Trumpet" },
-                    { role: "Congas", inst: "Congas" },
-                    { role: "Cahon", inst: "Cahon" },
-                ];
-                extraInstruments.forEach(({ role, inst }) => {
+                plan.fill.forEach(([role, ability]) => {
                     if (!liveRoles.has(role)) {
-                        if (tryAssign(role, inst, true) || tryAssign(role, inst, false)) liveRoles.add(role);
+                        if (tryAssign(role, ability, true) || tryAssign(role, ability, false)) liveRoles.add(role);
                     }
                 });
 
@@ -1054,7 +1047,7 @@ ${body}
             /* The wall planner is shared with the read-only rota: egbc-rota-pdf.js. */
             if (type === "wall") {
                 return EGBCRotaPdf.build({ type: 'wall', memberId, addressBook, events: termEvents,
-                    logo, logoWidth: logoNaturalWidth, logoHeight: logoNaturalHeight, avRoles: AV_ROLES });
+                    logo, logoWidth: logoNaturalWidth, logoHeight: logoNaturalHeight, avRoles: AV_ROLES() });
             }
 
             const docRef = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4', compress: true });
@@ -1078,7 +1071,7 @@ ${body}
             docRef.setTextColor(61, 98, 99); docRef.setFont("helvetica", "bold"); docRef.setFontSize(18);
             docRef.text(reportTitle, 16, 19);
             /* The table is shared with the read-only rota: egbc-rota-pdf.js. */
-            EGBCRotaPdf.drawTables(docRef, termEvents, { avRoles: AV_ROLES,
+            EGBCRotaPdf.drawTables(docRef, termEvents, { avRoles: AV_ROLES(),
                 memberIds: type === 'individual' ? [memberId] : (type === 'household' ? householdOf(memberId) : null) });
             return docRef;
         };
@@ -1635,7 +1628,7 @@ ${body}
             /* One rota, but each person edits only their department's part
                of it. A master admin sees the lot. */
             const visibleRoles = (ev.roles || []).filter(r => canEditRole(r, ev));
-            const sortedRoles = [...visibleRoles.filter(r => !AV_ROLES.includes(r)), ...visibleRoles.filter(r => AV_ROLES.includes(r))];
+            const sortedRoles = [...visibleRoles.filter(r => !AV_ROLES().includes(r)), ...visibleRoles.filter(r => AV_ROLES().includes(r))];
             const hiddenRoleCount = (ev.roles || []).length - visibleRoles.length;
             const iconStyles = 'width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"';
             const timeSelectStyle = 'bg-white border border-[#d1dfdf] text-[#3d6263] px-2 py-1 rounded-full font-medium text-[11px] outline-none';
@@ -1706,7 +1699,7 @@ ${body}
                 // Support both old single-object and new array format
                 const raw = ev.assignments?.[r];
                 const people = Array.isArray(raw) ? raw : (raw ? [raw] : []);
-                const isAV = AV_ROLES.includes(r);
+                const isAV = AV_ROLES().includes(r);
                 const hasPeople = people.length > 0;
                 const borderColor = isAV ? 'border-amber-300' : 'border-[#e5e7eb]';
                 html += '<div ondragover="event.preventDefault()" ondrop="onDropRole(event, \'' + ev.id + '\', \'' + r + '\')" class="bg-[#f9fafb] border ' + (hasPeople ? 'border-solid' : 'border-dashed') + ' ' + borderColor + ' p-3 rounded-[14px] min-w-[170px] group/role relative">';
@@ -1730,7 +1723,7 @@ ${body}
                 html += '</div>';
             });
             html += '<select onchange="addRole(\'' + ev.id + '\', this.value); this.value=\'\';" class="bg-white border-2 border-dashed border-[#d1dfdf] text-[#3d6263] text-[11px] font-medium px-6 py-3 rounded-2xl uppercase hover:bg-[#f0f6f6] self-center"><option value="">+ Role</option>';
-            [...OPTIONAL_ROLES, ...KIDS_ROLES]
+            [...new Set([...OPTIONAL_ROLES(), ...KIDS_ROLES()])]
                 .filter(opt => canEditRole(opt, ev))
                 .filter(opt => !(ev.roles || []).includes(opt))
                 .forEach(opt => { html += '<option value="' + opt + '">' + opt + '</option>'; });

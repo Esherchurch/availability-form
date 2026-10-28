@@ -1,7 +1,7 @@
 ﻿{
-  "name": "EGBC Youth Hub",
+  "name": "Youth Hub",
   "short_name": "Youth Hub v2",
-  "description": "EGBC Youth Worship Hub",
+  "description": "The youth hub",
   "start_url": "youthapp2.html",
   "id": "/availability-form/v2/youthapp2.html",
   "scope": "./",

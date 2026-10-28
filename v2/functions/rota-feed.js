@@ -99,16 +99,53 @@ export function householdIds(addressBook, memberId) {
 
    This runs on the server because the server is what answers a calendar app,
    and a calendar app has nobody signed in. */
-const AV_ROLES = ['Sound', 'Words', 'Cameras'];
-const KIDS_ROLES = ['Session Leader',
-  'Leader (Younger)', 'Leader (Older)', 'Leader (Creche)',
-  'Assistant (Younger)', 'Assistant (Older)', 'Assistant (Creche)',
-  'Helper 1', 'Helper 2', 'Helper 3', 'Helper 4', 'Helper 5'];
+/* A church keeps each team's rota places on the team (teams/{id}.roles,
+   Teams & groups). With none stored, a team takes these: EGBC's, the same
+   `roles` as TEAM_ROLES in egbc-auth.js, which the server cannot read. A
+   sub-team's places count as its parent's (Choir is part of Worship). */
+const BUILT_IN_ROLES = {
+  'Worship Team': ['Worship Leader', 'Keyboard', 'Guitar', 'Drums', 'Bass', 'Violin', 'Congas', '2nd Guitar', '2nd Keys',
+    'Electric Guitar', 'Oboe', 'Trumpet', 'Cahon', 'Singer 1', 'Singer 2', 'Singer 3', 'Other', 'Other 2', 'Other 3'],
+  'AV Team': ['Sound', 'Words', 'Cameras'],
+  'Choir': ['Choir'],
+  'Kids Church': ['Session Leader', 'Leader (Younger)', 'Leader (Older)', 'Leader (Creche)',
+    'Assistant (Younger)', 'Assistant (Older)', 'Assistant (Creche)',
+    'Helper 1', 'Helper 2', 'Helper 3', 'Helper 4', 'Helper 5']
+};
+const BUILT_IN_PARENT = { Choir: 'Worship Team' };
+/* "Helper 7" goes with "Helper 1": numbered places are one family. */
+const roleBase = (r) => String(r || '').replace(/\s+\d+$/, '');
 
-export function roleTeam(r) {
-  if (AV_ROLES.indexOf(r) !== -1) return 'AV Team';
-  if (KIDS_ROLES.indexOf(r) !== -1 || /^Helper \d+$/.test(r)) return 'Kids Church';
-  return 'Worship Team';
+/**
+ * Which team each rota place belongs to, from the church's teams: each
+ * team's stored roles, else its built-in ones. The same answer as
+ * EGBCAuth.roleTeamOf in egbc-auth.js.
+ * @param {Array<{id: string, data: object}>} [teams] the church's teams collection
+ * @param {string} [otherTeam] the team a place no team lists belongs to: the
+ *   first team doing the worship job
+ * @returns {{ lists: Array<[string, string[]]>, other: string }}
+ */
+export function roleTeams(teams = [], otherTeam = teamsFor(null, 'worship')[0] || '') {
+  const byId = Object.fromEntries(teams.map((t) => [t.id, t.data || {}]));
+  const ids = [...new Set(Object.keys(BUILT_IN_ROLES).concat(teams.map((t) => t.id)))];
+  const lists = ids.map((id) => {
+    const d = byId[id] || {};
+    const roles = Array.isArray(d.roles) ? d.roles.filter((r) => typeof r === 'string' && r) : (BUILT_IN_ROLES[id] || []);
+    return [d.parent || BUILT_IN_PARENT[id] || id, roles];
+  });
+  return { lists, other: otherTeam };
+}
+const ROLE_TEAMS = roleTeams();
+
+/**
+ * The team a rota place belongs to.
+ * @param {string} r the place
+ * @param {{ lists: Array<[string, string[]]>, other: string }} [rt] roleTeams()' answer (none: EGBC's)
+ */
+export function roleTeam(r, rt = ROLE_TEAMS) {
+  const hit = rt.lists.find(([, roles]) => roles.indexOf(r) !== -1)
+    || rt.lists.find(([, roles]) => roles.some((x) => roleBase(x) === roleBase(r)));
+  return hit ? hit[0] : rt.other;
 }
 
 /* Worship and AV serve the same service and share a charter, so somebody on
@@ -154,10 +191,10 @@ export function fullScopes(jobs = {}, labelOf = (t) => t) {
 export const FULL_SCOPES = fullScopes();
 
 /* The roles of an event this person may be shown, after both filters. */
-export function rolesVisible(ev, allowedTeams, scope, scopes = FULL_SCOPES) {
+export function rolesVisible(ev, allowedTeams, scope, scopes = FULL_SCOPES, rt = ROLE_TEAMS) {
   const wanted = (scopes[scope] || scopes.all).teams;
   return (ev.roles || Object.keys(ev.assignments || {})).filter(r => {
-    const t = roleTeam(r);
+    const t = roleTeam(r, rt);
     if (allowedTeams && allowedTeams.indexOf(t) === -1) return false;
     if (wanted && wanted.indexOf(t) === -1) return false;
     return true;
@@ -389,13 +426,13 @@ export function buildHouseholdFeed({ events, members, church = '', calName = 'Ou
    appearing as an empty entry that says a Kids Church service happened.
 */
 export function buildFullFeed({ events, allowedTeams, scope = 'all', scopes = FULL_SCOPES, church = '',
-                                calName, now = new Date() }) {
+                                calName, now = new Date(), roleTeams: rt = ROLE_TEAMS }) {
   const dtstamp = now.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
   const cfg = scopes[scope] || scopes.all;
   const lines = calendarHead(calName || ((church ? church + ' rota' : 'Rota') + ' \u2014 ' + cfg.label));
 
   for (const ev of liveEvents(events)) {
-    const roles = rolesVisible(ev, allowedTeams, scope, scopes);
+    const roles = rolesVisible(ev, allowedTeams, scope, scopes, rt);
     const filled = roles
       .map(r => ({ role: r, names: namesIn((ev.assignments || {})[r]) }))
       .filter(x => x.names);

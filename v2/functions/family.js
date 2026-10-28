@@ -18,6 +18,9 @@
  * of egbc-rota-pdf.js's, checked to agree. Nothing here makes a second one.
  */
 import { householdIds } from './rota-feed.js';
+import { readTeamJobs, teamsFor } from './team-jobs.js';
+import { coresMap } from './core-teams.js';
+import { EGBC_UNDER18 } from './under18-teams.js';
 
 const DAYS = 7;
 
@@ -33,18 +36,50 @@ const DAYS = 7;
    long and needs no one-off backfill.
 
    A CHILD is a household member whose record says isMinor. Their groups
-   are the youth groups with a board: Youth Worship, Lazers and ReNu - the
-   same three the rules' boardGroup() names for 'youth', 'lazers', 'renu'. */
-export const YOUTH_GROUPS = ['Youth Worship', 'Lazers', 'ReNu'];
+   are the church's youth groups (youthGroupsOf). */
 
-export function familyGroupsFor(book, memberId) {
+/**
+ * The church's youth groups: the teams doing the youth job, and the other
+ * under-18s teams that their core team looks after, less children's work
+ * (the children job's teams), which has no family pin board. A church with
+ * no core team over its youth work has just the youth job's teams. Taken
+ * from the church's own teams, team jobs and core teams, with EGBC's
+ * defaults (which give Youth Worship, Lazers and ReNu) where it stores none.
+ * @param {FirebaseFirestore.Firestore} db the church's database (churchOf)
+ * @returns {Promise<string[]>} team ids
+ */
+export async function youthGroupsOf(db) {
+  const [tj, cores, teams] = await Promise.all([readTeamJobs(db), coresMap(db),
+    db.collection('teams').get().then((s) => Object.fromEntries(s.docs.map((d) => [d.id, d.data() || {}])), () => ({}))]);
+  const youth = teamsFor(tj.map, 'youth', tj.set);
+  const children = teamsFor(tj.map, 'children', tj.set);
+  /* As egbc-auth.js's TEAMS: the team's own tick, else EGBC's built-in one. */
+  const under18 = (t) => (teams[t] && teams[t].under18 === true) || EGBC_UNDER18.includes(t);
+  const out = youth.slice();
+  Object.keys(cores).forEach((core) => {
+    if (!cores[core].some((t) => youth.includes(t))) return;
+    cores[core].forEach((t) => {
+      if (under18(t) && !children.includes(t) && !cores[t] && !out.includes(t)) out.push(t);
+    });
+  });
+  return out.sort();
+}
+
+/**
+ * The youth groups a member's children (household minors) are in.
+ * @param {Object[]} book the address book, { id, ...record }
+ * @param {string} memberId the parent's address book id
+ * @param {string[]} groups the church's youth groups (youthGroupsOf)
+ * @returns {string[]} team ids, sorted
+ */
+export function familyGroupsFor(book, memberId, groups) {
   const byId = {};
   (book || []).forEach((m) => { byId[m.id] = m; });
   const out = new Set();
   householdIds(book, memberId).forEach((id) => {
     const m = byId[id];
     if (!m || id === memberId || m.archived === true || m.isMinor !== true) return;
-    (Array.isArray(m.markers) ? m.markers : []).forEach((t) => { if (YOUTH_GROUPS.includes(t)) out.add(t); });
+    (Array.isArray(m.markers) ? m.markers : []).forEach((t) => { if ((groups || []).includes(t)) out.add(t); });
   });
   return [...out].sort();
 }
@@ -55,9 +90,10 @@ export async function refreshFamilyGroups(db, memberIds, book) {
   const ids = [...new Set((memberIds || []).filter(Boolean))];
   if (!ids.length) return 0;
   if (!book) book = (await db.collection('addressBook').get()).docs.map((d) => ({ id: d.id, ...d.data() }));
+  const groups = await youthGroupsOf(db);
   let changed = 0;
   for (const id of ids) {
-    const want = familyGroupsFor(book, id);
+    const want = familyGroupsFor(book, id, groups);
     const users = await db.collection('users').where('memberId', '==', id).get();
     for (const u of users.docs) {
       const has = Array.isArray(u.data().familyGroups) ? u.data().familyGroups : [];

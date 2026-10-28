@@ -40,10 +40,10 @@ This is the church's list of people. Here you add someone, change their details,
 - **UNDER 16**: they cannot sign in. They use an access code emailed to a parent.
 - **UNDER 18**: the hub never emails them. A 16 or 17 year old still signs in with their own email. Under 16 counts as under 18 too.
 
-## Instruments and kids church roles
-1. Under **Instruments (Primary)**, tick what they usually play or do.
+## Instruments and children's roles
+1. The ticks come from the roles on each team (Teams & groups). Under **Instruments (Primary)**, tick what they usually play or do.
 2. Under **Instruments (Secondary)**, tick what they can also do.
-3. Under **Kids Church Roles**, tick **Usually** for what they normally do and **Can cover** for what they will step into.
+3. Under the children's team's roles, tick **Usually** for what they normally do and **Can cover** for what they will step into.
 4. A role marked "(old name)" is kept from before. Tick the right new one and untick the old one.
 
 ## The e-news

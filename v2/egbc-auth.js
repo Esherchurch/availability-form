@@ -337,6 +337,56 @@
     'Maintenance':   { label: 'Maintenance',  colour: '#4f5a66' }
   };
 
+  /* ---- The roles on each team: EGBC's, as the FALLBACK ---------------
+     A church keeps each team's roles on the team (teams/{id}.roles, in
+     order; Teams & groups). A role is a rota place ("Helper 2") and, with
+     any number taken off, the thing a person ticks in the address book
+     ("Helper"). Nothing stored: these, so EGBC needs no data and looks the
+     same. Only teams listed here have built-in roles.
+
+     EGBC's address book, rota and auto-fill grew separate lists that one
+     list cannot reproduce ("Sing" ticked, "Singer 2" on the rota; "2nd
+     Keys" filled by someone who plays "Keyboard"). The extra keys hold
+     them, and apply ONLY while the team still uses these built-in roles:
+       offer   the "+ Role" choices, when not all of `roles`
+       ticks   the address book ticks, when not `roles` without numbers
+       strong  ticks drawn in the brand colour (the leading and AV ones)
+       labels  a tick's words, when not its name
+       fill    auto-fill's extra places, in its order: [place, ticked as]
+       grow    numbered places auto-fill adds one of per available person
+       starts  the places a week gets when the team is ticked on it
+       note    the address book's words above and below the ticks
+     functions/rota-feed.js keeps the same `roles` for the calendar feeds,
+     since the server cannot read this file. */
+  var TEAM_ROLES = {
+    'Worship Team': {
+      roles: ['Worship Leader', 'Keyboard', 'Guitar', 'Drums', 'Bass', 'Violin', 'Congas', '2nd Guitar', '2nd Keys',
+        'Electric Guitar', 'Oboe', 'Trumpet', 'Cahon', 'Singer 1', 'Singer 2', 'Singer 3', 'Other', 'Other 2', 'Other 3'],
+      offer: ['Violin', 'Congas', '2nd Guitar', '2nd Keys', 'Electric Guitar', 'Oboe', 'Trumpet', 'Cahon',
+        'Singer 1', 'Singer 2', 'Singer 3', 'Other', 'Other 2', 'Other 3'],
+      ticks: ['Worship Leader', 'Sound', 'Words', 'Cameras', 'Sing', 'Guitar', 'Keyboard', 'Drums', 'Bass', 'Congas',
+        'Percussion', 'Violin', 'Trumpet', 'Synth', 'Electric Guitar'],
+      strong: ['Worship Leader', 'Sound', 'Words', 'Cameras'],
+      fill: [['2nd Guitar', 'Guitar'], ['2nd Keys', 'Keyboard'], ['Electric Guitar', 'Electric Guitar'], ['Violin', 'Violin'],
+        ['Trumpet', 'Trumpet'], ['Congas', 'Congas'], ['Cahon', 'Cahon']],
+      grow: [['Singer', 'Sing']]
+    },
+    'AV Team': { roles: ['Sound', 'Words', 'Cameras'], strong: ['Sound', 'Words', 'Cameras'] },
+    /* Choir is a part of Worship (parent), so its place counts as Worship's. */
+    'Choir': { roles: ['Choir'], ticks: [] },
+    'Kids Church': {
+      roles: ['Session Leader', 'Leader (Younger)', 'Leader (Older)', 'Leader (Creche)',
+        'Assistant (Younger)', 'Assistant (Older)', 'Assistant (Creche)',
+        'Helper 1', 'Helper 2', 'Helper 3', 'Helper 4', 'Helper 5'],
+      labels: { 'Leader (Creche)': 'Leader — Crèche', 'Assistant (Creche)': 'Assistant — Crèche' },
+      /* The standard Sunday: one Session Leader and two helpers. */
+      starts: ['Session Leader', 'Helper 1', 'Helper 2'],
+      note: ['Younger = Nursery, Reception, Y1, Y2 · Older = Y3, Y4, Y5 · Crèche = under 3s.',
+        'Helpers are not tied to a group — which group they take is decided when the week is planned.']
+    }
+  };
+  Object.keys(TEAM_ROLES).forEach(function (t) { if (TEAMS[t]) TEAMS[t].roles = TEAM_ROLES[t].roles.slice(); });
+
   /* ---- Teams as data (APP-A1 §4, steps 1-2) -------------------------
 
      The office manages teams and groups in a `teams` collection, keyed by
@@ -393,7 +443,10 @@
       /* H-15: the teams this one is the core team for (Teams & groups). */
       coreFor:  Array.isArray(d.coreFor) ? d.coreFor.slice() : (base.coreFor || []),
       /* Its pin board ('' = none; Teams & groups, 26 Oct 2026). */
-      board:    typeof d.board === 'string' ? d.board : (base.board || '')
+      board:    typeof d.board === 'string' ? d.board : (base.board || ''),
+      /* Its roles (Teams & groups); none stored keeps the built-in ones. */
+      roles:    Array.isArray(d.roles) ? d.roles.filter(function (r) { return typeof r === 'string' && r; }) : (base.roles || []),
+      rolesStored: Array.isArray(d.roles)
     };
     if (!TEAMS[id].parent) delete TEAMS[id].parent;
     if (!TEAMS[id].coreFor.length) delete TEAMS[id].coreFor;
@@ -548,6 +601,7 @@
   }
 
   /* ---- Permissions (H-14) -------------------------------------------- */
+  var TEAM_ADDR = {};
   var PERMS = { ready: false, promise: null, perms: null, jobs: null, set: {}, exceptions: [], pastor: '' };
   function localDayIso() {
     var d = new Date();
@@ -1275,17 +1329,127 @@
      rota, and anything added later. Defined once here rather than copied
      into each, because a copy is a thing that drifts. */
 
-  var AV_ROLES = ['Sound', 'Words', 'Cameras'];
+  /* Every answer comes from the teams' roles (TEAM_ROLES above, or what
+     the church stored), so the planner, the read-only rota and the PDF
+     cannot disagree about whose a place is. */
 
-  var KIDS_ROLES = ['Session Leader',
-    'Leader (Younger)', 'Leader (Older)', 'Leader (Creche)',
-    'Assistant (Younger)', 'Assistant (Older)', 'Assistant (Creche)',
-    'Helper 1', 'Helper 2', 'Helper 3', 'Helper 4', 'Helper 5'];
+  /** A team's roles, in its order: what it stored, else the built-in ones.
+   * @param {string} team team id  @returns {string[]} */
+  function rolesOf(team) { return ((TEAMS[team] && TEAMS[team].roles) || []).slice(); }
 
-  function roleTeam(r) {
-    if (AV_ROLES.indexOf(r) !== -1) return 'AV Team';
-    if (KIDS_ROLES.indexOf(r) !== -1 || /^Helper \d+$/.test(r)) return 'Kids Church';
-    return 'Worship Team';
+  /* "Helper 3" -> "Helper": the numbered places of one role share a tick. */
+  function roleBase(r) { return String(r || '').replace(/\s+\d+$/, ''); }
+
+  /* The extra built-in key for a team still on its built-in roles. */
+  function builtIn(team, key) {
+    var t = TEAMS[team];
+    return t && !t.rolesStored && TEAM_ROLES[team] ? TEAM_ROLES[team][key] : undefined;
+  }
+
+  function jobTeamIds(jobs) {
+    var out = [];
+    (jobs || []).forEach(function (j) {
+      (EGBCAuth.teamsForJob(j) || []).forEach(function (t) { if (out.indexOf(t) === -1) out.push(t); });
+    });
+    return out;
+  }
+
+  /** The team a rota place belongs to: the first team listing it (or its
+   * numbered family: "Helper 7" goes with "Helper 1"). A sub-team's place
+   * counts as its parent's, as Choir always counted as Worship. A place no
+   * team lists is the first worship team's, as it always was.
+   * @param {string} r the place  @returns {string} team id, or '' */
+  function roleTeamOf(r) {
+    var ids = Object.keys(TEAMS), base = roleBase(r), hit = '';
+    ids.some(function (t) { return rolesOf(t).indexOf(r) !== -1 && (hit = t); }) ||
+      ids.some(function (t) { return rolesOf(t).some(function (x) { return roleBase(x) === base; }) && (hit = t); });
+    if (hit) return (TEAMS[hit] && TEAMS[hit].parent) || hit;
+    /* Before the team jobs have loaded: the first team with roles, which
+       for the built-in table is the worship team, so a page that never
+       loads the jobs still sorts places as it always did. */
+    return (EGBCAuth.teamsForJob('worship') || [])[0] ||
+      ids.filter(function (t) { return rolesOf(t).length && !TEAMS[t].parent; })[0] || '';
+  }
+  var roleTeam = roleTeamOf;
+
+  /** The rota places to offer for the teams doing some jobs, in job order,
+   * no repeats ("+ Role"). @param {string[]} jobs @returns {string[]} */
+  function roleChoices(jobs) {
+    var out = [];
+    jobTeamIds(jobs).forEach(function (t) {
+      (builtIn(t, 'offer') || rolesOf(t)).forEach(function (r) { if (out.indexOf(r) === -1) out.push(r); });
+    });
+    return out;
+  }
+
+  /** What a person can tick in the address book for the teams doing some
+   * jobs: [{ value, label, strong }], no repeats. The value is what a
+   * record stores, so it never changes for a saved record.
+   * @param {string[]} jobs */
+  function roleTicks(jobs) {
+    var out = [], seen = {}, strong = {};
+    var teams = jobTeamIds(jobs);
+    teams.forEach(function (t) { (builtIn(t, 'strong') || []).forEach(function (s) { strong[s] = 1; }); });
+    teams.forEach(function (t) {
+      var labels = builtIn(t, 'labels') || {};
+      (builtIn(t, 'ticks') || rolesOf(t).map(roleBase)).forEach(function (v) {
+        if (seen[v]) return;
+        seen[v] = 1;
+        /* "Leader (Younger)" reads "Leader — Younger". */
+        out.push({ value: v, label: labels[v] || v.replace(/\s*\(([^)]*)\)\s*$/, ' — $1'), strong: !!strong[v] });
+      });
+    });
+    return out;
+  }
+
+  /** The places a week gets when one of these teams is ticked on it. With
+   * roles stored: all of them, a numbered family starting with two.
+   * @param {string[]} jobs @returns {string[]} */
+  function roleStarts(jobs) {
+    var out = [];
+    jobTeamIds(jobs).forEach(function (t) {
+      (builtIn(t, 'starts') || rolesOf(t).filter(function (r) { var n = /\s(\d+)$/.exec(r); return !n || Number(n[1]) <= 2; }))
+        .forEach(function (r) { if (out.indexOf(r) === -1) out.push(r); });
+    });
+    return out;
+  }
+
+  /** What auto-fill adds beyond a service's own places, for the teams doing
+   * some jobs: { fill: [[place, ticked as]], grow: [[family, ticked as]] }.
+   * With roles stored every place is tried, filled by whoever ticked it
+   * (numbers off), and nothing grows past the places listed.
+   * @param {string[]} jobs */
+  function roleFill(jobs) {
+    var fill = [], grow = [];
+    jobTeamIds(jobs).forEach(function (t) {
+      if (TEAMS[t] && TEAMS[t].rolesStored) rolesOf(t).forEach(function (r) { fill.push([r, roleBase(r)]); });
+      else { fill = fill.concat(builtIn(t, 'fill') || []); grow = grow.concat(builtIn(t, 'grow') || []); }
+    });
+    return { fill: fill, grow: grow };
+  }
+
+  /** What a person must have ticked to fill a place: the place without its
+   * number, or a built-in team's own word for it ("Singer 2" -> "Sing").
+   * @param {string} r the place */
+  function abilityOf(r) {
+    var ids = Object.keys(TEAMS);
+    var t = ids.filter(function (x) { return rolesOf(x).indexOf(r) !== -1; })[0] ||
+      ids.filter(function (x) { return rolesOf(x).some(function (y) { return roleBase(y) === roleBase(r); }); })[0];
+    var pairs = (t && builtIn(t, 'fill')) || [], grow = (t && builtIn(t, 'grow')) || [];
+    var f = pairs.filter(function (p) { return p[0] === r; })[0] || grow.filter(function (p) { return p[0] === roleBase(r); })[0];
+    if (f) return f[1];
+    /* A built-in place someone can tick by its own name ("Keyboard") keeps
+       it; otherwise the number comes off ("Helper 3" -> "Helper"). */
+    var ticks = t && builtIn(t, 'ticks');
+    return ticks && ticks.indexOf(r) !== -1 ? r : roleBase(r);
+  }
+
+  /** The address book's words about these teams' roles: [above, below]
+   * (built-in only). @param {string[]} jobs */
+  function roleNote(jobs) {
+    var n = null;
+    jobTeamIds(jobs).some(function (t) { return (n = builtIn(t, 'note')); });
+    return n || ['', ''];
   }
 
   /* Which teams' slots a person sees on the rota.
@@ -1749,7 +1913,23 @@
       var p = currentProfile;
       if (!p) return 'Signed out';
       if (p.status !== 'active') return 'Not active (' + (p.status || 'pending') + ')';
-      var no = guardRefusal(opts || {}, p);
+      opts = opts || {};
+      /* data-job with data-role (egbc-guard.js): the job's teams, checked as
+         data-team is; "member" is being on one of them. A job no team does
+         yet is master admins only. After loadPerms(), as egbc-guard waits. */
+      if (opts.job && opts.role && !opts.team) {
+        var teams = [];
+        String(opts.job).split(',').forEach(function (j) {
+          EGBCAuth.teamsForJob(j.trim()).forEach(function (t) { if (teams.indexOf(t) === -1) teams.push(t); });
+        });
+        if (!teams.length) return EGBCAuth.isMaster() ? '' : 'No access to this page';
+        var o2 = {};
+        Object.keys(opts).forEach(function (k) { if (k !== 'job') o2[k] = opts[k]; });
+        o2.team = teams.join(',');
+        if (o2.role === 'member') delete o2.role;
+        opts = o2;
+      }
+      var no = guardRefusal(opts, p);
       return no ? no[0] : '';
     },
     /* GOOGLE SIGN-IN INSIDE THE INSTALLED APP (26 Oct 2026; Martin's
@@ -2195,8 +2375,18 @@
     /* For the preview bar itself, which must survive being someone else. */
     isReallyMaster: reallyMaster,
     roleTeam: roleTeam,
-    KIDS_ROLES: KIDS_ROLES,
-    AV_ROLES: AV_ROLES,
+    rolesOf: rolesOf,
+    roleTeamOf: roleTeamOf,
+    roleChoices: roleChoices,
+    roleTicks: roleTicks,
+    roleStarts: roleStarts,
+    roleFill: roleFill,
+    abilityOf: abilityOf,
+    roleNote: roleNote,
+    /* The children's and AV teams' places, read when asked: they follow the
+       church's teams and team jobs once those have loaded. */
+    get KIDS_ROLES() { return roleChoices(['children']); },
+    get AV_ROLES() { return roleChoices(['av']); },
 
     /* Every rota slot this person should see. null means all of them. */
     visibleRoleTeams: function () {
@@ -2270,6 +2460,15 @@
 
     /* The money team's name (Payments in the Menu). */
     moneyTeam: function () { return moneyTeam; },
+    /* Where replies to a job's emails go: the team's own address from Team
+       mail, else the church's enquiry email ('' if neither). Asked of the
+       server once per job, as only master admins may read Team mail. */
+    teamAddress: function (job) {
+      TEAM_ADDR[job] = TEAM_ADDR[job] || EGBCAuth.call('teamReplyTo', { job: job })
+        .then(function (r) { r = (r && r.data !== undefined) ? r.data : r; return (r && r.address) || ''; },
+              function () { delete TEAM_ADDR[job]; return ''; });
+      return TEAM_ADDR[job];
+    },
 
     /* The safeguarding lead or deputy (careRouting/status, kept by the
        server). For the Menu's Safeguarding; never previewed into. */

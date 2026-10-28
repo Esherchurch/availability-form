@@ -258,10 +258,17 @@
        - a role column appears only if somebody is in it on these dates.
        - one "When" column: the date on its own line, then time and service.
        - banded rows with a rule between dates. */
+  /* A children's place: its team (EGBCAuth.roleTeamOf) does the children's
+     job. Without EGBCAuth there are no teams to ask, so nothing is split. */
   function isKidsRole(r) {
-    if (typeof EGBCAuth !== 'undefined' && EGBCAuth.roleTeam) return EGBCAuth.roleTeam(r) === 'Kids Church';
-    return r === 'Session Leader' || r.indexOf('Helper ') === 0 ||
-           r.indexOf('Leader (') === 0 || r.indexOf('Assistant (') === 0;
+    if (typeof EGBCAuth === 'undefined' || !EGBCAuth.roleTeamOf) return false;
+    return EGBCAuth.teamsForJob('children').indexOf(EGBCAuth.roleTeamOf(r)) !== -1;
+  }
+  /* A choir place (the choir job's teams' roles): sung by the whole choir,
+     so an empty one on the week is shown as the choir. */
+  function isChoirPlace(r) {
+    if (typeof EGBCAuth === 'undefined' || !EGBCAuth.rolesOf) return false;
+    return EGBCAuth.teamsForJob('choir').some(function (t) { return EGBCAuth.rolesOf(t).indexOf(r) !== -1; });
   }
 
   function whenText(e) {
@@ -296,7 +303,7 @@
     var names = function (e, r) {
       var p = peopleIn(e.assignments && e.assignments[r]);
       if (p.length) return p;
-      return (r === 'Choir' && (e.roles || []).indexOf('Choir') !== -1) ? [{ name: 'Choir' }] : [];
+      return (isChoirPlace(r) && (e.roles || []).indexOf(r) !== -1) ? [{ name: r }] : [];
     };
 
     var groups = [];

@@ -7,6 +7,7 @@ The top bar shows the church's initials and "Hub", made from the church's name i
 ## Who can use it
 - Everyone in the church's address book can sign in and use it.
 - You see the parts for the teams you are on. Someone on no team sees **Just me**.
+- Each team part is named after the church's own teams in Teams & groups, and comes from the jobs those teams do (Church settings). A part the church has no team for is not shown.
 - A parent signed in who is not yet in the address book sees only **Home** and **Me**, with their children's Sunday. The church office can add them.
 - Someone whose email the church does not know is turned away.
 

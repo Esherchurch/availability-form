@@ -7,11 +7,12 @@
     <meta name="theme-color" content="#3d6263">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Availability">
+    <meta name="apple-mobile-web-app-title" content="Availability" data-church>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Availability</title>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="egbc-manifest.js?v=202610311800"></script>
     <script type="module">
         import { ready, call, db, firestore, address, usingEmulator } from './egbc-db.js';
         import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -56,6 +57,7 @@
         const formChurch = (address || usingEmulator) ? db : firestore;
         getDoc(doc(formChurch, 'churchSettings', 'details')).then(snap => {
             const d = snap.exists() ? (snap.data() || {}) : {};
+            if (window.EGBCManifest) EGBCManifest.name(d.shortName);
             if (d.name) {
                 document.querySelectorAll('.egbc-church-name').forEach(el => { el.textContent = d.name; });
                 document.title = 'Availability - ' + d.name;

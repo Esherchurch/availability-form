@@ -50,8 +50,8 @@ Martin's decisions first; "(reviewer)" marks the reviewer's findings of 27 Oct, 
 | Page | Guard | Pending | Attender | Member | Kids Ch | Kids lead | Worship | Wor lead | Wor admin | Kids admin | Core admin | AV | Wor core | K&Y core | Office | Elders | Finance | Pastoral | SG lead | Bookings | Plan grp | Event team | Master |
 |---|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | Rota <small>(view-only-rota.html)</small> | on any team | – | – | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | – | – | – | – | ✓ |
-| Rota planner <small>(Planner.html)</small> | leaders of Worship Team, Kids Church, Youth Worship, Core Team | – | – | – | – | ✓ | – | ✓ | ✓ | ✓ | ✓ | – | ✓ | ✓ | – | – | – | – | – | – | – | – | ✓ |
-| Sunday service plan <small>(SundayServicePlanner.html)</small> | leaders of Worship Team | – | – | – | – | – | – | ✓ | ✓ | – | ✓ | – | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
+| Rota planner <small>(Planner.html)</small> | doing the worship,children,youth job | – | – | – | – | ✓ | – | ✓ | ✓ | ✓ | ✓ | – | ✓ | ✓ | – | – | – | – | – | – | – | – | ✓ |
+| Sunday service plan <small>(SundayServicePlanner.html)</small> | doing the worship job | – | – | – | – | – | – | ✓ | ✓ | – | ✓ | – | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
 | Preaching plan <small>(preaching-plan.html)</small> | anyone signed in | – | – | – | – | ✓ | – | ✓ | ✓ | ✓ | ✓ | – | ✓ | ✓ | – | ✓ | – | – | – | – | – | – | ✓ |
 | Session planner <small>(session-planner.html)</small> | anyone signed in | – | – | – | ✓ | ✓ | – | – | – | ✓ | – | – | – | ✓ | – | – | – | – | – | – | ✓ | – | ✓ |
 | Present <small>(present.html)</small> | no guard | – | – | – | ✓ | ✓ | – | – | – | ✓ | – | – | – | ✓ | – | – | – | – | – | – | ✓ | – | ✓ |
@@ -63,7 +63,7 @@ Martin's decisions first; "(reviewer)" marks the reviewer's findings of 27 Oct, 
 
 | Page | Guard | Pending | Attender | Member | Kids Ch | Kids lead | Worship | Wor lead | Wor admin | Kids admin | Core admin | AV | Wor core | K&Y core | Office | Elders | Finance | Pastoral | SG lead | Bookings | Plan grp | Event team | Master |
 |---|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| Address book <small>(addressbook.html)</small> | an admin of any team, or on Church office | – | – | – | – | – | – | – | ✓ | ✓ | ✓ | – | – | – | ✓ | – | – | – | – | – | – | – | ✓ |
+| Address book <small>(addressbook.html)</small> | an admin of any team, or doing the office job | – | – | – | – | – | – | – | ✓ | ✓ | ✓ | – | – | – | ✓ | – | – | – | – | – | – | – | ✓ |
 | Send an email <small>(EmailBuilder2.html)</small> | an admin of any team, or on Church office | – | – | – | – | – | – | – | ✓ | ✓ | ✓ | – | – | – | ✓ | – | – | – | – | – | – | – | ✓ |
 | Team emails <small>(team-mail.html)</small> | no guard | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ |
 | Members’ meetings <small>(church-meeting.html)</small> | anyone signed in | – | – | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -118,30 +118,30 @@ Martin's decisions first; "(reviewer)" marks the reviewer's findings of 27 Oct, 
 | Emails sent <small>(comms.html)</small> | no guard | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ |
 | Manage Watch <small>(watch-admin.html)</small> | anyone signed in | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ |
 | Manage sermons <small>(sermons-admin.html)</small> | anyone signed in | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | – | ✓ |
-| Backup <small>(data-tools.html)</small> | on Core Team | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | – | – | – | – | ✓ |
+| Backup <small>(data-tools.html)</small> | an admin of any team | – | – | – | – | – | – | – | ◐ | ◐ | ✓ | – | – | – | – | – | – | – | – | – | – | – | ✓ |
 
 ## My teams
 
 | Page | Guard | Pending | Attender | Member | Kids Ch | Kids lead | Worship | Wor lead | Wor admin | Kids admin | Core admin | AV | Wor core | K&Y core | Office | Elders | Finance | Pastoral | SG lead | Bookings | Plan grp | Event team | Master |
 |---|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| Worship & AV <small>(Worshipteamcharter.html)</small> | on Worship Team | – | – | – | – | – | ✓ | ✓ | ✓ | – | ✓ | ✓ | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
-| Play-Through <small>(EGBC-PlayThrough.html)</small> | on Worship Team | – | – | – | – | – | ✓ | ✓ | ✓ | – | ✓ | ✓ | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
-| Worship Training <small>(EGBC-Training-Worship.html)</small> | on Worship Team | – | – | – | – | – | ✓ | ✓ | ✓ | – | ✓ | ✓ | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
-| Music Database <small>(Library.html)</small> | on Worship Team | – | – | – | – | – | ✓ | ✓ | ✓ | – | ✓ | ✓ | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
-| Music Uploader <small>(batchupload.html)</small> | leaders of Worship Team | – | – | – | – | – | – | ✓ | ✓ | – | ✓ | – | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
-| How-To AV <small>(EGBC-HowTo-AV.html)</small> | on AV Team | – | – | – | – | – | ✓ | ✓ | ✓ | – | ✓ | ✓ | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
-| AV Troubleshoot <small>(EGBC-Troubleshoot-AV.html)</small> | on AV Team | – | – | – | – | – | ✓ | ✓ | ✓ | – | ✓ | ✓ | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
-| Inventory <small>(inventory-system-2.html)</small> | leaders of AV Team | – | – | – | – | – | – | – | – | – | ✓ | – | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
-| AV Infrastructure Mapper <small>(schematic.html)</small> | on AV Team | – | – | – | – | – | ✓ | ✓ | ✓ | – | ✓ | ✓ | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
-| Monitor Setup <small>(MonitorStageMap.html)</small> | on AV Team | – | – | – | – | – | ✓ | ✓ | ✓ | – | ✓ | ✓ | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
-| Performance Notes <small>(Performancenotes.html)</small> | on Worship Team | – | – | – | – | – | ✓ | ✓ | ✓ | – | ✓ | ✓ | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
-| Connect ChurchShow <small>(churchshow.html)</small> | on AV Team, Worship Team | – | – | – | – | – | – | – | ✓ | – | ✓ | – | – | – | – | – | – | – | – | – | – | – | ✓ |
+| Worship & AV <small>(Worshipteamcharter.html)</small> | doing the worship job | – | – | – | – | – | ✓ | ✓ | ✓ | – | ✓ | ✓ | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
+| Play-Through <small>(EGBC-PlayThrough.html)</small> | doing the worship job | – | – | – | – | – | ✓ | ✓ | ✓ | – | ✓ | ✓ | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
+| Worship Training <small>(EGBC-Training-Worship.html)</small> | doing the worship job | – | – | – | – | – | ✓ | ✓ | ✓ | – | ✓ | ✓ | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
+| Music Database <small>(Library.html)</small> | doing the worship job | – | – | – | – | – | ✓ | ✓ | ✓ | – | ✓ | ✓ | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
+| Music Uploader <small>(batchupload.html)</small> | doing the worship job | – | – | – | – | – | – | ✓ | ✓ | – | ✓ | – | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
+| How-To AV <small>(EGBC-HowTo-AV.html)</small> | doing the av job | – | – | – | – | – | ✓ | ✓ | ✓ | – | ✓ | ✓ | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
+| AV Troubleshoot <small>(EGBC-Troubleshoot-AV.html)</small> | doing the av job | – | – | – | – | – | ✓ | ✓ | ✓ | – | ✓ | ✓ | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
+| Inventory <small>(inventory-system-2.html)</small> | doing the av job | – | – | – | – | – | – | – | – | – | ✓ | – | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
+| AV Infrastructure Mapper <small>(schematic.html)</small> | doing the av job | – | – | – | – | – | ✓ | ✓ | ✓ | – | ✓ | ✓ | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
+| Monitor Setup <small>(MonitorStageMap.html)</small> | doing the av job | – | – | – | – | – | ✓ | ✓ | ✓ | – | ✓ | ✓ | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
+| Performance Notes <small>(Performancenotes.html)</small> | doing the worship job | – | – | – | – | – | ✓ | ✓ | ✓ | – | ✓ | ✓ | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
+| Connect ChurchShow <small>(churchshow.html)</small> | doing the av,worship job | – | – | – | – | – | – | – | ✓ | – | ✓ | – | – | – | – | – | – | – | – | – | – | – | ✓ |
 | Youth <small>(Youthcharter.html)</small> | on Youth Worship, Lazers, ReNu | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | – | ✓ |
-| Youth Service Planner <small>(youthserviceplanner.html)</small> | on Youth Worship | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | – | ✓ |
+| Youth Service Planner <small>(youthserviceplanner.html)</small> | doing the youth job | – | – | – | – | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | – | ✓ |
 | Children's register <small>(kids-admin.html)</small> | anyone signed in | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | – | – | – | – | – | ✓ |
 | Sunday check-in <small>(kids-checkin.html)</small> | anyone signed in | – | – | – | – | – | – | – | – | ✓ | – | – | – | – | – | – | – | – | – | – | – | – | ✓ |
 | Core Team <small>(Coreteamcharter.html)</small> | on Core Team | – | – | – | – | – | – | – | – | – | ✓ | – | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
-| Music Upload <small>(music-uploader.html)</small> | leaders of Worship Team | – | – | – | – | – | – | ◐ | ◐ | – | ✓ | – | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
+| Music Upload <small>(music-uploader.html)</small> | doing the worship job | – | – | – | – | – | – | ◐ | ◐ | – | ✓ | – | ✓ | – | – | – | – | – | – | – | – | – | ✓ |
 
 ## Resources
 

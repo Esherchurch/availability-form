@@ -9,7 +9,7 @@ This page shows the church's rota, so you can see who is serving and when. You c
 
 ## Read the rota
 1. The rota is grouped by term. The page opens at the next date.
-2. Each date shows the day, time, service and its slots. **---** means nobody is on that slot yet.
+2. Each date shows the day, time, service and its slots. **---** means nobody is on that slot yet. A choir slot shows the slot's name instead, because the whole choir sings it.
 3. Press a term's name, or **Hide** / **Show**, to fold it away or open it again.
 4. "Nothing on this rota for your team yet" means your team has no slots in that term yet.
 

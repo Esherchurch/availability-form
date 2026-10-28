@@ -6,8 +6,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610311800"></script>
-<script src="egbc-guard.js?v=202610282000" data-admin="any" data-also-job="office"></script>
+<script src="egbc-auth.js?v=202610311900"></script>
+<script src="egbc-guard.js?v=202610311900" data-admin="any" data-also-job="office"></script>
 <!-- "Gets the e-news" on each person, for the office (the comms window's add-on; FINDINGS-comms C-30) -->
 <script src="egbc-enews-ab.js?v=202610272000"></script>
     <meta charset="UTF-8">
@@ -58,20 +58,24 @@
                as each record is looked at. */
             document.querySelectorAll('label[data-old-role="' + cls + '"]').forEach(el => el.remove());
             if (!Array.isArray(stored) || !stored.length) return;
-            const group = document.querySelector('.' + cls);
-            if (!group) return;
-            const holder = group.closest('.instr-grid') || group.parentElement;
+            /* The grid the ticks are drawn into (fillRoleTicks), even when
+               the church's list for it is empty. */
+            const holder = document.getElementById({ primary: 'tickPrimary', secondary: 'tickSecondary',
+                kidsprimary: 'kidsTickPrimary', kidssecondary: 'kidsTickSecondary' }[cls]);
+            if (!holder) return;
             stored.forEach(value => {
                 if (document.querySelector('.' + cls + '[value="' + String(value).replace(/"/g, '&quot;') + '"]')) return;
                 const label = document.createElement('label');
                 label.setAttribute('data-old-role', cls);
-                label.className = 'flex items-center gap-2 cursor-pointer text-[#7a5f4a]';
+                label.className = 'flex items-center gap-2 cursor-pointer' + (cls.indexOf('kids') === 0 ? ' text-[#7a5f4a]' : '');
                 label.innerHTML = '<input type="checkbox" class="' + cls + '" checked> <span></span>';
                 label.querySelector('input').value = value;
                 label.querySelector('span').textContent = value + ' (old name)';
                 holder.appendChild(label);
             });
         }
+        /* fillRoleTicks() redraws the ticks and puts these back with it. */
+        window.keepUnknownRoles = keepUnknownKidsRoles;
 
         /* A blank form for a new person ("Add a person" on a phone). It must
            forget who was being edited, or saving would overwrite them. */
@@ -118,6 +122,17 @@
                should become. */
             keepUnknownKidsRoles('kidsprimary', data.kidsRolesPrimary);
             keepUnknownKidsRoles('kidssecondary', data.kidsRolesSecondary);
+            /* The same for instruments once the church keeps its own role
+               list (Teams & groups): a role taken off a team must not be
+               taken off people by the next save. Built-in lists drop
+               nothing new, so they are left as they always were. */
+            /* Also while the ticks are not drawn yet (the team jobs still
+               loading), or the next save would empty the person's list. */
+            const keepInstruments = !document.querySelector('#tickPrimary .primary')
+                || (typeof rolesStoredFor === 'function' && rolesStoredFor(ROTA_TICK_JOBS));
+            /* Called either way, so the last person's kept ones are cleared. */
+            keepUnknownKidsRoles('primary', keepInstruments ? data.primaryInstruments : []);
+            keepUnknownKidsRoles('secondary', keepInstruments ? data.secondaryInstruments : []);
             document.getElementById('isMinor').checked = !!data.isMinor;
             document.getElementById('under18').checked = !!data.under18 || !!data.isMinor;
             document.getElementById('churchMember').checked = !!data.churchMember;
@@ -385,11 +400,61 @@ function fillTeamTicks(alsoShow) {
     + esc(n) + '" placeholder="&mdash;"></div>').join('');
 }
 
+/* THE ROLE TICKS, from the church's teams (Teams & groups, "Roles on this
+   team"; EGBCAuth.roleTicks). Instruments: the teams doing the worship, AV
+   and choir jobs; the second block: the children's teams. Values are what
+   records already store, so saved records tick as before. Drawn again once
+   the team jobs load, keeping whatever was ticked. */
+const ROTA_TICK_JOBS = ['worship', 'av', 'choir'];
+function rolesStoredFor(jobs) {
+  const T = (window.EGBCAuth && EGBCAuth.TEAMS) || {};
+  return jobs.some(j => (EGBCAuth.teamsForJob(j) || []).some(t => T[t] && T[t].rolesStored));
+}
+function fillRoleTicks() {
+  if (!window.EGBCAuth || !EGBCAuth.roleTicks) return;
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const ticked = {};
+  ['primary', 'secondary', 'kidsprimary', 'kidssecondary'].forEach(cls => {
+    ticked[cls] = [].map.call(document.querySelectorAll('.' + cls + ':checked'), cb => cb.value);
+  });
+  const box = (cls, t, colour) => '<label class="flex items-center gap-2 cursor-pointer' + (colour ? ' ' + colour : '')
+    + '"><input type="checkbox" class="' + cls + '" value="' + esc(t.value) + '"> ' + esc(t.label) + '</label>';
+  const fill = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+
+  const rota = EGBCAuth.roleTicks(ROTA_TICK_JOBS);
+  fill('tickPrimary', rota.map(t => box('primary', t, t.strong ? 'text-[#3d6263]' : '')).join(''));
+  fill('tickSecondary', rota.map(t => box('secondary', t, t.strong ? 'text-[#3d6263]' : '')).join(''));
+
+  const kids = EGBCAuth.roleTicks(['children']);
+  fill('kidsTickPrimary', kids.map(t => box('kidsprimary', t, 'text-[#7a5f4a]')).join(''));
+  fill('kidsTickSecondary', kids.map(t => box('kidssecondary', t, 'text-[#7a5f4a]')).join(''));
+  const T = EGBCAuth.TEAMS || {};
+  const kidsTeams = (EGBCAuth.teamsForJob('children') || []).filter(t => EGBCAuth.rolesOf(t).length);
+  const head = document.getElementById('kidsRolesHead');
+  if (head) head.textContent = kidsTeams.map(t => (T[t] && T[t].label) || t).join(' & ') + ' Roles';
+  const note = EGBCAuth.roleNote(['children']);
+  const noteEl = document.getElementById('kidsRolesNote');
+  if (noteEl) noteEl.innerHTML = (note[0] ? esc(note[0]) + '<br>' : '')
+    + 'Tick <strong>Usually</strong> for what they normally do, <strong>Can cover</strong> for what they will step into.'
+    + (note[1] ? '<br>' + esc(note[1]) : '');
+  const block = document.getElementById('kidsRolesBlock');
+  if (block) block.classList.toggle('hidden', !kids.length);
+
+  /* Put back what was ticked; a value no longer offered stays, ticked. */
+  Object.keys(ticked).forEach(cls => {
+    ticked[cls].forEach(v => { const el = document.querySelector('.' + cls + '[value="' + String(v).replace(/"/g, '\\"') + '"]'); if (el) el.checked = true; });
+    if (window.keepUnknownRoles) window.keepUnknownRoles(cls, ticked[cls]);
+  });
+}
+
 document.addEventListener('egbc-ready',()=>{
   fillTeamTicks();
+  fillRoleTicks();
   // The team jobs say who the office is, so they are read before deciding
   // what this person may touch.
   EGBCAuth.loadPerms().catch(()=>{}).then(()=>{
+    fillRoleTicks();
     applyAdminScope();
     // The list is drawn before auth resolves, so redraw it now that we know
     // whose records this person may touch.
@@ -650,72 +715,26 @@ document.addEventListener('egbc-ready',()=>{
 
                 <div class="space-y-4 pt-4 border-t border-[#dde7e6]">
                     <label class="block text-[10px] font-semibold text-[#3d6263] uppercase tracking-widest">Instruments (Primary)</label>
-                    <div class="instr-grid space-y-1.5 text-[10px] font-medium text-gray-500 uppercase">
-                        <label class="flex items-center gap-2 cursor-pointer text-[#3d6263]"><input type="checkbox" class="primary" value="Worship Leader"> Worship Leader</label>
-                        <label class="flex items-center gap-2 cursor-pointer text-[#3d6263]"><input type="checkbox" class="primary" value="Sound"> Sound</label>
-                        <label class="flex items-center gap-2 cursor-pointer text-[#3d6263]"><input type="checkbox" class="primary" value="Words"> Words</label>
-                        <label class="flex items-center gap-2 cursor-pointer text-[#3d6263]"><input type="checkbox" class="primary" value="Cameras"> Cameras</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Sing"> Sing</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Guitar"> Guitar</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Keyboard"> Keyboard</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Drums"> Drums</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Bass"> Bass</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Congas"> Congas</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Percussion"> Percussion</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Violin"> Violin</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Trumpet"> Trumpet</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Synth"> Synth</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="primary" value="Electric Guitar"> Electric Guitar</label>
+                    <div id="tickPrimary" class="instr-grid space-y-1.5 text-[10px] font-medium text-gray-500 uppercase">
                     </div>
                 </div>
 
                 <div class="space-y-4 pt-4 border-t border-[#dde7e6]">
                     <label class="block text-[10px] font-semibold text-[#3d6263] uppercase tracking-widest">Instruments (Secondary)</label>
-                    <div class="instr-grid space-y-1.5 text-[10px] font-medium text-gray-500 uppercase">
-                        <label class="flex items-center gap-2 cursor-pointer text-[#3d6263]"><input type="checkbox" class="secondary" value="Worship Leader"> Worship Leader</label>
-                        <label class="flex items-center gap-2 cursor-pointer text-[#3d6263]"><input type="checkbox" class="secondary" value="Sound"> Sound</label>
-                        <label class="flex items-center gap-2 cursor-pointer text-[#3d6263]"><input type="checkbox" class="secondary" value="Words"> Words</label>
-                        <label class="flex items-center gap-2 cursor-pointer text-[#3d6263]"><input type="checkbox" class="secondary" value="Cameras"> Cameras</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Sing"> Sing</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Guitar"> Guitar</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Keyboard"> Keyboard</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Drums"> Drums</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Bass"> Bass</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Congas"> Congas</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Percussion"> Percussion</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Violin"> Violin</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Trumpet"> Trumpet</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Synth"> Synth</label>
-                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="secondary" value="Electric Guitar"> Electric Guitar</label>
+                    <div id="tickSecondary" class="instr-grid space-y-1.5 text-[10px] font-medium text-gray-500 uppercase">
                     </div>
                 </div>
 
-                <div class="space-y-4 pt-4 border-t border-[#dde7e6]">
-                    <label class="block text-[10px] font-semibold text-[#7a5f4a] uppercase tracking-widest">Kids Church Roles</label>
-                    <p class="text-[9px] text-gray-400 font-semibold leading-relaxed">Younger = Nursery, Reception, Y1, Y2 &middot; Older = Y3, Y4, Y5 &middot; Cr&egrave;che = under 3s.<br>Tick <strong>Usually</strong> for what they normally do, <strong>Can cover</strong> for what they will step into.<br>Helpers are not tied to a group &mdash; which group they take is decided when the week is planned.</p>
+                <div id="kidsRolesBlock" class="space-y-4 pt-4 border-t border-[#dde7e6]">
+                    <label id="kidsRolesHead" class="block text-[10px] font-semibold text-[#7a5f4a] uppercase tracking-widest"></label>
+                    <p id="kidsRolesNote" class="text-[9px] text-gray-400 font-semibold leading-relaxed"></p>
 
                     <div class="text-[9px] font-semibold text-gray-400 uppercase tracking-widest pt-1">Usually</div>
-                    <div class="instr-grid space-y-1.5 text-[10px] font-medium text-gray-500 uppercase">
-                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Session Leader"> Session Leader</label>
-                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Leader (Younger)"> Leader &mdash; Younger</label>
-                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Leader (Older)"> Leader &mdash; Older</label>
-                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Leader (Creche)"> Leader &mdash; Cr&egrave;che</label>
-                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Assistant (Younger)"> Assistant &mdash; Younger</label>
-                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Assistant (Older)"> Assistant &mdash; Older</label>
-                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Assistant (Creche)"> Assistant &mdash; Cr&egrave;che</label>
-                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidsprimary" value="Helper"> Helper</label>
+                    <div id="kidsTickPrimary" class="instr-grid space-y-1.5 text-[10px] font-medium text-gray-500 uppercase">
                     </div>
 
                     <div class="text-[9px] font-semibold text-gray-400 uppercase tracking-widest pt-2">Can cover</div>
-                    <div class="instr-grid space-y-1.5 text-[10px] font-medium text-gray-500 uppercase">
-                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Session Leader"> Session Leader</label>
-                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Leader (Younger)"> Leader &mdash; Younger</label>
-                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Leader (Older)"> Leader &mdash; Older</label>
-                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Leader (Creche)"> Leader &mdash; Cr&egrave;che</label>
-                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Assistant (Younger)"> Assistant &mdash; Younger</label>
-                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Assistant (Older)"> Assistant &mdash; Older</label>
-                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Assistant (Creche)"> Assistant &mdash; Cr&egrave;che</label>
-                        <label class="flex items-center gap-2 cursor-pointer text-[#7a5f4a]"><input type="checkbox" class="kidssecondary" value="Helper"> Helper</label>
+                    <div id="kidsTickSecondary" class="instr-grid space-y-1.5 text-[10px] font-medium text-gray-500 uppercase">
                     </div>
                 </div>
             </div>

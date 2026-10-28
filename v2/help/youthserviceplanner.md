@@ -3,7 +3,7 @@
 This is where the youth team plans a youth-led service: the songs, the keys, the order of service and notes for the team. You can then email the plan to everyone on that service.
 
 ## Who can use it
-- People on the youth worship team can open it. So can master admins.
+- People on the team that does the church's youth work can open it, and that team's admins and core team. So can master admins.
 - Anyone else is turned away.
 - You can only change and send youth services. Any other service shows as "(view only)". A yellow note says you can look at it as an example but cannot make changes.
 

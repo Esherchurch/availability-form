@@ -13,6 +13,13 @@
      data-team  — team required to view the page (omit for "any signed-in user")
      data-role  — minimum role: member (default), leader, admin
      data-admin — "any": anybody who administers something
+     data-job   — a team job (worship, av, office...): whichever of the
+                  church's teams does it. Alone it means "doing this job"
+                  (and master admins). With data-role it is read as those
+                  teams exactly as data-team is, so data-job="worship"
+                  data-role="leader" is "a leader of a team doing worship";
+                  data-role="member" there means "on, or administering, one
+                  of those teams" - what a plain data-team gives.
      data-also-team — "...or anybody on this team", ORed with the above.
                   data-team and data-admin are ANDed with each other, so
                   neither can say "an admin OR the Church office", which is
@@ -168,6 +175,55 @@
     if (b) b.onclick = function () { location.reload(); };
   }
 
+  /**
+   * The team-and-role check for data-job with data-role, run once require()
+   * has let the person in on everything else. The job becomes the church's
+   * teams for it and the ordinary team+role check decides, so core teams,
+   * the teams' admins and master admins count exactly as they do for
+   * data-team. require() checks a job only as "doing it", which cannot say
+   * "a leader of" nor let in a team's admin who is not on the team. Done
+   * after sign-in because the church's team jobs can be read only then.
+   * @param {Object} profile the signed-in person's profile from require()
+   * @param {Object} opts the guard's other options (data-also-team and the rest)
+   * @returns {Promise<Object|null>} the profile, or null once the page is refused
+   */
+  function jobAsTeams(profile, opts) {
+    /* A parent let in by data-allow-pending is on no team; require() has
+       already narrowed what the page shows them. */
+    if (profile && profile.parentOnly) return Promise.resolve(profile);
+    return EGBCAuth.loadPerms().catch(function () {}).then(function () {
+      var teams = [];
+      job.split(',').forEach(function (j) {
+        EGBCAuth.teamsForJob(j.trim()).forEach(function (t) { if (teams.indexOf(t) === -1) teams.push(t); });
+      });
+      /* No team does the job yet: an empty team list would let everybody
+         in, so only master admins pass until the church chooses one. */
+      if (!teams.length && !EGBCAuth.isMaster()) {
+        EGBCAuth._blockPage('No access to this page',
+          'Nobody in the church does this job yet, so only a master admin can open this page. ' +
+          'A master admin can choose the team in Church settings.', profile);
+        return null;
+      }
+      var full = {};
+      Object.keys(opts).forEach(function (k) { full[k] = opts[k]; });
+      if (teams.length) full.team = teams.join(',');
+      /* "member" is the lowest rank: being on the team, which is all a
+         plain data-team asks. */
+      if (role !== 'member') full.role = role;
+      var no = EGBCAuth.guardVerdict(full);
+      if (!no) return profile;
+      /* The words require() uses for a team page. */
+      var T = EGBCAuth.TEAMS || {};
+      var names = teams.map(function (t) { return (T[t] && T[t].label) || t; });
+      var list = names.length < 2 ? (names[0] || 'this team') : names.slice(0, -1).join(', ') + ' or ' + names[names.length - 1];
+      var msg = no === 'Not enough permissions'
+        ? 'This page needs ' + role + ' access for ' + list + '.'
+        : 'This page is for ' + list + ', and you are not on ' + (teams.length > 1 ? 'any of those teams.' : 'that team.');
+      EGBCAuth._blockPage(no, msg, profile);
+      return null;
+    });
+  }
+
   function start() {
     var sp = splash();
 
@@ -180,10 +236,14 @@
     var opts = {};
     if (team) opts.team = team;
     if (role) opts.role = role;
+    /* A job with a role is checked as the job's teams (jobAsTeams), after
+       require() has checked everything else. */
+    var jobTeams = !!(job && role && !team);
+    if (jobTeams) delete opts.role;
     if (adminAny) opts.adminAny = true;
     if (alsoTeam) opts.alsoTeam = alsoTeam;
     if (alsoJob) opts.alsoJob = alsoJob;
-    if (job) opts.job = job;
+    if (job && !jobTeams) opts.job = job;
     if (allowPending) opts.allowPending = allowPending;
     if (anyTeam) opts.anyTeam = true;
     if (masterOnly) opts.master = true;
@@ -192,7 +252,10 @@
     setTimeout(sayStuck, SETTLE_MS);
 
     EGBCAuth.require(opts).then(function (profile) {
+      return jobTeams ? jobAsTeams(profile, opts) : profile;
+    }).then(function (profile) {
       settled = true;
+      if (jobTeams && profile === null) return; /* refused: jobAsTeams said so */
       if (feature && EGBCAuth.uses && !EGBCAuth.uses(feature)) {
         var f = ((EGBCAuth.features && EGBCAuth.features()) || []).filter(function (x) { return x.name === feature; })[0];
         EGBCAuth._blockPage('Switched off', ((f && f.label) || 'This part') + ' is switched off for this church. Nothing has been deleted: a master admin can switch it back on in Church settings.', profile);

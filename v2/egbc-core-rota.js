@@ -295,14 +295,15 @@
   'use strict';
 
   /* ---- the lists, from CoreTeamApp ---------------------------------- */
-  var OPTIONAL_ROLES_LIST = ['Sound', 'Words', 'Cameras', 'Violin', 'Congas', '2nd Guitar', '2nd Keys',
-    'Electric Guitar', 'Oboe', 'Trumpet', 'Cahon', 'Singer 1', 'Singer 2', 'Singer 3',
-    'Other', 'Other 2', 'Other 3', 'Choir'];
+  /* "+ Role" offers the church's places: the roles of the teams doing the
+     AV, worship and choir jobs (Teams & groups; EGBCAuth.roleChoices).
+     Asked each time, since they follow the teams once those load. */
+  function optionalRoles() { return global.EGBCAuth && EGBCAuth.roleChoices ? EGBCAuth.roleChoices(['av', 'worship', 'choir']) : []; }
+  function avRoles() { return global.EGBCAuth && EGBCAuth.roleChoices ? EGBCAuth.roleChoices(['av']) : []; }
   var MANDATORY_SUNDAY_ROLES = ['Worship Leader', 'Keyboard', 'Guitar', 'Drums', 'Bass', 'Sound', 'Words', 'Cameras'];
   var EVENT_TYPES_LIST = ['Sunday Morning Worship', 'Sunday Team Practice', 'Evening Carol Service',
     'Midnight Service', 'Special Service', 'Worship and AV Team Meeting', 'All Team Practice',
     'Core Team Meeting', 'Worship Team Meeting', 'AV Team Meeting', 'Song Writing Workshop', 'LOUD Worship'];
-  var AV_ROLES = ['Sound', 'Words', 'Cameras'];
   /* The types the new-event form offers. CoreTeamApp's form listed
      eleven of the twelve - 'Special Service' was not among them - and
      that stays as it was rather than being quietly corrected here. */
@@ -1268,8 +1269,9 @@
     var declined = members.filter(function (m) { return (av[m.id] === 'unavailable' || av[m.id] === 'not-avail') && shown(m); });
     var pending = members.filter(function (m) { return !av[m.id] && shown(m); });
     var isSunday = isServiceType(ev.type);
-    var sortedRoles = (ev.roles || []).filter(function (r) { return !AV_ROLES.includes(r); })
-      .concat((ev.roles || []).filter(function (r) { return AV_ROLES.includes(r); }));
+    var AV = avRoles();
+    var sortedRoles = (ev.roles || []).filter(function (r) { return !AV.includes(r); })
+      .concat((ev.roles || []).filter(function (r) { return AV.includes(r); }));
     var isExp = rotaExpandedEvents.has(ev.id) || isSunday;
     var bg = !isSunday ? '#f8fafc' : (blockIdx % 2 === 0 ? 'white' : '#f9fbfb');
 
@@ -1320,7 +1322,7 @@
       html += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">';
       sortedRoles.forEach(function (r) {
         var asgn = (ev.assignments || {})[r] || null;
-        var isAV = AV_ROLES.includes(r);
+        var isAV = AV.includes(r);
         var isPend = asgn && !av[asgn.id];
         var border = isAV ? '#f59e0b' : (asgn ? '#3d6263' : '#d1dfdf');
         var nc = isPend ? '#f97316' : '#3d6263';
@@ -1331,7 +1333,7 @@
         html += '</div>';
       });
       html += '<select onchange="addRole(\'' + ev.id + '\',this.value);this.value=\'\';" style="background:white;border:2px dashed #d1dfdf;color:#3d6263;padding:6px 10px;border-radius:10px;font-family:Inter, system-ui, sans-serif;font-weight:600;font-size:13px;text-transform:none;cursor:pointer;align-self:center;"><option value="">+ Role</option>';
-      OPTIONAL_ROLES_LIST.forEach(function (o) { html += '<option value="' + o + '">' + o + '</option>'; });
+      optionalRoles().forEach(function (o) { html += '<option value="' + o + '">' + o + '</option>'; });
       html += '</select></div>';
 
       if (rotaOpenBuckets.has(ev.id)) {
@@ -1413,6 +1415,9 @@
     if (PANEL.parentNode !== into) into.appendChild(PANEL);
     startRotaListeners();
     renderPlanner();
+    /* The places come from the teams' roles and the team jobs: draw again
+       once the jobs are in. */
+    if (global.EGBCAuth && EGBCAuth.loadPerms) EGBCAuth.loadPerms().catch(function () {}).then(function () { renderPlanner(); });
     return into;
   }
 
@@ -1424,8 +1429,8 @@
     members: function () { return allMembers; },
     getTermLabel: getTermLabel,
     MANDATORY_SUNDAY_ROLES: MANDATORY_SUNDAY_ROLES,
-    OPTIONAL_ROLES_LIST: OPTIONAL_ROLES_LIST,
+    get OPTIONAL_ROLES_LIST() { return optionalRoles(); },
     EVENT_TYPES_LIST: EVENT_TYPES_LIST,
-    AV_ROLES: AV_ROLES
+    get AV_ROLES() { return avRoles(); }
   };
 })(window);

@@ -3,7 +3,7 @@
 This is where the Sunday rota is built. You add the services for a term, put people in each slot, check who said they are free, and send everyone their rota by email.
 
 ## Who can use it
-- Team leaders and team admins of the teams that serve on Sundays can open it. So can master admins.
+- Leaders and admins of the teams doing the church's worship, children's or youth work can open it, and those teams' core teams. So can master admins.
 - If you run or lead one team, you see and change only your own team's slots. A line such as "2 more handled by another team" tells you other slots are there.
 - On a service that only your team is ticked for (a youth service, say), you can fill all of its slots.
 - Master admins see every slot.
@@ -37,7 +37,7 @@ Each service is a row. Changes save as you make them.
 2. Drag a name from **Available** into a slot.
 3. Drag a name from one slot to another to move them.
 4. Press the small **×** on a name to take them off.
-5. Use **+ Role** to add another slot, such as a second singer. Point at a slot's name and press its **×** to remove the slot.
+5. Use **+ Role** to add another slot, such as a second singer. The choices are the roles on the worship, AV and choir teams, then the children's teams (Teams & groups, **Roles on this team**). Point at a slot's name and press its **×** to remove the slot.
 - A name in gold means that person has not said if they are free that day.
 - A green dot on a row means every main slot is filled.
 - **Sundays served this month** shows how many of those main services each person is on that month. Everyone in a slot counts, also when a slot has several people.
@@ -45,7 +45,7 @@ Each service is a row. Changes save as you make them.
 ## Fill the rota for you
 1. Press **Auto-Populate** and say yes.
 2. It fills empty slots with people who said they are free, keeping to each person's limit per month. If the church has listed its own kinds of service in Your services, it fills every service kind that has rota places. If not, it fills the main service only (the first in the list); other services are synced like practices.
-3. It fills the usual slots for that kind of service first, then extra players and singers.
+3. It fills the usual slots for that kind of service first, then extra players and singers: the other roles on the worship, AV and choir teams, for whoever ticked them in the address book.
 4. It only fills slots for your own team.
 5. It also copies each filled service's team onto the practice in the 4 days before it. **Sync** on a practice row does this for one practice.
 

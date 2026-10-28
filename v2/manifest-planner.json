@@ -1,7 +1,7 @@
 ﻿{
-  "name": "EGBC Rota Planner",
+  "name": "Rota Planner",
   "short_name": "Rota Planner v2",
-  "description": "EGBC Worship & AV Rota Planner",
+  "description": "The rota planner",
   "start_url": "Planner.html",
   "id": "/availability-form/v2/Planner.html",
   "scope": "./",

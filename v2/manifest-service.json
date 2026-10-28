@@ -1,7 +1,7 @@
 ﻿{
-  "name": "EGBC Service Planner",
+  "name": "Service Planner",
   "short_name": "Service Planner v2",
-  "description": "EGBC Sunday Service Planner",
+  "description": "The service planner",
   "start_url": "SundayServicePlanner.html",
   "id": "/availability-form/v2/SundayServicePlanner.html",
   "scope": "./",

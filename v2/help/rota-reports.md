@@ -37,7 +37,7 @@ This page shows who serves, how often, and where the gaps are on the rotas. It o
 
 ## Find people not on the rota
 1. Press **Not on the rota**.
-2. You see people on a rota team who were not on the rota at all in these dates.
+2. You see people on a team with its own places on the rota who were not on the rota at all in these dates. Someone on a smaller group inside a team (a choir inside the worship team) counts as on that team.
 
 ## Download a report
 1. Open the report you want.

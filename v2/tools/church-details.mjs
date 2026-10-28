@@ -13,12 +13,17 @@
  *                                                        adds the short name; the other
  *                                                        fields are left exactly as they are
  *
+ * It also says where replies to the rota emails (worship job) and youth
+ * codes (youth job) will go: the team's own Team mail address, else the
+ * enquiry email. If the original site shows "enquiry email" there, set the
+ * team's address in Team mail first, or replies will reach the office.
+ *
  * Options: --project <id> (default egbc-worship-planner). On the emulator,
  * set FIRESTORE_EMULATOR_HOST first. Running it twice changes nothing more.
  */
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const fnRequire = createRequire(path.join(HERE, '..', 'functions', 'package.json'));
@@ -39,6 +44,14 @@ const d = (await ref.get()).data() || {};
 
 console.log((cid ? 'Church ' + cid : 'The original site') + ', project ' + PROJECT + ':');
 for (const k of ['name', 'shortName', 'logoUrl', 'enquiryEmail']) console.log('  ' + k.padEnd(13) + (d[k] ? JSON.stringify(d[k]) : '- NOT SET'));
+const { replyToFor } = await import(pathToFileURL(path.join(HERE, '..', 'functions', 'team-reply.js')).href);
+const cdb = cid ? root.collection('churches').doc(cid) : root;
+const scoped = cid ? { collection: (n) => cdb.collection(n), getAll: (...r) => root.getAll(...r) } : root;
+for (const job of ['worship', 'youth']) {
+  const r = await replyToFor(scoped, job);
+  const where = r.from === 'team' ? ' - the ' + r.team + ' team\'s own' : ' - the enquiry email';
+  console.log('  replies (' + job + ')'.padEnd(12) + (r.address ? r.address + where : '- NONE'));
+}
 
 if (SHORT !== undefined) {
   const short = String(SHORT).trim().slice(0, 40);

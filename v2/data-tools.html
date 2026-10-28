@@ -5,10 +5,10 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610311800"></script>
+<script src="egbc-auth.js?v=202610311900"></script>
 <!-- Anyone who administers something gets past the guard; the page then
-     keeps only master admins and the leadership job's admins (below). -->
-<script src="egbc-guard.js?v=202610282000" data-admin="any"></script>
+     keeps only master admins and the worship core team's admins (below). -->
+<script src="egbc-guard.js?v=202610311900" data-admin="any"></script>
 <script src="egbc-church.js?v=202610311000"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -444,18 +444,16 @@ function backupName(){
 /* The church's name over the heading. */
 if(window.EGBCChurch)EGBCChurch.load().then(d=>{document.getElementById('churchName').textContent=d.name||'';});
 
-/* WHO MAY USE IT: master admins and the admins of the church's leaders'
-   teams (the leadership job). Backup and restore reach every record the
-   church has, so it belongs with the people who answer for the whole
-   church, and to their admins rather than every member of those teams.
-   The guard has let in every admin; this narrows it to those. */
+/* WHO MAY USE IT (the approved access matrix): master admins, and the
+   admins of the core team over the teams doing the worship job. Anyone
+   else is the church's decision, not this page's. The guard has let in
+   every admin; this narrows it to those. */
 (window.EGBCGuard?EGBCGuard.allowed:Promise.resolve()).then(()=>EGBCAuth.loadPerms().catch(()=>{})).then(()=>{
   if(EGBCAuth.isMaster())return;
-  /* The core team over the worship teams has always looked after the data too. */
   const worship=EGBCAuth.teamsForJob('worship');
   const cores=Object.keys(EGBCAuth.TEAMS).filter(t=>(EGBCAuth.TEAMS[t].coreFor||[]).some(c=>worship.includes(c)));
-  if(EGBCAuth.teamsForJob('leadership').concat(cores).some(t=>EGBCAuth.isAdminOf(t)))return;
-  EGBCAuth._blockPage('Not enough permissions','This page is for master admins, and the admins of the church’s leadership team and of the worship core team.',EGBCAuth.profile());
+  if(cores.some(t=>EGBCAuth.isAdminOf(t)))return;
+  EGBCAuth._blockPage('Not enough permissions','This page is for master admins and the admins of the worship core team.',EGBCAuth.profile());
 });
 </script>
 </body>

@@ -6,8 +6,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202610311800"></script>
-<script src="egbc-guard.js?v=202610282000" data-any-team></script>
+<script src="egbc-auth.js?v=202610311900"></script>
+<script src="egbc-guard.js?v=202610311900" data-any-team></script>
 <script src="egbc-church.js?v=202610311000"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -18,7 +18,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
     <!-- The same generator the Rota Planner uses for the term email, so what
          you download here is what people were sent. -->
-    <script src="egbc-rota-pdf.js?v=202610121800"></script>
+    <script src="egbc-rota-pdf.js?v=202610311900"></script>
     
     <script type="module">
         import { db, ready } from './egbc-db.js';
@@ -45,8 +45,9 @@
             const mine = EGBCAuth.visibleRoleTeams();
             if (!mine) return null;
             const out = mine.slice();
-            /* Choir is part of Worship rather than a team of its own. */
-            if (out.includes('Worship Team') && !out.includes('Choir')) out.push('Choir');
+            /* A part of another team (Choir, part of Worship) is seen with it. */
+            const T = EGBCAuth.TEAMS || {};
+            Object.keys(T).forEach(t => { if (T[t].parent && out.includes(T[t].parent) && !out.includes(t)) out.push(t); });
             return out;
         }
 
@@ -54,8 +55,13 @@
             const all = ev.roles || [];
             const mine = visibleTeams();
             if (!mine) return all;
-            return all.filter(r => mine.includes(EGBCAuth.roleTeam(r)));
+            return all.filter(r => mine.includes(EGBCAuth.roleTeamOf ? EGBCAuth.roleTeamOf(r) : EGBCAuth.roleTeam(r)));
         }
+
+        /* The choir's places (the choir job's teams' roles) are sung by the
+           whole choir, so an empty one says so instead of "---". */
+        const choirPlace = (role) => !!(EGBCAuth.teamsForJob && EGBCAuth.rolesOf
+            && EGBCAuth.teamsForJob('choir').some(t => EGBCAuth.rolesOf(t).includes(role)));
 
         /* The name list for the PDFs. Sending the rota out is a departmental
            job, so Karen picks from Kids Church and not from the whole church.
@@ -88,6 +94,10 @@
         document.addEventListener('egbc-ready', () => {
             refreshMemberList();
             renderRota();
+            /* Whose each place is, the AV places and the choir's come from
+               the teams and team jobs (EGBCAuth.roleTeamOf): draw again once
+               the jobs are in. */
+            if (EGBCAuth.loadPerms) EGBCAuth.loadPerms().catch(() => {}).then(renderRota);
         });
 
         const getLogoBase64 = () => {
@@ -244,7 +254,7 @@
                             </div>
                             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
                                 ${visibleRoles(ev).map(role => {
-                                    const assigned = ev.assignments?.[role]?.name || (role === 'Choir' ? '<span class="text-[#9bc34a]">Choir</span>' : '---');
+                                    const assigned = ev.assignments?.[role]?.name || (choirPlace(role) ? '<span class="text-[#9bc34a]">' + role + '</span>' : '---');
                                     return `
                                         <div class="bg-[#f9fafb] p-3 border border-[#e5e7eb] rounded-[8px]">
                                             <div class="text-[12px] text-[#6b7280] mb-0.5">${role}</div>

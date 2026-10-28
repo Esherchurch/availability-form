@@ -36,6 +36,8 @@ import { decide } from './compiler-send.js';
 import { officeTeams, isOfficeIn } from './comms-office.js';
 import * as MailRoute from './mail-route.js';
 import { isUnder18Record } from './under18.js';
+import { readTeamJobs, teamsFor } from './team-jobs.js';
+import { youthGroupsOf } from './family.js';
 
 const REGION = 'europe-west2';
 export const MAX_TO = 500;
@@ -49,9 +51,18 @@ const isAdmin = (u) => isMaster(u) || (Array.isArray(u.adminFor) && u.adminFor.l
 /* No "Core Team" here any more (H-15): a core team counts through the
    teams it covers - the Worship Core Team for Worship, AV and Choir; the
    Kids & Youth Core Team for Kids Church and Youth - and no further. */
-const ROTA_TEAMS = ['Worship Team', 'AV Team', 'Kids Church', 'Youth Worship'];
-const PLAN_TEAMS = ['Worship Team', 'AV Team', 'Youth Worship'];
-const YOUTH_ADMIN = ['Kids Church', 'Youth Worship', 'Lazers', 'ReNu'];
+/**
+ * Which of the church's teams send what, from its team jobs: the rota
+ * teams (worship, AV, children, youth), the service-plan teams (worship,
+ * AV, youth), and the youth-code teams (children and the youth groups).
+ * @param {object} db one church's database
+ */
+async function sendingTeams(db) {
+  const tj = await readTeamJobs(db);
+  const of = (...jobs) => [...new Set(jobs.flatMap((j) => teamsFor(tj.map, j, tj.set)))];
+  return { rota: of('worship', 'av', 'children', 'youth'), plan: of('worship', 'av', 'youth'),
+    youth: [...new Set(of('children').concat(await youthGroupsOf(db)))] };
+}
 /* A person's teams and admin areas with what their core teams cover, from
    the church's own teams (core-teams.js). covers: only what core teams
    give - a rota leader is a core team covering a rota team, or an admin. */
@@ -104,12 +115,14 @@ export const SCOPES = {
   /* Rotas and availability requests: the planners' people. */
   async rota(db, u) {
     const c = await withCovers(db, u);
+    const ROTA_TEAMS = (await sendingTeams(db)).rota;
     if (!(isMaster(u) || has(c.covers, ROTA_TEAMS) || has(c.adminFor, ROTA_TEAMS))) return { ok: false, why: 'only rota leaders send rotas' };
     return { ok: true, allowed: bookEmails(await book(db)) };
   },
   /* A service plan to its team. */
   async servicePlan(db, u) {
     const c = await withCovers(db, u);
+    const PLAN_TEAMS = (await sendingTeams(db)).plan;
     if (!(isMaster(u) || has(c.teams, PLAN_TEAMS) || has(c.adminFor, PLAN_TEAMS))) return { ok: false, why: 'only the worship teams send service plans' };
     return { ok: true, allowed: bookEmails(await book(db)) };
   },
@@ -117,6 +130,7 @@ export const SCOPES = {
      to the young person. */
   async youthCode(db, u) {
     const c = await withCovers(db, u);
+    const YOUTH_ADMIN = (await sendingTeams(db)).youth;
     if (!(isMaster(u) || has(c.adminFor, YOUTH_ADMIN))) return { ok: false, why: 'only the youth and children’s leaders send access codes' };
     const people = await book(db);
     const homes = new Set(people.filter((m) => isUnder18Record(m) && m.householdId).map((m) => m.householdId));
