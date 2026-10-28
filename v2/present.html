@@ -15,7 +15,7 @@
 <script src="egbc-help.js?v=202610281800"></script>
 <script src="egbc-church.js?v=202610192330"></script>
 <script src="egbc-events.js?v=202610281600"></script>
-<script src="egbc-quiz.js?v=202610211900"></script>
+<script src="egbc-quiz.js?v=202611011200"></script>
 <script src="egbc-present.js?v=202610311200"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -102,6 +102,21 @@
       });
     });
   }
+  /* The TV view (&tv=1): the same session, slides only, full screen. A
+     leader opens it on the computer connected to the TV; it follows
+     whatever they present from their phone. */
+  function tvLink(sid) {
+    var u = 'present.html?s=' + encodeURIComponent(sid) + '&tv=1';
+    return EGBCAuth.churchLink ? EGBCAuth.churchLink(u) : u;
+  }
+  function tvButton() {
+    var a = document.createElement('a');
+    a.href = tvLink(SID); a.target = '_blank'; a.rel = 'noopener';
+    a.textContent = 'Open TV view';
+    a.title = 'Open this on the computer connected to the TV. It shows the slides full screen and follows what you present.';
+    a.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:50;padding:10px 14px;border-radius:999px;background:#1d3b3c;color:#fff;font:600 14px Inter,sans-serif;text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.35)';
+    document.body.appendChild(a);
+  }
   EGBCAuth.require().then(function (profile) {
     /* "View as": the viewed person's rights, as the planner does (asSeen). */
     var me = EGBCEvents.asSeen(profile || {}), master = !me.viewingAs && !!(EGBCAuth.isMaster && EGBCAuth.isMaster()), mid = me.memberId || '-';
@@ -122,6 +137,7 @@
             items: x.items, notesFor: x.notesFor, title: (grp.name ? grp.name + ' · ' : '') + (s.title || 'Session'),
             mayPresent: may && !TV, tv: TV
           });
+          if (may && !TV) tvButton();
         });
       });
     });

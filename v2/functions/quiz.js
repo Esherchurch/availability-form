@@ -22,6 +22,9 @@
      quizJoin   { code, name }        -> { runId, pid, key, name }
      quizAnswer { runId, pid, key, q, choice }   once per question, in time
    quizSweep, hourly: any run older than 24 hours is deleted, whatever.
+   Each church's quiz is in its own data: the presenter's church comes from
+   their sign-in, a player's from the address they joined at
+   (<slug>.churchhq.co.uk/quiz), never from the request.
    Points: 500 for right, plus up to 500 for speed, timed here.
    =================================================================== */
 import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
@@ -30,6 +33,8 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import crypto from 'node:crypto';
 import { mayPresent } from './present.js';
 import { featureOn } from './features.js';
+import { churchOf, eachChurch } from './church-scope.js';
+import { dbForAddress } from './church-address.js';
 
 const REGION = 'europe-west2';
 const db = () => getFirestore();
@@ -50,27 +55,29 @@ export function cleanName(raw) {
 function perm(n) { const a = [...Array(n).keys()]; for (let i = n - 1; i > 0; i--) { const j = crypto.randomInt(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 export function points(right, ms, seconds) { return right ? 500 + Math.round(500 * Math.max(0, 1 - ms / (Math.max(1, seconds) * 1000))) : 0; }
 
-async function launched() { const l = await db().collection('churchSettings').doc('launch').get().catch(() => null); return !!(l && l.exists && l.data().rulesLocked === true); }
+async function launched(D) { const l = await D.collection('churchSettings').doc('launch').get().catch(() => null); return !!(l && l.exists && l.data().rulesLocked === true); }
 async function presenterOf(req, runId) {
+  const D = churchOf(req, db()).db;
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Please sign in.');
   if (!/^[A-Za-z0-9]{16,40}$/.test(String(runId || ''))) throw new HttpsError('invalid-argument', 'Which quiz?');
-  const ref = db().collection('quizRuns').doc(String(runId)), run = (await ref.get()).data();
+  const ref = D.collection('quizRuns').doc(String(runId)), run = (await ref.get()).data();
   if (!run) throw new HttpsError('not-found', 'That quiz has ended.');
-  if (!(await mayPresent(db(), uid, run.ctx))) throw new HttpsError('permission-denied', 'Only the people who may present here can run the quiz.');
-  return { ref, run };
+  if (!(await mayPresent(D, uid, run.ctx))) throw new HttpsError('permission-denied', 'Only the people who may present here can run the quiz.');
+  return { D, ref, run };
 }
 
 export const quizStart = onCall({ region: REGION }, async (req) => {
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Please sign in.');
   const { sessionId, step } = req.data || {};
-  const s = (await db().collection('planSessions').doc(String(sessionId || '-')).get()).data();
+  const D = churchOf(req, db()).db;
+  const s = (await D.collection('planSessions').doc(String(sessionId || '-')).get()).data();
   if (!s) throw new HttpsError('not-found', 'That session could not be found.');
   const ctx = { type: 'session', groupId: s.groupId, sessionId: String(sessionId) };
-  if (!(await mayPresent(db(), uid, ctx))) throw new HttpsError('permission-denied', 'Only the people who may present here can run the quiz.');
-  if (!(await featureOn(db(), 'quiz'))) throw new HttpsError('failed-precondition', 'The quiz is switched off for this church (Church settings).');
-  if (!(await launched())) throw new HttpsError('failed-precondition', 'The quiz on phones can be used when the hub goes live. Play in teams on the TV until then.');
+  if (!(await mayPresent(D, uid, ctx))) throw new HttpsError('permission-denied', 'Only the people who may present here can run the quiz.');
+  if (!(await featureOn(D, 'quiz'))) throw new HttpsError('failed-precondition', 'The quiz is switched off for this church (Church settings).');
+  if (!(await launched(D))) throw new HttpsError('failed-precondition', 'The quiz on phones can be used when the hub goes live. Play in teams on the TV until then.');
   const m = String(step || '').match(/^p(\d+)s(\d+)$/), st = m && ((s.parts || [])[+m[1]] || {}).show && s.parts[+m[1]].show[+m[2]];
   if (!st || st.type !== 'quiz' || !(st.questions || []).length) throw new HttpsError('not-found', 'That quiz could not be found in the session.');
   const questions = st.questions.slice(0, 12).map((x) => ({ q: String(x.q || '').slice(0, 160), answers: (x.answers || []).slice(0, 4).map((a) => String(a).slice(0, 60)), seconds: Math.max(5, Math.min(120, +x.seconds || 20)) })).filter((x) => x.q && x.answers.length >= 2);
@@ -79,33 +86,33 @@ export const quizStart = onCall({ region: REGION }, async (req) => {
   let code = '';
   for (let i = 0; i < 20 && !code; i++) {
     const c = String(crypto.randomInt(100000, 1000000));
-    try { await db().collection('quizCodes').doc(c).create({ runId, at: Date.now() }); code = c; } catch (e) { /* taken: another */ }
+    try { await D.collection('quizCodes').doc(c).create({ runId, at: Date.now() }); code = c; } catch (e) { /* taken: another */ }
   }
   if (!code) throw new HttpsError('resource-exhausted', 'No code free just now; try again.');
-  await db().collection('quizSecret').doc(runId).set({ questions, order: {}, step: String(step) });
-  await db().collection('quizRuns').doc(runId).set({ code, ctx, title: String(st.title || 'Quiz').slice(0, 80), total: questions.length, phase: 'join', q: -1,
+  await D.collection('quizSecret').doc(runId).set({ questions, order: {}, step: String(step) });
+  await D.collection('quizRuns').doc(runId).set({ code, ctx, title: String(st.title || 'Quiz').slice(0, 80), total: questions.length, phase: 'join', q: -1,
     question: null, reveal: null, players: {}, scores: {}, last: {}, removed: [], count: 0, answered: 0, createdAt: Date.now(), by: uid });
   return { runId, code };
 });
 
 export const quizOpen = onCall({ region: REGION }, async (req) => {
-  const { ref, run } = await presenterOf(req, (req.data || {}).runId);
+  const { D, ref } = await presenterOf(req, (req.data || {}).runId);
   const q = +(req.data || {}).q;
-  const sec = (await db().collection('quizSecret').doc(ref.id).get()).data();
+  const sec = (await D.collection('quizSecret').doc(ref.id).get()).data();
   if (!sec || !Number.isInteger(q) || q < 0 || q >= sec.questions.length) throw new HttpsError('invalid-argument', 'Which question?');
   const x = sec.questions[q], order = perm(x.answers.length), now = Date.now();
-  await db().collection('quizSecret').doc(ref.id).update({ ['order.' + q]: order });
+  await D.collection('quizSecret').doc(ref.id).update({ ['order.' + q]: order });
   await ref.update({ phase: 'question', q, answered: 0, reveal: null, last: {},
     question: { text: x.q, answers: order.map((i) => x.answers[i]), seconds: x.seconds, openedAt: now, openUntil: now + x.seconds * 1000 } });
   return { ok: true, openedAt: now };
 });
 
 export const quizReveal = onCall({ region: REGION }, async (req) => {
-  const { ref, run } = await presenterOf(req, (req.data || {}).runId);
+  const { D, ref, run } = await presenterOf(req, (req.data || {}).runId);
   if (!run.question || run.q < 0) throw new HttpsError('failed-precondition', 'No question is open.');
-  const sec = (await db().collection('quizSecret').doc(ref.id).get()).data(), order = sec.order[run.q] || [];
+  const sec = (await D.collection('quizSecret').doc(ref.id).get()).data(), order = sec.order[run.q] || [];
   const right = order.indexOf(0), counts = run.question.answers.map(() => 0), scores = Object.assign({}, run.scores), last = {};
-  const ans = await db().collection('quizAnswers').where('runId', '==', ref.id).where('q', '==', run.q).get();
+  const ans = await D.collection('quizAnswers').where('runId', '==', ref.id).where('q', '==', run.q).get();
   for (const d of ans.docs) {
     const a = d.data(); if (!(a.pid in run.players)) continue;
     counts[a.choice] = (counts[a.choice] || 0) + 1;
@@ -126,16 +133,16 @@ export const quizPhase = onCall({ region: REGION }, async (req) => {
 });
 
 export const quizKick = onCall({ region: REGION }, async (req) => {
-  const { ref, run } = await presenterOf(req, (req.data || {}).runId);
+  const { D, ref, run } = await presenterOf(req, (req.data || {}).runId);
   const pid = String((req.data || {}).pid || '');
   if (!(pid in (run.players || {}))) throw new HttpsError('not-found', 'That name has gone already.');
-  await db().collection('quizPlayers').doc(ref.id + '_' + pid).delete().catch(() => {});
+  await D.collection('quizPlayers').doc(ref.id + '_' + pid).delete().catch(() => {});
   await ref.update({ ['players.' + pid]: FieldValue.delete(), ['scores.' + pid]: FieldValue.delete(), ['last.' + pid]: FieldValue.delete(), removed: FieldValue.arrayUnion(pid), count: FieldValue.increment(-1) });
   return { ok: true };
 });
 
-export async function deleteRun(runId) {
-  const d = db(), run = (await d.collection('quizRuns').doc(runId).get()).data();
+export async function deleteRun(d, runId) {
+  const run = (await d.collection('quizRuns').doc(runId).get()).data();
   for (const c of ['quizAnswers', 'quizPlayers']) {
     for (;;) { const s = await d.collection(c).where('runId', '==', runId).limit(300).get(); if (s.empty) break; const b = d.batch(); s.docs.forEach((x) => b.delete(x.ref)); await b.commit(); }
   }
@@ -144,8 +151,8 @@ export async function deleteRun(runId) {
   await d.collection('quizRuns').doc(runId).delete();
 }
 export const quizEnd = onCall({ region: REGION }, async (req) => {
-  const { ref } = await presenterOf(req, (req.data || {}).runId);
-  await deleteRun(ref.id);
+  const { D, ref } = await presenterOf(req, (req.data || {}).runId);
+  await deleteRun(D, ref.id);
   return { ok: true };
 });
 
@@ -157,15 +164,17 @@ export const quizJoin = onRequest({ region: REGION, cors: true }, async (req, re
   if (req.method !== 'POST') return send(res, 405, { ok: false, error: 'POST only.' });
   const b = body(req), code = String(b.code || '').replace(/\D/g, '');
   if (code.length !== 6) return send(res, 400, { ok: false, error: 'The code is 6 numbers, on the screen.' });
-  const c = (await db().collection('quizCodes').doc(code).get()).data();
-  const ref = c && db().collection('quizRuns').doc(c.runId), run = ref && (await ref.get()).data();
+  const D = await dbForAddress(db(), req);
+  if (!D) return send(res, 404, { ok: false, error: 'There is no church at this address.' });
+  const c = (await D.collection('quizCodes').doc(code).get()).data();
+  const ref = c && D.collection('quizRuns').doc(c.runId), run = ref && (await ref.get()).data();
   if (!run || run.phase === 'final') return send(res, 404, { ok: false, error: 'No quiz with that code is running. Check the code on the screen.' });
   if ((run.count || 0) >= MAX_PLAYERS) return send(res, 409, { ok: false, error: 'This quiz is full.' });
   const nm = cleanName(b.name); if (nm.error) return send(res, 400, { ok: false, error: nm.error });
   const taken = new Set(Object.values(run.players || {}).map((p) => p.name.toLowerCase()));
   let name = nm.name; for (let i = 2; taken.has(name.toLowerCase()) && i < 100; i++) name = nm.name.slice(0, 17) + ' ' + i;
   const pid = rid(10), key = rid(32);
-  await db().collection('quizPlayers').doc(ref.id + '_' + pid).set({ runId: ref.id, pid, keyHash: sha(key), at: Date.now() });
+  await D.collection('quizPlayers').doc(ref.id + '_' + pid).set({ runId: ref.id, pid, keyHash: sha(key), at: Date.now() });
   await ref.update({ ['players.' + pid]: { name }, ['scores.' + pid]: 0, count: FieldValue.increment(1) });
   return send(res, 200, { ok: true, runId: ref.id, pid, key, name, now: Date.now() });
 });
@@ -174,27 +183,29 @@ export const quizAnswer = onRequest({ region: REGION, cors: true }, async (req, 
   if (req.method !== 'POST') return send(res, 405, { ok: false, error: 'POST only.' });
   const b = body(req), runId = String(b.runId || ''), pid = String(b.pid || ''), now = Date.now();
   if (!/^[A-Za-z0-9]{16,40}$/.test(runId) || !/^[A-Za-z0-9]{4,20}$/.test(pid)) return send(res, 400, { ok: false, error: 'Join again.' });
-  const p = (await db().collection('quizPlayers').doc(runId + '_' + pid).get()).data();
+  const D = await dbForAddress(db(), req);
+  if (!D) return send(res, 404, { ok: false, error: 'There is no church at this address.' });
+  const p = (await D.collection('quizPlayers').doc(runId + '_' + pid).get()).data();
   if (!p || p.keyHash !== sha(b.key)) return send(res, 403, { ok: false, error: 'removed', words: 'This name was removed. Join again with another name.' });
-  const ref = db().collection('quizRuns').doc(runId), run = (await ref.get()).data();
+  const ref = D.collection('quizRuns').doc(runId), run = (await ref.get()).data();
   if (!run || run.phase !== 'question' || run.q !== +b.q || !run.question) return send(res, 409, { ok: false, error: 'closed', words: 'That question has closed.' });
   if (now > run.question.openUntil + GRACE_MS) return send(res, 409, { ok: false, error: 'late', words: 'Too late for that one.' });
   const choice = +b.choice;
   if (!Number.isInteger(choice) || choice < 0 || choice >= run.question.answers.length) return send(res, 400, { ok: false, error: 'Which answer?' });
-  try { await db().collection('quizAnswers').doc(runId + '_' + run.q + '_' + pid).create({ runId, q: run.q, pid, choice, ms: Math.max(0, now - run.question.openedAt) }); }
+  try { await D.collection('quizAnswers').doc(runId + '_' + run.q + '_' + pid).create({ runId, q: run.q, pid, choice, ms: Math.max(0, now - run.question.openedAt) }); }
   catch (e) { return send(res, 409, { ok: false, error: 'already', words: 'You have answered this one.' }); }
   await ref.update({ answered: FieldValue.increment(1) });
   return send(res, 200, { ok: true });
 });
 
-export async function runQuizSweep(now = Date.now()) {
-  const old = await db().collection('quizRuns').where('createdAt', '<', now - DAY_MS).get();
-  for (const d of old.docs) await deleteRun(d.id);
+export async function runQuizSweep(D, now = Date.now()) {
+  const old = await D.collection('quizRuns').where('createdAt', '<', now - DAY_MS).get();
+  for (const d of old.docs) await deleteRun(D, d.id);
   /* a code or a key left without its run (a crash part way) goes too */
   for (const c of ['quizCodes', 'quizPlayers']) {
-    const s = await db().collection(c).where(c === 'quizCodes' ? 'at' : 'at', '<', now - DAY_MS).get();
+    const s = await D.collection(c).where('at', '<', now - DAY_MS).get();
     for (const x of s.docs) await x.ref.delete();
   }
   return old.docs.map((d) => d.id);
 }
-export const quizSweep = onSchedule({ region: REGION, schedule: 'every 60 minutes', retryCount: 1 }, async () => { await runQuizSweep(); });
+export const quizSweep = onSchedule({ region: REGION, schedule: 'every 60 minutes', retryCount: 1 }, async () => { await eachChurch(db(), (ch) => runQuizSweep(ch.db)); });

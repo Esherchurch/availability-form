@@ -35,7 +35,7 @@ This is where the church's buildings, rooms, kit and outside venues are set up, 
 
 ## Kit, catering and outside venues
 1. **Kit**: type the **Name**, where it **Lives in**, and **How many**, or tick **Unlimited**. Press **Add kit**. You can set a hire price and tick **Can be moved to another room**.
-2. **Catering**: add things people can ask for with a room, with a price **Per person** or **Per item** and the **Notice needed (working days)**. Press **Add to the menu**.
+2. **Catering**: add things people can ask for with a room, with a price **Per person** or **Per item** and the **Notice needed (working days)**. Press **Add to the menu**. Each item asked for with a booking goes on its quote: the number asked for times the price. The office checks the quote before approving and invoicing.
 3. **Outside venues**: search by name or place, or fill in the boxes by hand, and press **Save venue**.
 
 ## Who approves bookings

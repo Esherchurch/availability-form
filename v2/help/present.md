@@ -1,6 +1,6 @@
 # Present
 
-This page shows a group session's slides, Bible verses, pictures and quiz. A leader presents from their phone or laptop. Everyone else follows on their own phone, and the TV shows the slides full screen.
+This page shows a group session's slides, Bible verses, pictures and quiz. A leader presents from their phone or laptop. Everyone else follows on their own phone. The TV view shows the slides full screen on the TV.
 
 ## Who can use it
 - A group's leaders can present its sessions. Master admins can too.
@@ -19,6 +19,12 @@ This page shows a group session's slides, Bible verses, pictures and quiz. A lea
 3. You see the slide everyone sees, **Up next**, **Your notes** and a timer.
 4. Press **Next slide** to move on, or the back arrow to go back. You can also tap any small slide picture to jump to it.
 5. Arrow keys, Space, Page Down or a clicker also work on a laptop.
+
+## Show it on the TV
+1. On the computer connected to the TV, open the session, then press **Open TV view** (bottom left). Leaders see this button.
+2. A new window shows the slides full screen, with nothing else on it.
+3. Present from your phone or laptop as usual. The TV follows you.
+4. If it says to click for sound, click once on the TV screen.
 
 ## Blank the screen
 1. Press **Blank the screen** (or the B key) when you want people's attention.
@@ -52,7 +58,7 @@ This page shows a group session's slides, Bible verses, pictures and quiz. A lea
 - If the Wi-Fi drops, a screen keeps its slide and catches up when it is back.
 - If a session has nothing to show yet, add slides, verses or a picture to it in the session planner.
 - **How to present** opens a two-minute guide.
-- Phone quiz nicknames and answers are deleted when the quiz ends.
+- Phone quiz nicknames, answers and scores are deleted when you end the quiz. A quiz nobody ends is deleted about a day after it started.
 
 ## Who to ask
 - The group's leader, if you cannot see a session.

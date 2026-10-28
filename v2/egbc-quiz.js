@@ -23,7 +23,11 @@
    =================================================================== */
 (function (global) {
   'use strict';
-  var SHORT = 'churchhq.co.uk/quiz';              /* Cloudflare sends it on to quiz.html (F-255) */
+  /* Where players join: the church's own address (its slug; a church's first
+     slug is its id), so the server finds the church's quiz from it. EGBC's
+     short address is sent on to quiz.html by Cloudflare. */
+  var CID = (global.EGBCAuth && EGBCAuth.addressSlug && EGBCAuth.addressSlug()) || (global.EGBCAuth && EGBCAuth.churchId && EGBCAuth.churchId()) || '';
+  var SHORT = (CID ? CID + '.' : '') + 'churchhq.co.uk/quiz';
   var TEAM_COLOURS = ['#7f1d1d', '#1e3a8a', '#14532d', '#713f12', '#581c87', '#155e75'];
   var TEAM_NAMES = ['Lions', 'Eagles', 'Bears', 'Wolves', 'Foxes', 'Owls'];
   var CSS = '' +

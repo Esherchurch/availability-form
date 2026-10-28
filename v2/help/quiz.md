@@ -22,7 +22,7 @@ This is the page people use to play a quiz on their own phone. The leader shows 
 3. Your place and score show, then the top five on the leaderboard.
 
 ## Good to know
-- Your nickname and answers are deleted when the quiz ends, or after a day at most.
+- Your nickname, answers and score are deleted when the leader ends the quiz. If nobody ends it, they are deleted about a day after it started.
 - If the leader removes your name, you are asked to join again with another name.
 - When the quiz ends, press **Join another quiz** to play again.
 

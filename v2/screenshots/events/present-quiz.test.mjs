@@ -300,7 +300,7 @@ try {
   await db.collection('quizPlayers').doc('oldRun0000000000000000_p1').set({ runId: 'oldRun0000000000000000', pid: 'p1', keyHash: 'x', at: old });
   await db.collection('quizAnswers').doc('oldRun0000000000000000_0_p1').set({ runId: 'oldRun0000000000000000', q: 0, pid: 'p1', choice: 1, ms: 5 });
   await db.collection('quizRuns').doc('newRun0000000000000000').set({ code: '222222', createdAt: Date.now(), phase: 'join', players: {} });
-  const swept = await runQuizSweep();
+  const swept = await runQuizSweep(getFirestore());
   const still = await Promise.all(['quizRuns/oldRun0000000000000000', 'quizCodes/111111', 'quizSecret/oldRun0000000000000000', 'quizPlayers/oldRun0000000000000000_p1', 'quizAnswers/oldRun0000000000000000_0_p1', 'quizRuns/newRun0000000000000000'].map(p => db.doc(p).get().then(d => d.exists)));
   ok('   THE SWEEP: a run older than 24 hours goes, with everything of it; a new one stays', J(still) === J([false, false, false, false, false, true]), J({ swept, still }));
   ok('no page errors', errors.length === 0, errors.join(' | '));

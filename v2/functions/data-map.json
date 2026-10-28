@@ -1870,9 +1870,61 @@
   },
   "quizRuns": {
    "owner": "events",
-   "what": "A quiz being played.",
+   "what": "A quiz being played on phones: the question showing, nicknames and scores. Deleted when the quiz ends, or after a day.",
    "self": "delete",
    "links": []
+  },
+  "quizPlayers": {
+   "owner": "events",
+   "what": "A quiz player's key (hashed), so only they answer as themselves.",
+   "self": "delete",
+   "links": [
+    {
+     "field": "runId",
+     "to": "quizRuns",
+     "rule": "cascade",
+     "why": "Only means something while the quiz runs."
+    }
+   ]
+  },
+  "quizAnswers": {
+   "owner": "events",
+   "what": "One player's answer to one question.",
+   "self": "delete",
+   "links": [
+    {
+     "field": "runId",
+     "to": "quizRuns",
+     "rule": "cascade",
+     "why": "Players' answers are not kept after the quiz."
+    }
+   ]
+  },
+  "quizSecret": {
+   "owner": "events",
+   "what": "A quiz's questions with their right answers.",
+   "self": "delete",
+   "links": [
+    {
+     "field": "$id",
+     "to": "quizRuns",
+     "rule": "cascade",
+     "why": "A copy for the running quiz only."
+    }
+   ]
+  },
+  "quizCodes": {
+   "owner": "events",
+   "what": "The 6-number code players join with.",
+   "self": "delete",
+   "links": [
+    {
+     "field": "runId",
+     "to": "quizRuns",
+     "rule": "cascade",
+     "why": "Frees the code for another quiz."
+    }
+   ]
   },
   "planGroups": {
    "owner": "events",
