@@ -55,6 +55,21 @@
         { "field": "calEventId", "to": "calEvents", "rule": "block", "only": { "paid": true }, "holds": "payments", "why": "An event that has taken money is cancelled, not deleted, so the accounts still add up." }
       ]
     },
+    "giftFailures": {
+      "what": "A regular gift collection that failed: the gift, the amount not received, the payment reference, when.",
+      "self": "retention",
+      "legal": true,
+      "selfWhy": "Part of the finance record the accounts export reads.",
+      "links": [
+        { "field": "regularGiftKey", "to": "regularGifts", "rule": "archive", "why": "Regular gifts are never deleted; the failure copies the giver's name." }
+      ]
+    },
+    "accountsExported": {
+      "what": "Which accounts export rows (event tickets and gifts) have been downloaded, by row id, so only what is new is sent next time.",
+      "self": "retention",
+      "selfWhy": "Kept with the finance records it marks.",
+      "links": []
+    },
     "seriesSignups": {
       "what": "A sign-up to several events of a series at once.",
       "self": "delete",

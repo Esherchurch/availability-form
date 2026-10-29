@@ -62,7 +62,7 @@ This is where the people who look after rooms approve or decline requests, move 
 1. **Invoices**: choose a **Month** and press **Issue the monthly invoices** for hirers billed monthly. Every invoice sent is listed.
 2. **Hirers**: press **Add a hirer**, or **Open** one. Fill in their details and tick charity, regular or monthly invoicing. Add their insurance and other documents with an expiry date.
 3. A hire request from someone with no record shows **Add as a hirer**.
-4. **Accounts**: choose the dates and download every charge, payment and refund as **CSV**, **Excel** or **JSON**.
+4. **Accounts**: choose the dates and a **Type** (All, Hire, Events or Giving), then download as **CSV**, **Excel** or **JSON**. It holds room hire charges, payments, refunds and deposits; event tickets bought online and their refunds; and regular gifts, with Gift Aid yes or no, refunds and failed collections. The **Source** column says Hire, Event or Gift. **Only what is new** leaves out rows already downloaded.
 
 ## Good to know
 - A building's colour for building checks may show at the top. It is a warning only; bookings carry on.

@@ -322,6 +322,17 @@ async function release(key) {
   });
 }
 
+/* Each refund as it came, { at, amount }, for the accounts export: what was
+   refunded before goes in first, then only what is new, so a second part
+   refund is its own row, never the total again. */
+export function refundsAfter(was, total) {
+  const list = Array.isArray(was.refunds) ? was.refunds.slice() : (Number(was.refunded) > 0 ? [{ at: londonIso(was.paidAt), amount: Number(was.refunded) }] : []);
+  const before = list.reduce((n, r) => n + (Number(r.amount) || 0), 0), more = Math.round((total - before) * 100) / 100;
+  if (more > 0) list.push({ at: new Date().toISOString(), amount: more });
+  return list;
+}
+const londonIso = (v) => (v && v.toDate ? v.toDate().toISOString() : v ? String(v) : new Date().toISOString());
+
 export async function handleStripe(event, accountId) {
   if (event.account && accountId && event.account !== accountId) return 'another account';
   const o = (event.data && event.data.object) || {};
@@ -348,7 +359,8 @@ export async function handleStripe(event, accountId) {
     for (const d of hits.docs) {
       if (event.type === 'charge.dispute.created') { await d.ref.set({ status: 'disputed' }, { merge: true }); continue; }
       const refunded = (Number(o.amount_refunded) || 0) / 100, full = refunded >= total - 0.001;
-      await d.ref.set({ status: full ? 'refunded' : 'part-refunded', refunded: full ? Number(d.data().amount) || 0 : Math.round(refunded / hits.size * 100) / 100 }, { merge: true });
+      const was = d.data(), now = full ? Number(was.amount) || 0 : Math.round(refunded / hits.size * 100) / 100;
+      await d.ref.set({ status: full ? 'refunded' : 'part-refunded', refunded: now, refunds: refundsAfter(was, now) }, { merge: true });
     }
     return 'refund on ' + hits.size;
   }

@@ -27,6 +27,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { hubUrl } from './notify.js';
 import { makeSender } from './public-mail.js';
 import { paymentsShut } from './payments-gate.js';
+import { refundsAfter } from './payments.js';
 import { churchDb, withChurchDb, forAddress } from './church-context.js';
 import { scopedDb } from './church-scope.js';
 import { indexCode, churchForCode, codeHash } from './hq-codes.js';
@@ -308,14 +309,21 @@ export async function handleGc(ev) {
   }
   if (ev.resource_type === 'payments' && ev.action === 'failed') {
     for (const d of await ticketsFor('paymentRef', L.payment)) { await d.ref.set({ paid: false, status: 'failed' }, { merge: true }); await release(d.id); }
-    if (L.subscription) { const g = (await db().collection('regularGifts').where('subscriptionId', '==', L.subscription).get()).docs[0]; if (g) await g.ref.update({ lastFailedAt: FieldValue.serverTimestamp() }); }
+    if (L.subscription) {
+      const g = (await db().collection('regularGifts').where('subscriptionId', '==', L.subscription).get()).docs[0];
+      if (g) {
+        await g.ref.update({ lastFailedAt: FieldValue.serverTimestamp() });
+        /* the accounts export's row for it: once per collection, whoever tells us first (the webhook or pollGifts) */
+        await db().collection('giftFailures').doc('gc_' + String(L.payment).replace(/[^A-Za-z0-9_-]/g, '')).set({ regularGiftKey: g.id, name: g.data().name || '', amount: Number(g.data().amount) || 0, paymentRef: L.payment || '', at: new Date().toISOString() }, { merge: true });
+      }
+    }
     return 'failed';
   }
   if (ev.resource_type === 'refunds' && (ev.action === 'created' || ev.action === 'paid')) {
     const docs = await ticketsFor('paymentRef', L.payment);
-    for (const d of docs) await d.ref.set({ status: 'refunded', refunded: Number(d.data().amount) || 0 }, { merge: true });
+    for (const d of docs) { const n = Number(d.data().amount) || 0; await d.ref.set({ status: 'refunded', refunded: n, refunds: refundsAfter(d.data(), n) }, { merge: true }); }
     const don = db().collection('donations').doc('gc_' + L.payment);
-    if ((await don.get()).exists) await don.update({ refunded: true });
+    if ((await don.get()).exists) await don.update({ refunded: true, refundedAt: new Date().toISOString().slice(0, 10) });
     return 'refunded ' + docs.length;
   }
   if ((ev.resource_type === 'subscriptions' && (ev.action === 'cancelled' || ev.action === 'finished')) || (ev.resource_type === 'mandates' && (ev.action === 'cancelled' || ev.action === 'failed' || ev.action === 'expired'))) {

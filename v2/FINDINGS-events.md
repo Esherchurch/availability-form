@@ -13694,3 +13694,28 @@ Each function checks `usesPart` and does nothing for a church with that part off
 - **Care:** prayerSundayOnPrayer/OnRota(+Church), prayerSundayDaily.
 - **A safeguarding concern always reaches the lead and deputy.** main's worryNotify was gated on Care, so with Care off a safeguarding concern would have reached nobody. It now lets `kind: 'safeguarding'` through whatever is switched off. **For main:** that's your line in index.js, changed. So are the gates I added there: bookingReminders, documentExpiryReminders, checksReminders, bookingNotify, maintJobNotify and helloNotify.
 - **Checked:** one quick run on the emulator, 5/5. Rooms off: no caterers' order and no "waiting" email. Kids off: the quiz is refused. Safeguarding off: the server check stands back. EGBC: the order is made as before.
+
+### F-322 — One accounts export for everything: event tickets and regular gifts beside room hire (Martin, 30 Oct) (the events window, 3 Nov)
+
+- **Room bookings → Accounts** now has a **Type** choice (All, Hire, Events, Giving). Every row has two new columns at the end: **Source** (Hire, Event, Gift) and **Gift Aid** (Yes or No, on gift rows). The other columns are unchanged.
+- **Event tickets** bought online (card through Stripe, bank through GoCardless): a row per order when paid, with the event's name, and a row per refund. Money taken at the door isn't online and isn't included.
+- **Regular gifts** (GoCardless): a row for each collection, a row for a refund, and a row for a failed collection, at £0 with the amount not received in its description.
+- **Ids never change** (`ev_<sign-up>#P`, `#R0`, `#R1`…; `gift_<payment>#P`, `#R`, `#F`). "Only what is new" works as for hire, through `accountsExported/<row id>`. That collection is server-only, so no page's own saves are touched.
+- **To make the rows right from now on:**
+  - each ticket refund is kept as it comes (`refunds: [{ at, amount }]`), so a second part refund is its own row, never the total again;
+  - a gift refund keeps its date (`refundedAt`);
+  - a failed collection gets its own record (`giftFailures`).
+
+  Both new collections are in data-map/events.json.
+- **New callables:** `accountsExport` and `accountsExportMark`. They're for master admins and the office and finance jobs, as the page is, and work for any church (the caller's church).
+- **Not there to export:**
+  - **one-off card gifts:** the hub has none; Give shows the bank details, and online giving is regular Direct Debit only;
+  - **Stripe and GoCardless fees:** the payment records don't hold them, so they have no rows.
+- **Checked:** one run on the emulator, as St Aidan's, 8/8. It covered:
+  - a ticket with two part refunds, and money at the door left out;
+  - a Gift Aid gift with a refund, and a failed collection;
+  - Type: Events;
+  - "only what is new";
+  - someone outside the office and finance refused;
+  - no phone number in the rows.
+- **For main:** index.js has one new export line (accounts-export.js).

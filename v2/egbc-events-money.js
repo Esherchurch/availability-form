@@ -200,10 +200,11 @@
     function drawAccounts(el) {
       var st = ctx.settings(), s = ctx.state;
       var from = s.from || (new Date().toISOString().slice(0, 8) + '01'), to = s.to || B.today();
-      el.innerHTML = '<div class="card"><h2>The accounts export</h2><p class="hint">Every charge line, VAT, payment, refund and damage deposit, a row each, with an id that never changes. ' +
+      el.innerHTML = '<div class="card"><h2>The accounts export</h2><p class="hint">Room hire (every charge line, VAT, payment, refund and damage deposit), event tickets bought online and their refunds, and regular gifts with any refunds and failed collections: a row each, with an id that never changes. ' +
         '"Only what is new" leaves out rows already exported, so nothing goes into the books twice.</p>' +
         '<div class="row"><div class="f"><label class="l" for="x-from">From</label><input class="inp" type="date" id="x-from" value="' + esc(from) + '"></div>' +
         '<div class="f"><label class="l" for="x-to">To</label><input class="inp" type="date" id="x-to" value="' + esc(to) + '"></div></div>' +
+        '<div class="f" style="margin:0 0 10px"><label class="l" for="x-type">Type</label><select class="inp" id="x-type">' + [['all', 'All'], ['hire', 'Hire'], ['events', 'Events'], ['giving', 'Giving']].map(function (t) { return '<option value="' + t[0] + '"' + ((s.type || 'all') === t[0] ? ' selected' : '') + '>' + t[1] + '</option>'; }).join('') + '</select></div>' +
         '<label style="display:flex;gap:8px;align-items:center;margin:0 0 10px"><input type="checkbox" id="x-new"' + (s.onlyNew === false ? '' : ' checked') + '> Only what is new since the last export</label>' +
         '<div class="acts"><button class="btn" data-x="csv">CSV</button><button class="btn sec" data-x="xlsx">Excel</button><button class="btn sec" data-x="json">JSON</button></div>' +
         '<p class="hint" id="x-out"></p></div>' +
@@ -218,6 +219,7 @@
         '<div class="card" id="x-queue"><h2>Not yet sent to Calla Accounts</h2><p class="hint">Loading…</p></div>';
       ['from', 'to'].forEach(function (k) { document.getElementById('x-' + k).onchange = function () { s[k] = this.value; }; });
       document.getElementById('x-new').onchange = function () { s.onlyNew = this.checked; };
+      document.getElementById('x-type').onchange = function () { s.type = this.value; };
       el.querySelectorAll('[data-x]').forEach(function (b) { b.onclick = function () { exportNow(b.dataset.x); }; });
       var sv = document.getElementById('x-save');
       if (sv) sv.onclick = function () {
@@ -244,18 +246,29 @@
     function exportNow(kind) {
       var o = { from: document.getElementById('x-from').value, to: document.getElementById('x-to').value, onlyNew: document.getElementById('x-new').checked,
         roomName: function (id) { return ctx.room(id).name; } };
+      var type = document.getElementById('x-type').value, out = document.getElementById('x-out');
       var all = Object.keys(ctx.charges()).map(function (k) { return ctx.charges()[k]; });
-      var rows = A.rows(all, o), out = document.getElementById('x-out');
-      if (!rows.length) { out.textContent = 'Nothing to export for those dates' + (o.onlyNew ? ' that has not been exported before.' : '.'); return; }
-      var name = 'room hire ' + o.from + ' to ' + o.to;
+      var hire = type === 'all' || type === 'hire' ? A.rows(all, o) : [];
+      /* event tickets and gifts come from the server (their records are the money team's) */
+      var more = type === 'hire' ? Promise.resolve([]) : EGBCAuth.call('accountsExport', { from: o.from, to: o.to, type: type, onlyNew: o.onlyNew }).then(function (r) { return ((r && r.data) || r || {}).rows || []; });
+      out.textContent = 'Working…';
+      more.then(function (other) {
+        var rows = hire.concat(other).sort(function (a, b) { return a.cells[1] < b.cells[1] ? -1 : a.cells[1] > b.cells[1] ? 1 : a.id < b.id ? -1 : 1; });
+        if (!rows.length) { out.textContent = 'Nothing to export for those dates' + (o.onlyNew ? ' that has not been exported before.' : '.'); return; }
+        saveExport(kind, rows, other, ({ all: 'accounts', hire: 'room hire', events: 'events', giving: 'giving' })[type] + ' ' + o.from + ' to ' + o.to);
+      }, function (e) { out.textContent = 'Could not export: ' + (e.message || e); });
+    }
+    function saveExport(kind, rows, other, name) {
+      var out = document.getElementById('x-out');
       var done = kind === 'csv' ? Promise.resolve(saveFile(name + '.csv', new Blob(['﻿' + csv(rows)], { type: 'text/csv;charset=utf-8' })))
         : kind === 'json' ? Promise.resolve(saveFile(name + '.json', new Blob([JSON.stringify(rows.map(function (r) { var x = {}; A.HEAD.forEach(function (h, i) { x[h] = r.cells[i]; }); return x; }), null, 1)], { type: 'application/json' })))
         : xlsxLib().then(function () {
             var wb = XLSX.utils.book_new(), ws = XLSX.utils.aoa_to_sheet([A.HEAD].concat(rows.map(function (r) { return r.cells.map(function (c) { return typeof c === 'string' && /^[=+\-@]/.test(c) ? "'" + c : c; }); })));
-            XLSX.utils.book_append_sheet(wb, ws, 'Room hire');
+            XLSX.utils.book_append_sheet(wb, ws, 'Accounts');
             saveFile(name + '.xlsx', new Blob([XLSX.write(wb, { bookType: 'xlsx', type: 'array' })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
           });
-      done.then(function () { return A.markExported(rows); }).then(function () {
+      var hireRows = rows.filter(function (r) { return r.chargeId; }), ids = other.map(function (r) { return r.id; });
+      done.then(function () { return A.markExported(hireRows); }).then(function () { return ids.length ? EGBCAuth.call('accountsExportMark', { ids: ids }) : null; }).then(function () {
         out.textContent = rows.length + ' rows exported, and marked so they are not exported again.';
         return ctx.reload({ tab: 'accounts', keep: true });
       }).catch(function (e) { out.textContent = 'Could not export: ' + (e.message || e); });

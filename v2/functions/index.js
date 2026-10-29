@@ -848,6 +848,8 @@ export * from './public-mail.js';
 export * from './payments.js';
 /* ...and its own GoCardless account: bank payments and Direct Debit giving. */
 export * from './gocardless.js';
+/* Event tickets and regular gifts in the accounts export (the events window's file). */
+export { accountsExport, accountsExportMark } from './accounts-export.js';
 /* The What's on calendar people subscribe to (R7, F-182), the events window's file. */
 export * from './events-feed.js';
 /* Checklist reminders as a task falls due (R11, F-188), the events window's file. */

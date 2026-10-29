@@ -172,7 +172,8 @@
      each with an id that never changes, so the treasurer's software can
      match it, and an exportedAt mark per row so "only what is new" never
      sends a row twice. Amounts in pounds, two places. */
-  var HEAD = ['Id', 'Date', 'Type', 'Invoice', 'Payer', 'Organisation', 'Email', 'Booking reference', 'Room', 'Description', 'Net (£)', 'VAT (£)', 'Gross (£)', 'Method', 'Reference'];
+  /* Source (Hire, Event, Gift) and Gift Aid: event tickets and gifts share the file (functions/accounts-export.js, the same columns). */
+  var HEAD = ['Id', 'Date', 'Type', 'Invoice', 'Payer', 'Organisation', 'Email', 'Booking reference', 'Room', 'Description', 'Net (£)', 'VAT (£)', 'Gross (£)', 'Method', 'Reference', 'Source', 'Gift Aid'];
   function money(p) { return Math.round(p) / 100; }
   function rows(charges, o) {
     o = o || {};
@@ -180,7 +181,7 @@
     charges.forEach(function (ch) {
       var py = ch.payer || {}, base = function (id, date, type, desc, net, vat, method, ref) {
         return { id: id, cells: [id, date, type, ch.invoiceNumber || '', py.name || '', py.org || '', py.email || '', String(ch.bookingKey || '').slice(3, 11).toUpperCase(),
-          o.roomName ? o.roomName(ch.roomId) : ch.roomId, desc, money(net), money(vat), money(net + vat), method || '', ref || ''], chargeId: ch.id };
+          o.roomName ? o.roomName(ch.roomId) : ch.roomId, desc, money(net), money(vat), money(net + vat), method || '', ref || '', 'Hire', ''], chargeId: ch.id };
       };
       var day = ch.dueDate || '';
       if (ch.status !== 'cancelled' && day >= from && day <= to) {
