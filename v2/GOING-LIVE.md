@@ -80,6 +80,7 @@ site still reads and writes the same database without signing in.
     - **Who:** Martin at the projection PC.
     - **Check:** it shows the next service's plan and songs without a new pairing.
     - **Then each computer's job and groups** (churchshow.html, master admins): for every paired computer, tick **Main services** and/or **Lessons**, and for Lessons choose the plan groups whose sessions it shows (for example the children's groups in that building). A computer paired before the job existed does main services only and no lessons.
+      - **Kids Church computers:** Martin ticks each one's lesson groups on **Connect ChurchShow** before lessons show on it (events F-318).
       - **Who:** Martin, with whoever runs the children's sessions.
       - **Check:** a Lessons computer shows only its groups' sessions; a services-only computer refuses lessons with "not set up for lessons".
 12. **Open the private forms** (§26 item 16): Church settings › Private forms › "Open the private forms".
@@ -142,6 +143,6 @@ site still reads and writes the same database without signing in.
   - **Then run** `node ../tools/split-meetings.mjs` (dry run) and `--apply` from v2/functions, for the meetings already there. **Who:** the reviewer or Martin (a live write).
 - **Before the day, deploy `meetingOwnRoom` and `meetingOwnRoomChurch`** (H-17), so two meetings at once never share a room.
   - **Who:** the reviewer or Martin.
-- **An insurance answer of "£5,000,000: " with nothing after it** passes the database. The rules can't test an answer's shape cheaply. The page refuses it, but a direct write wouldn't be (FINDINGS-events F-282).
+- ~~**An insurance answer of "£5,000,000: " with nothing after it** passes the database. The rules can't test an answer's shape cheaply. The page refuses it, but a direct write wouldn't be (FINDINGS-events F-282).~~ **Closed:** events' sgAssessCheck now checks the answer on the server (F-320, deployed).
   - **Who decides:** Martin, with the events window. Accept it (the page is the only writer), or have the server check it on save.
 - **Original-site pages after the rules:** the original site connects without signing in, so under the locked rules its pages stop working. That's intended: going live is when the team moves to the hub (NEXT-BRIEF launch dependency).
