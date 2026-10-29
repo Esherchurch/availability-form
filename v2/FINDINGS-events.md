@@ -13636,3 +13636,16 @@ egbc-auth.js no longer has a fixed list of members-only rooms (`MEMBERS_ONLY_ROO
 - **ra-print.html and sg-print.html** opened bare said only "nothing chosen to print". They now name the Print links to use.
 - **Checked every other page of mine that takes an id from its address** (attendance, checkin, form, forms-admin, give-regularly, my-booking, my-signup, present, room, safeguarding, session-planner, signup, upload, assessment): each already handles a missing id in words, or shows its own chooser.
 - **For Comms:** enews.html and enews-web.html pass an address id to `.doc()` too (my scan's list); worth the same look.
+
+### F-320 — The insurance answer, checked on the server too (the reviewing window, from GOING-LIVE's known gaps; the events window, 3 Nov)
+
+- **New trigger `sgAssessCheck`, with `sgAssessCheckChurch`** (functions/sg-assess-check.js). When a **signed** safeguarding assessment is saved with a money answer that is an amount and nothing after it (`"£5,000,000: "`, or `"£: "`), its sign-off is undone, exactly as the page undoes it when a signed assessment changes:
+  - back to "waiting", with a new version;
+  - the signer's fields removed;
+  - bookings closed again (`sgGate`).
+
+  The lead then sees the question as not answered, and signs once it's complete. A complete answer, "not applicable", or a waived assessment is left alone. It's safe to run twice.
+- **Why undo, not refuse:** the rules can't afford to check an answer's shape (H-8's expression limit), and a trigger can't refuse a write. Undoing sign-off means a malformed answer can never stand as signed.
+- **Test alongside:** functions/sg-assess-check.test.mjs, EGBC and a synthetic church, 8/8 on the emulator.
+- **For the synthetic parish:** St Hild's choir trip signed with "£5,000,000: " goes back to waiting, and its sign-ups close, until the lead adds "Synthetic Insurers, checked by the treasurer" and signs again.
+- **For main / the reviewer:** GOING-LIVE's known gap "An insurance answer of '£5,000,000: '" can be struck. index.js has one new export line (sg-assess-check.js).

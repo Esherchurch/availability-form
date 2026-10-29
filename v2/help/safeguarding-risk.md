@@ -67,6 +67,7 @@ This is the church's safeguarding risk register. It holds the standing risks of 
 - Room hazards (trips, stairs, the kitchen) are in the building's own health and safety assessment. **Standing risks** shows its colour and review date, with a link for those who look after health and safety.
 - A risk past its review date shows **Review overdue**.
 - Warnings are counts only. Names stay on the pages that fix them.
+- The insurance question needs the cover amount **and** who insures it and who checked. A signed assessment saved with the amount alone goes back to waiting for sign-off, and bookings close until it is signed again.
 
 ## Who to ask
 - The church's safeguarding lead or deputy.

@@ -917,6 +917,7 @@ export { m365Start, m365Callback, m365Status, m365Disconnect } from './microsoft
 export { quizStart, quizOpen, quizReveal, quizPhase, quizKick, quizEnd, quizJoin, quizAnswer, quizSweep } from './quiz.js';
 export { cateringSync, cateringSyncChurch, arrivalCheck } from './rooms-day.js';
 export { sgWarningsSync, sgWarningsNow, sgTwoAdultsDaily } from './sg-warnings.js';
+export { sgAssessCheck, sgAssessCheckChurch } from './sg-assess-check.js';
 export { sgDraftAssessment, sgAiStatus, sgExtractRequirements, sgRequirementsFile, sgRequirementsFromLinks } from './sg-ai.js';
 /* A professional's fire or health and safety report read into the building's own assessment (H&S step 4; the events window's ra-report.js). */
 export { raReadReport, raAiStatus, raDraftAssessment } from './ra-report.js';
