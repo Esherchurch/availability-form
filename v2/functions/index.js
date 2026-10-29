@@ -25,6 +25,7 @@ import {
   householdIds, visibleRoleTeams, fullScopes, roleTeams
 } from './rota-feed.js';
 import { readTeamJobs, teamsFor } from './team-jobs.js';
+import { usesPart } from './parts.js';
 
 /**
  * What a church's feeds are called and cover: its short name (Your church),
@@ -121,6 +122,8 @@ export const rotaFeed = onRequest({ cors: false, invoker: 'public' }, async (req
   try {
     /* The church the key was made in; no entry is EGBC (H-5). */
     const fdb = await dbForCode(db, 'feed', codeHash(key));
+    /* A church that has switched the rota off has no rota to show. */
+    if (!(await usesPart(fdb, 'rota'))) return no();
     const feedDoc = await fdb.collection('calendarFeeds').doc(key).get();
     if (!feedDoc.exists) return no();
     const feed = feedDoc.data() || {};
@@ -197,6 +200,7 @@ export const myCalendarLink = onCall(async (request) => {
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
   /* The church from the sign-in (H-5); its key is indexed for rotaFeed. */
   const cdb = churchOf(request, db).db;
+  if (!(await usesPart(cdb, 'rota'))) throw new HttpsError('failed-precondition', 'This church doesn\u2019t use the rota.');
 
   const data = request.data || {};
   const reset = !!data.reset;
@@ -488,6 +492,7 @@ async function formDb(request) {
   if (process.env.FUNCTIONS_EMULATOR === 'true' && asked && validChurchId(asked)) return scopedDb(db, asked);
   const cdb = await dbForAddress(db, request.rawRequest);
   if (!cdb) throw new HttpsError('not-found', 'This church’s address isn’t on Church HQ.');
+  if (!(await usesPart(cdb, 'rota'))) throw new HttpsError('failed-precondition', 'This church doesn\u2019t use the availability form.');
   return cdb;
 }
 
@@ -678,7 +683,7 @@ export const notifyTest = onCall(async (request) => {
 /* The day before you serve, at five in the evening. */
 export const rotaReminders = onSchedule(
   { schedule: '0 17 * * *', timeZone: 'Europe/London', retryCount: 2 },
-  async () => { await eachChurch(db, async (ch) => Notify.runRotaReminders(await notifyDeps({ db: ch.db }), new Date())); }
+  async () => { await eachChurch(db, async (ch) => { if (await usesPart(ch.db, 'rota')) await Notify.runRotaReminders(await notifyDeps({ db: ch.db }), new Date()); }); }
 );
 
 /* Booking confirmed, approved, declined or cancelled. */
@@ -758,11 +763,11 @@ export const [urgentNotice, urgentNoticeChurch] = twins(onDocumentWritten, 'news
    told which kind has come in, and no more (notify.js onWorry, onPrayer,
    onHello). Never the office, except a hello's copy. */
 export const [worryNotify, worryNotifyChurch] = twins(onDocumentCreated, 'worries/{id}', async (ch, event) => {
-  if (!event.data) return;
+  if (!event.data || !(await usesPart(ch.db, 'care'))) return;
   await Notify.onWorry(await notifyDeps({ db: ch.db }), event.params.id, event.data.data());
 });
 export const [prayerNotify, prayerNotifyChurch] = twins(onDocumentCreated, 'prayers/{id}', async (ch, event) => {
-  if (!event.data) return;
+  if (!event.data || !(await usesPart(ch.db, 'care'))) return;
   await Notify.onPrayer(await notifyDeps({ db: ch.db }), event.params.id, event.data.data());
 });
 export const [helloNotify, helloNotifyChurch] = twins(onDocumentCreated, 'welcomes/{id}', async (ch, event) => {

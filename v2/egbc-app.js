@@ -309,6 +309,8 @@
      A row for a part the church has switched off is not drawn. */
   function row(icon, title, sub, right, act, colour, tint) {
     if (act && !actAllowed(act)) return '';
+    /* A page of a part the church has switched off is not offered. */
+    if (act && /^open:/.test(act) && global.EGBCAuth && EGBCAuth.pageUsed && !EGBCAuth.pageUsed(act.slice(5))) return '';
     var a = actOk(act) ? ' data-act="' + esc(act) + '"' : '';
     /* --c AND --ct, as the mock-up does: the icon box is the tint and the
        glyph is the colour. One grey tint behind every row is a good part
@@ -404,6 +406,8 @@
   /* A person only ever sees their OWN teams (§2). Somebody on no team sees
      no row of spaces at all, which is the Attender case and is deliberate -
      not an empty row, no row. */
+  /* The part each team space belongs to (egbc-parts.js); others are always on. */
+  var SPACE_PART = { worship: 'worship', core: 'worship', kids: 'kids', youth: 'kids', lazers: 'kids', renu: 'kids', maint: 'building' };
   function spacesFor(me) {
     ensureCoreSpaces();
     var out = ['me'];
@@ -411,6 +415,8 @@
     Object.keys(SPACES).forEach(function (k) {
       var s = SPACES[k];
       if (k === 'me') return;
+      /* A space whose whole part is switched off (SPACE_PART). */
+      if (SPACE_PART[k] && global.EGBCAuth && EGBCAuth.usesPart && !EGBCAuth.usesPart(SPACE_PART[k])) return;
       if (s.building) { if (buildingPages().length) out.push(k); return; }
       /* A team space the church has no team for, not even for a master
          admin: it would be a nameless, empty space. */

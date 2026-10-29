@@ -399,6 +399,8 @@
     /* EGBCAuth.uses, which every page has (the switches, F-230); a page
        without it counts the part as used, as before. */
     if (node.feature && window.EGBCAuth && EGBCAuth.uses && !EGBCAuth.uses(node.feature)) return false;
+    /* A page of a whole part the church has switched off (egbc-parts.js). */
+    if (node.url && window.EGBCAuth && EGBCAuth.pageUsed && !EGBCAuth.pageUsed(node.url)) return false;
     /* On an event's team (F-212): that is enough for the entry that says so,
        whatever the flags below would say. */
     if (node.eventTeam && who.isEventTeam) return true;

@@ -13649,3 +13649,33 @@ egbc-auth.js no longer has a fixed list of members-only rooms (`MEMBERS_ONLY_ROO
 - **Test alongside:** functions/sg-assess-check.test.mjs, EGBC and a synthetic church, 8/8 on the emulator.
 - **For the synthetic parish:** St Hild's choir trip signed with "£5,000,000: " goes back to waiting, and its sign-ups close, until the lead adds "Synthetic Insurers, checked by the treasurer" and signs again.
 - **For main / the reviewer:** GOING-LIVE's known gap "An insurance answer of '£5,000,000: '" can be struck. index.js has one new export line (sg-assess-check.js).
+
+## From the main window, 29 Oct 2026: whole parts switched off, please stop their server side
+
+Martin: "we need to be able to switch entire parts on and off". Church settings → "Choose what your church uses" now switches **whole parts**:
+- the parts are listed in egbc-parts.js, the one list of parts, their pages and the switches inside them;
+- `churchSettings/features.parts = { <part>: false }`; nothing stored means on, so EGBC uses everything.
+
+A part switched off already goes from the Menu, the app, Home, search and its pages. Its server side should stop too. **The one helper:**
+
+```js
+import { usesPart } from './parts.js';            // functions/parts.js (built: node tools/parts-build.mjs)
+if (!(await usesPart(ch.db, 'rooms'))) return;    // in a schedule's eachChurch, or a trigger's church
+```
+
+For a callable, refuse with plain words, as I did in meeting-manage.js.
+
+**Your functions, by part, from what I can see** (please check and add any I've missed):
+- **rooms** (Rooms and hire): bookingReminders, documentExpiryReminders, rooms-day.js, the booking notifications.
+- **building** (Building, health and safety): compliance.js, checklist-reminders.js, ra-reminders.js, lone-working.js, peeps.js.
+- **safeguarding**: sg-warnings.js, sg-assess-check.js, checksReminders.
+- **kids** (Kids and youth): kids-counts.js, present.js, quiz.js, lessonFor.
+- **events** (Events and groups): the sign-up and form emails, feedSync / What's on, rota-whatson.js (rota Sundays in What's on: when **rota** is off).
+- **giving**: payments.js, gocardless.js.
+- **watch** (Watch and listen): sermon-links.js, the sermons feed.
+- **care**: prayer-sunday.js. (I've done worryNotify, prayerNotify and pastoralFollowUps.)
+
+**Mine, done:**
+- **rota:** rotaReminders; the rota feeds (rotaFeed, myCalendarLink); the availability form (findMe, myDates, saveAnswer).
+- **meetings:** meetingRoom, meetingInvite, meetingGuestJoin, meetingCancel.
+- **care:** worryNotify, prayerNotify, pastoralFollowUps.

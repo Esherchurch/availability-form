@@ -1313,7 +1313,8 @@ function navPlaces() {
   ];
   /* Switched off in the registry still means switched off. */
   const switchedOff = url => PAGES.some(p =>
-    decodeURIComponent(String(p.url || '')).toLowerCase() === url && p.enabled === false);
+    decodeURIComponent(String(p.url || '')).toLowerCase() === url && p.enabled === false)
+    || !!(window.EGBCAuth && EGBCAuth.pageUsed && !EGBCAuth.pageUsed(url));
   /* "Meet" only on a day with a video meeting of mine in the diary. */
   const meetDay = typeof MEETINGS !== 'undefined' && meetingsToday().length > 0;
   return places.filter(p => p.always || (visibleNow[p.url] && !switchedOff(p.url) && (!p.today || meetDay)));

@@ -6,6 +6,11 @@ This page is the list of steps a new church works through to set up its hub. Eac
 - Only master admins can open it.
 - Anyone else is told they cannot open the page.
 
+## Choose what you will use
+1. At the top, under **What will you use?**, press **Worship and AV only**, **Sundays and teams** or **Everything**.
+2. The parts you don't choose are switched off, and their steps are left off the list.
+3. You can switch any part on or off later in [Church settings](church-settings.html). Nothing is deleted.
+
 ## Work through the steps
 1. Open the page. The bar at the top shows how far you have got, and the line under the title says how many steps are done.
 2. Press **Start** on a step. It opens the page that does that step.

@@ -61,6 +61,12 @@ import { makeOwnRoom, closeOwnRoom, OWN } from './meeting-rooms.js';
 import { makeSender } from './public-mail.js';
 import { hubUrl } from './notify.js';
 import { isUnder18Record, isUnder18Email } from './under18.js';
+import { usesPart } from './parts.js';
+
+/* A church that has switched Meetings off (Church settings) has none. */
+async function meetingsUsed(db) {
+  if (!(await usesPart(db, 'meetings'))) throw new HttpsError('failed-precondition', 'This church doesn\u2019t use video meetings.');
+}
 
 const REGION = 'europe-west2';
 const EMAIL = /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/;
@@ -264,6 +270,7 @@ export async function runCancel({ db, send, daily, uid, data }) {
 export const meetingRoom = onCall({ region: REGION, secrets: [DAILY_API_KEY] }, async (req) => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Please sign in.');
   const ch = churchOf(req, getFirestore());
+  await meetingsUsed(ch.db);
   const m = await loadMeeting(ch.db, (req.data || {}).event);
   /* Its organiser, or anyone who may manage it: the page that saved it. */
   if (!(await mayManage(ch.db, req.auth.uid, m.ev, m.part))) throw new HttpsError('permission-denied', 'Not your meeting.');
@@ -277,6 +284,7 @@ export const meetingRoom = onCall({ region: REGION, secrets: [DAILY_API_KEY] }, 
 export const meetingInvite = onCall({ region: REGION }, async (req) => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Please sign in.');
   const ch = churchOf(req, getFirestore());
+  await meetingsUsed(ch.db);
   return runInvite({ db: ch.db, send: makeSender({ db: ch.db }), uid: req.auth.uid, data: req.data });
 });
 
@@ -284,11 +292,13 @@ export const meetingInvite = onCall({ region: REGION }, async (req) => {
 export const meetingGuestJoin = onCall({ region: REGION }, async (req) => {
   const db = await dbForAddress(getFirestore(), req.rawRequest);
   if (!db) throw new HttpsError('not-found', 'This church’s address isn’t on Church HQ.');
+  await meetingsUsed(db);
   return runGuestJoin({ db, data: req.data });
 });
 
 export const meetingCancel = onCall({ region: REGION, secrets: [DAILY_API_KEY] }, async (req) => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Please sign in.');
   const ch = churchOf(req, getFirestore());
+  await meetingsUsed(ch.db);
   return runCancel({ db: ch.db, send: makeSender({ db: ch.db }), daily: makeDaily(keyNow()), uid: req.auth.uid, data: req.data });
 });

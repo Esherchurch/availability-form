@@ -22,6 +22,8 @@
      page    the page that does it ('' while it is being built)
      owner   'main' | 'events' | 'comms'
      optional  a church may leave it
+     part      the whole part it belongs to (egbc-parts.js); left out while
+               the church doesn't use that part
      done(db)  Promise<boolean>: whether the church has done it, from its
                own data (never a tick somebody sets)
 
@@ -64,7 +66,7 @@
     { id: 'people', owner: 'main', title: 'Your people', page: 'addressbook.html',
       why: 'The address book: everyone the hub knows, and the teams they are on',
       done: function (db) { return db.collection('addressBook').limit(2).get().then(function (s) { return s.size > 1; }, function () { return false; }); } },
-    { id: 'care', owner: 'main', title: 'Who gets told', page: 'church-settings.html',
+    { id: 'care', owner: 'main', title: 'Who gets told', page: 'church-settings.html', part: 'care',
       why: 'Who reads requests for care, pastoral concerns and prayer requests',
       done: function (db) { return get(db, 'careRouting', 'main').then(function (d) { return !!d; }); } },
     /* Each team's own address (Team mail): where replies to its rota emails,
@@ -73,13 +75,13 @@
     { id: 'teamEmails', owner: 'main', title: 'Team emails', page: 'team-mail.html',
       why: 'Each team’s own email address, so replies to its emails reach the team, not the office',
       done: function (db) { return any(db, 'teamMailboxes', function (t) { return !!t.address; }); } },
-    { id: 'safeguarding', owner: 'events', title: 'Safeguarding', page: 'safeguarding-settings.html',
+    { id: 'safeguarding', owner: 'events', title: 'Safeguarding', page: 'safeguarding-settings.html', part: 'safeguarding',
       why: 'The safeguarding lead and deputy, how long checks last, and the ratios',
       done: function (db) { return get(db, 'safeguardingSettings', 'defaults').then(function (d) { return !!(d && d.leadSiteId); }); } },
     { id: 'data', owner: 'events', title: 'Data protection', page: 'data-records.html',
       why: 'Your data protection lead, and the record of what the church holds',
       done: function (db) { return get(db, 'dataSettings', 'main').then(function (d) { return !!(d && (d.leads || []).length); }); } },
-    { id: 'pastoral', owner: 'main', title: 'Pastoral visitors', page: 'pastoral-visits.html', optional: true,
+    { id: 'pastoral', owner: 'main', title: 'Pastoral visitors', page: 'pastoral-visits.html', optional: true, part: 'care',
       why: 'The trained people who record pastoral visits',
       done: function (db) { return get(db, 'pastoralSettings', 'main').then(function (d) { return !!(d && (d.visitorIds || []).length); }); } }
   ];

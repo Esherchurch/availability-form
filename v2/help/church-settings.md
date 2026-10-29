@@ -29,10 +29,16 @@ This page holds the church's settings that only master admins change: the hub's 
 4. Each person chooses which notifications they get, on their own Notifications page.
 
 ## Choose what your church uses
-1. Under **What does your church use?**, each part of the hub has a switch.
-2. Press a switch to turn that part on or off. It saves straight away.
-3. A part switched off goes from the Menu, the app and Home for everyone.
-4. Parts marked **add-on** are extras a church may not need.
+1. Under **Choose what your church uses**, the top line says which choice you have now, or "Your own mix".
+2. To start from a ready-made choice, press **Worship and AV only**, **Sundays and teams** or **Everything**, and say yes.
+   - **Worship and AV only:** Sundays and the rota, Worship and AV, ChurchShow, meetings and notices.
+   - **Sundays and teams:** all that, plus kids and youth, safeguarding, care and prayer, and watch and listen.
+   - **Everything:** every part.
+3. Below that, each whole part has one switch: for example **Sundays and the rota**, **Worship and AV**, **Kids and youth**, **Rooms and hire** or **Giving**. Press it to switch the part off or on. It saves straight away.
+4. Press **Fine-tune** under a part to switch single things inside it on or off, such as the e-news inside Communications. Parts marked **add-on** are extras a church may not need.
+5. A part switched off goes from the Menu, the app, Home and search for everyone. Its pages say it isn't used here, and its emails, reminders and notifications stop.
+6. Nothing is deleted. Switching it back on brings it all back.
+7. Home, the address book, teams, settings, permissions, data protection, notifications and help are always on.
 
 ## Open the private forms
 1. Under **Private forms**, press **Open the private forms**.

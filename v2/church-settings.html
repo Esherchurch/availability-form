@@ -6,12 +6,13 @@
 <title>Church details</title>
 
 <script src="egbc-nosend.js?v=202611011200"></script>
-<script src="egbc-shell.js?v=202611011200" data-title="Church details"></script>
+<script src="egbc-shell.js?v=202611011400" data-title="Church details"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202611011300"></script>
+<script src="egbc-auth.js?v=202611011400"></script>
+<script src="egbc-parts.js?v=202611011400"></script>
 <script src="egbc-church.js?v=202611011200"></script>
 <!-- Master admins only. The office keeps the bank details on Giving
      details (giving-details.html). -->
@@ -84,8 +85,8 @@
   <!-- WHAT DOES YOUR CHURCH USE? (item 14; the events window's F-230,
        19 Oct 2026). One switch per part; a part switched off leaves the
        Menu, the app and Home everywhere. A master admin only. -->
-  <h1 style="font-size:18px;margin:22px 0 4px" id="feat-h" hidden>What does your church use?</h1>
-  <p class="sub" id="feat-sub" hidden>Switch off any part your church does not use: it goes from the Menu, the app and Home for everyone. Nothing is deleted, and switching it back on brings it all back. The add-ons are the extras a church may not need.</p>
+  <h1 style="font-size:18px;margin:22px 0 4px" id="feat-h" hidden>Choose what your church uses</h1>
+  <p class="sub" id="feat-sub" hidden>Pick a ready-made choice, or switch whole parts on and off. A part switched off goes from the Menu, the app, Home and search for everyone, its pages say it isn't used here, and its emails and reminders stop. Nothing is deleted, and switching it back on brings it all back. Open a part to fine-tune what is inside it.</p>
   <div class="card" id="feat-form" hidden></div>
 
   <!-- SWITCH-OVER: THE PRIVATE FORMS (14 Oct 2026). Until the locked rules
@@ -222,31 +223,61 @@
       .catch(function (e) { b.disabled = false; toast('Could not change it: ' + (e.message || e)); });
   }
 
-  /* ---- what does your church use? (F-230) --------------------------
-     Each part's switch, from EGBCAuth.features() (the one list, with each
-     part's default). Saved as it is pressed (rule 13): churchSettings/
-     features, { name: true|false }, merged. */
+  /* ---- choose what your church uses ---------------------------------
+     Whole parts (egbc-parts.js), each one switch, with the finer switches
+     inside it (EGBCAuth.features()), and the ready-made choices above them.
+     Saved as pressed: churchSettings/features, { parts: { <part>: bool },
+     <feature>: bool }, merged. Notifications are always on, so not listed. */
+  var sw = function (attr, on, label, extra) {
+    return '<button type="button" class="sw" role="switch" ' + attr + ' aria-checked="' + on + '" style="margin:4px 0">' +
+      '<span class="track" aria-hidden="true"></span><span>' + label + (extra || '') + '</span></button>';
+  };
   function drawFeatures() {
     ['feat-h', 'feat-sub', 'feat-form'].forEach(function (id) { document.getElementById(id).hidden = false; });
-    var list = EGBCAuth.features ? EGBCAuth.features() : [];
-    document.getElementById('feat-form').innerHTML = list.map(function (f) {
-      return '<button type="button" class="sw" role="switch" data-feature="' + esc(f.name) + '" aria-checked="' + f.on + '" style="margin:4px 0">' +
-        '<span class="track" aria-hidden="true"></span><span>' + esc(f.label) +
-        (f.addOn ? ' <small style="color:var(--muted);font-weight:400">add-on</small>' : '') + '</span></button>';
-    }).join('');
+    var P = window.EGBCParts, list = (EGBCAuth.features ? EGBCAuth.features() : []).filter(function (f) { return f.name !== 'notifications'; });
+    if (!P) { document.getElementById('feat-form').innerHTML = '<p class="hint">The list of parts could not be loaded. Reload the page.</p>'; return; }
+    var parts = EGBCAuth.partSwitches(), now = P.matching(parts, EGBCAuth.featureSwitches());
+    var preset = P.PRESETS.filter(function (x) { return x.id === now; })[0];
+    var inside = function (f) { return sw('data-feature="' + esc(f.name) + '"', f.own, esc(f.label), f.addOn ? ' <small style="color:var(--muted);font-weight:400">add-on</small>' : ''); };
+    var other = list.filter(function (f) { return !f.part; });
+    document.getElementById('feat-form').innerHTML =
+      '<p style="margin:0 0 6px"><b style="color:var(--ink)">Now:</b> ' + esc(preset ? preset.label : 'Your own mix') + '</p>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px">' + P.PRESETS.map(function (x) {
+        return '<button type="button" class="btn' + (x.id === now ? '' : ' sec') + '" data-preset="' + esc(x.id) + '" title="' + esc(x.means) + '">' + esc(x.label) + '</button>';
+      }).join('') + '</div>' +
+      P.PARTS.map(function (p) {
+        var feats = list.filter(function (f) { return f.part === p.id; });
+        return '<div style="border-top:1px solid var(--line,#e5e7eb);padding:6px 0">' +
+          sw('data-part="' + esc(p.id) + '"', P.on(parts, p.id), '<b>' + esc(p.label) + '</b>') +
+          '<p class="hint" style="margin:0 0 4px 52px">' + esc(p.means) + '</p>' +
+          (feats.length && P.on(parts, p.id) ? '<details style="margin:0 0 4px 52px"><summary>Fine-tune</summary>' + feats.map(inside).join('') + '</details>' : '') +
+        '</div>';
+      }).join('') +
+      (other.length ? '<div style="border-top:1px solid var(--line,#e5e7eb);padding:6px 0"><b style="color:var(--ink)">Also</b>' + other.map(inside).join('') + '</div>' : '') +
+      '<p class="hint" style="margin:10px 0 0">Always on: Home, the address book, teams, settings, permissions, data protection, notifications and help.</p>';
     [].forEach.call(document.querySelectorAll('[data-feature]'), function (b) {
-      b.onclick = function () { setFeature(b.dataset.feature, b.getAttribute('aria-checked') !== 'true', b); };
+      b.onclick = function () { var p = {}; p[b.dataset.feature] = b.getAttribute('aria-checked') !== 'true'; saveSwitches(p, b, p[b.dataset.feature] ? 'Switched on.' : 'Switched off.'); };
+    });
+    [].forEach.call(document.querySelectorAll('[data-part]'), function (b) {
+      b.onclick = function () { var on = b.getAttribute('aria-checked') !== 'true', p = { parts: {} }; p.parts[b.dataset.part] = on; saveSwitches(p, b, on ? 'Switched on.' : 'Switched off. Nothing has been deleted.'); };
+    });
+    [].forEach.call(document.querySelectorAll('[data-preset]'), function (b) {
+      b.onclick = function () {
+        var x = P.PRESETS.filter(function (y) { return y.id === b.dataset.preset; })[0];
+        if (!x || !confirm('Use "' + x.label + '"?\n\n' + x.means + '.\n\nEverything else is switched off for everyone. Nothing is deleted, and you can change any part afterwards.')) return;
+        saveSwitches(P.presetSwitches(x.id), b, 'Done: ' + x.label + '.');
+      };
     });
   }
-  function setFeature(name, on, b) {
+  function saveSwitches(patch, b, said) {
     b.disabled = true;
     var u = EGBCAuth.user() || {};
-    var patch = { updatedAt: new Date().toISOString(), updatedBy: u.uid || '' }; patch[name] = on;
-    db().collection('churchSettings').doc('features').set(patch, { merge: true })
+    db().collection('churchSettings').doc('features').set(Object.assign({ updatedAt: new Date().toISOString(), updatedBy: u.uid || '' }, patch), { merge: true })
       .then(function () { return EGBCAuth.reloadFeatures(); })
-      .then(function () { toast(on ? 'Switched on.' : 'Switched off.'); drawFeatures(); })
+      .then(function () { toast(said); drawFeatures(); })
       .catch(function (e) { b.disabled = false; toast('Could not change it: ' + (e.message || e)); });
   }
+
 
   /* ---- switch-over: the private forms (14 Oct 2026) ----------------
 

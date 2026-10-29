@@ -641,7 +641,8 @@
   /* Alongside this file, with its own stamp, like egbc-core-meetings.js's video loader. */
   function sibling(name, stamp) {
     if ((name === 'egbc-team-jobs.js' && global.EGBCTeamJobs) || (name === 'egbc-permissions.js' && global.EGBCPermissions)
-        || (name === 'egbc-services.js' && global.EGBCServices) || (name === 'egbc-setup.js' && global.EGBCSetup)) return Promise.resolve();
+        || (name === 'egbc-services.js' && global.EGBCServices) || (name === 'egbc-setup.js' && global.EGBCSetup)
+        || (name === 'egbc-parts.js' && global.EGBCParts)) return Promise.resolve();
     return new Promise(function (done) {
       var me = document.querySelector('script[src*="egbc-auth.js"]');
       var base = me ? me.getAttribute('src').split('egbc-auth.js')[0] : '';
@@ -837,12 +838,29 @@
     { name: 'quiz', label: 'Quiz', on: true, addOn: true }
   ];
   var featureSwitches = {};
+  /* With the switches, the list of whole parts (egbc-parts.js): a finer
+     switch is off while its part is, and a page of a part switched off
+     says so instead of opening. */
   function loadFeatures() {
-    return db.collection('churchSettings').doc('features').get().then(function (s) {
+    return Promise.all([db.collection('churchSettings').doc('features').get().then(function (s) {
       featureSwitches = (s.exists && s.data()) || {};
-    }, function () { featureSwitches = {}; });
+    }, function () { featureSwitches = {}; }), sibling('egbc-parts.js', '202611011400')]).then(stopIfPartOff);
   }
+  var P = function () { return global.EGBCParts; };
+  function partOn(id) { return !P() || !id || P().on(featureSwitches.parts, id); }
+  /* This page's part is switched off: it says so, for everybody (a master
+     admin is told where to switch it back on). */
+  function stopIfPartOff() {
+    if (!P() || pageUsed(location.pathname)) return;
+    var part = P().PARTS.filter(function (x) { return x.id === P().partOf(location.pathname); })[0] || {};
+    var say = function () {
+      EGBCAuth._blockPage('Not used here', (part.label || 'This part') + ' isn\u2019t used by this church. Nothing has been deleted: a master admin can switch it back on in Church settings, under \u201cChoose what your church uses\u201d.', currentProfile);
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', say); else say();
+  }
+  function pageUsed(url) { return !P() || partOn(P().partOf(url)); }
   function usesFeature(name) {
+    if (P() && !partOn(P().partOfFeature(name))) return false;
     var v = featureSwitches[name];
     if (typeof v === 'boolean') return v;
     for (var i = 0; i < FEATURES.length; i++) if (FEATURES[i].name === name) return FEATURES[i].on;
@@ -2569,8 +2587,18 @@
        with each one's default and what is stored, for Church settings. */
     uses: function (name) { return usesFeature(name); },
     features: function () {
-      return FEATURES.map(function (f) { return { name: f.name, label: f.label, byDefault: f.on, addOn: !!f.addOn, on: usesFeature(f.name) }; });
+      return FEATURES.map(function (f) {
+        var v = featureSwitches[f.name];
+        return { name: f.name, label: f.label, byDefault: f.on, addOn: !!f.addOn, on: usesFeature(f.name),
+          own: typeof v === 'boolean' ? v : f.on, part: P() ? P().partOfFeature(f.name) : '' };
+      });
     },
+    /* Whole parts (egbc-parts.js): whether the church uses one, whether a
+       page's part is on (Menu, app, Home, search), and the stored switches. */
+    usesPart: function (id) { return partOn(id); },
+    pageUsed: function (url) { return pageUsed(url); },
+    partSwitches: function () { return Object.assign({}, featureSwitches.parts || {}); },
+    featureSwitches: function () { return Object.assign({}, featureSwitches); },
     reloadFeatures: function () { return loadFeatures(); },
 
     /* Leads a plan group or is on its team (session-planner.html), or a
@@ -2866,7 +2894,7 @@
   try {
     if (new URLSearchParams(location.search).get('setup') === '1') {
       document.addEventListener('egbc-ready', function () {
-        sibling('egbc-setup.js', '202610311900').then(function () { if (global.EGBCSetup) global.EGBCSetup.bar(); });
+        sibling('egbc-setup.js', '202611011400').then(function () { if (global.EGBCSetup) global.EGBCSetup.bar(); });
       }, { once: true });
     }
   } catch (e) {}

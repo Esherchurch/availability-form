@@ -1657,7 +1657,9 @@ allow write: if (isMaster() && id == 'notifications'
 && request.resource.data.keys().hasOnly(['live', 'updatedAt', 'updatedBy'])
 && request.resource.data.live is bool);
 allow write: if (isMaster() && id == 'features'
-&& request.resource.data.keys().hasOnly(['care', 'prayer', 'notifications', 'watch', 'sermons', 'giftAid', 'teamMail', 'rotaReports', 'preachingPlan', 'pictureLibrary', 'publicWhatson', 'sundaysInWhatsOn', 'newHere', 'usualPeople', 'screenPaging', 'maintenance', 'events', 'roomBookings', 'kids', 'smallGroups', 'forms', 'payments', 'safeguarding', 'pinBoards', 'meetings', 'notices', 'churchShow', 'availability', 'sessionPlanner', 'buildingCompliance', 'safeguardingRegister', 'enews', 'cardMaker', 'canva', 'quiz', 'updatedAt', 'updatedBy']));
+&& request.resource.data.keys().hasOnly(['care', 'prayer', 'notifications', 'watch', 'sermons', 'giftAid', 'teamMail', 'rotaReports', 'preachingPlan', 'pictureLibrary', 'publicWhatson', 'sundaysInWhatsOn', 'newHere', 'usualPeople', 'screenPaging', 'maintenance', 'events', 'roomBookings', 'kids', 'smallGroups', 'forms', 'payments', 'safeguarding', 'pinBoards', 'meetings', 'notices', 'churchShow', 'availability', 'sessionPlanner', 'buildingCompliance', 'safeguardingRegister', 'enews', 'cardMaker', 'canva', 'quiz', 'parts', 'updatedAt', 'updatedBy'])
+&& request.resource.data.get('parts', {}) is map
+&& request.resource.data.get('parts', {}).size() <= 30);
 allow write: if raOffice() && id == 'services'
 && request.resource.data.keys().hasOnly(['types', 'roles', 'updatedAt', 'updatedBy'])
 && request.resource.data.types is list && request.resource.data.types.size() <= 200

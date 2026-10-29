@@ -19,6 +19,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { makeSender } from './public-mail.js';
 import { hubUrl } from './notify.js';
 import { eachChurch } from './church-scope.js';
+import { usesPart } from './parts.js';
 
 const REGION = 'europe-west2';
 const londonDay = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
@@ -57,6 +58,8 @@ export async function runPastoralFollowUps({ db, send, now, hub }) {
 
 export const pastoralFollowUps = onSchedule({ region: REGION, schedule: '30 8 * * *', timeZone: 'Europe/London', retryCount: 1 }, async () => {
   await eachChurch(getFirestore(), async (ch) => {
+    /* A church that has switched Care and prayer off is sent nothing. */
+    if (!(await usesPart(ch.db, 'care'))) return;
     const r = await runPastoralFollowUps({ db: ch.db, send: makeSender({ db: ch.db }), now: new Date(), hub: await hubUrl(ch.db) });
     if (r.sent.length || r.error) console.log('pastoralFollowUps', ch.id || 'top', JSON.stringify(r));
   });

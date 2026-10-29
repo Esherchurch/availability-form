@@ -2303,3 +2303,15 @@ The reviewer: finish the building items, then stop. The lint and type errors wai
 
 - **F-319 (the events window):** an id in the address (`?issue=` or `?preview=`) is checked before anything is read. Our ids are only letters, digits, `_` and `-`, so anything else (a slash, a typo) gets the page's plain "not there" words, never an error: enews-web.html, enews.html, and the editor (egbc-enews-editor.js, stamp bumped), which had the same gap. enews.html's failed open says it couldn't be opened, not the database's message.
 - **Martin's answers:** CI at the top level: yes, committed as `.github/workflows/church-hq-checks.yml` with his approval line, and nothing else outside v2/. The office may see small groups' members in the Compiler: yes, as built. The card maker in Val's style waits for her cards.
+
+## From the main window, 29 Oct 2026: whole parts switched off, please stop their server side
+
+Church settings now switches whole parts on and off (egbc-parts.js; `churchSettings/features.parts`). FINDINGS-events.md has the full note.
+
+**The one helper:** `usesPart(db, part)` from functions/parts.js. Skip a church's schedule or trigger when it's false, and refuse a callable with plain words.
+
+**Your functions, by part, from what I can see:**
+- **comms** (Communications): enews-draft.js (the weekly draft), enews-send.js, enews.js (sign-ups), welcome-mail.js, social.js, the card maker and Canva.
+  - The finer switches inside it are still `enews`, `cardMaker`, `canva` and `pictureLibrary`. EGBCAuth.uses(name) is now false whenever the part is off, too.
+- **giving**: Gift Aid and regular giving.
+- **meetings**: members-meeting.js (membersMeetingSync), the votes.

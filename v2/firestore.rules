@@ -3237,7 +3237,10 @@ service cloud.firestore {
       // EGBCAuth.uses and by the server (sundaysInWhatsOn). Only the names
       // the hub knows - a new add-on joins this list when it is built.
       allow write: if (isMaster() && id == 'features'
-                       && request.resource.data.keys().hasOnly(['care', 'prayer', 'notifications', 'watch', 'sermons', 'giftAid', 'teamMail', 'rotaReports', 'preachingPlan', 'pictureLibrary', 'publicWhatson', 'sundaysInWhatsOn', 'newHere', 'usualPeople', 'screenPaging', 'maintenance', 'events', 'roomBookings', 'kids', 'smallGroups', 'forms', 'payments', 'safeguarding', 'pinBoards', 'meetings', 'notices', 'churchShow', 'availability', 'sessionPlanner', 'buildingCompliance', 'safeguardingRegister', 'enews', 'cardMaker', 'canva', 'quiz', 'updatedAt', 'updatedBy']));
+                       && request.resource.data.keys().hasOnly(['care', 'prayer', 'notifications', 'watch', 'sermons', 'giftAid', 'teamMail', 'rotaReports', 'preachingPlan', 'pictureLibrary', 'publicWhatson', 'sundaysInWhatsOn', 'newHere', 'usualPeople', 'screenPaging', 'maintenance', 'events', 'roomBookings', 'kids', 'smallGroups', 'forms', 'payments', 'safeguarding', 'pinBoards', 'meetings', 'notices', 'churchShow', 'availability', 'sessionPlanner', 'buildingCompliance', 'safeguardingRegister', 'enews', 'cardMaker', 'canva', 'quiz', 'parts', 'updatedAt', 'updatedBy'])
+                       // parts: whole parts switched on or off (egbc-parts.js), { <part>: bool }.
+                       && request.resource.data.get('parts', {}) is map
+                       && request.resource.data.get('parts', {}).size() <= 30);
       // THE CHURCH'S SERVICES AND SERVICE ROLES (H-11; egbc-services.js):
       // the kinds of service and meeting, and the roles a service names.
       // The office and master admins keep them; nothing in them is private.
