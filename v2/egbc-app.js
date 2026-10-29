@@ -767,8 +767,8 @@
          words - "Care" on a narrow phone. Never hidden by a person's own
          Home choices; only by the church switching off the whole care
          part (feature 'care'). */
-      + ((global.EGBCChurch && EGBCChurch.uses && !EGBCChurch.uses('care')) ? ''
-        : '<button class="worry" data-act="sheet:care" aria-label="Care and support" aria-haspopup="dialog">'
+      /* Always there: with Care off it still raises a safeguarding concern. */
+      + ('<button class="worry" data-act="sheet:care" aria-label="Care and support" aria-haspopup="dialog">'
           + ic('hand-heart', 17) + '<span class="wl">Care &amp; support</span><span class="ws">Care</span></button>')
       /* SWITCH: a small sheet of this person's modes, one tap to go (the
          reviewing window, 20 Oct 2026) - never the whole tile screen. */
@@ -897,8 +897,8 @@
       + (unseenNotices() ? ', ' + unseenNotices() + ' you have not seen' : '') + '">' + ic('bell', 17)
       + (unseenNotices() ? '<span class="badge">' + (unseenNotices() > 9 ? '9+' : unseenNotices()) + '</span>' : '')
       + '</button>')
-      + ((global.EGBCChurch && EGBCChurch.uses && !EGBCChurch.uses('care')) ? ''
-        : '<button class="worry" data-act="sheet:care" aria-label="Care and support" aria-haspopup="dialog">'
+      /* Always there: with Care off it still raises a safeguarding concern. */
+      + ('<button class="worry" data-act="sheet:care" aria-label="Care and support" aria-haspopup="dialog">'
           + ic('hand-heart', 17) + '<span class="wl">Care &amp; support</span><span class="ws">Care</span></button>')
       + '</div></div>'
       + '<main class="content start" id="egbc-content">'

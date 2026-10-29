@@ -50,15 +50,22 @@
   /* The choices, in Martin's order. url is the page; a host adds what it
      needs (the app adds app=1 through its own open:). */
   function choices() {
-    var list = [
+    /* With Care and prayer switched off, only a safeguarding concern is
+       left: it can always be raised. */
+    var care = !(global.EGBCAuth && EGBCAuth.usesPart) || EGBCAuth.usesPart('care');
+    var list = care ? [
       { key: 'care', icon: 'hand-heart', url: 'worried.html?for=me',
         title: 'I’d like some pastoral care',
         sub: 'For you. It goes to the pastoral team, and stays private.' },
       { key: 'worried', icon: 'heart-handshake', url: 'worried.html',
         title: 'I’m worried about someone',
         sub: 'Tell the pastoral team, or the safeguarding lead.' }
+    ] : [
+      { key: 'worried', icon: 'heart-handshake', url: 'worried.html',
+        title: 'I’m worried about someone',
+        sub: 'A safeguarding concern: it goes only to the safeguarding lead and deputy.' }
     ];
-    if (prayer === true) {
+    if (prayer === true && care) {
       list.push({ key: 'prayer', icon: 'church', url: PRAYER_URL,
         title: 'Prayer requests and praise reports', sub: 'Ask for prayer, for you or someone else, or share how God has answered.' });
     }

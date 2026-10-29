@@ -75,7 +75,9 @@
     { id: 'teamEmails', owner: 'main', title: 'Team emails', page: 'team-mail.html',
       why: 'Each team’s own email address, so replies to its emails reach the team, not the office',
       done: function (db) { return any(db, 'teamMailboxes', function (t) { return !!t.address; }); } },
-    { id: 'safeguarding', owner: 'events', title: 'Safeguarding', page: 'safeguarding-settings.html', part: 'safeguarding',
+    /* Always asked: a safeguarding concern can be raised whatever the
+       church uses, so it always needs someone to go to. */
+    { id: 'safeguarding', owner: 'events', title: 'Safeguarding', page: 'safeguarding-settings.html',
       why: 'The safeguarding lead and deputy, how long checks last, and the ratios',
       done: function (db) { return get(db, 'safeguardingSettings', 'defaults').then(function (d) { return !!(d && d.leadSiteId); }); } },
     { id: 'data', owner: 'events', title: 'Data protection', page: 'data-records.html',

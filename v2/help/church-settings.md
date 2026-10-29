@@ -39,6 +39,7 @@ This page holds the church's settings that only master admins change: the hub's 
 5. A part switched off goes from the Menu, the app, Home and search for everyone. Its pages say it isn't used here, and its emails, reminders and notifications stop.
 6. Nothing is deleted. Switching it back on brings it all back.
 7. Home, the address book, teams, settings, permissions, data protection, notifications and help are always on.
+8. **Raising a safeguarding concern** is always on too, with the safeguarding lead and deputy it goes to. With **Care and prayer** off, "I'm worried about someone" offers only a safeguarding concern.
 
 ## Open the private forms
 1. Under **Private forms**, press **Open the private forms**.

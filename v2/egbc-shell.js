@@ -242,8 +242,9 @@
        Not on the pages it leads to: a button that reopens where you are
        is a dead end. */
     var herePage = String(location.pathname || '').split('/').pop().toLowerCase();
-    var careOff = window.EGBCAuth && EGBCAuth.uses && !EGBCAuth.uses('care');   /* the stored switch (F-230) */
-    if (!careOff && herePage !== 'care.html') {
+    /* Always there: with Care and prayer off it still raises a
+       safeguarding concern (egbc-care.js choices). */
+    if (herePage !== 'care.html') {
       right += '<button type="button" class="eb-b eb-care" id="egbc-care-btn" aria-haspopup="dialog" aria-expanded="false"'
              + ' aria-label="Care and support">' + ic('hand-heart', 16)
              + '<span class="eb-care-l">Care &amp; support</span><span class="eb-care-s">Care</span></button>';

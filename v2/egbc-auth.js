@@ -844,7 +844,7 @@
   function loadFeatures() {
     return Promise.all([db.collection('churchSettings').doc('features').get().then(function (s) {
       featureSwitches = (s.exists && s.data()) || {};
-    }, function () { featureSwitches = {}; }), sibling('egbc-parts.js', '202611011400')]).then(stopIfPartOff);
+    }, function () { featureSwitches = {}; }), sibling('egbc-parts.js', '202611011500')]).then(stopIfPartOff);
   }
   var P = function () { return global.EGBCParts; };
   function partOn(id) { return !P() || !id || P().on(featureSwitches.parts, id); }
@@ -2894,7 +2894,7 @@
   try {
     if (new URLSearchParams(location.search).get('setup') === '1') {
       document.addEventListener('egbc-ready', function () {
-        sibling('egbc-setup.js', '202611011400').then(function () { if (global.EGBCSetup) global.EGBCSetup.bar(); });
+        sibling('egbc-setup.js', '202611011500').then(function () { if (global.EGBCSetup) global.EGBCSetup.bar(); });
       }, { once: true });
     }
   } catch (e) {}

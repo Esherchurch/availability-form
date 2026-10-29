@@ -3,7 +3,7 @@
 <head>
 <script src="egbc-nosend.js?v=202611011200"></script>
 <script src="egbc-appmode.js?v=202611011200"></script>
-<script src="egbc-shell.js?v=202611011400" data-title="I'm worried about someone"></script>
+<script src="egbc-shell.js?v=202611011500" data-title="I'm worried about someone"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <!-- egbc-church.js adds the church's name to the tab. -->
@@ -14,7 +14,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202611011400"></script>
+<script src="egbc-auth.js?v=202611011500"></script>
 <script src="egbc-guard.js?v=202611011200"></script>
 <script src="egbc-church.js?v=202611011200"></script>
 <script src="egbc-launch.js?v=202610141700"></script>
@@ -189,6 +189,16 @@ const say = (words, bad) => {
    and deputy (the rules' /worries) - and nobody else. Not on the person's record, and the
    alert the team gets says nothing about who or why (notify.js onWorry). */
 const FOR_ME = new URLSearchParams(location.search).get('for') === 'me';
+/* With Care and prayer switched off, only a safeguarding concern can be
+   raised here ("pastoral care for me" and a pastoral concern belong to
+   Care), so it is the one choice, already chosen. Known once signed in. */
+document.addEventListener('egbc-ready', () => {
+  if (!window.EGBCAuth || !EGBCAuth.usesPart || EGBCAuth.usesPart('care')) return;
+  if (FOR_ME) { location.replace('worried.html'); return; }
+  const pastoral = document.querySelector('.kind[data-kind="pastoral"]'), sg = document.querySelector('.kind[data-kind="safeguarding"]');
+  if (pastoral) pastoral.hidden = true;
+  if (sg) { KIND = 'safeguarding'; sg.setAttribute('aria-pressed', 'true'); }
+});
 if (FOR_ME) {
   KIND = 'care';
   const t = "I'd like some pastoral care";

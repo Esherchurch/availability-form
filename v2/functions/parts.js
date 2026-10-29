@@ -46,10 +46,10 @@ const G = {};
       pages: ['session-planner.html', 'present.html', 'present-guide.html', 'quiz.html', 'kids-admin.html', 'kids-checkin.html', 'youth-access.html', 'youthapp2.html', 'youthcharter.html'] },
     { id: 'safeguarding', label: 'Safeguarding', means: 'DBS and training, the risk register and event assessments',
       features: ['safeguarding', 'safeguardingRegister'],
-      pages: ['safeguarding.html', 'safeguarding-settings.html', 'safeguarding-risk.html', 'sg-print.html', 'event-ra.html'] },
+      pages: ['safeguarding.html', 'safeguarding-risk.html', 'sg-print.html', 'event-ra.html'] },
     { id: 'care', label: 'Care and prayer', means: 'Care & support, its inbox, pastoral visits and prayer',
       features: ['care', 'prayer'],
-      pages: ['care.html', 'care-inbox.html', 'pastoral-visits.html', 'prayer.html', 'worried.html'] },
+      pages: ['care.html', 'care-inbox.html', 'pastoral-visits.html', 'prayer.html'] },
     { id: 'events', label: 'Events and groups', means: 'Events, What’s on, check-in, registers, headcounts, forms, small groups and “I’m new here”',
       features: ['events', 'publicWhatson', 'sundaysInWhatsOn', 'forms', 'smallGroups', 'newHere'],
       pages: ['events-admin.html', 'whatson.html', 'whatson-embed.html', 'signup.html', 'my-signup.html', 'checkin.html', 'attendance.html', 'headcounts.html',
@@ -78,10 +78,13 @@ const G = {};
       pages: ['churchshow.html'] }
   ];
 
-  /* Never switched off: the hub itself and what every church needs. */
+  /* Never switched off: the hub itself and what every church needs - a
+     safeguarding concern can always be raised (worried.html), and always
+     reaches the safeguarding lead and deputy, who are always named
+     (safeguarding-settings.html), whatever else the church uses. */
   var ALWAYS = ['hub.html', 'app.html', 'login.html', 'setup.html', 'addressbook.html', 'teams-admin.html', 'church-settings.html', 'services-settings.html',
     'your-church.html', 'permissions.html', 'data-records.html', 'data-tools.html', 'retention.html', 'privacy.html', 'notifications.html', 'my-messages.html',
-    'resources.html', 'hubresources.html', 'team-mail.html', 'buildings.html', 'stickynotes.html'];
+    'resources.html', 'hubresources.html', 'team-mail.html', 'buildings.html', 'stickynotes.html', 'worried.html', 'safeguarding-settings.html'];
 
   var ALL = PARTS.map(function (p) { return p.id; });
   var WORSHIP = ['rota', 'worship', 'churchShow', 'meetings', 'comms'];

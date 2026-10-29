@@ -28,6 +28,7 @@ This is where you tell the church that you are worried about someone. It goes, i
 3. Press **Send it**. Somebody from the pastoral team will be in touch.
 
 ## Good to know
+- This page is always there, whatever parts of the hub the church uses. If the church has switched off **Care and prayer**, it offers only a safeguarding concern, which goes only to the safeguarding lead and deputy.
 - Nothing here is automatic and nobody is being watched. It is only for when you decide to speak up.
 - A request for pastoral care for yourself is read only by the pastoral team, the people the church has named for pastoral care, and the safeguarding lead and deputy. It is not put on your record. Nobody else will know you asked.
 - You must choose the kind of concern, give a name, and say a little about what you noticed, or it will not send.
