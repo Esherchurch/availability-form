@@ -40,6 +40,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { churchDb, withChurchDb, forCaller, forAddress } from './church-context.js';
 import { eachChurch, scopedDb } from './church-scope.js';
 import { indexCode, churchForCode, codeHash } from './hq-codes.js';
+import { usesPart } from './parts.js';
 
 /* The church being worked for: each callable, webhook and tidy run says
    which (church-context.js), and every helper here follows it. */
@@ -47,6 +48,9 @@ const db = () => churchDb();
 const EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
 import { paymentsShut } from './payments-gate.js';
 const SHUT_MSG = 'Online payments open when the hub goes live.';
+const OFF_MSG = 'This church doesn\u2019t take payments online.';
+/* a church that doesn't use Giving takes no payments here */
+async function offHere() { return !(await usesPart(db(), 'giving')); }
 
 /* The gate, plus a switch for the tests: on the emulator only,
    paymentSecrets/config.shutForTest makes the callables refuse as the live
@@ -168,6 +172,7 @@ async function priceOf(key, method) {
 
 export const paymentsSave = onCall({ region: REGION }, forCaller(async (req) => {
   if (await shut()) throw new HttpsError('failed-precondition', SHUT_MSG, { shut: true });
+  if (await offHere()) throw new HttpsError('failed-precondition', OFF_MSG);
   const uid = req.auth && req.auth.uid;
   if (!(await isTreasurer(uid))) throw new HttpsError('permission-denied', 'Only a master admin or the church\'s money team can set up payments.');
   const provider = String(req.data && req.data.provider || ''), kind = String(req.data && req.data.kind || ''), value = String(req.data && req.data.value || '').trim();
@@ -240,6 +245,7 @@ async function publish() {
    person who just signed up, signed in or not). */
 export const ticketPay = onCall({ region: REGION }, forAddress(async (req) => {
   if (await shut()) throw new HttpsError('failed-precondition', SHUT_MSG, { shut: true });
+  if (await offHere()) throw new HttpsError('failed-precondition', OFF_MSG);
   const key = String(req.data && req.data.key || ''), method = String(req.data && req.data.method || '');
   if (!/^[A-Za-z0-9_]{20,64}$/.test(key)) throw new HttpsError('invalid-argument', 'That booking could not be found.');
   if (method !== 'card' && method !== 'bank') throw new HttpsError('invalid-argument', 'Not a way of paying the hub knows.');
@@ -396,13 +402,14 @@ export async function tidyCard(now) {
   return n;
 }
 export const paymentsTidy = onSchedule({ region: REGION, schedule: 'every 5 minutes', timeZone: 'Europe/London', retryCount: 1 }, async () => {
-  await eachChurch(getFirestore(), (ch) => withChurchDb(ch.db, async () => { await tidyCard(); await tidyBank(); await pollGifts(); }));
+  await eachChurch(getFirestore(), (ch) => withChurchDb(ch.db, async () => { if (await offHere()) return; await tidyCard(); await tidyBank(); await pollGifts(); }));
 });
 
 /* The person back from paying, or opening "my place": anyone holding the
    booking's key, as ticketPay. */
 export const paymentCheck = onCall({ region: REGION }, forAddress(async (req) => {
   if (await shut()) throw new HttpsError('failed-precondition', SHUT_MSG, { shut: true });
+  if (await offHere()) throw new HttpsError('failed-precondition', OFF_MSG);
   const key = String(req.data && req.data.key || '');
   if (!/^[A-Za-z0-9_]{20,64}$/.test(key)) throw new HttpsError('invalid-argument', 'That booking could not be found.');
   const ref = db().collection('signupPayments').doc(key), s = await ref.get();
@@ -416,6 +423,7 @@ export const paymentCheck = onCall({ region: REGION }, forAddress(async (req) =>
    still unpaid). The event's admins only. */
 export const paymentCheckEvent = onCall({ region: REGION }, forCaller(async (req) => {
   if (await shut()) throw new HttpsError('failed-precondition', SHUT_MSG, { shut: true });
+  if (await offHere()) throw new HttpsError('failed-precondition', OFF_MSG);
   const u = await userOf(req.auth && req.auth.uid);
   if (!u || u.status !== 'active' || !(u.masterAdmin === true || (u.adminFor || []).length)) throw new HttpsError('permission-denied', 'For the event\'s admins.');
   const ev = String(req.data && req.data.calEventId || '');

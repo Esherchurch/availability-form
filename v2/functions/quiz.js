@@ -37,6 +37,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import crypto from 'node:crypto';
 import { mayPresent } from './present.js';
 import { featureOn } from './features.js';
+import { usesPart } from './parts.js';
 import { churchOf, eachChurch } from './church-scope.js';
 import { dbForAddress } from './church-address.js';
 import { hubAddressOf } from './hub-address.js';
@@ -95,6 +96,7 @@ export const quizStart = onCall({ region: REGION }, async (req) => {
   if (!s) throw new HttpsError('not-found', 'That session could not be found.');
   const ctx = { type: 'session', groupId: s.groupId, sessionId: String(sessionId) };
   if (!(await mayRun(D, req, ctx))) throw new HttpsError('permission-denied', 'Only the people who may present here can run the quiz.');
+  if (!(await usesPart(D, 'kids'))) throw new HttpsError('failed-precondition', 'This church doesn\u2019t use Kids and youth.');
   if (!(await featureOn(D, 'quiz'))) throw new HttpsError('failed-precondition', 'The quiz is switched off for this church (Church settings).');
   if (!(await launched(D))) throw new HttpsError('failed-precondition', 'The quiz on phones can be used when the hub goes live. Play in teams on the TV until then.');
   const m = String(step || '').match(/^p(\d+)s(\d+)$/), st = m && ((s.parts || [])[+m[1]] || {}).show && s.parts[+m[1]].show[+m[2]];

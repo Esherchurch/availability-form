@@ -22,6 +22,7 @@ import { paymentsShut } from './payments-gate.js';
 import { makeSender } from './public-mail.js';
 import { hubUrl } from './notify.js';
 import { churchOf } from './church-scope.js';
+import { usesPart } from './parts.js';
 
 const REGION = 'europe-west2';
 const db = () => getFirestore();
@@ -80,6 +81,7 @@ export function planEmail({ group, s, names, link, church }) {
 
 export const planSend = onCall({ region: REGION }, async (req) => {
   const D = churchOf(req, db()).db;
+  if (!(await usesPart(D, 'kids'))) throw new HttpsError('failed-precondition', 'This church doesn\u2019t use Kids and youth.');
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Please sign in.');
   if (await shut()) throw new HttpsError('failed-precondition', 'Plans are emailed once the hub goes live.');

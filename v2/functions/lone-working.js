@@ -26,6 +26,7 @@
    =================================================================== */
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { usesPart } from './parts.js';
 import { getAuth } from 'firebase-admin/auth';
 import { getMessaging } from 'firebase-admin/messaging';
 import * as Notify from './notify.js';
@@ -116,5 +117,5 @@ export async function loneDeps(db) {
 }
 
 export const loneWorkingCheck = onSchedule({ region: REGION, schedule: 'every 5 minutes', timeZone: 'Europe/London', retryCount: 0 }, async () => {
-  await eachChurch(getFirestore(), async (ch) => runLoneCheck({ db: ch.db, deps: await loneDeps(ch.db) }));
+  await eachChurch(getFirestore(), async (ch) => { if (await usesPart(ch.db, 'building')) await runLoneCheck({ db: ch.db, deps: await loneDeps(ch.db) }); });
 });

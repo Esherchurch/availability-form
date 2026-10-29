@@ -31,6 +31,7 @@ import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { getFirestore } from 'firebase-admin/firestore';
 import { featureOn } from './compliance.js';
 import { eachChurch } from './church-scope.js';
+import { usesPart } from './parts.js';
 import { twinTriggers } from './church-triggers.js';
 
 const REGION = 'europe-west2';
@@ -41,7 +42,7 @@ export async function runPeepToday({ db, today }) {
   today = today || londonDay(new Date());
   /* One list per building (Martin, 19 Oct): peepToday/<day>__<siteId>.
      Yesterday's (and older) go: "deleted when no longer needed". Off: all go. */
-  const on = await featureOn(db);
+  const on = (await usesPart(db, 'building')) && (await featureOn(db));
   const old = await db.collection('peepToday').get();
   for (const d of old.docs) if (!on || !d.id.startsWith(today + '__')) await d.ref.delete();
   if (!on) return { off: true };

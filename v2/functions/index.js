@@ -357,7 +357,7 @@ const byId = (snap) => {
 export const bookingReminders = onSchedule(
   { schedule: '0 9 * * *', timeZone: 'Europe/London', retryCount: 2 },
   /* EGBC as today, then each church from its own data (H-5). */
-  async () => { await eachChurch(db, (ch) => runBookingReminders(new Date(), ch.db)); }
+  async () => { await eachChurch(db, async (ch) => { if (await usesPart(ch.db, 'rooms')) await runBookingReminders(new Date(), ch.db); }); }
 );
 
 /* Separated so a check can run it against the emulator at a date of its
@@ -398,7 +398,7 @@ export async function runBookingReminders(runAt, cdb = db) {
 
 export const documentExpiryReminders = onSchedule(
   { schedule: '30 9 * * *', timeZone: 'Europe/London', retryCount: 2 },
-  async () => { await eachChurch(db, (ch) => runExpiryReminders(new Date(), ch.db)); }
+  async () => { await eachChurch(db, async (ch) => { if (await usesPart(ch.db, 'rooms')) await runExpiryReminders(new Date(), ch.db); }); }
 );
 
 export async function runExpiryReminders(runAt, cdb = db) {
@@ -744,13 +744,14 @@ export const permsDaily = onSchedule(
 const afterOf = (event) => event.data.after && event.data.after.exists ? event.data.after.data() : null;
 
 export const [bookingNotify, bookingNotifyChurch] = twins(onDocumentUpdated, 'bookings/{key}', async (ch, event) => {
+  if (!(await usesPart(ch.db, 'rooms'))) return;
   await Notify.onBookingChange(await notifyDeps({ db: ch.db }), event.params.key,
     event.data.before.data(), event.data.after.data(), event.id);
 });
 
 /* A new maintenance job, to the Maintenance team (and F-129's email). */
 export const [maintJobNotify, maintJobNotifyChurch] = twins(onDocumentCreated, 'maintJobs/{id}', async (ch, event) => {
-  if (!event.data) return;
+  if (!event.data || !(await usesPart(ch.db, 'building'))) return;
   await Notify.onMaintJob(await notifyDeps({ db: ch.db }), event.params.id, event.data.data());
 });
 
@@ -763,7 +764,9 @@ export const [urgentNotice, urgentNoticeChurch] = twins(onDocumentWritten, 'news
    told which kind has come in, and no more (notify.js onWorry, onPrayer,
    onHello). Never the office, except a hello's copy. */
 export const [worryNotify, worryNotifyChurch] = twins(onDocumentCreated, 'worries/{id}', async (ch, event) => {
-  if (!event.data || !(await usesPart(ch.db, 'care'))) return;
+  if (!event.data) return;
+  /* A safeguarding concern always reaches the lead and deputy, whatever the church has switched off. */
+  if ((event.data.data() || {}).kind !== 'safeguarding' && !(await usesPart(ch.db, 'care'))) return;
   await Notify.onWorry(await notifyDeps({ db: ch.db }), event.params.id, event.data.data());
 });
 export const [prayerNotify, prayerNotifyChurch] = twins(onDocumentCreated, 'prayers/{id}', async (ch, event) => {
@@ -771,7 +774,7 @@ export const [prayerNotify, prayerNotifyChurch] = twins(onDocumentCreated, 'pray
   await Notify.onPrayer(await notifyDeps({ db: ch.db }), event.params.id, event.data.data());
 });
 export const [helloNotify, helloNotifyChurch] = twins(onDocumentCreated, 'welcomes/{id}', async (ch, event) => {
-  if (!event.data) return;
+  if (!event.data || !(await usesPart(ch.db, 'events'))) return;
   await Notify.onHello(await notifyDeps({ db: ch.db }), event.params.id, event.data.data());
 });
 /* Is a safeguarding lead set? Kept in careRouting/status for the forms. */
@@ -790,7 +793,7 @@ export const careStatusSync = onSchedule({ schedule: 'every 60 minutes', timeZon
 /* DBS checks and training running out, every Monday morning. */
 export const checksReminders = onSchedule(
   { schedule: '0 9 * * 1', timeZone: 'Europe/London', retryCount: 2 },
-  async () => { await eachChurch(db, async (ch) => Notify.runChecksReminders(await notifyDeps({ db: ch.db }), new Date())); }
+  async () => { await eachChurch(db, async (ch) => { if (await usesPart(ch.db, 'safeguarding')) await Notify.runChecksReminders(await notifyDeps({ db: ch.db }), new Date()); }); }
 );
 
 /* =================================================================

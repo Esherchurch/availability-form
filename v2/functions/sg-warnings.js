@@ -28,6 +28,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getFirestore, FieldPath } from 'firebase-admin/firestore';
 import { featureOn } from './features.js';
+import { usesPart } from './parts.js';
 import { readTeamJobs, teamsFor } from './team-jobs.js';
 import { makeSender } from './public-mail.js';
 import { hubUrl } from './notify.js';
@@ -191,7 +192,7 @@ export const sgWarningsSync = onSchedule({ region: REGION, schedule: 'every 15 m
 });
 
 /* the register follows its own switch (main's safeguardingRegister, F-268), inside safeguarding's */
-export async function registerOn(dbi) { return (await featureOn(dbi, 'safeguarding')) && (await featureOn(dbi, 'safeguardingRegister')); }
+export async function registerOn(dbi) { return (await usesPart(dbi, 'safeguarding')) && (await featureOn(dbi, 'safeguarding')) && (await featureOn(dbi, 'safeguardingRegister')); }
 
 /* who may refresh a site's warnings: as the rules' sgRegSees() */
 export async function maySee(dbi, uid, siteId) {

@@ -31,6 +31,7 @@
 import crypto from 'node:crypto';
 import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { usesPart } from './parts.js';
 import { hubUrl } from './notify.js';
 import { makeSender } from './public-mail.js';
 import { churchOf } from './church-scope.js';
@@ -162,6 +163,7 @@ export const eventsFeed = onRequest({ region: REGION, cors: false, invoker: 'pub
       audiences = audiencesFor(u.data()); who = ' (mine)';
     } else if (!pub) return no();
     else if (!(D = await dbForSlug(db(), String(req.query.site || '').trim().toLowerCase()))) return no();
+    if (!(await usesPart(D, 'events'))) return no();
     const now = Date.now();
     const snap = await D.collection('calEvents').where('startUtc', '>=', now - 30 * 864e5).where('startUtc', '<=', now + 548 * 864e5).get();
     const events = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((e) => visible(e, audiences, cats));
@@ -193,6 +195,7 @@ async function activeUser(req) {
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
   const D = churchOf(req, db()).db;
+  if (!(await usesPart(D, 'events'))) throw new HttpsError('failed-precondition', 'This church doesn\u2019t use Events.');
   const u = await D.collection('users').doc(uid).get();
   if (!u.exists || u.data().status !== 'active') throw new HttpsError('permission-denied', 'Your account is not active.');
   return { uid, user: u.data(), D };

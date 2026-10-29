@@ -26,6 +26,7 @@
 
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { twinTriggers } from './church-triggers.js';
+import { usesPart } from './parts.js';
 
 const REGION = 'europe-west2';
 
@@ -55,6 +56,7 @@ export async function recount(db, siteId, day) {
 }
 
 export const [kidsCountsKeep, kidsCountsKeepChurch] = twinTriggers(onDocumentWritten, { document: 'kidsRoll/{id}', region: REGION }, async ({ db }, event) => {
+  if (!(await usesPart(db, 'kids'))) return;
   const after = event.data && event.data.after && event.data.after.exists ? event.data.after.data() : null;
   const before = event.data && event.data.before && event.data.before.exists ? event.data.before.data() : null;
   const seen = {};

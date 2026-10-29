@@ -29,6 +29,7 @@
 
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { usesPart } from './parts.js';
 import { churchFromPath } from './church-scope.js';
 import { featureOn } from './features.js';
 
@@ -117,7 +118,8 @@ async function firstSiteId(db) {
 
 export async function syncRotaService(db, id, rota) {
   const ref = db.collection('calEvents').doc('rota_' + id);
-  const featureOff = !(await featureOn(db, FEATURE));
+  /* off with its switch, or when the church doesn't use the rota or events */
+  const featureOff = !(await featureOn(db, FEATURE)) || !(await usesPart(db, 'rota')) || !(await usesPart(db, 'events'));
   const want = mirrorFor(id, rota, { featureOff, siteId: rota && !rota.siteId ? await firstSiteId(db) : '' });
   if (!want) {
     const had = await ref.get();

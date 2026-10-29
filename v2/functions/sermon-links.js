@@ -21,6 +21,7 @@
 
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { twinTriggers } from './church-triggers.js';
+import { usesPart } from './parts.js';
 
 const REGION = 'europe-west2';
 
@@ -31,6 +32,7 @@ export function linkOf(id, s) {
 }
 
 export const [sermonLinkKeep, sermonLinkKeepChurch] = twinTriggers(onDocumentWritten, { document: 'planSessions/{id}', region: REGION }, async ({ db }, event) => {
+  if (!(await usesPart(db, 'watch'))) return;
   const id = event.params.id;
   const before = event.data && event.data.before && event.data.before.exists ? event.data.before.data() : null;
   const after = event.data && event.data.after && event.data.after.exists ? event.data.after.data() : null;

@@ -30,6 +30,7 @@ import { paymentsShut } from './payments-gate.js';
 import { churchDb, withChurchDb, forAddress } from './church-context.js';
 import { scopedDb } from './church-scope.js';
 import { indexCode, churchForCode, codeHash } from './hq-codes.js';
+import { usesPart } from './parts.js';
 
 /* GoCardless's messages name a billing request, payment, subscription or
    mandate; each one this church makes is put in Church HQ's index, so the
@@ -168,6 +169,7 @@ async function sendGiftEmail(x, key, changed) {
 
 export const giveRegularly = onCall({ region: REGION }, forAddress(async (req) => {
   if (await shut()) throw new HttpsError('failed-precondition', 'Online giving opens when the hub goes live.', { shut: true });
+  if (!(await usesPart(db(), 'giving'))) throw new HttpsError('failed-precondition', 'This church doesn\u2019t take gifts online.');
   const d = req.data || {};
   if (!(await gcReady())) throw new HttpsError('failed-precondition', 'This church does not take Direct Debits online yet.');
   const pub = await db().collection('paymentSettings').doc('public').get();
@@ -211,6 +213,7 @@ async function giftByKey(key) {
 }
 export const givingChange = onCall({ region: REGION }, forAddress(async (req) => {
   if (await shut()) throw new HttpsError('failed-precondition', 'Online giving opens when the hub goes live.', { shut: true });
+  if (!(await usesPart(db(), 'giving'))) throw new HttpsError('failed-precondition', 'This church doesn\u2019t take gifts online.');
   const { ref, d } = await giftByKey(req.data && req.data.key);
   const amount = Math.round(Number(req.data && req.data.amount) * 100);
   if (!(amount >= 100 && amount <= 1000000)) throw new HttpsError('invalid-argument', 'Give at least £1.');
@@ -244,6 +247,7 @@ export const givingChange = onCall({ region: REGION }, forAddress(async (req) =>
 }));
 export const givingStop = onCall({ region: REGION }, forAddress(async (req) => {
   if (await shut()) throw new HttpsError('failed-precondition', 'Online giving opens when the hub goes live.', { shut: true });
+  if (!(await usesPart(db(), 'giving'))) throw new HttpsError('failed-precondition', 'This church doesn\u2019t take gifts online.');
   const { ref, d } = await giftByKey(req.data && req.data.key);
   if (d.subscriptionId && d.status === 'active') await gc((await secrets()).token, 'POST', '/subscriptions/' + d.subscriptionId + '/actions/cancel', { data: {} });
   await ref.update({ status: 'stopped', stoppedAt: FieldValue.serverTimestamp() });

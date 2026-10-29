@@ -35,6 +35,7 @@ import { makeSender } from './public-mail.js';
 import { hubUrl } from './notify.js';
 import { featureOn as switchOn } from './features.js';
 import { eachChurch } from './church-scope.js';
+import { usesPart } from './parts.js';
 
 const require = createRequire(import.meta.url);
 const E = require('./compliance-engine.cjs');
@@ -127,5 +128,5 @@ export async function runCompliance({ db, send, today }) {
 
 /* Church by church, each with its own checks, people and address. */
 export const complianceDaily = onSchedule({ region: REGION, schedule: '0 7 * * *', timeZone: 'Europe/London', retryCount: 1 }, async () => {
-  await eachChurch(getFirestore(), ({ db }) => runCompliance({ db, send: makeSender({ db }) }));
+  await eachChurch(getFirestore(), async ({ db }) => { if (await usesPart(db, 'building')) await runCompliance({ db, send: makeSender({ db }) }); });
 });

@@ -13679,3 +13679,18 @@ For a callable, refuse with plain words, as I did in meeting-manage.js.
 - **rota:** rotaReminders; the rota feeds (rotaFeed, myCalendarLink); the availability form (findMe, myDates, saveAnswer).
 - **meetings:** meetingRoom, meetingInvite, meetingGuestJoin, meetingCancel.
 - **care:** worryNotify, prayerNotify, pastoralFollowUps.
+
+### F-321 — My functions stop for a part the church has switched off (Martin, 30 Oct; main's usesPart, 2107f773) (the events window, 3 Nov)
+
+Each function checks `usesPart` and does nothing for a church with that part off. EGBC has nothing stored, so it is unchanged.
+- **Rooms and hire:** bookingReminders, documentExpiryReminders, bookingNotify(+Church), cateringSync(+Church), arrivalCheck, publicMailBookingAsked/BookingOffice/CancelAsk(+Church).
+- **Building, health and safety:** complianceDaily, raRemindersDaily, loneWorkingCheck, maintJobNotify(+Church), and the peepToday* functions. With the part off, today's evacuation lists are cleared, as when building checks are off, and no new ones are made.
+- **Safeguarding:** checksReminders, sgWarningsSync, sgTwoAdultsDaily, sgWarningsNow (it already refuses in words when the register is off), sgAssessCheck(+Church).
+- **Kids and youth:** kidsCountsKeep(+Church). quizStart, lessonFor and planSend refuse with "This church doesn't use Kids and youth."
+- **Events and groups:** checklistReminders, publicMailSignup/FormDone/GroupAsk/NewHere(+Church), helloNotify(+Church), eventsFeed (Not found), myEventsFeed and emailMyFeedLink (refused in words).
+- **Rota Sundays in What's on** (rotaWhatsOn(+Church)): off when either Rota or Events is off, as its own switch is.
+- **Giving:** paymentsTidy. paymentsSave, ticketPay, paymentCheck, paymentCheckEvent, giveRegularly, givingChange and givingStop refuse with "This church doesn't take payments (gifts) online." The webhooks still record what Stripe or GoCardless says has happened to money already taken.
+- **Watch and listen:** sermonLinkKeep(+Church). The sermons feed is main's (feeds.js), already done.
+- **Care:** prayerSundayOnPrayer/OnRota(+Church), prayerSundayDaily.
+- **A safeguarding concern always reaches the lead and deputy.** main's worryNotify was gated on Care, so with Care off a safeguarding concern would have reached nobody. It now lets `kind: 'safeguarding'` through whatever is switched off. **For main:** that's your line in index.js, changed. So are the gates I added there: bookingReminders, documentExpiryReminders, checksReminders, bookingNotify, maintJobNotify and helloNotify.
+- **Checked:** one quick run on the emulator, 5/5. Rooms off: no caterers' order and no "waiting" email. Kids off: the quiz is refused. Safeguarding off: the server check stands back. EGBC: the order is made as before.

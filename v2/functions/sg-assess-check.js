@@ -15,6 +15,7 @@ import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { FieldValue } from 'firebase-admin/firestore';
 import { createRequire } from 'node:module';
 import { twinTriggers } from './church-triggers.js';
+import { usesPart } from './parts.js';
 
 const require = createRequire(import.meta.url);
 const { CHECKLIST, answered } = require('./sg-checklist.cjs');
@@ -45,7 +46,7 @@ export function coverProblems(answers) {
 export async function checkSignedCover(db, id, d) {
   if (!d || d.status !== 'signed' || d.waived === true) return null;
   const bad = coverProblems(d.answers);
-  if (!bad.length) return null;
+  if (!bad.length || !(await usesPart(db, 'safeguarding'))) return null;
   const now = new Date().toISOString(), b = db.batch();
   b.update(db.collection('sgAssessments').doc(id), {
     status: 'waiting', version: (Number.isInteger(d.version) ? d.version : 1) + 1,

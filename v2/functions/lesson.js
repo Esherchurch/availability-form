@@ -48,6 +48,7 @@ import { getStorage } from 'firebase-admin/storage';
 import { churchOf } from './church-scope.js';
 import { churchBucket } from './church-files.js';
 import { featureOn } from './features.js';
+import { usesPart } from './parts.js';
 import { jobsOf } from './churchshow.js';
 import { launched } from './quiz.js';
 
@@ -157,6 +158,7 @@ export async function lessonOf(id, s, g, D = null) {
 
 export const lessonFor = onCall({ region: REGION }, async (req) => {
   const D = churchOf(req, db()).db;
+  if (!(await usesPart(D, 'kids'))) throw new HttpsError('failed-precondition', 'This church doesn\u2019t use Kids and youth.');
   const dev = await pairedDevice(req, D);
   const d = req.data || {};
   const date = String(d.date || '');

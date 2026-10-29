@@ -35,6 +35,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { eachChurch } from './church-scope.js';
 import { twinTriggers } from './church-triggers.js';
+import { usesPart } from './parts.js';
 
 const REGION = 'europe-west2';
 const TZ = 'Europe/London';
@@ -103,10 +104,11 @@ export async function buildSunday(db, sunday) {
 
 /* Each church's list from its own prayers and rota. */
 export const [prayerSundayOnPrayer, prayerSundayOnPrayerChurch] = twinTriggers(onDocumentWritten, { document: 'prayers/{id}', region: REGION }, async ({ db }) => {
-  await buildSunday(db, comingSunday());
+  if (await usesPart(db, 'care')) await buildSunday(db, comingSunday());
 });
 
 export const [prayerSundayOnRota, prayerSundayOnRotaChurch] = twinTriggers(onDocumentWritten, { document: 'events/{id}', region: REGION }, async ({ db }, event) => {
+  if (!(await usesPart(db, 'care'))) return;
   const dates = [event.data && event.data.before && event.data.before.exists ? event.data.before.data().date : '',
                  event.data && event.data.after && event.data.after.exists ? event.data.after.data().date : ''];
   const today = londonDate(Date.now()), soon = addDays(today, 14);
@@ -119,5 +121,5 @@ export const [prayerSundayOnRota, prayerSundayOnRotaChurch] = twinTriggers(onDoc
 });
 
 export const prayerSundayDaily = onSchedule({ region: REGION, schedule: '10 0 * * *', timeZone: TZ, retryCount: 1 }, async () => {
-  await eachChurch(getFirestore(), ({ db }) => buildSunday(db, comingSunday()));
+  await eachChurch(getFirestore(), async ({ db }) => { if (await usesPart(db, 'care')) await buildSunday(db, comingSunday()); });
 });

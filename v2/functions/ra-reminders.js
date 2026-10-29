@@ -24,6 +24,7 @@
    =================================================================== */
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getFirestore } from 'firebase-admin/firestore';
+import { usesPart } from './parts.js';
 import { makeSender } from './public-mail.js';
 import { hubUrl } from './notify.js';
 import { featureOn } from './compliance.js';
@@ -131,6 +132,7 @@ export async function runRaReminders({ db, send, now, hub }) {
 /* EGBC, then every church (church-scope.js) */
 export const raRemindersDaily = onSchedule({ region: REGION, schedule: '15 8 * * *', timeZone: 'Europe/London', retryCount: 1 }, async () => {
   await eachChurch(getFirestore(), async (ch) => {
+    if (!(await usesPart(ch.db, 'building'))) return null;
     const r = await runRaReminders({ db: ch.db, send: makeSender({ db: ch.db }), now: new Date(), hub: await hubUrl(ch.db) });
     if (r.sent && r.sent.length) console.log('H&S reminders (' + (ch.id || 'egbc') + '): ' + r.sent.length);
     return r;
