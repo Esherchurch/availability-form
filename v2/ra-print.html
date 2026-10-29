@@ -147,7 +147,7 @@
   }
 
   EGBCAuth.require().then(function () {
-    var go = q.get('event') ? printEvent(q.get('event')) : q.get('site') && /^(hs|fire)$/.test(q.get('kind') || '') ? printBuilding(q.get('site'), q.get('kind')) : Promise.reject(new Error('nothing chosen to print'));
+    var go = q.get('event') ? printEvent(q.get('event')) : q.get('site') && /^(hs|fire)$/.test(q.get('kind') || '') ? printBuilding(q.get('site'), q.get('kind')) : Promise.reject(new Error('nothing was chosen. Use the Print link on a building’s assessment (Live risk register) or on an event’s assessment (Events, then Health and safety).'));
     return go.then(function () { sheet.setAttribute('data-ready', '1'); }, fail);
   }).catch(fail);
 })();

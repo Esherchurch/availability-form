@@ -403,11 +403,14 @@
   }
 
   /* ---------------- start ---------------- */
+  /* Opened with no event (a bookmark, a link cut short): say where assessments are opened from, never a database error. */
+  var EVENTS_LINK = '<a href="' + esc(EGBCAuth.churchLink ? EGBCAuth.churchLink('events-admin.html') : 'events-admin.html') + '">Events</a>';
+  if (!ID) { $('wrap').innerHTML = '<h1>Event risk assessment</h1><div class="card" id="noEvent"><p>Open a risk assessment from its event in ' + EVENTS_LINK + ': choose the event, then <b>Health and safety</b>.</p></div>'; return; }
   E.ready().then(function (profile) { ME = E.asSeen(profile || {}); return EGBCAuth.loadPerms().then(function (P) { JOBP = P; }, function () {}); }).then(function () {
     MASTER = !!(EGBCAuth.isMaster && EGBCAuth.isMaster()); OFFICE = MASTER || onJob('office');
     return db().collection('raSettings').doc('church').get().then(function (s) { SET = s.exists ? s.data() : {}; }, function () {}).then(load);
   }).then(function () {
-    if (!EV) { $('wrap').innerHTML = '<div class="card">That event can’t be found.</div>'; return; }
+    if (!EV) { $('wrap').innerHTML = '<div class="card">That event can’t be found. It may have been deleted. Open the assessment from its event in ' + EVENTS_LINK + '.</div>'; return; }
     var sees = MASTER || OFFICE || RUNS || LEADER || myHsSites().length > 0 || onJob('trustees');
     if (!sees) { E.refused(); $('wrap').innerHTML = '<h1>Event risk assessment</h1><div class="card"><p id="whoFor">This is for the event’s organisers and leaders, the office, the trustees, the health and safety leads, and master admins.</p></div>'; return; }
     draw();

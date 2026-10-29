@@ -13629,3 +13629,10 @@ You were busy, so I added these to your egbc-church.js myself. They are all addi
 egbc-auth.js no longer has a fixed list of members-only rooms (`MEMBERS_ONLY_ROOMS: ['CMM']` is gone). Whether a room is members-only is now each room's own `members: true` in `churchSettings/video`, which EGBC's CMM room already has on live. `EGBCAuth.membersRoom(room)` asks that.
 - places-admin.html still keeps a fixed `VIDEO_ROOMS` list (Worship-AV, CMM, Eldership...), and its comment says it "should not stay one".
 - Could it read `EGBCVideo.rooms()` (egbc-video.js: `[{ key, label, url, members }]`) instead? That's the church's own list, already loaded with the room names.
+
+### F-319 — A page opened with no id in its address says what to do (the reviewing window, found live on event-ra.html) (the events window, 3 Nov)
+
+- **event-ra.html** with no `?event=` showed "Function CollectionReference.doc() cannot be called with an empty path." It now says "Open a risk assessment from its event in Events: choose the event, then Health and safety", with a link. An event that has gone says it may have been deleted, with the same link.
+- **ra-print.html and sg-print.html** opened bare said only "nothing chosen to print". They now name the Print links to use.
+- **Checked every other page of mine that takes an id from its address** (attendance, checkin, form, forms-admin, give-regularly, my-booking, my-signup, present, room, safeguarding, session-planner, signup, upload, assessment): each already handles a missing id in words, or shows its own chooser.
+- **For Comms:** enews.html and enews-web.html pass an address id to `.doc()` too (my scan's list); worth the same look.

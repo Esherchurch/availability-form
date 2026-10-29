@@ -179,7 +179,7 @@
   }
 
   EGBCAuth.require().then(function () {
-    var go = q.get('event') ? printEvent(q.get('event')) : q.get('register') ? printRegister(q.get('register')) : q.get('snapshot') ? printSnapshot(q.get('snapshot')) : Promise.reject(new Error('nothing chosen to print'));
+    var go = q.get('event') ? printEvent(q.get('event')) : q.get('register') ? printRegister(q.get('register')) : q.get('snapshot') ? printSnapshot(q.get('snapshot')) : Promise.reject(new Error('nothing was chosen. Use the Print link on the Safeguarding risk register: on Standing risks, an event assessment or a snapshot.'));
     return go.then(function () { sheet.setAttribute('data-ready', '1'); }, fail);
   }).catch(fail);
 })();
