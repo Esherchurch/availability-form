@@ -13623,3 +13623,9 @@ You were busy, so I added these to your egbc-church.js myself. They are all addi
 - signup.html: the ' — EGBC' title;
 - whatson.html and egbc-events.js: the calendar uid `@esherchurch.org` (the rota feed now uses `@churchhq.co.uk`);
 - egbc-notify-sw.js and egbc-ui.js: 'EGBC Hub'.
+
+## From the main window, 29 Oct 2026: places-admin.html's own list of video rooms
+
+egbc-auth.js no longer has a fixed list of members-only rooms (`MEMBERS_ONLY_ROOMS: ['CMM']` is gone). Whether a room is members-only is now each room's own `members: true` in `churchSettings/video`, which EGBC's CMM room already has on live. `EGBCAuth.membersRoom(room)` asks that.
+- places-admin.html still keeps a fixed `VIDEO_ROOMS` list (Worship-AV, CMM, Eldership...), and its comment says it "should not stay one".
+- Could it read `EGBCVideo.rooms()` (egbc-video.js: `[{ key, label, url, members }]`) instead? That's the church's own list, already loaded with the room names.

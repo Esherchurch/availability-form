@@ -1388,6 +1388,14 @@
     return t && !t.listsStored && TEAM_SKILLS[team] ? TEAM_SKILLS[team][key] : undefined;
   }
 
+  /* A team named on an old rota row by its label ("Youth") rather than its
+     name ("Youth Worship"): the team it means. */
+  function teamIdOf(t) {
+    if (TEAMS[t]) return t;
+    var byLabel = Object.keys(TEAMS).filter(function (id) { return TEAMS[id].label === t; });
+    return byLabel.length === 1 ? byLabel[0] : t;
+  }
+
   function jobTeamIds(jobs) {
     var out = [];
     (jobs || []).forEach(function (j) {
@@ -2340,20 +2348,12 @@
              || currentProfile.masterAdmin === true;
     },
 
-    /* Which video rooms are for Church members only (NEXT-BRIEF 21). One
-       list, read by meeting.html and hub-app.js, which each hold their own
-       copy of the room names and would otherwise each need their own copy of
-       this too.
-
-       NOTE FOR THE DAY THIS GOES LIVE: the tick defaults to off, so until the
-       office has ticked people, CMM is invisible to everybody. */
-    MEMBERS_ONLY_ROOMS: ['CMM'],
-
     /* A members' room: the church's own list says so (churchSettings/video,
-       members: true; a meeting's own room booked from one keeps it). */
+       members: true, set on each room; a meeting's own room booked from one
+       keeps it). The pages that ask load the rooms first (EGBCVideo.load). */
     membersRoom: function (room) {
       var Vd = global.EGBCVideo;
-      return !!room && (EGBCAuth.MEMBERS_ONLY_ROOMS.indexOf(room) !== -1 || !!(Vd && Vd.members && Vd.members(room)));
+      return !!room && !!(Vd && Vd.members && Vd.members(room));
     },
     mayJoinRoom: function (room) {
       if (!EGBCAuth.membersRoom(room)) return true;
@@ -2462,7 +2462,7 @@
       if (room && EGBCAuth.membersRoom(room)) return true;
       var mine = EGBCAuth.effectiveTeams();
       mine = mine.concat(coversOf(mine));
-      if ((ev.teams || []).some(function (t) { return mine.indexOf(t === 'Youth' ? 'Youth Worship' : t) !== -1; })) return true;
+      if ((ev.teams || []).some(function (t) { return mine.indexOf(teamIdOf(t)) !== -1; })) return true;
       if (viewAs()) return false;
       var mid = (currentProfile && currentProfile.memberId) || '';
       if (currentUser && ev.organiserUid && ev.organiserUid === currentUser.uid) return true;

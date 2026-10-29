@@ -79,6 +79,9 @@ site still reads and writes the same database without signing in.
 11. **ChurchShow, on the locked rules** (A-1).
     - **Who:** Martin at the projection PC.
     - **Check:** it shows the next service's plan and songs without a new pairing.
+    - **Then each computer's job and groups** (churchshow.html, master admins): for every paired computer, tick **Main services** and/or **Lessons**, and for Lessons choose the plan groups whose sessions it shows (for example the children's groups in that building). A computer paired before the job existed does main services only and no lessons.
+      - **Who:** Martin, with whoever runs the children's sessions.
+      - **Check:** a Lessons computer shows only its groups' sessions; a services-only computer refuses lessons with "not set up for lessons".
 12. **Open the private forms** (§26 item 16): Church settings › Private forms › "Open the private forms".
     - **Straight after the rules,** never before.
     - **Who:** a master admin.

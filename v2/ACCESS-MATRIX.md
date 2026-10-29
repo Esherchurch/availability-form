@@ -1,6 +1,6 @@
 # Who sees what: the access matrix
 
-Made from the code by `node tools/access-matrix.mjs` on 2026-10-28, signed in as made-up people on the emulator (FINDINGS-churchhq H-16). The Menu counts only where the hub gives the person a way to open it.
+Made from the code by `node tools/access-matrix.mjs` on 2026-10-29, signed in as made-up people on the emulator (FINDINGS-churchhq H-16). The Menu counts only where the hub gives the person a way to open it.
 
 **✓** in their Menu, and the page lets them in · **–** not in their Menu · **⚠ in their Menu, but the page refuses them (always a bug)** · **◐ not in their Menu, but the page would let them in** (reached from somewhere else, or a gap)
 
