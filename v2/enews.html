@@ -281,6 +281,9 @@
   }
 
   function openIssue(id) {
+    /* An id from the address: only ever letters, digits, _ and -. Anything
+       else would make the read itself fail, so it is "not there". */
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(String(id || ''))) { toast('That e-news is not there any more.'); history.replaceState(null, '', 'enews.html'); showList(); return; }
     wrap.innerHTML = '<div class="card m">Loading…</div>';
     db().collection('enewsIssues').doc(id).get().then(function (s) {
       if (!s.exists) { toast('That e-news is not there any more.'); showList(); return; }
@@ -292,7 +295,7 @@
       if (!sendPage) { location.replace('enews-edit.html?issue=' + encodeURIComponent(id)); return; }
       history.replaceState(null, '', '?issue=' + encodeURIComponent(id) + '&view=send');
       draw();
-    }).catch(function (e) { wrap.innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
+    }).catch(function () { wrap.innerHTML = '<div class="card">That e-news couldn\u2019t be opened just now. <a href="enews.html">All e-news</a></div>'; });
   }
 
   function editable() { return !ISSUE.status || ISSUE.status === 'draft' || ISSUE.status === 'scheduled'; }

@@ -2298,3 +2298,8 @@ The reviewer: finish the building items, then stop. The lint and type errors wai
   - Test, written, not run: functions/enews-draft.test.mjs (also added to `npm run test:functions`).
 - **CI at the top level: ready, not committed.** The repository's guard refuses any file outside v2/ unless the commit says `[original-site: approved by Martin]`, and I haven't seen Martin's approval. The file, `.github/workflows/church-hq-checks.yml`, is the same as `v2/.github/workflows/checks.yml` but runs only when `v2/` changes. It's waiting to be committed with that line once Martin approves. CI also checks now that the server's copies of page scripts are up to date.
 - **Functions to deploy:** enewsMondayDraft (new, scheduled). If egbc-mailblocks.js changes, redeploy it together with the copies.
+
+## F-319, and Martin's answers (29 Oct 2026)
+
+- **F-319 (the events window):** an id in the address (`?issue=` or `?preview=`) is checked before anything is read. Our ids are only letters, digits, `_` and `-`, so anything else (a slash, a typo) gets the page's plain "not there" words, never an error: enews-web.html, enews.html, and the editor (egbc-enews-editor.js, stamp bumped), which had the same gap. enews.html's failed open says it couldn't be opened, not the database's message.
+- **Martin's answers:** CI at the top level: yes, committed as `.github/workflows/church-hq-checks.yml` with his approval line, and nothing else outside v2/. The office may see small groups' members in the Compiler: yes, as built. The card maker in Val's style waits for her cards.

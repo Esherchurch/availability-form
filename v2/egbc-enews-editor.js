@@ -904,6 +904,8 @@
     if (!(EGBCAuth.uses && EGBCAuth.uses('enews'))) { ed.innerHTML = '<div class="note"><b>E-news editor</b><p>The e-news is switched off for this church. A master admin can turn it on in Church settings, under “What does your church use?”.</p></div>'; return; }
     var id = new URLSearchParams(location.search).get('issue');
     if (!id) { location.replace('enews.html'); return; }
+    /* Only ever one of ours: anything else is "not there", never an error. */
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(id)) { ed.innerHTML = '<div class="note">That e-news is not there any more. <a href="enews.html">All e-news</a></div>'; return; }
     return Promise.all([
       window.EGBCChurch ? EGBCChurch.load() : null,
       db().collection('enewsSettings').doc('main').get().then(function (s) { if (s.exists) SET = Object.assign({ template: 'classic', colours: {}, church: {} }, s.data()); }, function () {}),

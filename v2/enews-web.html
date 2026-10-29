@@ -35,6 +35,11 @@
   var P = window.EGBCEnewsPublic, esc = P.esc, main = document.getElementById('main');
   P.header(document.getElementById('ch'));
   var db = EGBCAuth.db, id = new URLSearchParams(location.search).get('issue');
+  /* An id from the address is only ever one of ours: letters, digits, _ and -.
+     Anything else (a slash, a typo) would make the read itself fail, so it
+     is simply "not here". */
+  var GOOD_ID = /^[A-Za-z0-9_-]{1,128}$/;
+  var notHere = function (what) { main.innerHTML = '<h1>Not found</h1><p class="lead">That ' + what + ' isn\u2019t here. <a href="enews-web.html">All past issues</a>.</p>'; };
   /* The latest 30, then "Show more" (C-52: no hidden caps). */
   var Q = db.collection('enewsWeb').orderBy('sentAt', 'desc'), shown = 0;
   function row(d) {
@@ -63,6 +68,7 @@
   var pv = new URLSearchParams(location.search).get('preview');
   if (pv) {
     var m = document.createElement('meta'); m.name = 'robots'; m.content = 'noindex,nofollow'; document.head.appendChild(m);
+    if (!GOOD_ID.test(pv)) { notHere('preview'); return; }
     db.collection('enewsPreview').doc(pv).get().then(function (d) {
       if (!d.exists) { main.innerHTML = '<h1>Not found</h1><p class="lead">That preview isn\u2019t here. <a href="enews-web.html">All past issues</a>.</p>'; return; }
       var x = d.data();
@@ -77,6 +83,7 @@
     return;
   }
   if (!id) { archive(); return; }
+  if (!GOOD_ID.test(id)) { notHere('e-news'); return; }
   db.collection('enewsWeb').doc(id).get().then(function (d) {
     if (!d.exists) { main.innerHTML = '<h1>Not found</h1><p class="lead">That e-news isn’t here. <a href="enews-web.html">All past issues</a>.</p>'; return; }
     main.className = 'wide';
