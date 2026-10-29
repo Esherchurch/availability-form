@@ -883,6 +883,7 @@ export { peepTodayDaily, peepTodayOnCheckin, peepTodayOnCheckinChurch, peepToday
    through Church HQ's Resend (hq-mail.js); shut until switch-over (enews-gate.js). */
 export { enewsSignup, enewsConfirm, enewsUnsubscribe, hqMailEvents, enewsSubscriberSave, enewsTidyPending } from './enews.js';
 export { enewsSendDue, enewsTest } from './enews-send.js';
+export { enewsMondayDraft } from './enews-draft.js';
 /* Canva: connect once, list designs, import into the picture library (comms window, FINDINGS-comms C-15); shut until switch-over (CANVA_LIVE in canva.js). */
 export { canvaStatus, canvaStart, canvaCallback, canvaDesigns, canvaImport, canvaDisconnect } from './canva.js';
 /* Church HQ's Resend key box (comms window): master admins paste the key in Church settings; held until switch-over. */

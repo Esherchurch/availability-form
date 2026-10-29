@@ -2289,3 +2289,12 @@ Config only. Nothing was reformatted, and no other window's code changed.
 - egbc-mailblocks.js: the esherchurch.github.io ASSETS address.
 
 egbc-church.js now has the marks that do this without the name in the code: `<html data-church-title-after>` for "X — EGBC" titles, `data-church-name`, `data-church-short` and `<img data-church-logo>`. FINDINGS-events.md has the list.
+
+## The Monday e-news draft on the server, and CI at the top level (29 Oct 2026)
+
+The reviewer: finish the building items, then stop. The lint and type errors wait for the "make it maintainable" stage (ENGINEERING.md §9).
+- **`enewsMondayDraft`** runs at 07:00 London every Monday, for each church with the e-news switched on. If nothing has been started that week, it makes the week's draft from What's On, that Sunday's services and the current notices. That is the same draft the E-news page makes, by the same code (`egbc-mailblocks.js` draft). The office finds it waiting. The page still drafts one if it opens to find none, and neither ever makes a second: each finds the other's by its `week`. A one-off email doesn't count as the week's e-news.
+  - functions/enews-draft.js (new). Its page helpers are copied into functions/ by **tools/enews-draft-build.mjs** (new): `mailblocks.cjs`, `notices.cjs` and `services.cjs`. `--check` fails while a copy is stale. **Run it after changing egbc-mailblocks.js, egbc-notices.js or egbc-services.js.**
+  - Test, written, not run: functions/enews-draft.test.mjs (also added to `npm run test:functions`).
+- **CI at the top level: ready, not committed.** The repository's guard refuses any file outside v2/ unless the commit says `[original-site: approved by Martin]`, and I haven't seen Martin's approval. The file, `.github/workflows/church-hq-checks.yml`, is the same as `v2/.github/workflows/checks.yml` but runs only when `v2/` changes. It's waiting to be committed with that line once Martin approves. CI also checks now that the server's copies of page scripts are up to date.
+- **Functions to deploy:** enewsMondayDraft (new, scheduled). If egbc-mailblocks.js changes, redeploy it together with the copies.

@@ -86,6 +86,8 @@ Inside `v2/` today. **(changing: ENGINEERING.md §2 moves these into `pages/`, `
 | `data-map/*.json` | `functions/data-map.json` | `node tools/data-map-build.mjs` |
 | `egbc-team-jobs.js` | `functions/team-jobs.js` | `node tools/team-jobs-build.mjs` |
 | `egbc-notify-core.js` | `functions/notify-core.cjs` | copied as it is; `tests/check-notify-send.mjs` checks they match |
+| `egbc-plan-store.js` | `functions/plan-store.cjs` | `node tools/plan-store-build.mjs` |
+| `egbc-mailblocks.js`, `egbc-notices.js`, `egbc-services.js` | `functions/mailblocks.cjs`, `notices.cjs`, `services.cjs` (the Monday e-news draft) | `node tools/enews-draft-build.mjs` |
 
 Each has a check that fails when the built file is out of date.
 
@@ -160,7 +162,7 @@ If you find yourself typing a team's name, such as "Church office" or "Elders", 
 - **Functions:** `npm run test:functions`. Each `functions/*.test.mjs` tests a function's normal case and its refusals on the emulator.
 - **The page checks:** `node tests/run-all.mjs` with the dev emulators running. These drive the pages in a headless Chrome. They are slow, and they run one at a time on purpose, so that two checks never seed over each other.
 - **Lint and types:** `npm run lint`, `npm run format:check` and `npm run typecheck`. The settings are in `eslint.config.js`, `.prettierrc.json` and `tsconfig.json` (`functions/tsconfig.json` for the server). They are report-only for now: the code has not been reformatted yet, and the existing warnings are being worked down.
-- **CI:** `.github/workflows/checks.yml` runs lint, the type check, the rules tests and the functions tests on every push. It is report-only for now. It is inert until Church HQ has its own repository, or until it is copied to the top of this one (its header says how). **(changing)**
+- **CI:** `.github/workflows/checks.yml` runs lint, the type check, the rules tests and the functions tests on every push, and checks that the server's copies of page scripts are up to date. It is report-only for now. While Church HQ is in `v2/`, the copy that runs is the repository's top-level `.github/workflows/church-hq-checks.yml`, the same file, run only when `v2/` changes. Change the one in `v2/` and copy it up. **(changing)**
 
 ### Deploying
 **Functions** go from `v2/` with the codebase always named:
@@ -237,7 +239,7 @@ The page, its main shared script and its functions. Most pages have help at `hel
 - Notices: `hub.html?notices=1`, `egbc-notices.js`.
 - The Email Compiler (group emails, with small groups, households, templates and a phone note): `EmailBuilder2.html`, `functions/compiler-send.js`. Every email from a page goes through `functions/hub-send.js` (`hubSend`), which checks who may email whom.
 - Emails from the server: `functions/public-mail.js` (`makeSender`) and `mail-route.js`, through Church HQ's Resend (`hq-mail.js`). Every email is logged in `emailOutbox` ("Emails sent", `comms.html`; "My messages", `my-messages.html`).
-- The e-news: `enews.html`, `enews-edit.html` (the editor, `egbc-enews-editor.js`), `egbc-mailblocks.js` (the email's blocks), `egbc-starters.js` (starter templates); `functions/enews.js` (sign-up, confirm, unsubscribe, bounces), `enews-send.js` (scheduled sending), `enews-preview.js` (the web version), `welcome-mail.js`. The public pages: `enews-signup.html`, `enews-confirm.html`, `enews-unsubscribe.html`, `enews-web.html`.
+- The e-news: `enews.html`, `enews-edit.html` (the editor, `egbc-enews-editor.js`), `egbc-mailblocks.js` (the email's blocks), `egbc-starters.js` (starter templates); `functions/enews.js` (sign-up, confirm, unsubscribe, bounces), `enews-draft.js` (the week's draft, made at 7am on Mondays), `enews-send.js` (scheduled sending), `enews-preview.js` (the web version), `welcome-mail.js`. The public pages: `enews-signup.html`, `enews-confirm.html`, `enews-unsubscribe.html`, `enews-web.html`.
 - The card maker, social posts and verse of the day: `cardmaker.html`, `egbc-votd.js`, `functions/social.js`, `unsplash.js`. Canva: `canva.html`, `functions/canva*.js`.
 - Phone notifications: `notifications.html`, `egbc-notify.js`, `egbc-notify-core.js` (what each message says, and who gets what), `functions/notify.js`.
 
