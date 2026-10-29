@@ -7,8 +7,9 @@
 #
 # WHERE IT RUNS: GitHub reads workflows only from the top of a repository.
 # While Church HQ lives in v2/ of the original site's repository, the copy
-# that runs is ../../../.github/workflows/church-hq-checks.yml (the same
-# file, run only when v2/ changes): change this one and copy it there.
+# that runs is the top-level .github/workflows/church-hq-checks.yml (the
+# same file, run only when v2/ changes), once Martin approves adding a file
+# outside v2/. Change this one and copy it there.
 # In Church HQ's own repository (ENGINEERING.md §2), where v2/ is the top,
 # this one runs as it is with V2 set to ".".
 # Nothing here deploys, and nothing reaches a real Firebase project: the
