@@ -23,7 +23,7 @@ import { createRequire } from 'node:module';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getFirestore } from 'firebase-admin/firestore';
 import { eachChurch } from './church-scope.js';
-import { featureOn } from './features.js';
+import { partOn } from './part-on.js';
 import { hubUrl } from './notify.js';
 
 const require = createRequire(import.meta.url);
@@ -78,7 +78,7 @@ async function all(q) {
  * @returns {Promise<'made'|'had one'|'off'>}
  */
 export async function draftWeek({ db, now = new Date(), hub }) {
-  if (!(await featureOn(db, 'enews'))) return 'off';
+  if (!(await partOn(db, 'comms', 'enews'))) return 'off';
   const mon = weekOf(now);
   /* Started this week already: by the page, by hand, or by an earlier run. */
   const recent = await db.collection('enewsIssues').where('createdAt', '>=', mon).get();

@@ -30,7 +30,7 @@ import { getStorage } from 'firebase-admin/storage';
 import { randomUUID } from 'node:crypto';
 import * as C from './canva-core.js';
 import { storedKeys } from './hq-mail-key.js';
-import { featureOn } from './features.js';
+import { partOn } from './part-on.js';
 import { hubUrl } from './notify.js';
 import { isOffice } from './comms-office.js';
 import { churchOf } from './church-scope.js';
@@ -82,7 +82,7 @@ async function office(req) {
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
   const db = churchOf(req, getFirestore()).db;
-  const [me, on] = await Promise.all([db.collection('users').doc(uid).get(), featureOn(db, 'canva')]);
+  const [me, on] = await Promise.all([db.collection('users').doc(uid).get(), partOn(db, 'comms', 'canva')]);
   const p = me.exists ? me.data() : {};
   if (!(await isOffice(db, p))) throw new HttpsError('permission-denied', 'For the church office.');
   if (!on) throw new HttpsError('failed-precondition', 'Canva is switched off for this church.');

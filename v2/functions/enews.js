@@ -40,6 +40,7 @@ import { enewsShut } from './enews-gate.js';
 import { makeHqSender, verifySvix } from './hq-mail.js';
 import { webhookSecret, SENDING_SECRETS } from './resend-secrets.js';
 import { featureOn } from './features.js';
+import { partOn, PART_WORDS } from './part-on.js';
 import { isUnder18Email, isUnder18Record } from './under18.js';
 import { hubUrl } from './notify.js';
 import { isOffice } from './comms-office.js';
@@ -102,7 +103,7 @@ async function baseFrom(req, D) {
 async function settings(D) {
   /* The e-news switch the way every page and function reads it
      (features.js: stored true/false, else the default). */
-  const [launch, details, on] = await Promise.all([D.collection('churchSettings').doc('launch').get(), D.collection('churchSettings').doc('details').get(), featureOn(D, 'enews')]);
+  const [launch, details, on] = await Promise.all([D.collection('churchSettings').doc('launch').get(), D.collection('churchSettings').doc('details').get(), partOn(D, 'comms', 'enews')]);
   const L = launch.exists ? launch.data() : {};
   return {
     open: !enewsShut() && L.rulesLocked === true,
@@ -218,7 +219,8 @@ export const enewsConfirm = onRequest({ region: REGION, cors: false, invoker: 'p
   if (await fromOurSite(req, res, D)) return;
   if (req.method !== 'POST') return res.status(405).json({ ok: false });
   const S = await settings(D);
-  if (!S.open) return res.json({ ok: false, shut: true });
+  /* A church that has switched the e-news off confirms nobody: shut, as before go-live. */
+  if (!S.open || !S.on) return res.json({ ok: false, shut: true });
   const doc = await findByToken(D, 'confirmToken', t);
   if (!doc) return res.json({ ok: false, error: 'link' });
   const d = doc.data();
@@ -357,6 +359,7 @@ export const enewsSubscriberSave = onCall({ region: REGION }, async (req) => {
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
   const D = churchOf(req, root()).db;
+  if (!(await partOn(D, 'comms'))) throw new HttpsError('failed-precondition', PART_WORDS.comms);
   const me = await D.collection('users').doc(uid).get();
   const p = me.exists ? me.data() : {};
   const office = await isOffice(D, p);
@@ -416,4 +419,4 @@ export async function tidyPending(D, nowMs = Date.now()) {
   return n;
 }
 export const enewsTidyPending = onSchedule({ region: REGION, schedule: '30 3 * * *', timeZone: 'Europe/London', retryCount: 0 },
-  async () => { await eachChurch(root(), (ch) => tidyPending(ch.db)); });
+  async () => { await eachChurch(root(), async (ch) => ((await partOn(ch.db, 'comms', 'enews')) ? tidyPending(ch.db) : 0)); });

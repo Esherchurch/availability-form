@@ -22,7 +22,7 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getFirestore } from 'firebase-admin/firestore';
 import { makeSender } from './public-mail.js';
-import { featureOn } from './features.js';
+import { partOn } from './part-on.js';
 import { under18Emails } from './under18.js';
 import { SENDING_SECRETS } from './resend-secrets.js';
 import { hubUrl } from './notify.js';
@@ -38,7 +38,7 @@ const londonDay = (d = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZon
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 export async function runSocialMorning({ db, send, now = new Date(), hub }) {
-  if (!(await featureOn(db, 'cardMaker'))) return { off: true };
+  if (!(await partOn(db, 'comms', 'cardMaker'))) return { off: true };
   hub = hub || await hubOf(db);
   const day = londonDay(now);
   const [setDoc, posts] = await Promise.all([

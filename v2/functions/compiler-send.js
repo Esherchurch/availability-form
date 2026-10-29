@@ -35,6 +35,7 @@ import { officeTeams, isOfficeIn } from './comms-office.js';
 import { teamsFor } from './team-jobs.js';
 import { isUnder18Record } from './under18.js';
 import * as Notify from './notify.js';
+import { partOn, PART_WORDS } from './part-on.js';
 
 const REGION = 'europe-west2';
 const MAX_TO = 50;
@@ -120,6 +121,7 @@ async function caller(req) {
   const u = await db.collection('users').doc(req.auth.uid).get();
   const user = u.exists ? u.data() : null;
   if (!user || user.status !== 'active') throw new HttpsError('permission-denied', 'Not signed in to the church.');
+  if (!(await partOn(db, 'comms'))) throw new HttpsError('failed-precondition', PART_WORDS.comms);
   const office = await officeTeams(db);
   return { db, user, office, all: isOfficeIn(user, office), uid: req.auth.uid };
 }

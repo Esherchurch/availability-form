@@ -40,7 +40,7 @@ import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/fire
 import { getFirestore } from 'firebase-admin/firestore';
 import { enewsShut } from './enews-gate.js';
 import { makeHqSender } from './hq-mail.js';
-import { featureOn } from './features.js';
+import { partOn } from './part-on.js';
 import { under18Emails } from './under18.js';
 import { letterFor } from './enews-send.js';
 import { SENDING_SECRETS } from './resend-secrets.js';
@@ -80,6 +80,7 @@ export async function runSubscriberWelcome({ db, send, id, before, after }) {
   if (enewsShut()) return { skipped: 'shut until go-live' };
   if (!after || after.status !== 'subscribed' || (before && before.status === 'subscribed')) return { skipped: 'not a new subscriber' };
   if (!/confirmed by email/.test(String((after.consent || {}).how || ''))) return { skipped: 'not confirmed by email' };
+  if (!(await partOn(db, 'comms', 'enews'))) return { skipped: 'Communications or the e-news is switched off' };
   const email = String(after.email || '').trim().toLowerCase();
   if (!EMAIL.test(email) || !after.token) return { skipped: 'no address' };
   const w = await words(db, 'subscriber'); if (!w.issue) return w;
@@ -89,7 +90,8 @@ export async function runSubscriberWelcome({ db, send, id, before, after }) {
 export async function runNewcomerWelcome({ db, send, id, hello }) {
   if (enewsShut()) return { skipped: 'shut until go-live' };
   if (!hello) return { skipped: 'nothing said' };
-  if (!(await featureOn(db, 'newHere'))) return { skipped: '"I’m new here" is switched off' };
+  /* The welcome is Communications'; "I'm new here" is inside Events. */
+  if (!(await partOn(db, 'events', 'newHere')) || !(await partOn(db, 'comms'))) return { skipped: '"I’m new here" or Communications is switched off' };
   /* Only what a welcome needs: the name they gave and the address they gave. */
   const email = String(hello.email || '').trim().toLowerCase();
   if (!EMAIL.test(email)) return { skipped: 'no address given' };

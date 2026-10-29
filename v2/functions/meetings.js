@@ -47,6 +47,7 @@ import { churchOf } from './church-scope.js';
 import { readTeamJobs, teamsFor } from './team-jobs.js';
 import { mayManage } from './meeting-manage.js';
 import { meetingWordOf, inSentence } from './church-words.js';
+import { partOn, PART_WORDS } from './part-on.js';
 
 const REGION = 'europe-west2';
 /* The teams running meetings: the office job's and the trustees job's. */
@@ -259,7 +260,9 @@ export async function close({ db, uid, data }) {
 const call = (fn) => onCall({ region: REGION }, async (req) => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Please sign in.');
   /* The church from the sign-in (H-5): its meetings, votes and people. */
-  return fn({ db: churchOf(req, getFirestore()).db, uid: req.auth.uid, data: req.data || {} });
+  const db = churchOf(req, getFirestore()).db;
+  if (!(await partOn(db, 'meetings'))) throw new HttpsError('failed-precondition', PART_WORDS.meetings);
+  return fn({ db, uid: req.auth.uid, data: req.data || {} });
 });
 export const castVote = call(cast);
 export const voteOpen = call(open);

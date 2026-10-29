@@ -25,6 +25,7 @@ import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { getFirestore } from 'firebase-admin/firestore';
 import { churchFromPath } from './church-scope.js';
 import { meetingWordOf } from './church-words.js';
+import { partOn } from './part-on.js';
 
 const REGION = 'europe-west2';
 /* The id of a members' meeting's matching meeting. */
@@ -77,6 +78,8 @@ const onWrite = async (event) => {
   /* A paper added or an outcome typed changes nothing here. */
   if (same(before, after)) return;
   const ch = churchFromPath(event, getFirestore());
+  /* Meetings switched off: no meeting or room is made or changed. */
+  if (!(await partOn(ch.db, 'meetings'))) return;
   await syncMembersMeeting({ db: ch.db, mid: event.params.id, after });
 };
 export const membersMeetingSync = onDocumentWritten({ document: 'churchMeetings/{id}', region: REGION }, onWrite);

@@ -36,6 +36,7 @@ import { getStorage } from 'firebase-admin/storage';
 import { createHash, randomBytes } from 'node:crypto';
 import { under18Emails } from './under18.js';
 import { meetingWordOf } from './church-words.js';
+import { partOn } from './part-on.js';
 /* A church's link says which church (H-5); no entry is EGBC. */
 import { codeHash, indexCode, dbForCode } from './hq-codes.js';
 
@@ -101,6 +102,7 @@ const longDate = d => new Date(d + 'T12:00:00Z').toLocaleDateString('en-GB', { w
 export async function runPapers({ db, bucket, query = {}, now = Date.now() }) {
   const church = ((await db.collection('churchSettings').doc('details').get()).data() || {}).name || '';
   const no = (status, title, words) => ({ status, type: 'text/html; charset=utf-8', body: page(title, '<p>' + words + '</p>', church) });
+  if (!(await partOn(db, 'meetings'))) return no(404, 'Not used here', 'This church doesn\u2019t use members\u2019 meetings on the hub. Please ask the church office.');
   const t = String(query.t || '');
   if (!/^[A-Za-z0-9_-]{20,64}$/.test(t)) return no(404, 'This link isn\u2019t right', 'Please use the link in your email, or ask the church office.');
   const link = await db.collection('meetingPaperLinks').doc(sha(t)).get();

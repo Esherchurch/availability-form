@@ -30,7 +30,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
 import { randomBytes } from 'node:crypto';
-import { featureOn } from './features.js';
+import { partOn } from './part-on.js';
 import { hubUrl } from './notify.js';
 import { isOffice } from './comms-office.js';
 import { churchOf } from './church-scope.js';
@@ -94,7 +94,7 @@ export async function runPreview({ db, uid, data = {}, hub }) {
   const me = await db.collection('users').doc(String(uid)).get();
   const p = me.exists ? me.data() : {};
   if (!(await isOffice(db, p))) return { error: 'permission-denied', message: 'For the church office.' };
-  if (!(await featureOn(db, 'enews'))) return { error: 'failed-precondition', message: 'The e-news is switched off for this church.' };
+  if (!(await partOn(db, 'comms', 'enews'))) return { error: 'failed-precondition', message: 'The e-news is switched off for this church.' };
   const id = String(data.issueId || '');
   const doc = /^[A-Za-z0-9_-]{1,80}$/.test(id) ? await db.collection('enewsIssues').doc(id).get() : null;
   if (!doc || !doc.exists) return { error: 'not-found', message: 'That e-news is not there.' };

@@ -39,7 +39,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { enewsShut } from './enews-gate.js';
 import { makeHqSender } from './hq-mail.js';
 import { makeSender } from './public-mail.js';
-import { featureOn } from './features.js';
+import { partOn } from './part-on.js';
 import { under18Emails, isUnder18Record } from './under18.js';
 import { paperLinksFor, personalise } from './meeting-papers.js';
 import { SENDING_SECRETS } from './resend-secrets.js';
@@ -128,6 +128,9 @@ async function memberEmails(db) {
 
 export async function runEnewsSend({ db, send, now = new Date(), hub, fnBase, gap = 120 }) {
   if (enewsShut()) return { shut: true };
+  /* Communications switched off: nothing is sent, and nothing is lost - a
+     scheduled issue goes when it is switched back on. */
+  if (!(await partOn(db, 'comms', 'enews'))) return { off: true };
   hub = hub || await hubOf(db);
   /* Never sent without the hub's address: refused loudly, in the job's log
      and on each issue that was due (the reviewing window, 26 Oct). */
@@ -220,7 +223,7 @@ export const enewsTest = onCall({ region: REGION, secrets: SENDING_SECRETS }, as
   const me = await db.collection('users').doc(uid).get();
   const p = me.exists ? me.data() : {};
   if (!(await isOffice(db, p))) throw new HttpsError('permission-denied', 'For the church office.');
-  if (!(await featureOn(db, 'enews'))) throw new HttpsError('failed-precondition', 'The e-news is switched off for this church.');
+  if (!(await partOn(db, 'comms', 'enews'))) throw new HttpsError('failed-precondition', 'The e-news is switched off for this church.');
   const id = String((req.data || {}).issueId || '');
   const doc = id && await db.collection('enewsIssues').doc(id).get();
   if (!doc || !doc.exists) throw new HttpsError('not-found', 'That e-news is not there.');

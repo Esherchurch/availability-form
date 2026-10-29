@@ -2315,3 +2315,17 @@ Church settings now switches whole parts on and off (egbc-parts.js; `churchSetti
   - The finer switches inside it are still `enews`, `cardMaker`, `canva` and `pictureLibrary`. EGBCAuth.uses(name) is now false whenever the part is off, too.
 - **giving**: Gift Aid and regular giving.
 - **meetings**: members-meeting.js (membersMeetingSync), the votes.
+
+## Whole parts switched off: my functions stop (30 Oct 2026)
+
+One helper, `partOn(db, part, feature)` (functions/part-on.js, new): on only while the church uses the part (main's `usesPart`) and, if named, the finer switch inside it. Nothing stored is on, so **EGBC sees no change.**
+
+- **Communications off:**
+  - The e-news is neither sent (`enewsSendDue`, `enewsTest`), drafted (`enewsMondayDraft`), previewed (`enewsPreviewWeb`) nor tidied (`enewsTidyPending`).
+  - Sign-ups and confirmations say it's shut (`enewsSignup`, `enewsConfirm`); the office can't add subscribers (`enewsSubscriberSave`).
+  - No welcome emails (`welcomeSubscriber`, `welcomeNewcomer` and their twins).
+  - No social posts or countdown reminders (`socialMorning`), Canva (`canva*`) or Unsplash (`unsplash*`).
+  - The Email Compiler sends nothing (`hubSend`'s compiler and compilerTest; `compilerSend`, `compilerGroups`, `compilerNotify`, `compilerSent`).
+  - **Kept on purpose:** `enewsUnsubscribe` and `hqMailEvents` (bounces) still work, so anyone can always leave the list. A scheduled issue isn't lost: it goes once Communications is back on.
+- **Meetings off:** a members' meeting makes or changes no meeting or room (`membersMeetingSync`, +Church). Votes and proxies are refused with plain words (`castVote`, `voteOpen`, `voteClose`, `voteQuick`, `proxyAppoint`, `proxyCancel`, `proxyPeople`). The papers link says it isn't used here (`meetingPapers`).
+- **Not changed:** giving (it wasn't in the reviewer's list). GoCardless's callables and webhook are as they were, and payments stay behind payments-gate.js.
