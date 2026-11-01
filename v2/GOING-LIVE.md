@@ -25,6 +25,7 @@ site still reads and writes the same database without signing in.
    - **Who:** the events window and Comms, each for their own pages (the public-mail functions are built).
    - **Check:** on the emulator with sendEmail's open path switched off, each public form's email still arrives (newhere, event sign-ups, room-hire requests and receipts, form emails to parents).
 3. **Storage moves to the UK** (the bucket is in US-CENTRAL1; the spec sheet promises London).
+   - **The plan, click by click:** [docs/STORAGE-MOVE.md](docs/STORAGE-MOVE.md); the tool: `tools/storage-move.mjs` (copy, links, switch; dry runs unless `--apply`; safe to run again). The old bucket is never touched.
    - **Who:** the main window writes the plan and the copy script; Martin makes the London (europe-west2) bucket in the console and runs it. It needs:
      - a new bucket, with the rules deployed to it on the day;
      - every file copied;
