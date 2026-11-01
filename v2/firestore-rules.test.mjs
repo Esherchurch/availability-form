@@ -3,6 +3,11 @@
 
 import fs from 'node:fs';
 import { FEATURES as SERVER_FEATURES } from './functions/features.js';
+/* What the server keeps on each users record and in teamFlags (the rules
+   name no team: they read these), worked out the server's own way. */
+import { DEFAULT_CORES, coversFor, sharesFor } from './functions/core-teams.js';
+import { EGBC_UNDER18 } from './functions/under18-teams.js';
+import { boardsOf } from './functions/team-boards.js';
 import {
   initializeTestEnvironment,
   assertSucceeds,
@@ -103,7 +108,8 @@ const PEOPLE = {
      by the server (functions/core-teams.js); one not yet written has none. */
   wcore: { uid: 'u_wcore', teams: ['Core Team'], adminFor: [], masterAdmin: false, covers: ['AV Team', 'Choir', 'Worship Team'] },
   kycore: { uid: 'u_kycore', teams: ['Kids & Youth Core Team'], adminFor: [], masterAdmin: false, covers: ['Kids Church', 'Lazers', 'ReNu', 'Youth Worship'] },
-  kyfresh: { uid: 'u_kyfresh', teams: ['Kids & Youth Core Team'], adminFor: [], masterAdmin: false },
+  /* Covers not written by the server yet: an empty list, as a record looks before its first sync. */
+  kyfresh: { uid: 'u_kyfresh', teams: ['Kids & Youth Core Team'], adminFor: [], masterAdmin: false, covers: [] },
   kyadmin: { uid: 'u_kyadmin', teams: [], adminFor: ['Kids & Youth Core Team'], masterAdmin: false, adminCovers: ['Kids Church', 'Lazers', 'ReNu', 'Youth Worship'] },
 };
 
@@ -116,9 +122,14 @@ await env.withSecurityRulesDisabled(async (ctx) => {
       attender: p.attender === true, churchMember: p.churchMember === true,
       status: p.status
         || ((p.teams.length || p.adminFor.length || p.masterAdmin) ? 'active' : 'pending'),
-      ...(p.covers ? { covers: p.covers } : {}), ...(p.adminCovers ? { adminCovers: p.adminCovers } : {}),
+      covers: p.covers || coversFor(p.teams, DEFAULT_CORES),
+      adminCovers: p.adminCovers || coversFor(p.adminFor, DEFAULT_CORES),
+      shares: sharesFor(p.teams, { map: null, set: {} }),
     });
   }
+  /* As functions/under18-teams.js and team-boards.js keep them. */
+  await setDoc(doc(db, 'teamFlags', 'under18'), { teams: EGBC_UNDER18.slice().sort() });
+  await setDoc(doc(db, 'teamFlags', 'boards'), { boards: boardsOf([]) });
   await setDoc(doc(db, 'addressBook', 'm_u_samy'), { name: 'Samy', markers: ['Worship Team'] });
   await setDoc(doc(db, 'addressBook', 'm_u_attender'), {
     name: 'Attender Synthetic', email: 'attender@example.invalid', markers: [] });
@@ -773,7 +784,8 @@ await check('an admin adds a site', 'allow', () => setDoc(doc(as('karen'), 'site
 await check('an admin sets who approves bookings', 'allow', () => setDoc(doc(as('karen'), 'bookingSettings', 'site_two'), { bookingsAdmins: ['m_u_karen'], safeguardingLead: 'm_u_karen', safeguardingDeputy: '' }));
 await check('master adds bookable kit', 'allow', () => setDoc(doc(as('martin'), 'bookableResources', 'res_urn'), { name: 'Test Urn', quantity: 2, active: true }));
 await check('master saves a venue', 'allow', () => setDoc(doc(as('martin'), 'venues', 'venue_two'), { name: 'The Test Bear', active: true }));
-await check('master takes a room out of use', 'allow', () => updateDoc(doc(as('martin'), 'rooms', 'room_hall'), { active: false }));
+/* Taking a room out of use is the server's (takeOutOfUse, which checks what still uses it); no page sets it, not even a master admin's. */
+await check('a page cannot take a room out of use, even a master admin', 'deny', () => updateDoc(doc(as('martin'), 'rooms', 'room_hall'), { active: false }));
 
 /* ---- contacts: people who are not members ---------------------------
    A guest has no account, so the only way their name reaches the database
@@ -4008,8 +4020,11 @@ await check('  adds a new person on their team', 'allow',
   () => setDoc(doc(as('karen'), 'addressBook', 'wm_new'), { name: 'New Synthetic', email: 'n@example.invalid', markers: ['Kids Church'], adminFor: [], archived: false, isMinor: false }));
 await check('  not on somebody else\'s team', 'deny',
   () => setDoc(doc(as('karen'), 'addressBook', 'wm_new2'), { name: 'New Synthetic', email: 'n2@example.invalid', markers: ['Worship Team'], adminFor: [], archived: false, isMinor: false }));
-await check('  removes somebody only on their team', 'allow',
+/* People are archived, never deleted (data-map/main.json): the delete is refused, the archive goes through. */
+await check('  cannot delete somebody, even on their team', 'deny',
   () => deleteDoc(doc(as('karen'), 'addressBook', 'wm_kids')));
+await check('  archives somebody only on their team', 'allow',
+  () => updateDoc(doc(as('karen'), 'addressBook', 'wm_kids'), { archived: true }));
 await check('the office changes anyone', 'allow',
   () => updateDoc(doc(as('churchOffice'), 'addressBook', 'wm_worship'), { name: 'Worship Synthetic, by the office' }));
 await check('somebody who leads nothing changes nobody', 'deny',

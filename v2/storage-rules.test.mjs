@@ -18,7 +18,9 @@ import {
   assertFails,
 } from '@firebase/rules-unit-testing';
 import { doc as fsDoc, setDoc } from 'firebase/firestore';
-import { ref as stRef, uploadBytes, deleteObject, getBytes } from 'firebase/storage';
+import { ref as stRef, uploadBytes, deleteObject, getBytes, getDownloadURL } from 'firebase/storage';
+/* Each person's team jobs, as the server keeps them on their users record. */
+import { DEFAULT_CORES, coversFor, jobsFor } from './functions/core-teams.js';
 
 /* AS ONE CHURCH (multi-church step 4 part 1, batch B; FINDINGS-churchhq
    H-8): AS_CHURCH=mc-test runs every case below against the generated
@@ -53,6 +55,7 @@ if (AS_CHURCH) {
 
 /* The same three people as the Firestore tests, and for the same reason:
    one master admin, one admin of a single area, one ordinary member. */
+let songLink = '';
 const PEOPLE = {
   martin: { uid: 'u_martin', teams: ['Core Team'], adminFor: [], masterAdmin: true },
   karen:  { uid: 'u_karen',  teams: [], adminFor: ['Kids Church'], masterAdmin: false },
@@ -75,6 +78,7 @@ await env.withSecurityRulesDisabled(async (ctx) => {
       memberId: 'm_' + p.uid, name: p.uid,
       teams: p.teams, adminFor: p.adminFor, masterAdmin: p.masterAdmin, churchMember: p.churchMember === true,
       status: (p.teams.length || p.adminFor.length || p.masterAdmin) ? 'active' : 'pending',
+      jobs: jobsFor(p.teams, coversFor(p.teams, DEFAULT_CORES), { map: null, set: {} }),
     });
   }
   /* Something already in the bucket, so reading can be tested as well as
@@ -87,6 +91,11 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   /* A picture already in a church email, so reading one can be tested as
      well as putting one there. */
   await uploadBytes(ref(st, 'email_assets/already-sent.png'), PIC(), { contentType: 'image/png' });
+  /* A song sheet already in the music database, with its download key, as
+     the uploaders leave it. */
+  await uploadBytes(ref(st, 'songs/great-are-you-lord/Great Are You Lord-lead-A.pdf'), PIC(), { contentType: 'application/pdf' });
+  /* Its stored link, as the uploaders keep it: the file's own download key. */
+  songLink = await getDownloadURL(ref(st, 'songs/great-are-you-lord/Great Are You Lord-lead-A.pdf'));
 });
 
 /* A tiny PNG. Invented bytes; not a real photograph of anybody. */
@@ -443,6 +452,35 @@ await check('  nor anybody signed out', 'deny',
   () => getBytes(ref(anon(), 'churchMeetings/m1/papers/agenda.png')));
 await check('only a PDF or a picture goes up', 'deny',
   () => uploadBytes(ref(as('office'), 'churchMeetings/m1/papers/run.exe'), PIC(), { contentType: 'application/octet-stream' }));
+
+/* ---- song sheets (the music database) ----------------------------- */
+const SONG = 'songs/great-are-you-lord/Great Are You Lord-lead-A.pdf';
+await check('SONGS: someone on the worship team uploads a song sheet', 'allow',
+  () => uploadBytes(ref(as('cmember'), 'songs/noel/Noel-lead-Db.pdf'), PIC(), { contentType: 'application/pdf' }));
+await check('  a master admin does too', 'allow',
+  () => uploadBytes(ref(as('martin'), 'songs/noel/Noel-chords-Db.pdf'), PIC(), { contentType: 'application/pdf' }));
+await check('  someone doing no worship, AV or youth job does not', 'deny',
+  () => uploadBytes(ref(as('office'), 'songs/noel/Noel-lyrics.pdf'), PIC(), { contentType: 'application/pdf' }));
+await check('  nor anybody signed out', 'deny',
+  () => uploadBytes(ref(anon(), 'songs/noel/Noel-x.pdf'), PIC(), { contentType: 'application/pdf' }));
+await check('  only a PDF, a picture or audio', 'deny',
+  () => uploadBytes(ref(as('cmember'), 'songs/noel/run.exe'), PIC(), { contentType: 'application/octet-stream' }));
+await check('  nobody deletes one here, not even a master admin', 'deny',
+  () => deleteObject(ref(as('martin'), SONG)));
+await check('  anyone signed in reads one (the page asks for its link after uploading)', 'allow',
+  () => getBytes(ref(as('office'), SONG)));
+await check('  signed out, a plain read is refused', 'deny',
+  () => getBytes(ref(anon(), SONG)));
+/* A STORED SONG LINK (with its key) OPENS UNDER THESE RULES, signed out:
+   the key is the permission, so the original site's links keep working. */
+const songUrl = (token) => token ? songLink.replace(/token=[^&]+/, 'token=' + token) : songLink;
+const fetchOk = async (url) => {
+  const r = await fetch(url);
+  if (r.status === 403) { const e = new Error('HTTP 403: permission denied'); e.code = 'permission-denied'; throw e; }
+  if (r.status !== 200) throw new Error('HTTP ' + r.status);
+};
+await check('  a stored song link, with its key, opens signed out', 'allow', () => fetchOk(songUrl('')));
+await check('  the same link with a wrong key does not', 'deny', () => fetchOk(songUrl('not-the-key')));
 
 await env.cleanup();
 
