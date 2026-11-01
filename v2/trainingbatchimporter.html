@@ -6,6 +6,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202611011500"></script>
+<script src="egbc-song-match.js?v=202611011600"></script>
 <script src="egbc-guard.js?v=202611011200"></script>
 <title>Batch Music Importer — TRAINING</title>
 
@@ -92,9 +93,10 @@ button:active{ transform:translateY(1px); }
 button:focus-visible{ outline:none; box-shadow:0 0 0 3px var(--brand-ring); }
 
 .group-row td{ background:var(--brand-tint); font-weight:700; color:var(--brand-dark); }
-.conf-high{ color:var(--success); font-weight:700; }
-.conf-medium{ color:var(--gold); font-weight:700; }
-.conf-low{ color:var(--danger); font-weight:700; }
+.conf-sure{ color:var(--success); font-weight:700; }
+.conf-check{ color:var(--gold); font-weight:700; }
+.conf-none{ color:var(--muted); font-weight:700; }
+.row-msg{ font-size:12px; font-weight:500; color:var(--danger); margin-top:4px; max-width:260px; }
 
 /* Toast */
 #training-toast {
@@ -226,7 +228,11 @@ const TS_SONGS_KEY = "EGBC_TR_SONGS"; // shared with library page
 let songs = [];
 let rows = [];
 
-const KEYS = ["C","Cm","C#","C#m","Db","Dbm","D","Dm","Eb","Ebm","E","Em","F","Fm","F#","F#m","Gb","Gbm","G","Gm","Ab","Abm","A","Am","Bb","Bbm","B","Bm"];
+function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+/* Reading a file's name is egbc-song-match.js's, as the live uploader's. */
+const M = window.EGBCSongMatch;
+const KEYS = M.KEYS;
 const TYPES = ["Lead Sheet","Chord Sheet","Lyrics","Bass Tabs"];
 
 // ── Training session storage helpers ──────────────────────────────────────
@@ -254,60 +260,10 @@ function exitTraining() {
     document.close();
 }
 
-// ── Song matching helpers (identical to live) ─────────────────────────────
-function getConfidence(matches) {
-    if (!matches || matches.length === 0) return "low";
-    let top = matches[0];
-    if (top.score >= 0.7) return "high";
-    if (top.score >= 0.4) return "medium";
-    return "low";
-}
-
-function detectKey(name) {
-    let lower = name.toLowerCase().replace(".pdf","");
-    const searchOrder = ["C#","Db","Eb","F#","Gb","Ab","Bb","C","D","E","F","G","A","B"];
-    for (let k of searchOrder) {
-        let regex = new RegExp(`\\b${k.replace('#','\\#')}\\b| ${k.replace('#','\\#')}$`,'i');
-        if (regex.test(lower)) return k;
-    }
-    for (let k of searchOrder) {
-        if (lower.includes(k.toLowerCase())) return k;
-    }
-    return "";
-}
-
-function detectType(name) {
-    let lower = name.toLowerCase();
-    if (lower.includes("chord")) return "Chord Sheet";
-    if (lower.includes("lead"))  return "Lead Sheet";
-    if (lower.includes("lyric")) return "Lyrics";
-    if (lower.includes("bass"))  return "Bass Tabs";
-    return "";
-}
-
-function cleanTitle(name) {
-    return name.toLowerCase()
-        .replace(".pdf","")
-        .replace(/\(.*?\)/g,"")
-        .replace(/\bin [a-g](#|b)?m?\b/g,"")
-        .replace(/\bkey [a-g](#|b)?m?\b/g,"")
-        .replace(/\b(chord|lead|lyrics|bass|tab|sheet)\b/g,"")
-        .replace(/\b[a-g](#|b)?m?\b/g,"")
-        .replace(/[^a-z0-9 ]/g,"")
-        .replace(/\s+/g," ")
-        .trim();
-}
-
-function getMatches(title) {
-    const words = title.split(" ");
-    return songs.map(s => {
-        const sWords = s.title.toLowerCase().split(" ");
-        let overlap = words.filter(w => sWords.includes(w));
-        let score = sWords.length > 0 ? overlap.length / sWords.length : 0;
-        return { song: s, score };
-    })
-    .sort((a,b) => b.score - a.score)
-    .slice(0, 5);
+// ── Song matching: egbc-song-match.js, the live uploader's ─────────────────
+function getConfidence(r) {
+    if (r.match && r.match === r.auto) return "sure";
+    return r.matches.length ? "check" : "none";
 }
 
 function applyToGroup(index, field) {
@@ -375,23 +331,20 @@ async function handleFiles(files) {
     await loadSongs();
     document.getElementById("status").innerText = `${files.length} files loaded. Review below then click Upload.`;
     rows = files.map(file => {
-        let detectedKey  = detectKey(file.name);
-        let detectedType = detectType(file.name);
-        let rawTitle     = cleanTitle(file.name);
-        let matches      = getMatches(rawTitle);
-        return {
-            file, rawTitle,
-            title:      file.name.replace(".pdf",""),
-            key:        detectedKey,
-            type:       detectedType,
-            matches,
-            match:      matches[0]?.song || null,
-            youtube:    matches[0]?.song?.youtube || "",
-            ccli:       matches[0]?.song?.ccli    || "",
-            confidence: getConfidence(matches),
-            group:      cleanTitle(file.name),
-            skip: false, force: false
+        const title   = M.songTitle(file.name);
+        const matches = M.getMatches(title, songs);
+        const auto    = M.autoMatch(title, matches);
+        const r = {
+            file, title, matches, auto, match: auto,
+            key:     M.detectKey(file.name, KEYS),
+            type:    M.detectType(file.name),
+            youtube: auto?.youtube || "",
+            ccli:    auto?.ccli    || "",
+            group:   M.groupOf(file.name),
+            msg: "", skip: false, force: false
         };
+        r.confidence = getConfidence(r);
+        return r;
     });
     render();
 }
@@ -433,7 +386,7 @@ function render() {
         let tr = document.createElement("tr");
         tr.className = "status-" + status.toLowerCase();
         tr.innerHTML = `
-            <td>${r.file.name}</td>
+            <td>${escapeHtml(r.file.name)}</td>
             <td><input value="${r.title}"></td>
             <td>
                 <select>
@@ -460,7 +413,7 @@ function render() {
                 <button onclick="openYouTubeSearch('${r.title.replace(/'/g,"\\'")}')">Find YouTube</button>
                 <button onclick="window.open('https://songselect.ccli.com/search/results?query=${encodeURIComponent(r.title)}')">Search CCLI</button>
             </td>
-            <td>${status}</td>
+            <td>${status}${r.msg ? '<div class="row-msg">' + escapeHtml(r.msg) + '</div>' : (!r.match && r.matches.length && status !== 'SKIPPED' ? '<div class="row-msg">Check: it may be one of the songs listed. Pick it, or leave "New Song".</div>' : '')}</td>
             <td>
                 <button onclick="rows[${i}].skip=!rows[${i}].skip;render()">${r.skip?'Undo':'Skip'}</button>
                 <button onclick="rows[${i}].force=true;render()">Force</button>
@@ -480,6 +433,7 @@ function render() {
                 r.youtube = m.song.youtube || "";
                 r.ccli    = m.song.ccli    || "";
             }
+            r.confidence = getConfidence(r);
             render();
         };
         inputs[4].onchange = e => { r.youtube = e.target.value; };
@@ -494,11 +448,18 @@ async function processAll() {
     let trainingSongs = loadTrainingSongs();
     let uploadCount = 0;
     let skipCount   = 0;
+    const notDone   = [];
 
     for (const r of rows) {
         let status = getStatus(r);
         if (status === "SKIPPED" || status === "EXISTS") { skipCount++; continue; }
-        if (status === "REVIEW") { alert("Please fix missing key/type for: " + r.file.name); return; }
+        /* One row needing a fix is marked, and the rest go on. */
+        if (status === "REVIEW") {
+            r.msg = "Not uploaded: choose its " + (!r.key ? "key" : "type") + ", then press Upload again.";
+            notDone.push(r.file.name);
+            continue;
+        }
+        r.msg = "";
 
         // Determine the song title and ID
         let finalTitle = r.match ? r.match.title : r.title;
@@ -559,7 +520,7 @@ async function processAll() {
     saveTrainingSongs(trainingSongs);
 
     showToast(`✅ ${uploadCount} file(s) uploaded to training session`);
-    document.getElementById("status").innerText = `Training upload complete — ${uploadCount} uploaded, ${skipCount} skipped. Open the Training Song Library to see them.`;
+    document.getElementById("status").innerText = `Training upload complete — ${uploadCount} uploaded, ${skipCount} skipped${notDone.length ? ', ' + notDone.length + ' not uploaded (they need a key or type): ' + notDone.join(', ') : ''}. Open the Training Song Library to see them.`;
 
     // Re-render to show updated statuses
     await loadSongs();

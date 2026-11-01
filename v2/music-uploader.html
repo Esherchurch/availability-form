@@ -6,6 +6,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="egbc-auth.js?v=202611011500"></script>
+<script src="egbc-song-match.js?v=202611011600"></script>
 
 <script src="egbc-shell.js?v=202611011500" data-title="Music Upload"></script>
 <script src="egbc-guard.js?v=202611011200" data-job="worship" data-role="leader"></script>
@@ -174,18 +175,12 @@ renderFiles();
 }
 
 // =======================
-// SMART KEY DETECTION
+// KEY FROM THE NAME: egbc-song-match.js, shared with the batch uploader -
+// the end of the name, or after "in"/"key"; never a letter inside a word,
+// and blank when it isn't sure.
 // =======================
 function detectKey(name) {
-const lower = name.toLowerCase();
-
-for (const key of ALL_KEYS) {
-if (lower.includes(` ${key.toLowerCase()}`) || lower.includes(`(${key.toLowerCase()})`)) {
-return key;
-}
-}
-
-return "";
+return window.EGBCSongMatch ? EGBCSongMatch.detectKey(name, ALL_KEYS) : "";
 }
 
 // =======================
