@@ -106,6 +106,9 @@ const personId   = raw => Array.isArray(raw) ? (raw[0]?.id || '') : (raw?.id || 
 
 let worshipLeaderName = "";
 let eventsForDay = [];
+/* The date whose team and songs are really on screen. Save and Email refuse
+   anything else, so one Sunday's plan can never land on another. */
+let planShownFor = "";
 /* The service being planned: the rota event chosen (H-11 item 0). */
 let currentService = null;
 let addressBook = [];
@@ -435,8 +438,10 @@ const keyRoleValues = () => CHURCH_ROLES
        ["Reader", document.getElementById('roleReader').value.trim(), 'reader']];
 
 window.loadRota = async () => {
+    planShownFor = "";
     const date = document.getElementById('serviceDate').value;
     const snap = await getDocs(collection(db, "events"));
+    if (document.getElementById('serviceDate').value !== date) return;
     /* EVERY SERVICE THAT DAY, each with its id (H-11 item 0): this used to
        keep one per type, so two services of one type showed as one. */
     const day = [];
@@ -477,6 +482,7 @@ window.selectEvent = async () => {
     const index = document.getElementById('eventSelect').value;
     if (index === "") return;
     const data = eventsForDay[index];
+    planShownFor = "";
     currentService = data;
     document.getElementById('serviceTypeNotes').value = data.description || "";
 
@@ -534,6 +540,7 @@ window.selectEvent = async () => {
         getDoc(doc(db, "songSummaries", EGBCPlanStore.summaryId(data.date, data.id, eventsForDay)))
             .catch(e => { console.warn("Could not read the emailed plan", e); return null; })
     ]);
+    if (document.getElementById('serviceDate').value !== data.date) return;
     /* THIS SERVICE'S PLAN, not the date's first (H-11 item 0). */
     const mine = EGBCPlanStore.planFor(snap.docs.map(d => ({ id: d.id, data: d.data() })), data.id, eventsForDay);
     let saved = mine ? mine.data : null;
@@ -593,6 +600,7 @@ window.selectEvent = async () => {
         updateSongNumbers();
         autoFitTextAreas();
     }
+    planShownFor = data.date;
 };
 
 /* WHO THE PLAN IS FOR (Martin, 12 Oct 2026). The policy is in
@@ -637,8 +645,16 @@ async function audienceFor(theDate) {
     }
 }
 
+/* Notes for roles this page doesn't list (Service Leader and Speaker, from the
+   other planners) are kept, not wiped, when this page saves. */
+function keepOtherNotes(savedPlan, serviceData) {
+    const shown = new Set(Array.from(document.querySelectorAll('#teamBody tr')).map(r => r.children[0].innerText));
+    Object.entries((savedPlan && savedPlan.roleNotes) || {}).forEach(([role, note]) => { if (!shown.has(role)) serviceData.roleNotes[role] = note; });
+}
+
 window.saveSchedule = async (quiet) => {
     const date = document.getElementById('serviceDate').value;
+    if (planShownFor !== date) { alert("This page is still showing another Sunday, or no service is chosen. Choose the service for this date, then try again. If none is listed, add it on the Rota Planner first."); return; }
     const introText = document.getElementById('introBox').value;
     const outroText = document.getElementById('outroBox').value;
     const serviceNotes = document.getElementById('serviceTypeNotes').value;
@@ -662,6 +678,7 @@ window.saveSchedule = async (quiet) => {
         const snap = await getDocs(q);
         const docs = snap.docs.map(d => ({ id: d.id, data: d.data() }));
         const target = svc ? EGBCPlanStore.saveTarget(docs, svc.id, eventsForDay) : ((docs.find(d => !d.data.eventId) || {}).id || null);
+        keepOtherNotes((docs.find(d => d.id === target) || {}).data, serviceData);
         if (target) { await updateDoc(doc(db, "services", target), serviceData); }
         else { await addDoc(collection(db, "services"), serviceData); }
         /* QUIET WHEN SENDING, because Send calls this first and two
@@ -710,12 +727,12 @@ async function saveSongSummaryToFirestore(date) {
 
 window.emailSchedule = async () => {
     const date = document.getElementById('serviceDate').value || "TBC";
+    if (date !== "TBC" && planShownFor !== date) { alert("This page is still showing another Sunday, or no service is chosen. Choose the service for this date, then try again. If none is listed, add it on the Rota Planner first."); return; }
     /* SENDING SAVES THE SCHEDULE FIRST, so a plan that has gone out to
        the team is never missing from the planners (Martin, 12 Oct 2026).
        Before this, Send wrote only songSummaries, and a plan sent but
        never saved showed its leaders and no songs. TBC is skipped
        because a services document is keyed by a real date. */
-    if (date !== "TBC") await window.saveSchedule(true);
     const serviceNotes = document.getElementById('serviceTypeNotes').value || "";
     const introText = document.getElementById('introBox').value || "";
     const outroText = document.getElementById('outroBox').value || "";
@@ -894,6 +911,7 @@ window.emailSchedule = async () => {
     });
     teamRecipients = [...new Set(teamRecipients)];
     async function sendViaResend(toAddresses, emailSubject, emailHtml) {
+        if (date !== "TBC") await window.saveSchedule(true);
         const statusEl = document.getElementById('modalStatus');
         statusEl.textContent = "Sending…";
         statusEl.style.color = "#3d6263";

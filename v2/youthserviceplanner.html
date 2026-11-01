@@ -300,6 +300,9 @@ await allowed;   /* and the guard has let them in (egbc-db.js) */
 
 let worshipLeaderName = "";
 let eventsForDay = [];
+/* The date whose team and songs are really on screen. Save and Email refuse
+   anything else, so one Sunday's plan can never land on another. */
+let planShownFor = "";
 /* The service being planned: the rota event chosen (H-11 item 0). */
 let currentService = null;
 // Kids Church roles share the Sunday event since the new hub's rota planner
@@ -690,8 +693,10 @@ window.addItem = (val="") => {
 };
 
 window.loadRota = async () => {
+    planShownFor = "";
     const date = document.getElementById('serviceDate').value;
     const snap = await getDocs(collection(db, "events"));
+    if (document.getElementById('serviceDate').value !== date) return;
     /* Every service that day, each with its id, in time order (H-11 item 0). */
     const day = [];
     snap.forEach(d => {
@@ -726,6 +731,7 @@ window.selectEvent = async () => {
     const index = document.getElementById('eventSelect').value;
     if (index === "") return;
     const data = eventsForDay[index];
+    planShownFor = "";
     currentService = data;
 
     // ── Youth check ──
@@ -768,6 +774,7 @@ window.selectEvent = async () => {
         getDoc(doc(db, "songSummaries", EGBCPlanStore.summaryId(data.date, data.id, eventsForDay)))
             .catch(e => { console.warn("Could not read the emailed plan", e); return null; })
     ]);
+    if (document.getElementById('serviceDate').value !== data.date) return;
     /* THIS SERVICE'S PLAN, not the date's first (H-11 item 0). */
     const mine = EGBCPlanStore.planFor(snap.docs.map(d => ({ id: d.id, data: d.data() })), data.id, eventsForDay);
     let saved = mine ? mine.data : null;
@@ -827,6 +834,7 @@ window.selectEvent = async () => {
         updateSongNumbers();
         autoFitTextAreas();
     }
+    planShownFor = data.date;
 };
 
 /* WHO THE PLAN IS FOR, as the Sunday planners work it out: the day's
@@ -873,6 +881,7 @@ window.saveSchedule = async (quiet) => {
         return;
     }
     const date = document.getElementById('serviceDate').value;
+    if (planShownFor !== date) { alert("This page is still showing another Sunday, or no service is chosen. Choose the service for this date, then try again. If none is listed, add it on the Rota Planner first."); return; }
     const introText = document.getElementById('introBox').value;
     const outroText = document.getElementById('outroBox').value;
     const serviceNotes = document.getElementById('serviceTypeNotes').value;
@@ -963,10 +972,10 @@ window.emailSchedule = async () => {
         return;
     }
     const date = document.getElementById('serviceDate').value || "TBC";
+    if (date !== "TBC" && planShownFor !== date) { alert("This page is still showing another Sunday, or no service is chosen. Choose the service for this date, then try again. If none is listed, add it on the Rota Planner first."); return; }
     /* SENDING SAVES THE SCHEDULE FIRST, as the Sunday planners do, so a
        plan that has gone out is never missing. TBC is skipped: a services
        document is keyed by a real date. */
-    if (date !== "TBC") await window.saveSchedule(true);
     const serviceNotes = document.getElementById('serviceTypeNotes').value || "";
     const introText = document.getElementById('introBox').value || "";
     const outroText = document.getElementById('outroBox').value || "";
@@ -1148,6 +1157,7 @@ window.emailSchedule = async () => {
 
 
     async function sendViaResend(toAddresses, emailSubject, emailHtml) {
+        if (date !== "TBC") await window.saveSchedule(true);
         const statusEl = document.getElementById('modalStatus');
         statusEl.textContent = "Sending…";
         statusEl.style.color = "#3d6263";

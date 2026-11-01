@@ -926,9 +926,14 @@
     container.innerHTML = html;
   }
 
+  /* The date whose team and songs are really on screen. Save and Email refuse
+     anything else, so one Sunday's plan can never land on another. */
+  var spPlanShownFor = '';
   async function spLoadRota() {
+    spPlanShownFor = '';
     var date = document.getElementById('spDate').value;
     var snap = await db().collection('events').get();
+    if (document.getElementById('spDate').value !== date) return;
     /* EVERY SERVICE THAT DAY, each with its id (H-11 item 0). This used to
        keep one per TYPE, so an 8am and a 10am of the same type showed as
        one. Archived ones are not services. In time order; with several,
@@ -962,6 +967,7 @@
     var index = document.getElementById('spEventSelect').value;
     if (index === '') return;
     var data = spEventsForDay[index];
+    spPlanShownFor = '';
     spService = data;
     document.getElementById('spTypeNotes').value = data.description || '';
     spLeader = personName(data.assignments && data.assignments['Worship Leader']) || 'None';
@@ -1004,6 +1010,7 @@
       db().collection('songSummaries').doc(EGBCPlanStore.summaryId(data.date, data.id, spEventsForDay)).get()
         .catch(function (e) { console.warn('Could not read the emailed plan', e); return null; })
     ]);
+    if (document.getElementById('spDate').value !== data.date) return;
     var snap = both[0], ss = both[1];
     document.getElementById('sp-order').innerHTML = '';
     var mine = EGBCPlanStore.planFor(snap.docs.map(function (d) { return { id: d.id, data: d.data() }; }), data.id, spEventsForDay);
@@ -1048,6 +1055,7 @@
     }
     spUpdateNumbers();
     spAutoFit();
+    spPlanShownFor = data.date;
   }
 
   /* The audience for a date, with this host's two lookups. The policy -
@@ -1093,6 +1101,7 @@
   async function spSave(quiet) {
     var date = document.getElementById('spDate').value;
     if (!date) { toast('Please select a date first'); return; }
+    if (spPlanShownFor !== date) { toast("This page is still showing another Sunday, or no service is chosen. Choose the service for this date, then try again. If none is listed, add it on the Rota Planner first."); return; }
     var roleNotes = {};
     document.querySelectorAll('#spTeamBody tr').forEach(function (row) {
       var role = row.children[0].textContent;
@@ -1141,6 +1150,7 @@
 
   async function spEmail() {
     var date = document.getElementById('spDate').value || 'TBC';
+    if (date !== 'TBC' && spPlanShownFor !== date) { toast("This page is still showing another Sunday, or no service is chosen. Choose the service for this date, then try again. If none is listed, add it on the Rota Planner first."); return; }
     /* SENDING SAVES THE SCHEDULE FIRST, so a plan that has gone to the
        team is never missing from the planners (Martin, 12 Oct 2026).
        TBC is skipped: a services document is keyed by a real date. */
