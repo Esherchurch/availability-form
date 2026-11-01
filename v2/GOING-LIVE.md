@@ -32,6 +32,7 @@ site still reads and writes the same database without signing in.
      - `storageBucket` changed in egbc-auth.js and the functions;
      - every stored download link in Firestore rewritten to the new bucket.
    - **Before the rules,** so the rules go on the bucket that stays.
+   - **Before the day:** after the first copy, `tokens` repairs stored links whose download key is out of date (dry run first), and `check` samples stored links opening from London (docs/STORAGE-MOVE.md steps 2b and 2c).
    - **Check:** a new upload lands in the London bucket; a sample of old pictures, sermon audio and kb videos still open; nothing in Firestore still names the old bucket (the script's dry run says 0).
 4. **Real-device proofs** (§26 items 6, 7): notifications on an Android phone and an iPhone added to the home screen, and Share to WhatsApp from each.
    - Also the **installed app's Google sign-in** (26 Oct 2026, Google Identity Services) on Android and an iPhone home-screen app.

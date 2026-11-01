@@ -8,9 +8,13 @@ The tool is `tools/storage-move.mjs`. It has three steps:
 
 | Step | What it does |
 |---|---|
-| `copy` | Copies every file into the London bucket, with its download key, so every existing link works there. Also gives the new bucket the old one's web settings (CORS). |
-| `links` | Rewrites every stored download link in the database, top level and every church's, from the old bucket to the new one. |
+| `copy` | Copies every file into the London bucket, with its download key, so every existing link works there. Also gives the new bucket the old one's web settings (CORS), and lists empty (0-byte) files. |
+| `tokens` | Before the day, on the old bucket: a stored link whose download key isn't the file's current one is pointed at its current key. The bucket isn't changed, so it is safe for the original site. |
+| `check` | Reads only: opens a sample of stored links from London and lists any that don't open, and why. |
+| `links` | Rewrites every stored download link in the database, top level and every church's, from the old bucket to the new one, repairing its key the same way. `--reverse` takes them back. |
 | `switch` | Changes the code so new uploads go to London: one commit. |
+
+**Download keys are never added to a file or changed.** Only the stored links change, to the key the file already has.
 
 Each step only **reports** what it would do, unless you add `--apply`. Each is safe to run again: a second run does only what is left.
 
@@ -45,6 +49,27 @@ node ../tools/storage-move.mjs copy --to egbc-worship-planner-london --apply
 The first command says how many files and MB there are to copy. Run the second when happy.
 - **Check:** run the first command again. It should say "still to copy: 0".
 - **Check:** open the London bucket in the console and see the same folders as the old one: songs, kb, sermons, church...
+- **Empty files:** the copy lists any 0-byte files (they are empty in the old bucket too). Upload those songs again from the computer.
+
+## Step 2b: repair stored links whose key is out of date (before the day)
+
+Some stored links carry a download key the file no longer has (for example after a file was replaced). They open today only because the old bucket's rules are wide open, and they would not open from London. This points them at the file's current key, on the old bucket, without moving anything:
+
+```
+node ../tools/storage-move.mjs tokens
+node ../tools/storage-move.mjs tokens --apply
+```
+
+The dry run lists each link it would repair. Run it again until it lists none.
+
+## Step 2c: sample links from London (the going-live test, after the first copy)
+
+```
+node ../tools/storage-move.mjs check --to egbc-worship-planner-london --count 200
+```
+
+This reads only. It opens up to 200 stored links from London and lists any that don't open: a key out of date (run `tokens`), an empty file, or a file not copied yet (run `copy`).
+- **Check:** "N open", with nothing listed except files you already know are empty.
 
 ## Step 3: on the day, before the rules (GOING-LIVE item 3)
 
@@ -75,6 +100,20 @@ From step 10, the original site can no longer upload. Anything it uploaded betwe
 3. **Check:** both dry runs say 0.
 
 Repeat whenever a dry run finds something; it is always safe.
+
+## Going back (only if London has to be abandoned on the day)
+
+If uploads or downloads fail on London and can't be fixed on the day:
+1. Put back the code: revert the switch commit, bump egbc-auth.js's stamp, push, and deploy the functions and the converter again.
+2. Put back the old bucket's open rules if the locked rules were already deployed, so the original site keeps working: deploy the previous `storage.rules` to the old bucket.
+3. Take the links back:
+   ```
+   node ../tools/storage-move.mjs links --to egbc-worship-planner-london --reverse
+   node ../tools/storage-move.mjs links --to egbc-worship-planner-london --reverse --apply
+   ```
+4. Files uploaded to London in the meantime are only in London. Copy them back by hand, from the console, before switching again.
+
+Nothing is deleted either way: both buckets keep their files.
 
 ## What happens to...
 
