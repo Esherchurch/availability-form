@@ -6,7 +6,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="egbc-auth.js?v=202611011500"></script>
-<script src="egbc-song-match.js?v=202611011600"></script>
+<script src="egbc-song-match.js?v=202611011700"></script>
 
 <script src="egbc-shell.js?v=202611011500" data-title="Music Uploader"></script>
 <script src="egbc-guard.js?v=202611011200" data-job="worship" data-role="leader"></script>
@@ -87,6 +87,7 @@ input:focus, select:focus{ outline:none; border-color:var(--brand); box-shadow:0
 .conf-none{ color:var(--muted); font-weight:600; }
 .row-msg{ font-size:12px; font-weight:500; color:var(--danger); margin-top:4px; max-width:260px; }
 .status-uploaded{ background:var(--surface-2); }
+.status-empty{ background:var(--danger-tint); }
 
 /* Help button — matches all other pages */
 #helpBtn {
@@ -302,8 +303,10 @@ async function handleFiles(files){
       youtube: auto?.youtube || "",
       ccli: auto?.ccli || "",
       group: M.groupOf(file.name),
-      msg: "", skip:false, force:false
+      msg: "", skip:false, force:false,
+      empty: M.isEmpty(file)
     };
+    if (r.empty) r.msg = M.EMPTY;
     r.confidence = getConfidence(r);
     return r;
   });
@@ -313,6 +316,7 @@ async function handleFiles(files){
 
 function getStatus(r){
   if(r.done) return "UPLOADED";
+  if(r.empty) return "EMPTY";
   if(r.skip) return "SKIPPED";
   if(!r.key || !r.type) return "REVIEW";
   if(!r.match) return "NEW";
@@ -440,6 +444,7 @@ async function processAll(){
   for(const r of rows){
     let status = getStatus(r);
     if(status==="SKIPPED" || status==="EXISTS" || status==="UPLOADED") continue;
+    if(status==="EMPTY"){ notDone.push(r.file.name + " — the file is empty"); continue; }
     if(status==="REVIEW"){
       r.msg = "Not uploaded: choose its " + (!r.key ? "key" : "type") + ", then press Upload again.";
       notDone.push(r.file.name + " — needs a " + (!r.key ? "key" : "type"));

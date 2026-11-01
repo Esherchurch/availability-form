@@ -12,6 +12,7 @@ This is where you add one or a few music PDFs to the music database.
 4. Press **Upload**.
 
 ## Good to know
+- An empty file (0 bytes) is never uploaded. Its row says "This file is empty. Open it on your computer first, then try again."
 - The hub never guesses a key from a letter inside a word.
 - For many files at once, use the Batch Music Importer.
 

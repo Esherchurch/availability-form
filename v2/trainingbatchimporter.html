@@ -6,7 +6,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202611011500"></script>
-<script src="egbc-song-match.js?v=202611011600"></script>
+<script src="egbc-song-match.js?v=202611011700"></script>
 <script src="egbc-guard.js?v=202611011200"></script>
 <title>Batch Music Importer — TRAINING</title>
 
@@ -341,8 +341,10 @@ async function handleFiles(files) {
             youtube: auto?.youtube || "",
             ccli:    auto?.ccli    || "",
             group:   M.groupOf(file.name),
-            msg: "", skip: false, force: false
+            msg: "", skip: false, force: false,
+            empty:   M.isEmpty(file)
         };
+        if (r.empty) r.msg = M.EMPTY;
         r.confidence = getConfidence(r);
         return r;
     });
@@ -350,6 +352,7 @@ async function handleFiles(files) {
 }
 
 function getStatus(r) {
+    if (r.empty) return "EMPTY";
     if (r.skip) return "SKIPPED";
     if (!r.key || !r.type) return "REVIEW";
     if (!r.match) return "NEW";
@@ -453,6 +456,7 @@ async function processAll() {
     for (const r of rows) {
         let status = getStatus(r);
         if (status === "SKIPPED" || status === "EXISTS") { skipCount++; continue; }
+        if (status === "EMPTY") { notDone.push(r.file.name); continue; }
         /* One row needing a fix is marked, and the rest go on. */
         if (status === "REVIEW") {
             r.msg = "Not uploaded: choose its " + (!r.key ? "key" : "type") + ", then press Upload again.";

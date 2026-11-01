@@ -6,7 +6,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="egbc-auth.js?v=202611011500"></script>
-<script src="egbc-song-match.js?v=202611011600"></script>
+<script src="egbc-song-match.js?v=202611011700"></script>
 
 <script src="egbc-shell.js?v=202611011500" data-title="Music Upload"></script>
 <script src="egbc-guard.js?v=202611011200" data-job="worship" data-role="leader"></script>
@@ -168,7 +168,9 @@ for (const file of newFiles) {
 files.push({
 file: file,
 type: "",
-key: detectKey(file.name)
+key: detectKey(file.name),
+/* A 0-byte file is never uploaded (egbc-song-match.js). */
+empty: !!(window.EGBCSongMatch && EGBCSongMatch.isEmpty(file))
 });
 }
 renderFiles();
@@ -191,7 +193,7 @@ const tbody = document.querySelector("#fileTable tbody");
 
 tbody.innerHTML = files.map((f, i) => `
        <tr>
-           <td>${escapeHtml(f.file.name)}</td>
+           <td>${escapeHtml(f.file.name)}${f.empty ? '<div style="color:var(--danger);font-size:12px;font-weight:500;margin-top:4px">' + escapeHtml(EGBCSongMatch.EMPTY) + '</div>' : ''}</td>
 
            <td>
                <select onchange="updateType(${i}, this.value)">
@@ -298,8 +300,14 @@ alert("Add title and files");
 return;
 }
 
-// validate all rows
+// empty files are never uploaded; the rest need a type and key
+const empty = files.filter(f => f.empty);
+if (empty.length === files.length) {
+alert(EGBCSongMatch.EMPTY);
+return;
+}
 for (const f of files) {
+if (f.empty) continue;
 if (!f.type || !f.key) {
 alert("Each file needs a type and key");
 return;
@@ -320,6 +328,7 @@ let succeeded = 0;
 let failed = [];
 
 for (const f of files) {
+if (f.empty) { failed.push(f.file.name + " — " + EGBCSongMatch.EMPTY); continue; }
 try {
 const ref = storage.ref(`songs/${docId}/${f.file.name}`);
 await ref.put(f.file);

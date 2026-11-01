@@ -12,6 +12,7 @@
      EGBCSongMatch.groupOf(name)        -> the same song's files share it
      EGBCSongMatch.getMatches(title, songs) -> the five closest [{ song, score }]
      EGBCSongMatch.autoMatch(title, matches) -> a song only when truly close
+     EGBCSongMatch.isEmpty(file) / EMPTY  a 0-byte file, refused on its row
 
    A key is read only from the end of the name, or after "in"/"key"; never
    from a letter inside a word. No sure key is '' (the row asks for one).
@@ -123,6 +124,12 @@
     return top.song;
   }
 
-  global.EGBCSongMatch = { KEYS: KEYS, detectKey: detectKey, detectType: detectType, songTitle: songTitle,
+  /* A 0-byte file (a cloud file not yet downloaded, usually) is never
+     uploaded: it would be an empty song sheet. */
+  var EMPTY = 'This file is empty. Open it on your computer first, then try again.';
+  /** Is this file empty (0 bytes)? @param {File} file @returns {boolean} */
+  function isEmpty(file) { return !!file && Number(file.size) === 0; }
+
+  global.EGBCSongMatch = { KEYS: KEYS, EMPTY: EMPTY, isEmpty: isEmpty, detectKey: detectKey, detectType: detectType, songTitle: songTitle,
     groupOf: groupOf, getMatches: getMatches, autoMatch: autoMatch };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -27,6 +27,7 @@ This is where the worship team adds many music PDFs at once: lead sheets, chord 
 5. At the end, a summary lists anything not uploaded, and why.
 
 ## Good to know
+- An empty file (0 bytes) is never uploaded. Its row says **EMPTY**: "This file is empty. Open it on your computer first, then try again." This usually means the file is still in the cloud and not on the computer yet.
 - **Skip** leaves a row out. **Force** uploads a file even when the song already has that key and kind of sheet.
 - **Find YouTube** and **Search CCLI** look the song up, so you can paste its links.
 - Nothing is uploaded until you press **Upload**.
