@@ -78,6 +78,9 @@ const personId   = raw => Array.isArray(raw) ? (raw[0]?.id || '') : (raw?.id || 
 
 let worshipLeaderName = "";
 let eventsForDay = [];
+/* The date whose team and songs are really on screen. Save and Email refuse
+   anything else, so one Sunday's plan can never land on another. */
+let planShownFor = "";
 let addressBook = [];
 
 const ALL_KEYS = ["Ab","A","Am","A#","A#m","Bb","B","Bm","C","Cm","C#","C#m","Db","D","Dm","D#","D#m","Eb","E","Em","F","Fm","F#","F#m","Gb","G","Gm","G#","G#m"];
@@ -358,8 +361,10 @@ window.addItem = (val="") => {
 };
 
 window.loadRota = async () => {
+    planShownFor = "";
     const date = document.getElementById('serviceDate').value;
     const snap = await getDocs(collection(db, "events"));
+    if (document.getElementById('serviceDate').value !== date) return;
     eventsForDay = [];
     const seen = {};
     snap.forEach(d => {
@@ -392,6 +397,7 @@ window.selectEvent = async () => {
     const index = document.getElementById('eventSelect').value;
     if (index === "") return;
     const data = eventsForDay[index];
+    planShownFor = "";
     document.getElementById('serviceTypeNotes').value = data.description || "";
 
     // Use personName() to handle both single object and array formats
@@ -426,6 +432,7 @@ window.selectEvent = async () => {
 
     const q = query(collection(db, "services"), where("date", "==", data.date));
     const snap = await getDocs(q);
+    if (document.getElementById('serviceDate').value !== data.date) return;
     // No saved schedule but the plan was EMAILED (Send writes songSummaries):
     // show the emailed order rather than an empty one (Martin, 12 Oct 2026 -
     // 11 Oct was sent but never saved, and both planners showed no songs).
@@ -438,6 +445,7 @@ window.selectEvent = async () => {
             }
         } catch (e) { console.warn("Could not read the emailed plan", e); }
     }
+    if (document.getElementById('serviceDate').value !== data.date) return;
     if (saved) {
         if (saved.roles) {
             if (saved.roles.serviceLeader && !data.serviceLeader) document.getElementById('roleServiceLeader').value = saved.roles.serviceLeader;
@@ -486,10 +494,19 @@ window.selectEvent = async () => {
         updateSongNumbers();
         autoFitTextAreas();
     }
+    planShownFor = data.date;
 };
+
+/* Notes for roles this page doesn't list (Service Leader and Speaker, from the
+   other planners) are kept, not wiped, when this page saves. */
+function keepOtherNotes(savedPlan, serviceData) {
+    const shown = new Set(Array.from(document.querySelectorAll('#teamBody tr')).map(r => r.children[0].innerText));
+    Object.entries((savedPlan && savedPlan.roleNotes) || {}).forEach(([role, note]) => { if (!shown.has(role)) serviceData.roleNotes[role] = note; });
+}
 
 window.saveSchedule = async (quiet) => {
     const date = document.getElementById('serviceDate').value;
+    if (planShownFor !== date) { alert("This page is still showing another Sunday, or no service is chosen. Choose the service for this date, then try again. If none is listed, add it on the Rota Planner first."); return; }
     const introText = document.getElementById('introBox').value;
     const outroText = document.getElementById('outroBox').value;
     const serviceNotes = document.getElementById('serviceTypeNotes').value;
@@ -511,6 +528,7 @@ window.saveSchedule = async (quiet) => {
     const serviceData = { date, worshipLeader: worshipLeaderName, serviceNotes, introText, outroText, roleNotes, order, roles };
     try {
         const snap = await getDocs(q);
+        keepOtherNotes(snap.empty ? null : snap.docs[0].data(), serviceData);
         if (!snap.empty) { await updateDoc(doc(db, "services", snap.docs[0].id), serviceData); }
         else { await addDoc(collection(db, "services"), serviceData); }
         if (!quiet) alert("✅ Service saved successfully.");
@@ -547,12 +565,12 @@ async function saveSongSummaryToFirestore(date) {
 
 window.emailSchedule = async () => {
     const date = document.getElementById('serviceDate').value || "TBC";
+    if (date !== "TBC" && planShownFor !== date) { alert("This page is still showing another Sunday, or no service is chosen. Choose the service for this date, then try again. If none is listed, add it on the Rota Planner first."); return; }
     const serviceNotes = document.getElementById('serviceTypeNotes').value || "";
     const introText = document.getElementById('introBox').value || "";
     const outroText = document.getElementById('outroBox').value || "";
     // Sending saves the schedule as well, so a plan that has gone out is never
     // lost to the planners or ChurchShow (Martin, 12 Oct 2026).
-    if (date !== "TBC") await window.saveSchedule(true);
     const summaryUrl = await saveSongSummaryToFirestore(date);
 
     let htmlEmail = `<!DOCTYPE html>
@@ -708,6 +726,7 @@ window.emailSchedule = async () => {
     teamRecipients = [...new Set(teamRecipients)];
     const SEND_FUNCTION_URL = "https://sendemail-irkwdhx3xq-uc.a.run.app";
     async function sendViaResend(toAddresses, emailSubject, emailHtml) {
+        if (date !== "TBC") await window.saveSchedule(true);
         const statusEl = document.getElementById('modalStatus');
         statusEl.textContent = "Sending…";
         statusEl.style.color = "#3d6263";

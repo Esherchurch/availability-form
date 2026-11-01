@@ -1971,6 +1971,9 @@ function deleteOrderItem(i) {
 // ══ SERVICE PLANNER ══
 const SP_ALL_KEYS = ["Ab","A","Am","A#","A#m","Bb","B","Bm","C","Cm","C#","C#m","Db","D","Dm","D#","D#m","Eb","E","Em","F","Fm","F#","F#m","Gb","G","Gm","G#","G#m"];
 let spEventsForDay = [];
+/* The date whose team and songs are really on screen. Save and Email refuse
+   anything else, so one Sunday's plan can never land on another. */
+let spPlanShownFor = '';
 let spLeader = '';
 let spAddressBook = [];
 let _spSortableInit = false;
@@ -2163,8 +2166,10 @@ async function spKeyChanged(id) {
 }
 
 async function spLoadRota() {
+  spPlanShownFor = '';
   const date = document.getElementById('spDate').value;
   const snap = await db.collection('events').get();
+  if (document.getElementById('spDate').value !== date) return;
   spEventsForDay = [];
   const seen = {};
   snap.forEach(d => {
@@ -2195,6 +2200,7 @@ async function spSelectEvent() {
   const index = document.getElementById('spEventSelect').value;
   if (index === '') return;
   const data = spEventsForDay[index];
+  spPlanShownFor = '';
   document.getElementById('spTypeNotes').value = data.description || '';
   spLeader = personName(data.assignments?.['Worship Leader']) || 'None';
   document.getElementById('spLeaderName').textContent = spLeader;
@@ -2213,6 +2219,7 @@ async function spSelectEvent() {
 
   const q = db.collection('services').where('date', '==', data.date);
   const snap = await q.get();
+  if (document.getElementById('spDate').value !== data.date) return;
   document.getElementById('sp-order').innerHTML = '';
   // No saved schedule but the plan was emailed: show the emailed order
   // (Martin, 12 Oct 2026).
@@ -2224,6 +2231,7 @@ async function spSelectEvent() {
         saved = { order: (ss.data().items || []).map(it => ({ type: it.type, title: it.title || '', keys: it.keys || [], notes: it.notes || '' })) };
       }
     } catch (e) { console.warn('Could not read the emailed plan', e); }
+    if (document.getElementById('spDate').value !== data.date) return;
   }
   if (saved) {
     document.getElementById('spIntro').value = saved.introText || '';
@@ -2259,11 +2267,13 @@ async function spSelectEvent() {
   }
   spUpdateNumbers();
   spAutoFit();
+  spPlanShownFor = data.date;
 }
 
 async function spSave(quiet) {
   const date = document.getElementById('spDate').value;
   if (!date) { toast('Please select a date first'); return; }
+  if (spPlanShownFor !== date) { toast("This page is still showing another Sunday, or no service is chosen. Choose the service for this date, then try again. If none is listed, add it on the Rota Planner first."); return; }
   const roleNotes = {};
   document.querySelectorAll('#spTeamBody tr').forEach(row => {
     const role = row.children[0].textContent;
@@ -2282,13 +2292,14 @@ async function spSave(quiet) {
     const snap = await db.collection('services').where('date','==',date).get();
     if (!snap.empty) await db.collection('services').doc(snap.docs[0].id).update(serviceData);
     else await db.collection('services').add(serviceData);
-    toast('✓ Service saved');
+    if (!quiet) toast('✓ Service saved');
   } catch(e) { toast('Error saving'); }
   loader(false);
 }
 
 async function spEmail() {
   const date = document.getElementById('spDate').value || 'TBC';
+  if (date !== 'TBC' && spPlanShownFor !== date) { toast("This page is still showing another Sunday, or no service is chosen. Choose the service for this date, then try again. If none is listed, add it on the Rota Planner first."); return; }
   // Sending saves the schedule as well (Martin, 12 Oct 2026).
   if (date !== 'TBC') await spSave(true);
   const serviceNotes = document.getElementById('spTypeNotes').value || '';
@@ -2424,6 +2435,7 @@ function openEditServiceMeta() {
   const wantedLeader = currentService.worshipLeader || '';
 
   $('new-service-date').value      = date;
+  $('new-service-date').dispatchEvent(new Event('input'));
   $('new-service-typenotes').value = currentService.serviceNotes || '';
 
   // Load event types for this date, then select the right one
@@ -2483,6 +2495,7 @@ function openNewServiceModal() {
   const next = new Date(today); next.setDate(today.getDate() + diff);
   const dateStr = next.toISOString().split('T')[0];
   $('new-service-date').value      = dateStr;
+  $('new-service-date').dispatchEvent(new Event('input'));
   $('new-service-typenotes').value = '';
   populateLeaderDropdown('');
   $('service-modal-title').textContent = 'New Service';
