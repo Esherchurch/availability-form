@@ -19,8 +19,7 @@
       "self": "delete",
       "links": [
         { "field": "location.siteId", "to": "sites", "rule": "archive", "why": "Sites are taken out of use, never deleted." },
-        { "field": "location.roomId", "to": "rooms", "rule": "archive", "why": "Rooms are taken out of use, never deleted." },
-        { "field": "seriesId", "to": "calEvents", "rule": "keep-history", "why": "The other events of a series stand alone when one goes." }
+        { "field": "location.roomId", "to": "rooms", "rule": "archive", "why": "Rooms are taken out of use, never deleted." }
       ]
     },
     "calEvents/*/ticketTypes": {
@@ -74,8 +73,7 @@
       "what": "A sign-up to several events of a series at once.",
       "self": "delete",
       "links": [
-        { "field": "calEventIds", "array": true, "to": "calEvents", "rule": "keep-history", "why": "The sign-up stands for the events still there." },
-        { "field": "seriesId", "to": "calEvents", "rule": "keep-history", "why": "As above." }
+        { "field": "calEventIds", "array": true, "to": "calEvents", "rule": "keep-history", "why": "The sign-up stands for the events still there." }
       ]
     },
     "eventInvites": {

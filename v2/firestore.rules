@@ -2461,7 +2461,14 @@ service cloud.firestore {
     }
 
     match /formResponses/{rid} {
-      allow get: if true;
+      // Answers are often about children: never read by the record's id
+      // alone. The people who work with the form, the event's leaders, and
+      // the signed-in person it is about; a parent with the link asks the
+      // server, which checks the link's key (functions/form-answers.js).
+      allow get: if formsOffice(resource.data.formId, resource.data.siteId) || kidsFormOf(resource.data.siteId, resource.data.formId)
+                 || isEventLeader(resource.data.get('calEventId', ''))
+                 || (active() && resource.data.get('personKind', '') == 'addressBook' && resource.data.get('personId', '') != ''
+                     && resource.data.get('personId', '') == me().get('memberId', ''));
       allow list: if formsOffice(resource.data.formId, resource.data.siteId) || kidsFormOf(resource.data.siteId, resource.data.formId);
       allow create: if request.resource.data.keys().hasOnly(['formId', 'formVersion', 'requestKey', 'calEventId',
                                  'personKind', 'personId', 'email', 'name', 'subjects', 'siteId', 'answers',
@@ -2485,7 +2492,11 @@ service cloud.firestore {
     }
 
     match /sensitiveResponses/{secret} {
-      allow get: if true;
+      // The medical half: the same people as may list it. The parent sees
+      // theirs through the server, with the link's key and the email's
+      // secret together (functions/form-answers.js).
+      allow get: if isMaster() || sgLeadOf(resource.data.siteId) || isEventLeader(resource.data.get('calEventId', ''))
+                 || kidsFormOf(resource.data.siteId, resource.data.formId);
       // Stage 3: the leaders of the event it was given for, too.
       allow list: if isMaster() || sgLeadOf(resource.data.siteId) || isEventLeader(resource.data.get('calEventId', ''))
                   || kidsFormOf(resource.data.siteId, resource.data.formId);
@@ -3971,8 +3982,18 @@ service cloud.firestore {
     // Reserved once and never changed, so two families can never share one,
     // even from two desks at the same moment. A number and a family id, no
     // names: the number is shown on a public screen anyway.
+    function kidsScreenNoReader(d) {
+      return kidsLead(d.siteId) || kidsSessionLeaderNow(d.siteId)
+             || (kidsGroupLeader(d.get('groupId', ''))
+                 && get(/databases/$(database)/documents/kidsGroups/$(d.get('groupId', ''))).data.get('siteId', '') == d.siteId);
+    }
     match /kidsScreenNos/{id} {
-      allow read: if active();
+      // Read by those who check children in: the site's children's leads,
+      // today's session leader, and a group leader for their own group's
+      // numbers. A number nobody holds yet may be looked at (there is
+      // nothing in it), so a desk can see it is free.
+      allow get: if resource == null || kidsScreenNoReader(resource.data);
+      allow list: if kidsScreenNoReader(resource.data);
       allow create: if request.resource.data.keys().hasOnly(['siteId', 'day', 'n', 'familyId', 'groupId', 'at'])
                     && request.resource.data.siteId is string && request.resource.data.n is string && request.resource.data.n.matches('[0-9]{3}')
                     && request.resource.data.day is string && request.resource.data.day.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}')

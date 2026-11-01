@@ -459,12 +459,6 @@
      "to": "rooms",
      "rule": "archive",
      "why": "Rooms are taken out of use, never deleted."
-    },
-    {
-     "field": "seriesId",
-     "to": "calEvents",
-     "rule": "keep-history",
-     "why": "The other events of a series stand alone when one goes."
     }
    ]
   },
@@ -583,12 +577,6 @@
      "to": "calEvents",
      "rule": "keep-history",
      "why": "The sign-up stands for the events still there."
-    },
-    {
-     "field": "seriesId",
-     "to": "calEvents",
-     "rule": "keep-history",
-     "why": "As above."
     }
    ]
   },

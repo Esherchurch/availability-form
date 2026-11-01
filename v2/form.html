@@ -16,7 +16,7 @@
 <script src="egbc-email.js?v=202610212000"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610281600"></script>
-<script src="egbc-events-checkin.js?v=202610152300"></script>
+<script src="egbc-events-checkin.js?v=202611011800"></script>
 <script src="egbc-events-forms.js?v=202610291200"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -77,6 +77,11 @@
   var F = window.EGBCForms, E = window.EGBCEvents, esc = E.esc;
   var P = new URLSearchParams(location.search);
   var KEY = P.get('k') || '', SECRET = P.get('s') || '';
+  /* a plain request, as a parent is usually signed out (EGBCAuth.call needs a sign-in) */
+  function answers() {
+    return fetch(EGBCAuth.functionUrl('formAnswers'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: { key: KEY, secret: SECRET } }) })
+      .then(function (r) { return r.json(); }).then(function (j) { if (!j || j.error) throw new Error((j && j.error && j.error.message) || 'refused'); return j.result || {}; });
+  }
   var REQ = null, FORM = null, PREFILL = {}, ROWS = {};
 
   function db() { return EGBCAuth.db; }
@@ -373,23 +378,21 @@
                 : '<p><a class="btn" href="login.html" id="signInFirst">Sign in to fill it in</a></p>') + '</div>');
       return;
     }
+    /* What was sent comes from the server, which checks this link's key (and
+       the email's secret for the medical half): answers about children are
+       never read by their record's id alone. */
     if (REQ.status === 'done') {
-      var rid = REQ.responseId;
-      return Promise.all([
-        db().collection('formResponses').doc(rid).get(),
-        SECRET ? db().collection('sensitiveResponses').doc(SECRET).get() : Promise.resolve(null)
-      ]).then(function (r) {
-        if (!r[0].exists) throw new Error('missing');
-        var sens = r[1] && r[1].exists && r[1].data().responseId === rid ? r[1].data() : null;
-        if (REQ.confirmedStillCorrect || SECRET) return drawView(r[0].data(), sens);
+      return answers().then(function (a) {
+        if (!a.response) throw new Error('missing');
+        if (REQ.confirmedStillCorrect || SECRET) return drawView(a.response, a.sensitive);
         wrap('<div class="card">' + header() + '<div class="banner ok" style="margin-top:12px">' + ico('check', 15) +
           ' This form was sent on ' + esc(E.fmtDate(REQ.completedAt)) + '. Thank you.</div>' +
           '<p class="meta">To see what you sent, use the link in your "form received" email.</p></div>');
       });
     }
     if (REQ.status === 'reuse' && REQ.reuseOf) {
-      return db().collection('formResponses').doc(REQ.reuseOf).get().then(function (r) {
-        if (r.exists) return drawReuse(r.data());
+      return answers().then(function (a) {
+        if (a.reuse) return drawReuse(a.reuse);
         drawForm();
       });
     }

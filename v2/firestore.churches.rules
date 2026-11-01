@@ -1132,7 +1132,10 @@ allow update: if (formsOffice(resource.data.formId, resource.data.siteId) && req
 || getAfter(/databases/$(database)/documents/churches/$(cid)/formResponses/$(request.resource.data.responseId)).data.requestKey == key));
 }
 match /formResponses/{rid} {
-allow get: if true;
+allow get: if formsOffice(resource.data.formId, resource.data.siteId) || kidsFormOf(resource.data.siteId, resource.data.formId)
+|| isEventLeader(resource.data.get('calEventId', ''))
+|| (active() && resource.data.get('personKind', '') == 'addressBook' && resource.data.get('personId', '') != ''
+&& resource.data.get('personId', '') == me().get('memberId', ''));
 allow list: if formsOffice(resource.data.formId, resource.data.siteId) || kidsFormOf(resource.data.siteId, resource.data.formId);
 allow create: if request.resource.data.keys().hasOnly(['formId', 'formVersion', 'requestKey', 'calEventId',
 'personKind', 'personId', 'email', 'name', 'subjects', 'siteId', 'answers',
@@ -1152,7 +1155,8 @@ allow update: if false;
 allow delete: if isMaster();
 }
 match /sensitiveResponses/{secret} {
-allow get: if true;
+allow get: if isMaster() || sgLeadOf(resource.data.siteId) || isEventLeader(resource.data.get('calEventId', ''))
+|| kidsFormOf(resource.data.siteId, resource.data.formId);
 allow list: if isMaster() || sgLeadOf(resource.data.siteId) || isEventLeader(resource.data.get('calEventId', ''))
 || kidsFormOf(resource.data.siteId, resource.data.formId);
 allow create: if (isMaster() || sgLeadOf(request.resource.data.siteId))
@@ -2130,8 +2134,14 @@ return siteId is string && siteId != '' && formId is string && formId != ''
 && kidsSettingsOf(siteId).get('formId', '') == formId
 && kidsLead(siteId);
 }
+function kidsScreenNoReader(d) {
+return kidsLead(d.siteId) || kidsSessionLeaderNow(d.siteId)
+|| (kidsGroupLeader(d.get('groupId', ''))
+&& get(/databases/$(database)/documents/churches/$(cid)/kidsGroups/$(d.get('groupId', ''))).data.get('siteId', '') == d.siteId);
+}
 match /kidsScreenNos/{id} {
-allow read: if active();
+allow get: if resource == null || kidsScreenNoReader(resource.data);
+allow list: if kidsScreenNoReader(resource.data);
 allow create: if request.resource.data.keys().hasOnly(['siteId', 'day', 'n', 'familyId', 'groupId', 'at'])
 && request.resource.data.siteId is string && request.resource.data.n is string && request.resource.data.n.matches('[0-9]{3}')
 && request.resource.data.day is string && request.resource.data.day.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}')

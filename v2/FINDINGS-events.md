@@ -13733,3 +13733,27 @@ Each function checks `usesPart` and does nothing for a church with that part off
 3. **`formResponses` and `sensitiveResponses` can be fetched by anyone who has the record's id** (`allow get: if true`), signed out included. Listing them is refused, so it relies on the id being a secret.
    - For sensitive answers (health, consent), a link that leaks in an email or a log opens them.
    - Could a fetch also require the request key, or sign-in for the sensitive ones? *Right for each person; should fix.*
+
+### F-323 — Stage 1's three: form answers only by the link's key or sign-in; screen numbers only for those checking children in; no seriesId links (the reviewing window) (the events window, 1 Nov)
+
+1. **Form answers (children's data, done first).**
+   - **Before:** anyone could fetch `formResponses` and `sensitiveResponses` signed out with a record's id (`get: if true`).
+   - **Who may now `get` an answer:**
+     - the people who work with the form: its team's admins, master admins, and the site's safeguarding lead;
+     - the children's leads, for the registration form;
+     - the event's leaders;
+     - the signed-in person it's about (`personKind: addressBook`, their member id).
+   - **The medical half:** the same people as may list it.
+   - **A parent with the link** now asks the new callable **`formAnswers`** (functions/form-answers.js). It gives the answers only to the request key they were given for, and the medical half only with the email's secret as well. The church comes from the page's address, not from the request. form.html uses it, with a plain request, as a parent is usually signed out.
+2. **`kidsScreenNos`.**
+   - **Before:** any active member could read it.
+   - **Now read by:** the site's children's leads (with master admins and the safeguarding lead), today's session leader, and a group leader for their own group's numbers.
+   - **Free numbers:** a number nobody holds may still be looked at, so a desk can see it's free.
+   - **The check-in desk:** for a group leader it asks for their group's numbers, and treats a number it may not read as taken (egbc-events-checkin.js).
+3. **data-map/events.json:** both `seriesId` links are gone (calEvents and seriesSignups). It's a label a series shares, not a record's id. The joined map is rebuilt.
+
+- **Rules:** both rulesets are rebuilt. They go live when the hub goes live.
+- **Checked:**
+  - screenshots/events/form-privacy.check.mjs: 11/11 on the emulator (signed out refused for both halves; another member refused; the lead and the signed-in parent allowed; screen numbers as above);
+  - formAnswers: 3/3 (key and secret give both halves; no secret, no medical half; another request's key gets nothing).
+- **For main:** app.html loads egbc-events-checkin.js at `202610152300`. Please make it `202611011800`. index.js has one new export line (form-answers.js).

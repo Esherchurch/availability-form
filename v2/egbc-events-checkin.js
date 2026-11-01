@@ -261,7 +261,14 @@
      right to reserve). Resolves with the number, as three digits. */
   function screenNoFor(siteId, day, familyId, groupId) {
     var col = db().collection('kidsScreenNos');
-    return col.where('siteId', '==', siteId).where('day', '==', day).get().then(function (s) {
+    /* A group leader may read only their own group's numbers (the rules); the
+       leads and the session leader read the whole site's. Another group's
+       number shows up below as one this desk may not read: taken. */
+    var site = col.where('siteId', '==', siteId).where('day', '==', day);
+    return site.get().catch(function (e) {
+      if (!groupId || !/permission/i.test(String((e && (e.code || e.message)) || ''))) throw e;
+      return site.where('groupId', '==', groupId).get();
+    }).then(function (s) {
       var taken = {}, mine = '';
       s.forEach(function (d) { var v = d.data(); if (v.familyId === familyId) mine = v.n; else taken[v.n] = true; });
       if (mine) return mine;
@@ -277,6 +284,10 @@
             tx.set(ref, { siteId: siteId, day: day, n: n, familyId: familyId, groupId: groupId || '', at: now() });
             return n;
           });
+        }).catch(function (e) {
+          /* another group's number, which this desk may not read: try another */
+          if (/permission/i.test(String((e && (e.code || e.message)) || ''))) { taken[n] = true; return ''; }
+          throw e;
         }).then(function (got) {
           if (got) return got;
           if (++tries > 25) throw new Error('Could not find a free screen number.');
