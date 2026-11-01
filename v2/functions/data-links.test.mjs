@@ -7,6 +7,10 @@ import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { tidyChildren, holdParents, blockersOf, londonDay } from './data-links.js';
 import { scopedDb } from './church-scope.js';
+import { sweepLink } from './orphan-sweep.js';
+import { readFileSync } from 'node:fs';
+
+const MAP = JSON.parse(readFileSync(new URL('./data-map.json', import.meta.url), 'utf8')).collections;
 
 if (!process.env.FIRESTORE_EMULATOR_HOST) { console.error('Run on the emulator.'); process.exit(2); }
 initializeApp({ projectId: 'demo-data-links' });
@@ -60,6 +64,17 @@ for (const cid of [null, 'st-aidans-test']) {
   ok(b1.status === 'cancelled' && b0.status === 'confirmed', who + 'the booking to come is cancelled; the past one stays');
   const day = (await D.collection('roomDays').doc('hallA_' + future).get()).data().slots;
   ok(day[40] === 0 && day[43] === 0, who + 'its quarter-hours are given back once (run twice)');
+
+  /* Availability answers outlive their rota date, deleted by the page or found by the nightly sweep. */
+  await D.collection('availability').doc('a1').set({ eventId: 'r1', memberId: 'm1', status: 'available' });
+  await D.collection('availability').doc('a2').set({ eventId: 'r2', memberId: 'm1', status: 'unavailable' });
+  await tidyChildren(D, 'events', 'r1', { title: 'Sunday 9 November' });
+  const a1 = (await D.collection('availability').doc('a1').get()).data();
+  ok(a1 && a1.status === 'available' && a1.parentGone.eventId.name === 'Sunday 9 November', who + 'keep-history: an availability answer stays when its rota date is deleted, marked with the date');
+  const link = MAP.availability.links.find((l) => l.field === 'eventId');
+  const swept = await sweepLink({ db: D, child: 'availability', link, known: new Map() });
+  const a2 = (await D.collection('availability').doc('a2').get()).data();
+  ok(swept.orphans >= 1 && a2 && a2.parentGone && a2.parentGone.eventId, who + 'orphanSweep marks an answer whose date is gone, and keeps it');
 }
 console.log(bad ? bad + ' failed' : 'all passed');
 process.exit(bad ? 1 : 0);

@@ -2110,8 +2110,8 @@
     {
      "field": "eventId",
      "to": "events",
-     "rule": "cascade",
-     "why": "An answer for a date no longer on the rota means nothing."
+     "rule": "keep-history",
+     "why": "Kept as history: a date deleted by mistake can't be undone, and the answers are small. Removed only by retention, two years after the date went (retention.html)."
     },
     {
      "field": "memberId",

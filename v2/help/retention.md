@@ -16,6 +16,12 @@ This page lists form answers whose time is up. Each form says how long its answe
 1. Look under **Due in the next 30 days**.
 2. These cannot be deleted yet. They move to **Due now** when their day comes.
 
+## Delete old availability answers
+When a rota date is deleted, people's answers for it are kept as history. They are kept for two years from the day the date went, or for as long as the register's **Rota availability answers** row says.
+1. Look under **Availability answers for removed rota dates**.
+2. Press **Delete these answers**.
+3. Say yes to the question. Who did it, and how many went, is kept in the log.
+
 ## Check the forms against the register
 1. Look under **What the register says**. It lists how long each kind of record is kept.
 2. If a form keeps its answers longer than the register says, a yellow note names it.

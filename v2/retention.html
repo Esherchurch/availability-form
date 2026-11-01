@@ -16,7 +16,7 @@
 <script src="egbc-guard.js?v=202611011200" data-admin="any"></script>
 <script src="egbc-ics.js?v=202610091200"></script>
 <script src="egbc-events.js?v=202610281600"></script>
-<script src="egbc-data-records.js?v=202610301000"></script>
+<script src="egbc-data-records.js?v=202611012200"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -67,7 +67,7 @@
   'use strict';
   var E = window.EGBCEvents, esc = E.esc;
   var DR = window.EGBCDataRecords;
-  var DUE = [], SOON = [], FORMS = {}, ASSETS = null;
+  var DUE = [], SOON = [], FORMS = {}, ASSETS = null, OLD_ANSWERS = [];
 
   function db() { return EGBCAuth.db; }
   function icons() { if (window.EGBCUI && EGBCUI.icons) EGBCUI.icons(); }
@@ -117,19 +117,45 @@
       }).join('') + '</div>';
   }
 
+  /* Availability answers stay when their rota date is deleted (the data
+     map's keep-history), marked with when the date went. They go here once
+     the register's period for them has passed, counted from that day. */
+  function answersCard() {
+    var yrs = Math.round(DR.availabilityDays(ASSETS) / 365 * 10) / 10;
+    return '<div class="card" id="oldAnswers"><h2><span class="badge">' + ico('calendar-x', 17) + '</span>Availability answers for removed rota dates<span class="spacer"></span><span class="hint">' + OLD_ANSWERS.length + '</span></h2>' +
+      (OLD_ANSWERS.length ? '<p class="hint">' + OLD_ANSWERS.length + ' answer' + (OLD_ANSWERS.length === 1 ? '' : 's') + ' for dates removed from the rota more than ' + yrs + ' years ago.</p>' +
+        '<div style="margin-top:14px"><button class="btn danger" id="delAnswers">' + ico('trash-2') + 'Delete these answers</button></div>'
+        : '<p class="hint">None is due. Answers for a removed date are kept ' + yrs + ' years from the day it went.</p>') + '</div>';
+  }
+  function delAnswers() {
+    var n = OLD_ANSWERS.length;
+    if (!n || !confirm('Delete ' + n + ' availability answer' + (n === 1 ? '' : 's') + ' for removed rota dates? This cannot be undone.')) return;
+    var btn = document.getElementById('delAnswers'); btn.disabled = true;
+    var gone = 0;
+    OLD_ANSWERS.reduce(function (p, d) { return p.then(function () { return d.ref.delete().then(function () { gone++; }); }); }, Promise.resolve()).then(function () {
+      var u = EGBCAuth.user() || {}, p = EGBCAuth.profile() || {};
+      return db().collection('retentionLog').add({ by: u.uid || '', byName: p.name || '', at: new Date().toISOString(), availability: gone });
+    }).then(function () {
+      toast('Deleted ' + gone + ' availability answers.');
+      return load();
+    }).catch(function (e) { btn.disabled = false; toast('Stopped after ' + gone + ': ' + (e.message || e)); });
+  }
+
   function draw() {
     document.getElementById('wrap').innerHTML =
       '<h1>Due for deletion</h1>' +
-      '<p class="sub">Form answers whose time is up, by the period each form sets. Nothing is deleted until you confirm it here.</p>' +
+      '<p class="sub">Form answers whose time is up, by the period each form sets, and availability answers for rota dates removed long ago. Nothing is deleted until you confirm it here.</p>' +
       '<div class="banner info">Look at this once a month. Incidents and concerns are not on this list: they are kept.</div>' +
       '<div class="card"><h2><span class="badge">' + ico('archive', 17) + '</span>Due now<span class="spacer"></span><span class="hint">' + DUE.length + '</span></h2>' +
         (DUE.length ? DUE.map(function (r) { return line(r, true); }).join('') +
           '<div style="margin-top:14px"><button class="btn danger" id="del">' + ico('trash-2') + 'Delete the ticked answers</button></div>'
           : '<p class="hint">Nothing is due.</p>') + '</div>' +
       '<div class="card"><h2><span class="badge">' + ico('calendar-clock', 17) + '</span>Due in the next 30 days<span class="spacer"></span><span class="hint">' + SOON.length + '</span></h2>' +
-        (SOON.length ? SOON.map(function (r) { return line(r, false); }).join('') : '<p class="hint">Nothing.</p>') + '</div>' + registerCard();
+        (SOON.length ? SOON.map(function (r) { return line(r, false); }).join('') : '<p class="hint">Nothing.</p>') + '</div>' + answersCard() + registerCard();
     var b = document.getElementById('del');
     if (b) b.onclick = del;
+    var a = document.getElementById('delAnswers');
+    if (a) a.onclick = delAnswers;
     icons();
   }
 
@@ -170,6 +196,9 @@
       db().collection('infoAssets').get().then(function (s) { return s.docs.map(function (d) { return d.data(); }); }, function () { return null; })
     ]).then(function (r) {
       ASSETS = r[2];
+      var cut = new Date(Date.now() - DR.availabilityDays(ASSETS) * 864e5).toISOString();
+      return db().collection('availability').where('parentGone.eventId.at', '<=', cut).get().then(function (s) { OLD_ANSWERS = s.docs; return r; });
+    }).then(function (r) {
       r[1].docs.forEach(function (d) { FORMS[d.id] = d.data(); });
       var all = r[0].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); })
         .sort(function (a, b) { return String(a.deleteAfter).localeCompare(String(b.deleteAfter)); });

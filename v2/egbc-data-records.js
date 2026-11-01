@@ -25,6 +25,7 @@
      DR.LAWFUL, DR.SUBJECTS, DR.REQUEST_KINDS
      DR.SEED                        the hub's own starter register
      DR.missing(assets)             starter rows a started register hasn't got yet
+     DR.availabilityDays(assets)    days availability answers are kept after their date goes (730 without a row)
      DR.keepWords(retention)        "2 years from the last time it is used, then reviewed"
      DR.formMonths(assets)          the register's months for form answers (or 0)
      DR.requestDue(r)               the date a request must be answered by
@@ -61,7 +62,9 @@
     A('Giving and Gift Aid', ['regularGifts', 'signupPayments', 'paymentEvents', 'giftAid'], 'Taking gifts and claiming Gift Aid', 'legal', ['donors'], ['name', 'address', 'amounts', 'Gift Aid declaration'], ['The treasurer', 'The church office'], Y(6, 'created', 'delete'), { processors: [GOOGLE, 'The card and bank payment providers', 'HMRC (Gift Aid claims)'] }),
     A('Newsletter subscribers', ['enewsSubscribers'], 'Sending the e-news to people who asked for it', 'consent', ['subscribers'], ['name', 'email'], ['The communications team'], { keepFor: 0, from: 'lastActivity', then: 'delete' }, { processors: [GOOGLE, 'The email sender'] }),
     A('Pastoral care and prayer requests', ['worries', 'prayers'], 'Caring for people and praying for them, as they ask', 'consent', ['members', 'visitors'], ['name', 'what they asked'], ['The named pastoral team only'], Y(2, 'lastActivity', 'review'), RELIGIOUS),
-    A('Rotas', ['services', 'availability', 'rotaExceptions'], 'Planning who serves when', 'legitimate', ['volunteers'], ['name', 'availability'], ['Team leaders'], Y(1, 'lastActivity', 'delete')),
+    A('Rotas', ['services', 'rotaExceptions'], 'Planning who serves when', 'legitimate', ['volunteers'], ['name'], ['Team leaders'], Y(1, 'lastActivity', 'delete')),
+    /* Answers are kept when their date is deleted (a date deleted by mistake can't be undone), so they have their own period, counted from when the date went; retention.html deletes them. */
+    A('Rota availability answers', ['availability'], 'Planning who serves when, and the history of who said they could', 'legitimate', ['volunteers'], ['name', 'available or not, for each date'], ['Team leaders'], Y(2, 'eventEnd', 'delete'), { retentionKey: 'availability' }),
     A('Health and safety: fire roll call and evacuation plans', ['fireRollCall', 'peeps'], 'Getting everyone out safely in a fire', 'legal', ['members', 'volunteers'], ['name', 'help needed to get out'], ['The office', 'Fire safety leads'], Y(1, 'lastActivity', 'review'),
       { specialCategory: true, specialCondition: 'Health: to protect their life (vital interests), and consent' }),
     A('Working alone', ['loneVisits'], 'Making sure someone working alone in a building is safe', 'legitimate', ['volunteers', 'members'], ['name', 'phone', 'building', 'times in and out'], ['The building’s contacts', 'The office'], { keepFor: 30, from: 'created', then: 'delete' }),
@@ -85,6 +88,12 @@
   function formMonths(assets) {
     var a = (assets || []).filter(function (x) { return !x.archived && (x.retentionKey === 'formResponses' || (x.collections || []).indexOf('formResponses') >= 0); })[0];
     return a && a.retention && a.retention.keepFor ? Math.max(1, Math.round(a.retention.keepFor / 365 * 12)) : 0;
+  }
+  /* availability answers' row: only its own (retentionKey 'availability'). A register started before that row
+     lists them under Rotas at one year, which would delete answers the church decided to keep for two. */
+  function availabilityDays(assets) {
+    var a = (assets || []).filter(function (x) { return !x.archived && x.retentionKey === 'availability'; })[0];
+    return a && a.retention && a.retention.keepFor ? a.retention.keepFor : 730;
   }
 
   function addDays(day, n) { var p = String(day).slice(0, 10).split('-').map(Number); return new Date(Date.UTC(p[0], p[1] - 1, p[2] + n)).toISOString().slice(0, 10); }
@@ -110,7 +119,7 @@
     return { rag: 'red', words: 'Decide whether to tell the ICO within 72 hours of finding it: ' + Math.max(0, Math.floor(left)) + ' hours left' };
   }
 
-  var api = { LAWFUL: LAWFUL, SUBJECTS: SUBJECTS, REQUEST_KINDS: REQUEST_KINDS, BREACH_KINDS: BREACH_KINDS, SEED: SEED, missing: missing, keepWords: keepWords, formMonths: formMonths,
+  var api = { LAWFUL: LAWFUL, SUBJECTS: SUBJECTS, REQUEST_KINDS: REQUEST_KINDS, BREACH_KINDS: BREACH_KINDS, SEED: SEED, missing: missing, keepWords: keepWords, formMonths: formMonths, availabilityDays: availabilityDays,
     requestDue: requestDue, requestState: requestState, breachDeadline: breachDeadline, breachState: breachState, addMonths: addMonths };
   global.EGBCDataRecords = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
