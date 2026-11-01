@@ -1168,12 +1168,18 @@ window.emailSchedule = async () => {
         var s = document.getElementById(o.eventSelect);
         var hit = s && Array.prototype.filter.call(s.options, function (op) { return op.value !== '' && op.text.indexOf(type) === 0; })[0];
         if (hit) { if (s.value !== hit.value) { s.value = hit.value; fire(s); } return; }
-        if (++n < 40) setTimeout(look, 100);
+        if (++n < 150) setTimeout(look, 100);
       })();
+    }
+    /* The list still holds the date being left until the page has read the new
+       one, so empty it first: pickType must only ever see the new date's services. */
+    function clearServices() {
+      var s = o.eventSelect && document.getElementById(o.eventSelect);
+      if (s) { while (s.options.length > 1) s.remove(1); s.selectedIndex = 0; }
     }
     function choose(v) {
       var bits = String(v).split('|'), date = bits[0], type = bits.slice(1).join('|');
-      if (input.value !== date) { input.value = date; fire(input); } else sync();
+      if (input.value !== date) { clearServices(); input.value = date; fire(input); } else sync();
       paintDate(input);
       pickType(type);
     }
