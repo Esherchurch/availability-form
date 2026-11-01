@@ -29,6 +29,7 @@ const { getFirestore } = fnRequire('firebase-admin/firestore');
 const url = (f) => path.join(HERE, '..', 'functions', f).replace(/\\/g, '/').replace(/^([A-Za-z]):/, 'file:///$1:');
 const { splitOne, serviceKinds, isMeeting } = await import(url('meeting-split.js'));
 const { scopedDb } = await import(url('church-scope.js'));
+const { mayGuessMeetings } = await import(url('egbc-tidying.js'));
 
 const args = process.argv.slice(2);
 const opt = (k) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : ''; };
@@ -39,13 +40,15 @@ if (!getApps().length) initializeApp({ projectId: PROJECT });
 const db = CHURCH ? scopedDb(getFirestore(), CHURCH) : getFirestore();
 
 const services = await serviceKinds(db);
+/* EGBC's top level before going live: only the hub's own (marked) meetings. */
+const guess = mayGuessMeetings(CHURCH || null);
 const snap = await db.collection('events').get();
 console.log((APPLY ? 'SPLITTING' : 'DRY RUN, nothing written') + ' (' + PROJECT + (CHURCH ? ', church ' + CHURCH : ', EGBC') + ')');
 let n = 0, done = 0;
 for (const d of snap.docs) {
   const ev = d.data();
-  if (!isMeeting(ev, services)) continue;
-  const r = await splitOne(db, d.id, ev, services, APPLY);
+  if (!isMeeting(ev, services, guess)) continue;
+  const r = await splitOne(db, d.id, ev, services, APPLY, guess);
   if (!r) continue;
   n++;
   console.log('  ' + d.id + '  ' + (ev.date || '?') + ' ' + (ev.type || '') + (r.moved.length ? '  moves: ' + r.moved.join(', ') : '') + (r.flagged ? '  (marked a meeting)' : ''));

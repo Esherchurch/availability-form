@@ -2465,6 +2465,10 @@
     },
     /* A meeting's title or notes changed. */
     setMeetingField: function (id, field, value) {
+      /* The rota's notes box saves on blur, and can be blank for a moment
+         before the meeting's own part has been read: a blank never replaces
+         its words (functions/meeting-split.js keeps the same rule). */
+      if ((field === 'description' || field === 'title') && !String(value == null ? '' : value).trim()) return Promise.resolve();
       var p = {}; p[field] = value; p.updatedAt = new Date().toISOString(); p.updatedBy = (currentUser && currentUser.uid) || '';
       return db.collection('meetings').doc(id).set(p, { merge: true }).then(function () {
         MEETING_CACHE[id] = Object.assign(MEETING_CACHE[id] || {}, p);

@@ -13,8 +13,9 @@
    room and kind (so somebody invited by name, on no team, can open it), because the rules decide "invited" from the teams.
 
    WHAT IS A MEETING: an event marked meeting: true (the pages mark the
-   ones they make), or any event with a video room whose kind is not a
-   service (the church's kinds, churchSettings/services; EGBC's five
+   ones they make), or - except in EGBC's top-level data before the hub
+   goes live (egbc-tidying.js), where only the marked ones count - any
+   event with a video room whose kind is not a service (the church's kinds, churchSettings/services; EGBC's five
    services when nothing is stored). A Sunday with a livestream room is a
    service, not a meeting.
 
@@ -24,6 +25,7 @@
    the meetings already there (a dry run first).
    ===================================================================== */
 const PRIVATE = ['description', 'organiserUid', 'invitees', 'publicTitle'];
+const WORDS = ['description', 'title'];
 const COPY = ['teams', 'date', 'startTime', 'endTime', 'videoRoom', 'type'];
 const EGBC_SERVICES = ['Sunday Morning Worship', 'Evening Carol Service', 'Midnight Service', 'Special Service', 'LOUD Worship'];
 
@@ -32,15 +34,16 @@ export async function serviceKinds(db) {
   return cfg && Array.isArray(cfg.types) && cfg.types.length ? cfg.types.filter((t) => t && t.service).map((t) => t.name) : EGBC_SERVICES;
 }
 
-export function isMeeting(ev, services) {
+export function isMeeting(ev, services, guess = true) {
   if (!ev) return false;
   if (ev.meeting === true) return true;
+  if (!guess) return false;
   return !!ev.videoRoom && !services.includes(ev.type) && ev.whatsOn !== true;
 }
 
 /* -> null (nothing to do) or what it did. */
-export async function splitOne(db, id, ev, services, apply = true) {
-  if (!isMeeting(ev, services)) return null;
+export async function splitOne(db, id, ev, services, apply = true, guess = true) {
+  if (!isMeeting(ev, services, guess)) return null;
   const moving = PRIVATE.filter((k) => ev[k] !== undefined);
   const mref = db.collection('meetings').doc(id), eref = db.collection('events').doc(id);
   const m = (await mref.get()).data() || {};
@@ -51,6 +54,8 @@ export async function splitOne(db, id, ev, services, apply = true) {
   if (!apply) return out;
   const priv = {};
   moving.forEach((k) => { if (k !== 'publicTitle') priv[k] = ev[k]; else if (!m.description && !ev.description) priv.description = ev[k]; });
+  /* A notes box saved on blur sends a blank: it never replaces a meeting's words. */
+  WORDS.forEach((k) => { if (priv[k] !== undefined && !String(priv[k]).trim() && String(m[k] || '').trim()) delete priv[k]; });
   const { FieldValue } = await import('firebase-admin/firestore');
   const batch = db.batch();
   batch.set(mref, Object.assign({}, priv, copy, { updatedAt: new Date().toISOString(), updatedBy: 'meeting-split' }), { merge: true });

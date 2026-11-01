@@ -724,7 +724,8 @@ const permsToday = () => londonDay(new Date());
 export const [meetingSplit, meetingSplitChurch] = twins(onDocumentWritten, 'events/{id}', async (ch, event) => {
   /* A deleted meeting's own part, guest links and sends: the data map's cascade (data-links.js). */
   if (!event.data.after.exists) return null;
-  return splitMeeting(ch.db, event.params.id, event.data.after.data(), await meetingServiceKinds(ch.db));
+  /* EGBC's top level: only the hub's own meetings until it goes live (egbc-tidying.js). */
+  return splitMeeting(ch.db, event.params.id, event.data.after.data(), await meetingServiceKinds(ch.db), true, mayGuessMeetings(ch.id));
 });
 export const [permsOnSettings, permsOnSettingsChurch] = twins(onDocumentWritten, 'churchSettings/{id}', async (ch, event) => {
   if (!['permissions', 'teamJobs'].includes(event.params.id)) return;
@@ -880,6 +881,7 @@ export { meetingRoom, meetingInvite, meetingGuestJoin, meetingCancel } from './m
 export { meetingOwnRoom, meetingOwnRoomChurch } from './meeting-rooms.js';
 import { dbForAddress } from './church-address.js';
 import { splitOne as splitMeeting, serviceKinds as meetingServiceKinds } from './meeting-split.js';
+import { mayGuessMeetings } from './egbc-tidying.js';
 export { orphanSweep } from './orphan-sweep.js';
 export { castVote, voteOpen, voteClose, proxyAppoint, proxyCancel, proxyPeople, voteQuick } from './meetings.js';
 /* A members' meeting keeps a matching meeting, so its votes happen in the call. */

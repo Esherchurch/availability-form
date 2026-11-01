@@ -24,7 +24,8 @@
    Its Daily room ends a day after the meeting.
 
      clashWith(me, others, byType)  -> the meeting that keeps the room, or null
-     settleRoom({ db, daily, cid, id, after, created }) -> the own room's key, or null
+     settleRoom({ db, daily, cid, id, after, created, guess }) -> the own room's key, or null
+                                    (guess false: only an event marked meeting: true)
 
    EVERY MEETING ITS OWN ROOM (Martin's test, 28 Oct 2026: a "Maintenance"
    meeting went out with the Worship Core Team's link). A meeting set up
@@ -46,6 +47,7 @@
 
 import { dailyName, londonMs } from './video.js';
 import { readTeamJobs, teamsFor } from './team-jobs.js';
+import { mayGuessMeetings } from './egbc-tidying.js';
 
 export const roomOf = (ev, byType) => (ev.videoRoom !== undefined ? ev.videoRoom : ((byType || {})[ev.type] || ''));
 export const OWN = (id) => 'm-' + id;
@@ -73,8 +75,11 @@ export function clashWith(me, others, byType) {
   return firsts[0] || null;
 }
 
-export async function settleRoom({ db, daily, cid, id, after, created }) {
+export async function settleRoom({ db, daily, cid, id, after, created, guess = mayGuessMeetings(cid || null) }) {
   if (!after || after.archived || !after.date) return null;
+  /* EGBC's own meetings are the original site's until the hub goes live
+     (egbc-tidying.js): only the hub's are given a room of their own. */
+  if (!guess && after.meeting !== true) return null;
   const vref = db.collection('churchSettings').doc('video');
   const v0 = (await vref.get()).data() || {};
   const room = roomOf(after, v0.byType);
