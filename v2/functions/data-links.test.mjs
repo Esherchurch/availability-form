@@ -7,7 +7,8 @@ import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { tidyChildren, holdParents, blockersOf, londonDay } from './data-links.js';
 import { scopedDb } from './church-scope.js';
-import { sweepLink } from './orphan-sweep.js';
+import { sweepLink, sweepChurch } from './orphan-sweep.js';
+import { EGBC_TIDYING_ON, mayTidy } from './egbc-tidying.js';
 import { readFileSync } from 'node:fs';
 
 const MAP = JSON.parse(readFileSync(new URL('./data-map.json', import.meta.url), 'utf8')).collections;
@@ -76,5 +77,29 @@ for (const cid of [null, 'st-aidans-test']) {
   const a2 = (await D.collection('availability').doc('a2').get()).data();
   ok(swept.orphans >= 1 && a2 && a2.parentGone && a2.parentGone.eventId, who + 'orphanSweep marks an answer whose date is gone, and keeps it');
 }
+/* Until the hub goes live, EGBC's top level is the original site's: the
+   tidying only counts there, and a test church is tidied as normal. Run with
+   the switch as shipped, as the triggers and the nightly sweep use it. */
+ok(EGBC_TIDYING_ON === false && mayTidy(null) === false && mayTidy('st-aidans-test') === true, 'the switch ships off: EGBC is not tidied, a church is');
+for (const cid of [null, 'st-aidans-test']) {
+  const D = scopedDb(root, cid), who = (cid || 'egbc') + ': ', tidy = mayTidy(cid);
+  await D.collection('meetingSends').doc('rm1').set({ to: ['x'] });
+  await D.collection('availability').doc('h1').set({ eventId: 'rm1', memberId: 'm1', status: 'maybe' });
+  const done = await tidyChildren(D, 'events', 'rm1', { title: 'Removed date' }, MAP, 'events', tidy);
+  const sends = (await D.collection('meetingSends').doc('rm1').get()).exists, h1 = (await D.collection('availability').doc('h1').get()).data();
+  if (cid) ok(!sends && h1.parentGone && /^deleted/.test(done.meetingSends), who + 'tidyAfterDelete tidies: the cascade deletes, keep-history marks');
+  else ok(sends && !h1.parentGone && /^would have deleted 1/.test(done.meetingSends) && /^would have kept 1/.test(done.availability), who + 'tidyAfterDelete changes nothing, and says what it would have done: ' + JSON.stringify(done));
+
+  /* The nightly sweep, on a night after its first. */
+  await D.collection('orphanSweeps').doc('2020-01-01').set({ at: 'earlier' });
+  await D.collection('meetingSends').doc('rm2').set({ to: ['y'] });
+  await D.collection('availability').doc('h2').set({ eventId: 'rm2', memberId: 'm1', status: 'maybe' });
+  const sum = await sweepChurch({ db: D, tidy, now: new Date('2026-11-02T03:15:00Z') });
+  const sends2 = (await D.collection('meetingSends').doc('rm2').get()).exists, h2 = (await D.collection('availability').doc('h2').get()).data();
+  if (cid) ok(!sum.reportOnly && sum.fixed > 0 && !sends2 && h2.parentGone, who + 'orphanSweep fixes: ' + sum.fixed + ' of ' + sum.orphans);
+  else ok(sum.reportOnly && sum.dryRun && sum.fixed === 0 && sum.orphans > 0 && sends2 && !h2.parentGone, who + 'orphanSweep only counts (' + sum.orphans + ' orphans, 0 changed) and keeps its report');
+  ok((await D.collection('orphanSweeps').doc('2026-11-02').get()).exists, who + 'the night\'s counts are logged');
+}
+
 console.log(bad ? bad + ' failed' : 'all passed');
 process.exit(bad ? 1 : 0);

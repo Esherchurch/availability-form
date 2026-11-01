@@ -7,12 +7,15 @@
 
    A church's FIRST sweep only counts: years of data may hold old orphans,
    and somebody should read that first report before anything is changed.
-   Every later night fixes. "archive" and "block" links are only counted:
+   Every later night fixes - except in EGBC's top-level data before the hub
+   goes live (egbc-tidying.js): those are still the original site's, so
+   every night there only counts. "archive" and "block" links are only counted:
    the record pointed at is never meant to be deleted, so a missing one is
    a mistake for a person to look at, not something to tidy. */
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getFirestore, FieldPath } from 'firebase-admin/firestore';
 import { eachChurch } from './church-scope.js';
+import { mayTidy } from './egbc-tidying.js';
 import { MAP, valueAt } from './data-links.js';
 
 const PAGE = 500;
@@ -109,25 +112,26 @@ export async function sweepLink({ db, child, link, known, dryRun = false }) {
 
 /**
  * Sweeps every mapped link for one church and keeps the counts.
- * @param {{ db: object, now?: Date, map?: object }} p
- * @returns {Promise<{ dryRun: boolean, orphans: number, fixed: number, links: object[] }>}
+ * @param {{ db: object, now?: Date, map?: object, tidy?: boolean }} p tidy false: count only (EGBC before going live)
+ * @returns {Promise<{ dryRun: boolean, reportOnly: boolean, orphans: number, fixed: number, links: object[] }>}
  */
-export async function sweepChurch({ db, now = new Date(), map = MAP }) {
+export async function sweepChurch({ db, now = new Date(), map = MAP, tidy = true }) {
   const known = new Map();
-  const dryRun = (await db.collection('orphanSweeps').limit(1).get()).empty;
+  const reportOnly = !tidy;
+  const dryRun = reportOnly || (await db.collection('orphanSweeps').limit(1).get()).empty;
   const links = [];
   for (const { child, link } of everyLink(map)) {
     try { links.push(await sweepLink({ db, child, link, known, dryRun })); }
     catch (e) { links.push({ link: child + '.' + link.field + ' -> ' + link.to, error: String(e.message || e) }); }
   }
   const found = links.filter((l) => l.orphans || l.error || l.held);
-  const sum = { dryRun, orphans: found.reduce((n, l) => n + (l.orphans || 0), 0), fixed: found.reduce((n, l) => n + (l.fixed || 0), 0), links: found };
+  const sum = { dryRun, reportOnly, orphans: found.reduce((n, l) => n + (l.orphans || 0), 0), fixed: found.reduce((n, l) => n + (l.fixed || 0), 0), links: found };
   await db.collection('orphanSweeps').doc(now.toISOString().slice(0, 10)).set(Object.assign({ at: now.toISOString() }, sum));
   return sum;
 }
 
 export const orphanSweep = onSchedule({ region: 'europe-west2', schedule: '15 3 * * *', timeZone: 'Europe/London', timeoutSeconds: 540, memory: '512MiB', retryCount: 0 }, async () => {
-  const out = await eachChurch(getFirestore(), ({ db }) => sweepChurch({ db }));
+  const out = await eachChurch(getFirestore(), ({ id, db }) => sweepChurch({ db, tidy: mayTidy(id) }));
   /* Counts only, by church: never a person's details in the logs. */
-  console.log(JSON.stringify(Object.fromEntries(Object.entries(out).map(([c, r]) => [c, r && r.error ? r : { dryRun: r.dryRun, orphans: r.orphans, fixed: r.fixed }]))));
+  console.log(JSON.stringify(Object.fromEntries(Object.entries(out).map(([c, r]) => [c, r && r.error ? r : { dryRun: r.dryRun, reportOnly: r.reportOnly, orphans: r.orphans, fixed: r.fixed }]))));
 });
