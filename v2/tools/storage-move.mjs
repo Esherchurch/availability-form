@@ -41,26 +41,61 @@ const say = (s) => console.log(s);
 
 /* ---- download links -------------------------------------------------- */
 /* A Firebase download link; and the two plain forms, which carry no token. */
-const FIREBASE = /https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/([a-z0-9][a-z0-9._-]+[a-z0-9])\/o\/([^?#"'\s<>]+)(\?[^#"'\s<>]*)?/g;
+const START = 'https://firebasestorage.googleapis.com/v0/b/';
+const WHOLE = /^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/([a-z0-9][a-z0-9._-]+[a-z0-9])\/o\/([^?#]+)(\?[^#]*)?$/;
 const PLAIN = /(storage\.googleapis\.com\/|gs:\/\/)([a-z0-9][a-z0-9._-]+[a-z0-9])(?=\/)/g;
 
 /**
- * The parts of a Firebase download link.
- * @param {string} link @returns {{ bucket: string, path: string, token: string, query: URLSearchParams }|null}
+ * Where the download links are in a stored string. A field that IS a link
+ * (nothing but the link) is taken whole: stored links keep apostrophes
+ * unencoded ("the-father's-house"). Inside longer text, a link runs to what
+ * closes it: the quote that opened an HTML attribute, the bracket of a
+ * CSS url(), or else a space or "<" - so an apostrophe in the link is kept,
+ * and the quote closing the attribute is not swallowed.
+ * @param {string} s @returns {{ start: number, end: number, link: string }[]}
+ */
+export function findLinks(s) {
+  if (s.startsWith(START) && !/\s/.test(s)) return [{ start: 0, end: s.length, link: s }];
+  const out = [];
+  for (let i = s.indexOf(START); i !== -1; i = s.indexOf(START, i + 1)) {
+    const before = s[i - 1];
+    const stop = before === '"' ? /"/ : before === "'" ? /'/ : before === '(' ? /\)/ : /[\s<>"]/;
+    const rest = s.slice(i), m = stop.exec(rest);
+    let end = i + (m ? m.index : rest.length);
+    /* Plain text: a full stop or comma after the link is the sentence's. */
+    if (!/["'(]/.test(before || '')) while (end > i && /[.,;:!?]/.test(s[end - 1])) end--;
+    out.push({ start: i, end, link: s.slice(i, end) });
+  }
+  return out;
+}
+
+/**
+ * The parts of a COMPLETE Firebase download link (the whole string must be
+ * one), or null - so a link is only ever rebuilt from all of itself.
+ * @param {string} link @returns {{ bucket: string, path: string, token: string, query: URLSearchParams, amp: boolean }|null}
  */
 export function parseLink(link) {
-  const m = new RegExp(FIREBASE.source).exec(link);
+  const m = WHOLE.exec(link);
   if (!m) return null;
   let p;
   try { p = decodeURIComponent(m[2]); } catch (e) { return null; }
-  const query = new URLSearchParams((m[3] || '').slice(1));
-  return { bucket: m[1], path: p, token: query.get('token') || '', query };
+  /* In HTML a link's "&" is written "&amp;"; it is read as "&" and written back as it was. */
+  const raw = (m[3] || '').slice(1), amp = raw.includes('&amp;');
+  const query = new URLSearchParams(amp ? raw.replace(/&amp;/g, '&') : raw);
+  return { bucket: m[1], path: p, token: query.get('token') || '', query, amp };
 }
 
-/** A Firebase download link for a bucket, path and query. */
-function buildLink(bucket, p, query) {
+/** A Firebase download link for a bucket, path and query (HTML "&amp;" kept). */
+function buildLink(bucket, p, query, amp) {
   const q = query.toString();
-  return 'https://firebasestorage.googleapis.com/v0/b/' + bucket + '/o/' + encodeURIComponent(p) + (q ? '?' + q : '');
+  return START + bucket + '/o/' + encodeURIComponent(p) + (q ? '?' + (amp ? q.replace(/&/g, '&amp;') : q) : '');
+}
+
+/* A string with each link passed through map (a Map of link -> new link). */
+function replaceLinks(s, map) {
+  let out = '', at = 0;
+  for (const f of findLinks(s)) { out += s.slice(at, f.start) + (map.get(f.link) || f.link); at = f.end; }
+  return out + s.slice(at);
 }
 
 /* Every string inside a Firestore value. */
@@ -137,7 +172,7 @@ async function main() {
       notes.repointed.push(L.path + ' (stored token ' + L.token.slice(0, 8) + '…, file has ' + m.tokens[0].slice(0, 8) + '…)');
       L.query.set('token', m.tokens[0]);
     }
-    return buildLink(GOTO, L.path, L.query);
+    return buildLink(GOTO, L.path, L.query, L.amp);
   }
 
   let docs = 0, changedDocs = 0, changed = 0;
@@ -147,10 +182,10 @@ async function main() {
     const data = d.data() || {};
     const map = new Map();
     for (const s of strings(data, [])) {
-      for (const m of s.matchAll(FIREBASE)) if (!map.has(m[0])) map.set(m[0], await fixLink(m[0]));
+      for (const f of findLinks(s)) if (!map.has(f.link)) map.set(f.link, await fixLink(f.link));
     }
     const plain = (s) => (LEAVE === GOTO ? s : s.replace(PLAIN, (all, pre, b) => (b === LEAVE ? pre + GOTO : all)));
-    const fix = (s) => plain(s.replace(FIREBASE, (all) => map.get(all) || all));
+    const fix = (s) => plain(replaceLinks(s, map));
     const patch = {};
     let n = 0;
     for (const [k, v] of Object.entries(data)) {
@@ -234,23 +269,36 @@ async function copy(from, to, APPLY) {
   if (!APPLY) say(todo ? 'Add --apply to copy them.' : 'Nothing left to copy.');
 }
 
+/**
+ * Why a link didn't open from the new bucket, in words: always a reason.
+ * @param {{ path: string, token: string }} L @param {{ exists: boolean, size: number, tokens: string[] }} m
+ * @param {number|string} status the HTTP answer
+ */
+export function whyNot(L, m, status) {
+  if (!m.exists) return 'not in the new bucket: run copy';
+  if (m.size === 0) return 'the file is empty (0 bytes): upload it again';
+  if (!m.tokens.length) return 'the file has no download key, so it opens only where the rules let anyone read it - and the new bucket has no rules until the switch';
+  if (!L.token) return 'the link carries no download key, so it opens only where the rules let anyone read it - and the new bucket has no rules until the switch';
+  if (!m.tokens.includes(L.token)) return "the link's download key is not the file's current one: run tokens";
+  return 'refused (' + status + ') though the key matches: look at this file in the console';
+}
+
 /* READ ONLY: a sample of stored links, opened from the new bucket. */
 async function check(db, meta, FROM, TO, count) {
   const seen = new Set();
   for await (const d of allDocs(await db.listCollections())) {
-    for (const s of strings(d.data() || {}, [])) for (const m of s.matchAll(FIREBASE)) {
-      const L = parseLink(m[0]);
-      if (L && L.bucket === FROM) seen.add(m[0]);
+    for (const s of strings(d.data() || {}, [])) for (const f of findLinks(s)) {
+      const L = parseLink(f.link);
+      if (L && L.bucket === FROM) seen.add(f.link);
     }
     if (seen.size >= count) break;
   }
   const res = { open: 0, failed: [] };
   for (const link of [...seen].slice(0, count)) {
-    const L = parseLink(link), url = buildLink(TO, L.path, L.query);
+    const L = parseLink(link), url = buildLink(TO, L.path, L.query, false);
     const r = await fetch(url, { headers: { Range: 'bytes=0-0' } }).catch((e) => ({ status: 'error ' + e.message }));
-    const m = await meta(TO, L.path);
-    if (r.status === 200 || r.status === 206) res.open++;
-    else res.failed.push(r.status + '  ' + L.path + (m.exists && L.token && !m.tokens.includes(L.token) ? '  (token not the file\'s current one: run tokens)' : '') + (m.exists && m.size === 0 ? '  (0 bytes)' : ''));
+    if (r.status === 200 || r.status === 206) { res.open++; continue; }
+    res.failed.push(r.status + '  ' + L.path + '  - ' + whyNot(L, await meta(TO, L.path), r.status));
   }
   say('  sampled ' + Math.min(seen.size, count) + ' stored links from London: ' + res.open + ' open');
   if (res.failed.length) say('  did NOT open (' + res.failed.length + '):\n    ' + res.failed.join('\n    '));
