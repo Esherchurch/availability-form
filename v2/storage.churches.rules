@@ -38,6 +38,22 @@ allow write: if stGate() && (request.auth != null
 && request.resource.size < 100 * 1024 * 1024);
 allow delete: if stGate() && (request.auth != null);
 }
+function worshipJobs() {
+return request.auth != null
+&& firestore.exists(/databases/(default)/documents/churches/$(cid)/users/$(request.auth.uid))
+&& firestore.get(/databases/(default)/documents/churches/$(cid)/users/$(request.auth.uid)).data.status == 'active'
+&& (firestore.get(/databases/(default)/documents/churches/$(cid)/users/$(request.auth.uid)).data.get('masterAdmin', false) == true
+|| firestore.get(/databases/(default)/documents/churches/$(cid)/users/$(request.auth.uid)).data.get('jobs', []).hasAny(['worship', 'av', 'youth']));
+}
+match /songs/{songId}/{fileName} {
+allow read: if stGate() && (request.auth != null);
+allow write: if stGate() && (worshipJobs()
+&& request.resource.size < 50 * 1024 * 1024
+&& (request.resource.contentType.matches('application/pdf')
+|| request.resource.contentType.matches('image/.*')
+|| request.resource.contentType.matches('audio/.*')));
+allow delete: if stGate() && (false);
+}
 match /playthrough/{fileName} {
 allow read: if stGate() && (request.auth != null);
 allow write: if stGate() && (request.auth != null

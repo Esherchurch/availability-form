@@ -1,3 +1,4 @@
+import { partOfFeature, on as partOn } from './parts.js';
 /* ===================================================================
    What this church uses: the server's half (one source of truth)
    ===================================================================
@@ -57,9 +58,12 @@ export const FEATURES = [
 ];
 
 /* The answer from the switches as stored - exactly EGBCAuth's usesFeature:
-   a stored true/false wins; otherwise the default; a name nobody listed is
-   on, as before the switches. */
+   off while the whole part it sits in is off (parts.js); then a stored
+   true/false wins; otherwise the default; a name nobody listed is on, as
+   before the switches. */
 export function uses(switches, name) {
+  const part = partOfFeature(name);
+  if (part && !partOn(switches && switches.parts, part)) return false;
   const v = switches && switches[name];
   if (typeof v === 'boolean') return v;
   const f = FEATURES.find((x) => x.name === name);

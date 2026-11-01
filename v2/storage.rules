@@ -94,6 +94,29 @@ service firebase.storage {
     // ── PlayThrough recordings ────────────────────────────────────────
     // Recordings of copyrighted worship songs. Signed-in only — never public.
 
+    // ── Song sheets (the music database) ──────────────────────────────
+    // Uploaded by the batch uploader, Upload Song and the worship and youth
+    // apps: whoever does the worship, AV or youth job (users.jobs, kept by
+    // the server), and master admins. Read by anyone signed in - a page
+    // asks for the download link straight after uploading - and through
+    // the stored links, which carry their own key. Never deleted here.
+    function worshipJobs() {
+      return request.auth != null
+             && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+             && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.status == 'active'
+             && (firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('masterAdmin', false) == true
+                 || firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('jobs', []).hasAny(['worship', 'av', 'youth']));
+    }
+    match /songs/{songId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if worshipJobs()
+                   && request.resource.size < 50 * 1024 * 1024
+                   && (request.resource.contentType.matches('application/pdf')
+                       || request.resource.contentType.matches('image/.*')
+                       || request.resource.contentType.matches('audio/.*'));
+      allow delete: if false;
+    }
+
     match /playthrough/{fileName} {
       allow read: if request.auth != null;
       allow write: if request.auth != null

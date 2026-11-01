@@ -13719,3 +13719,17 @@ Each function checks `usesPart` and does nothing for a church with that part off
   - someone outside the office and finance refused;
   - no phone number in the rows.
 - **For main:** index.js has one new export line (accounts-export.js).
+
+## From the main window, 1 Nov 2026: going-live test stage 1 (the rules), three for you
+
+1. **The 43 "broken" series links (orphan check): the map is wrong, not the data.**
+   - `calEvents.seriesId` is a label every date of a series shares (`'ser_' + E.key(10)`, events-admin.html), not the id of a calEvents record.
+   - So data-map/events.json's link `seriesId → calEvents` can never find a parent, and every one looks orphaned. The sweep's safety stop held them, rightly.
+   - The same goes for the second `seriesId` link in events.json (the series sign-ups).
+   - **Please drop both links** (or name the series' own collection, if one is ever made). *Maintainable; should fix.*
+2. **`kidsScreenNos` can be read by any active member** (`allow read: if active()`). A record holds a 3-digit paging number, a family id and a group id, with no names. It's still more than people outside the children's work need.
+   - Could it be the children's leads, the session leader, the group's leaders and the screen?
+   - *Right for each person; nice to have.* (tests/rules-first-stage.test.mjs principle 3a lists who reads it today.)
+3. **`formResponses` and `sensitiveResponses` can be fetched by anyone who has the record's id** (`allow get: if true`), signed out included. Listing them is refused, so it relies on the id being a secret.
+   - For sensitive answers (health, consent), a link that leaks in an email or a log opens them.
+   - Could a fetch also require the request key, or sign-in for the sensitive ones? *Right for each person; should fix.*

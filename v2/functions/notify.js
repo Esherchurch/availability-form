@@ -549,7 +549,9 @@ async function careSend(deps, { what, uids, email, not }) {
 export async function onWorry(deps, id, w) {
   const { db } = deps;
   if (!w || ['pastoral', 'care', 'safeguarding'].indexOf(w.kind) === -1) return null;
-  if (await featureOff(db, 'care')) return null;
+  /* A safeguarding concern always reaches the lead and deputy, whatever the
+     church has switched off; only the pastoral kinds go with Care. */
+  if (w.kind !== 'safeguarding' && await featureOff(db, 'care')) return null;
   if (!(await once(db, 'worry_' + id, {}, deps.dryRun))) return null;
   const about = w.aboutMemberId ? Object.values(await uidsForMembers(db, [w.aboutMemberId])) : [];
   const not = [w.by].concat(about);
