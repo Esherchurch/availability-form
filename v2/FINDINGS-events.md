@@ -13730,9 +13730,10 @@ Each function checks `usesPart` and does nothing for a church with that part off
 2. **`kidsScreenNos` can be read by any active member** (`allow read: if active()`). A record holds a 3-digit paging number, a family id and a group id, with no names. It's still more than people outside the children's work need.
    - Could it be the children's leads, the session leader, the group's leaders and the screen?
    - *Right for each person; nice to have.* (tests/rules-first-stage.test.mjs principle 3a lists who reads it today.)
-3. **`formResponses` and `sensitiveResponses` can be fetched by anyone who has the record's id** (`allow get: if true`), signed out included. Listing them is refused, so it relies on the id being a secret.
-   - For sensitive answers (health, consent), a link that leaks in an email or a log opens them.
-   - Could a fetch also require the request key, or sign-in for the sensitive ones? *Right for each person; should fix.*
+3. ~~**`formResponses` and `sensitiveResponses` can be fetched by anyone who has the record's id** (`allow get: if true`), signed out included. Listing them is refused, so it relies on the id being a secret.~~
+   - ~~For sensitive answers (health, consent), a link that leaks in an email or a log opens them.~~
+   - ~~Could a fetch also require the request key, or sign-in for the sensitive ones? *Right for each person; should fix.*~~
+   - **Fixed and deployed (F-323).**
 
 ### F-323 — Stage 1's three: form answers only by the link's key or sign-in; screen numbers only for those checking children in; no seriesId links (the reviewing window) (the events window, 1 Nov)
 
