@@ -124,7 +124,13 @@ async function owed(db, fetch, key, now) {
   return sent;
 }
 
+/* "NOT-SET" (the value a secret is created with so deploys run, and every
+   test stand-in in functions/.secret.local) is no key: before, it went to
+   Unsplash as a key, so the emulator could call the real Unsplash. */
+const real = (v) => { const t = String(v == null ? '' : v).trim(); return t && t.toUpperCase() !== 'NOT-SET' ? t : ''; };
+
 export async function runSearch({ db, fetch, key, data = {}, now = Date.now() }) {
+  key = real(key);
   if (!key) throw new Error('Unsplash connects once Church HQ’s key is set.');
   const k = searchKey(data.q, data.page, data.shape);
   if (k.words.length < 2) return { photos: [], total: 0, pages: 0, words: k.words };
@@ -153,6 +159,7 @@ export async function runSearch({ db, fetch, key, data = {}, now = Date.now() })
 
 /* A picture was used: Unsplash's download ping, now or with the next call. */
 export async function runUsed({ db, fetch, key, data = {}, now = Date.now() }) {
+  key = real(key);
   if (!key) throw new Error('Unsplash connects once Church HQ’s key is set.');
   const dl = String(data.downloadLocation || '');
   if (!/^https:\/\/api\.unsplash\.com\/photos\/[A-Za-z0-9_-]{1,40}\/download(\?[A-Za-z0-9=&_.%-]{0,300})?$/.test(dl)) throw new Error('That isn’t an Unsplash photo.');

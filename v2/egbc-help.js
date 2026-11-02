@@ -76,7 +76,8 @@
       '#egbc-help header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #e5e7eb}',
       '#egbc-help header h2{margin:0;font-size:17px;color:#111827}',
       '#egbc-help .x{border:0;background:none;font-size:24px;line-height:1;color:#6b7280;cursor:pointer;min-width:44px;min-height:44px}',
-      '#egbc-help .body{overflow:auto;padding:4px 16px 16px;flex:1}',
+      /* min-height:0, or a long page grows the column and the whole panel scrolls, close button and all (the going-live audit, 2 Nov 2026). */
+      '#egbc-help .body{overflow:auto;padding:4px 16px 16px;flex:1;min-height:0}',
       '#egbc-help .body h2,#egbc-help .body h3,#egbc-help .body h4{color:#111827;margin:18px 0 6px;font-size:16px}',
       '#egbc-help .body h2{font-size:18px}',
       '#egbc-help .body ul,#egbc-help .body ol{padding-left:20px}',

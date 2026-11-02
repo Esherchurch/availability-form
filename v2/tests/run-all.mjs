@@ -22,6 +22,12 @@
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { ensureStandIns } from '../tools/secret-stand-ins.mjs';
+
+/* Before any emulator starts: a test stand-in for every secret, or the
+   functions emulator fetches the live ones (ENGINEERING.md, section 7). */
+const standIns = ensureStandIns();
+if (standIns.length) console.log('Added test stand-ins for: ' + standIns.join(', '));
 
 const HERE = path.resolve('tests');
 const only = (() => {

@@ -78,6 +78,12 @@ async function scenario(U) {
   let threw = '';
   try { await U.runSearch({ db, fetch: F.fetch, key: '', data: { q: 'church' } }); } catch (e) { threw = e.message; }
   t('no key set: it says so, and nothing goes to Unsplash', /key/.test(threw) && F.calls.length === 0, threw);
+  /* "NOT-SET" is a secret made so deploys run, and every emulator stand-in: no key either. */
+  threw = '';
+  try { await U.runSearch({ db, fetch: F.fetch, key: 'NOT-SET', data: { q: 'church hall' } }); } catch (e) { threw = e.message; }
+  let threwUsed = '';
+  try { await U.runUsed({ db, fetch: F.fetch, key: 'NOT-SET', data: { downloadLocation: 'https://api.unsplash.com/photos/abc/download' } }); } catch (e) { threwUsed = e.message; }
+  t('a key of NOT-SET: the same, for searching and for a used picture', /key/.test(threw) && /key/.test(threwUsed) && F.calls.length === 0, threw + ' / ' + threwUsed);
 
   const r = await S({ q: 'Autumn leaves', shape: 'landscape' });
   const call = F.calls[0] || {};

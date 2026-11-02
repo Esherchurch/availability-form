@@ -25,6 +25,20 @@ import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import puppeteer from 'puppeteer-core';
 import { DEFAULT_CORES, coversFor, sharesFor, jobsFor } from '../../functions/core-teams.js';
+import { missingStandIns } from '../../tools/secret-stand-ins.mjs';
+
+/* NO RUN WITHOUT STAND-INS FOR EVERY SECRET (2 Nov 2026): the functions
+   emulator fetches any secret missing from functions/.secret.local from the
+   LIVE project, so a run with one missing reads a real key. Refused here,
+   before anything is seeded or opened (ENGINEERING.md, "Emulators"). */
+{
+  const miss = missingStandIns();
+  if (miss.length) {
+    console.error('REFUSED: no test stand-in in functions/.secret.local for ' + miss.join(', ') + '. '
+      + 'Stop the emulators, run "node tools/secret-stand-ins.mjs" (from v2/), and start them again.');
+    process.exit(2);
+  }
+}
 
 export const V2 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SPARE = JSON.parse(fs.readFileSync(path.join(V2, 'firebase.spare.json'), 'utf8')).emulators;

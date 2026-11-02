@@ -5,7 +5,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202611022300"></script>
-<script src="egbc-church.js?v=202611011200"></script>
+<!-- Opened from the app (?app=1): the app's header and tab bar, not the website's (egbc-appmode.js). -->
+<script src="egbc-appmode.js?v=202611011200"></script>
+<script src="egbc-church.js?v=202611030100"></script>
 <script src="egbc-plan-store.js?v=202610252100"></script>
 <script src="egbc-guard.js?v=202611011200" data-job="worship" data-role="member"></script>
 <meta charset="UTF-8">
@@ -180,6 +182,9 @@ body {
   flex-direction: column;
   padding-top: var(--safe-top);
 }
+/* Opened from the app: between its header and its tab bar, not under them (egbc-appmode.js sets the two heights). */
+[data-egbc-app-mode] #startScreen,
+[data-egbc-app-mode] #songScreen { top: var(--am-top, 60px); bottom: var(--am-bottom, 64px); }
 
 .song-topbar {
   background: var(--white);

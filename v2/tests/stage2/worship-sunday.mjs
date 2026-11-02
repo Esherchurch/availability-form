@@ -1,8 +1,15 @@
 /* GOING-LIVE TEST, STAGE 2: A WORSHIP SUNDAY, START TO FINISH
  * (test-first-stage.md, Stage 2: the checklist journeys).
  *
- *   firebase emulators:exec --config firebase.spare.json --only firestore,auth,storage,functions --project egbc-worship-planner "node tests/stage2/worship-sunday.mjs"
+ *   APPDATA=<empty folder> CLOUDSDK_CONFIG=<empty folder> XDG_CONFIG_HOME=<empty folder> \
+ *     firebase emulators:exec --config firebase.spare.json --only firestore,auth,storage,functions --project egbc-worship-planner "node tests/stage2/worship-sunday.mjs"
  *   ONLY=signin,availability ...   just those journeys
+ *
+ * The empty folders hide this computer's Google sign-in from the emulator.
+ * Without them the functions emulator fetches every secret (Resend, Daily,
+ * Unsplash...) from the live project, and anything it does not emulate
+ * reaches production. With them it says "Unable to access secret", which is
+ * what a test wants.
  *
  * In a browser, with the locked rules, on the spare emulators, made-up people
  * only. Each journey uses the pages the way a person does, in one session:
@@ -247,7 +254,7 @@ JOURNEYS.emailrota = async () => {
   await page.evaluate((t) => { const s = document.getElementById('sendTermSelect'); s.value = t; s.dispatchEvent(new Event('change', { bubbles: true })); }, T.label);
   const before = new Set((await all('emailOutbox')).map((m) => m.id));
   await page.evaluate(() => { window.__asked.length = 0; prepareDistributionPackage(); });
-  const toast = await until(() => page.evaluate(() => { const t = [...document.querySelectorAll('div')].find((d) => /Rotas sent to all|Done: /.test(d.textContent || '') && d.style.position === 'fixed'); return t ? t.textContent : ''; }), 300000);
+  const toast = await until(() => page.evaluate(() => { const t = [...document.querySelectorAll('div')].find((d) => /Rotas sent to all|Done: /.test(d.textContent || '') && d.style.position === 'fixed'); return t ? t.textContent : ''; }), 600000);
   ok('Send all rotas finishes, with no failures (' + toast + ')', /Rotas sent to all/.test(toast || ''), JSON.stringify(await asked(page)) + ' ' + page.__said.join(' | '));
   const conf = (await asked(page)).find((a) => a[0] === 'confirm');
   ok('before sending, it names who is under 18 and not emailed', !!conf && conf[1].includes('Not emailed, because the hub never emails under-18s: ' + P.young.name), conf && conf[1]);
@@ -275,16 +282,39 @@ JOURNEYS.emailrota = async () => {
   const att = (m) => (m.attachments || m.attachmentNames || []).map((a) => typeof a === 'string' ? a : a.filename || a.name);
   ok('each carries the rota PDFs and the calendar file', mail.every((m) => att(m).some((n) => /Individual_Rota\.pdf$/.test(n)) && att(m).some((n) => /My_Rota\.ics$/.test(n))), JSON.stringify(mail.map(att)));
   ok('the subject names the term', mail.every((m) => String(m.subject || '').includes(T.label)), JSON.stringify(mail.map((m) => m.subject)));
-  /* Its links: every link in the email opens a page of this hub that exists. */
-  const links = [...new Set(mail.flatMap((m) => [...String(m.html || '').matchAll(/href="([^"]+)"/g)].map((x) => x[1])))];
-  T.rotaLinks = links;
-  if (!links.length) notReached('the rota email\'s links', 'the email has no links: its body, the PDFs and the .ics attachments carry the rota');
-  for (const l of links) {
-    const page2 = await open(P.singer, l.replace(/^https?:\/\/[^/]+\//, ''));
-    ok('the email\'s link ' + l + ' opens', !(await page2.evaluate(() => document.title + document.body.innerText)).match(/404|not found/i));
-    await page2.close();
-  }
+  /* Its link: "Open your rota", at the church's own address, to the Rota screen of the person's own team jobs. */
+  const hub = await page.evaluate(() => EGBCAuth.call('hubAddress', {}).then((r) => String((r && r.url) || '').replace(/\/?$/, '/')));
+  const linksOf = (m) => [...String(m.html || '').matchAll(/<a href="([^"]+)"[^>]*>Open your rota<\/a>/g)].map((x) => x[1].replace(/&amp;/g, '&'));
+  ok('each email has one "Open your rota" link, at the church\'s own address (' + hub + ')', /^https:\/\//.test(hub) && mail.every((m) => linksOf(m).length === 1 && linksOf(m)[0].startsWith(hub + 'app.html')), JSON.stringify(mail.map(linksOf)));
+  const want = { [P.singer.member]: '#worship:rota', [P.drums.member]: '#worship:rota', [P.sound.member]: '#worship:rota', [P.lead.member]: '#worship:rota' };
+  ok('each opens the Rota screen of that person\'s own teams (worship and AV: #worship:rota)', adults.every((id) => { const m = mail.find((x) => to(x).includes(book[id].email)); return !m || !want[id] || linksOf(m)[0] === hub + 'app.html' + want[id]; }), JSON.stringify(mail.map((m) => [m.to, linksOf(m)])));
+  /* Followed, as Sam on a phone: the app opens on the Rota, with Sam's own dates. */
+  const samMail = mail.find((m) => to(m).includes(P.singer.email));
+  if (samMail) {
+    const link = linksOf(samMail)[0] || '';
+    /* Sam's own phone: a browser of its own, so Wendy's planner tab stays signed in as Wendy. */
+    const p2 = await open(P.singer, link.replace(/^https?:\/\/[^/]+\//, ''), null, true);
+    await p2.setViewport({ width: 390, height: 844 });
+    const mineEv = evs.filter((e) => Object.values(e.assignments || {}).some((r) => (Array.isArray(r) ? r : [r]).some((p) => p.id === P.singer.member))).sort((a, b) => a.date < b.date ? -1 : 1)[0];
+    const [d1, m1] = mineEv ? [new Date(mineEv.date + 'T12:00Z').getUTCDate(), new Date(mineEv.date + 'T12:00Z').toLocaleString('en-GB', { month: 'short', timeZone: 'UTC' })] : [];
+    const shown = await until(() => p2.evaluate(() => { const t = document.querySelector('[data-tab="rota"]'); const x = document.body.innerText.replace(/\s+/g, ' '); return t && t.getAttribute('aria-current') === 'page' && !/Finding the rota/.test(x) ? x : ''; }), 30000) || '';
+    ok('following Sam\'s link opens the app on the Rota, with Sam\'s next date (' + d1 + ' ' + m1 + ')', !!mineEv && shown.includes(d1 + ' ' + m1), shown.slice(0, 300));
+    ok('no errors on the app', !p2.__said.length, p2.__said.join(' | '));
+    await p2.close();
+  } else notReached('following the rota link', 'Sam had no email');
   T.rotaMail = mail;
+  /* One person's rota (Send, by name): the same link; the under-18 is refused by name. */
+  const before1 = new Set((await all('emailOutbox')).map((m) => m.id));
+  await page.evaluate(() => { window.__toasts = []; new MutationObserver(() => document.querySelectorAll('body > div').forEach((d) => { if (d.style.position === 'fixed' && d.textContent && window.__toasts[window.__toasts.length - 1] !== d.textContent) window.__toasts.push(d.textContent); })).observe(document.body, { childList: true, subtree: true, characterData: true }); });
+  await page.evaluate((id) => { window.__confirm = true; window.__asked.length = 0; sendSingleRota(id); }, P.singer.member);
+  const single = await until(async () => (await all('emailOutbox')).filter((m) => !before1.has(m.id) && m.source === 'hub:rota')[0], 300000);
+  ok('one person\'s rota sent by name carries the same link', !!single && linksOf(single)[0] === hub + 'app.html#worship:rota',
+    single ? JSON.stringify(linksOf(single)) : JSON.stringify(await asked(page)) + ' toasts: ' + JSON.stringify(await page.evaluate(() => window.__toasts)) + ' ' + page.__said.join(' | '));
+  const before2 = new Set((await all('emailOutbox')).map((m) => m.id));
+  await page.evaluate((id) => { window.__asked.length = 0; sendSingleRota(id); }, P.young.member);
+  await sleep(1500);
+  const said = (await asked(page)).find((a) => a[0] === 'alert');
+  ok('sending Yan (under 18) his rota by name is refused, saying why', !!said && /never emails under-18s/.test(said[1]) && !(await all('emailOutbox')).some((m) => !before2.has(m.id)), JSON.stringify(await asked(page)));
   console.log('    (outbox row fields: ' + Object.keys(mail[0] || {}).join(', ') + ')');
   ok('no errors on the planner', !page.__said.length, page.__said.join(' | '));
   await page.close();

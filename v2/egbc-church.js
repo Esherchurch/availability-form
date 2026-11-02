@@ -154,7 +154,7 @@
     } catch (e) { /* no sign-in on this page: the public header stays */ }
   }
 
-  var SHELL = 'egbc-shell.js?v=202611011500';
+  var SHELL = 'egbc-shell.js?v=202611030100';
   function hubShell(el) {
     if (document.querySelector('script[src^="egbc-shell.js"]')) return;
     var s = document.createElement('script');

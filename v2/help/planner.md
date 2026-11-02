@@ -65,6 +65,7 @@ Each service is a row. Changes save as you make them.
 2. Choose a term in **Send term**, or leave **All active terms**.
 3. Press **Send all rotas** and say yes.
 4. Each person gets an email with their dates, PDFs of their own rota, their household's rota, a wall planner and the full rota, and calendar files.
+   The email has an **Open your rota** button. It opens their own rota in the hub app, at the church's own address.
 - It will not send until every team has ticked its part as done. It tells you who is still to finish.
 - Anyone under 18 is not emailed: the hub never emails under-18s. Before it sends, and when it has finished, it names them. A child who shares a parent's email address still gets theirs there.
 - The emails and PDFs carry the church's name and logo from Church settings. If none is set, they are left off. Calendar entries start with the church's short name.

@@ -2,14 +2,16 @@
 <html lang="en">
 <head>
 <script src="egbc-nosend.js?v=202611011200"></script>
-<script src="egbc-shell.js?v=202611011500" data-title="Rota Planner"></script>
+<!-- Opened from the app (?app=1): the app's header and tab bar, not the website's (egbc-appmode.js). -->
+<script src="egbc-appmode.js?v=202611011200"></script>
+<script src="egbc-shell.js?v=202611030100" data-title="Rota Planner"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202611022300"></script>
 <script src="egbc-manifest.js?v=202611011200"></script>
 <script src="egbc-video.js?v=202610311600"></script>
-<script src="egbc-church.js?v=202611011200"></script>
+<script src="egbc-church.js?v=202611030100"></script>
 <script src="egbc-guard.js?v=202611011200" data-job="worship,children,youth" data-role="leader"></script>
     <meta charset="UTF-8">
     <link rel="manifest" href="./manifest-planner.json">
@@ -1013,6 +1015,22 @@ ${body}
            parent's address still gets their rota there. */
         const under18Only = (email) => EGBCAuth.under18Only(email, addressBook);
 
+        /* THE LINK TO YOUR OWN ROTA in the rota email (the going-live test,
+           Stage 2): the church's own hub address (hubAddress, made at set-up,
+           never typed) and the app's Rota screen for the team jobs this person
+           is on (egbc-app.js SPACES: worship, kids, youth), else the app's Home.
+           No address means no email: said, never sent without its link. */
+        let hubBase = null;
+        const hubAddress = () => hubBase || (hubBase = EGBCAuth.call('hubAddress', {})
+            .then(r => { const u = String((r && r.url) || ''); return /^https?:\/\//.test(u) ? u.replace(/\/?$/, '/') : ''; }, () => ''));
+        const NO_HUB = "This church's hub address is missing, so the rota emails can't link to it. Nothing was sent. Please tell Church HQ.";
+        const rotaScreenFor = (m) => {
+            const on = (jobs) => jobs.some(j => EGBCAuth.teamsForJob(j).some(t => (m.markers || []).includes(t)));
+            return on(['worship', 'av', 'choir']) ? '#worship:rota' : on(['children']) ? '#kids:rota' : on(['youth']) ? '#youth:rota' : '';
+        };
+        const rotaLink = (base, m) => '<p style="margin:0 0 32px;text-align:center;"><a href="' + escE(base + 'app.html' + rotaScreenFor(m))
+            + '" style="display:inline-block;background:#3d6263;color:#ffffff;font-family:Arial,sans-serif;font-size:15px;font-weight:700;text-decoration:none;padding:13px 26px;border-radius:10px;">Open your rota</a></p>';
+
         /* Everyone in a person's household.
 
            The address book records households two ways. Natasha and Daniel
@@ -1171,6 +1189,8 @@ ${body}
                     + 'anyone on two teams getting a rota with half their duties missing.');
                 return;
             }
+            const base = await hubAddress();
+            if (!base) { alert(NO_HUB); return; }
             if (!confirm(`Send rotas to ${members.length} team members for ${termLabels}?${youngNote}`)) return;
 
             const toast = document.createElement('div');
@@ -1264,6 +1284,7 @@ ${body}
       <tr bgcolor="#f4f9f9"><td style="padding:8px 10px;font-family:Arial,sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#7a9e9f;font-weight:800;">Date &amp; Time</td><td style="padding:8px 10px;font-family:Arial,sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#7a9e9f;font-weight:800;">Role</td></tr>
       ${dateRows}
     </table>
+    ${rotaLink(base, member)}
     <p style="margin:0 0 36px;font-family:Arial,sans-serif;font-size:14px;color:#555555;line-height:1.8;">Your individual rota, household rota, wall planner, full church rota and calendar files (.ics) are all attached. The .ics files can be opened to automatically add your serving dates to Apple Calendar, Google Calendar or Outlook.</p>
     <p style="margin:0 0 36px;font-family:Arial,sans-serif;font-size:14px;color:#555555;line-height:1.8;">If you have any questions or need to swap a date, please don't hesitate to get in touch.</p>`);
 
@@ -1292,6 +1313,8 @@ ${body}
             const member = addressBook.find(m => m.id === memberId);
             if (!member || !member.email) return alert("Member not found or has no email.");
             if (under18Only(member.email)) return alert(`${member.name} is not emailed: the hub never emails under-18s.`);
+            const base = await hubAddress();
+            if (!base) { alert(NO_HUB); return; }
             if (!confirm(`Send rota to ${member.name} (${member.email})?`)) return;
 
             await Promise.all([churchDetails(), svcReady, churchShortName()]);
@@ -1378,6 +1401,7 @@ ${body}
       <tr bgcolor="#f4f9f9"><td style="padding:8px 10px;font-family:Arial,sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#7a9e9f;font-weight:800;">Date &amp; Time</td><td style="padding:8px 10px;font-family:Arial,sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#7a9e9f;font-weight:800;">Role</td></tr>
       ${dateRows}
     </table>
+    ${rotaLink(base, member)}
     <p style="margin:0 0 36px;font-family:Arial,sans-serif;font-size:14px;color:#555555;line-height:1.8;">Your individual rota, household rota, wall planner, full church rota and calendar files (.ics) are all attached.</p>`);
 
                 toast.innerHTML = `Sending to <strong>${member.name}</strong>...`;
@@ -2185,12 +2209,13 @@ ${body}
         <div id="eventList"></div>
     </div>
 
+    <!-- The full guide, above the help button (they shared a corner, and this one could not be tapped). -->
     <a href="rotaplannerinstructions.html"
        target="_blank" rel="noopener noreferrer"
        title="How to use the planner"
-       style="font-family: Inter, system-ui, sans-serif;"
-       class="fixed bottom-6 right-6 w-9 h-9 rounded-full bg-white border-2 border-[#3d6263] text-[#3d6263] flex items-center justify-center font-semibold text-sm shadow-lg hover:bg-[#3d6263] hover:text-white transition-all z-50">
-        ?
+       style="font-family: Inter, system-ui, sans-serif; bottom: 76px; min-height: 44px;"
+       class="fixed right-6 px-4 rounded-full bg-white border-2 border-[#3d6263] text-[#3d6263] flex items-center justify-center font-semibold text-sm shadow-lg hover:bg-[#3d6263] hover:text-white transition-all z-50">
+        Guide
     </a>
 <!-- ================================================================
      THE ROTA PLANNER ON A PHONE (Martin approved the mock, 16 Oct 2026:
@@ -2211,7 +2236,8 @@ ${body}
     #ppBar select, #ppBar button { min-height: 44px; border-radius: 10px; border: 1px solid #d1dfdf; background: #fff; color: #14201f; font: 500 14px Inter, system-ui, sans-serif; padding: 0 12px; }
     #ppBar select { flex: 1; min-width: 0; }
     #ppBar .pp-new { background: #3d6263; border-color: #3d6263; color: #fff; }
-    body.pp-phone > div > header { display: none !important; }
+    /* The planner's own header only: the help panel (#egbc-help) is a div with a header too, and lost its close (the going-live audit). */
+    body.pp-phone > div:not([id^="egbc-"]) > header { display: none !important; }
     #ppScrim.on { display: block; position: fixed; inset: 0; background: rgba(17,24,39,.4); z-index: 9000; }
     #ppSheet.on { display: block; position: fixed; left: 0; right: 0; bottom: 0; max-height: 86vh; overflow: auto; background: #fff; z-index: 9001; border-radius: 18px 18px 0 0; padding: 0 12px 24px; }
     #ppSheet .pp-sh { position: sticky; top: 0; z-index: 2; background: #fff; display: flex; align-items: center; justify-content: space-between; padding: 12px 4px; border-bottom: 1px solid #e5e7eb; margin: 0 -12px 10px; padding-left: 16px; padding-right: 12px; }
@@ -2246,7 +2272,7 @@ ${body}
 <script>
 (function () {
   var mq = window.matchMedia('(max-width: 700px)');
-  var header = document.querySelector('body > div > header');
+  var header = document.querySelector('body > div:not([id^="egbc-"]) > header');
   var home = header ? header.parentNode : null, next = header ? header.nextSibling : null;
   var term = document.getElementById('termSelect');
   var termHome = term ? term.parentNode : null, termNext = term ? term.nextSibling : null;

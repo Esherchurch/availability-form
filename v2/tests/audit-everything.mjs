@@ -59,14 +59,27 @@ import path from 'node:path';
 import os from 'node:os';
 
 const V2 = path.resolve('.');
+/* No run without test stand-ins for every secret: the functions emulator
+   would fetch a missing one from the live project (ENGINEERING.md). */
+{
+  const { missingStandIns } = await import('../tools/secret-stand-ins.mjs');
+  const miss = missingStandIns();
+  if (miss.length) { console.error('REFUSED: no stand-in in functions/.secret.local for ' + miss.join(', ') + '. Run: node tools/secret-stand-ins.mjs, then start the emulators again.'); process.exit(2); }
+}
 /* --emulators=events (F-224): the events window runs its own emulators
    (firebase.events.json: Firestore 8182, Auth 9098) and pages served from
    localhost:5601 talk to them (egbc-auth.js, egbc-db.js). Its report and
    pictures are kept apart, so neither window overwrites the other's. */
 const EVENTS = process.argv.includes('--emulators=events');
-const FS_PORT = EVENTS ? 8182 : 8181, AUTH_PORT = EVENTS ? 9098 : 9099;
-const OUT = path.join(V2, 'tests', 'shots', EVENTS ? 'audit-events' : 'audit');
-const REPORT = path.join(V2, 'tests', EVENTS ? 'audit-report-events.md' : 'audit-report.md');
+/* --emulators=spare (the going-live test, Stage 2): the spare emulators
+   (firebase.spare.json), which load the locked rules. Pages ask for the dev
+   ports, so the server swaps the spare ones in, as tests/stage2/harness.mjs
+   does. Its report and pictures are kept apart too. */
+const SPARE = process.argv.includes('--emulators=spare');
+const SPARE_PORTS = { 8181: 8171, 9099: 9089, 9199: 9189, 5101: 5191 };
+const FS_PORT = EVENTS ? 8182 : SPARE ? 8171 : 8181, AUTH_PORT = EVENTS ? 9098 : SPARE ? 9089 : 9099;
+const OUT = path.join(V2, 'tests', 'shots', EVENTS ? 'audit-events' : SPARE ? 'audit-spare' : 'audit');
+const REPORT = path.join(V2, 'tests', EVENTS ? 'audit-report-events.md' : SPARE ? 'audit-report-spare.md' : 'audit-report.md');
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const DOCS = '/v1/projects/egbc-worship-planner/databases/(default)/documents';
 const PW = 'test-only-password';
@@ -91,7 +104,17 @@ const ROLES_ALL = {
 };
 /* Master first: taps are made once a page, by the first role that sees it, so that is the one who sees the most. */
 const ROLES = LIVE ? ['live'] : (opt('roles') ? opt('roles').split(',') : ['master', 'areaAdmin', 'core', 'kids', 'worship', 'everyone']).filter(r => ROLES_ALL[r]);
-const ONLY_PAGES = opt('pages') ? opt('pages').split(',') : null;
+let ONLY_PAGES = opt('pages') ? opt('pages').split(',') : null;
+/* --also=a.html,b.html: pages in nobody's Menu to visit as well (the
+   going-live test's first-stage list), on top of ALSO_AUDIT. */
+const ALSO_OPT = opt('also') ? opt('also').split(',') : [];
+/* --pages-file=list.txt: the same list from a file, for names a shell
+   mangles ("training Sunday planner.html", "EGBCWorship&AV.html"). The
+   pages are both the only ones visited and visited even off the Menu. */
+if (opt('pages-file')) {
+  const list = fs.readFileSync(opt('pages-file'), 'utf8').split(',').map((x) => x.trim()).filter(Boolean);
+  ONLY_PAGES = list; ALSO_OPT.push(...list);
+}
 const NO_APP = flag('no-app'), NO_SITE = flag('no-site');
 const LIVE_URL = (opt('live-url') || 'https://egbc.churchhq.co.uk/').replace(/\/?$/, '/');
 const MAX_TAPS = Number(opt('max-taps') || 40);
@@ -237,6 +260,7 @@ function startServer(port) {
     if (!f.startsWith(V2) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { s.writeHead(404); return s.end(); }
     const e = path.extname(f).toLowerCase();
     let body = fs.readFileSync(f);
+    if (SPARE && ['.html', '.js', '.json'].includes(e)) body = Buffer.from(body.toString('utf8').replace(/\b(8181|9099|9199|5101)\b/g, (p) => String(SPARE_PORTS[p])), 'utf8');
     if (e === '.html') { const t = body.toString('utf8'); const h = /<head[^>]*>/i.exec(t); body = Buffer.from(h ? t.slice(0, h.index + h[0].length) + NO_SW + t.slice(h.index + h[0].length) : t, 'utf8'); }
     const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json' };
     s.writeHead(200, { 'Content-Type': (types[e] || 'application/octet-stream') + (/png/.test(types[e] || '') ? '' : '; charset=utf-8'), 'Cache-Control': 'no-store' });
@@ -818,7 +842,7 @@ async function runRole(B, role, size, base, shared) {
   /* ---- website ---- */
   if (!NO_SITE) {
     const menu = await menuFor(B, base);
-    const allPages = [...new Set(['hub.html'].concat(menu.all, ALSO_AUDIT))].filter(u => !ONLY_PAGES || ONLY_PAGES.includes(u.split('?')[0]));
+    const allPages = [...new Set(['hub.html'].concat(menu.all, ALSO_AUDIT, ALSO_OPT))].filter(u => !ONLY_PAGES || ONLY_PAGES.includes(u.split('?')[0]));
     const mine = new Set(['hub.html'].concat(menu.mine));
     for (const page of allPages) {
       if (B.isDead()) { console.log('          (the browser stopped answering: a fresh one)'); await B.restart(); await B.size(...ALL_SIZES[size]); await signIn(B, base, role); }

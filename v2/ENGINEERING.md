@@ -70,6 +70,10 @@ Legal records (safeguarding, Gift Aid, accidents, finance) are never cascaded aw
 ## 7. Secrets, errors and logs
 
 - Secrets only in Secret Manager (as now). Never in code, logs or web addresses.
+- **The emulator never reads a real secret.** The functions emulator takes each `defineSecret` from `functions/.secret.local`; a name missing there is fetched from the live project's Secret Manager with the computer's Google sign-in (found 2 Nov 2026: the Resend, Daily, Microsoft and other keys were read into test runs). So:
+  - before starting the functions emulator, run `node tools/secret-stand-ins.mjs` (from `v2/`). It writes `NOT-SET` for every secret the functions declare and keeps any test value already there. The file is git-ignored and never holds a real key.
+  - a new secret: run the tool again. `node tests/check-secret-stand-ins.mjs` fails until you do, and the stage 2 harness (`tests/stage2/harness.mjs`) and `tests/audit-everything.mjs` refuse to run.
+  - code that uses a secret treats `NOT-SET` as "not set up yet" and calls nothing out (Microsoft's `real()`, Unsplash, the AI calls). On the emulator, email, push, Daily, the AI and Microsoft use their own pretend services as well.
 - Every function logs failures with a clear message and the church id, never personal details.
 - Errors on pages are caught and reported to one place, so the weekly check can see them.
 
