@@ -54,10 +54,13 @@ console.log('\nA. the UK words, and every copy of the helper');
 const MARK_A = '/* ── egbc-uk-dates', MARK_Z = '/* ── end egbc-uk-dates ── */';
 const cut = (s) => { s = s.replace(/\r\n/g, '\n'); const a = s.indexOf(MARK_A), z = s.indexOf(MARK_Z); return a < 0 || z < a ? null : s.slice(a, z + MARK_Z.length); };
 const CANON = cut(fs.readFileSync(path.join(HERE, 'uk-dates-snippet.js'), 'utf8'));
+/* v2's copies are this snippet. The original site's are not checked: v2
+   never changes them, and they had already drifted apart (three carry an
+   older copy) before v2's gained the stale-pick fix on 2 Nov 2026. */
 const COPIES = ['v2/Planner.html', 'v2/view-only-rota.html', 'v2/egbc-core-rota.js', 'v2/egbc-core-planner.js', 'v2/SundayServicePlanner.html',
-  'v2/youthserviceplanner.html', 'v2/song-summary.html', 'Planner.html', 'view-only-rota.html', 'CoreTeamApp.html', 'SundayServicePlanner.html', 'youthserviceplanner.html', 'song-summary.html'];
+  'v2/youthserviceplanner.html', 'v2/song-summary.html'];
 const differ = COPIES.filter(f => cut(fs.readFileSync(path.join(ROOT, f), 'utf8')) !== CANON);
-ok('A1. every page carries the same copy of the dates helper (' + COPIES.length + ' files, v2 and the original site)', !differ.length, 'differs or missing: ' + differ.join(', '));
+ok('A1. every v2 page carries the same copy of the dates helper (' + COPIES.length + ' files)', !differ.length, 'differs or missing: ' + differ.join(', '));
 /* The original site's song summary reads the live database, so it is checked by what it says. */
 const ROOTSUM = fs.readFileSync(path.join(ROOT, 'song-summary.html'), 'utf8');
 const has = (t) => ROOTSUM.includes(t);

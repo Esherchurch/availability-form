@@ -132,7 +132,7 @@
   /* ---- planners ---- */
   var BTN = 'background:#f0f6f6;color:#3d6263;border:1px solid #d1dfdf;border-radius:8px;padding:8px 12px;font:600 13px Inter,system-ui,sans-serif;cursor:pointer;flex:0 0 auto;';
   var SEL = 'flex:1 1 200px;min-width:0;max-width:100%;background:#fff;color:#111827;border:1px solid #d1dfdf;border-radius:8px;padding:8px 10px;font:500 14px Inter,system-ui,sans-serif;';
-  var LINK = 'background:none;border:none;color:#3d6263;text-decoration:underline;font:500 13px Inter,system-ui,sans-serif;min-height:44px;padding:0 8px;cursor:pointer;flex:0 0 auto;';
+  var LINK = 'background:none;border:none;color:#3d6263;text-decoration:underline;font:500 13px Inter,system-ui,sans-serif;padding:4px 2px;cursor:pointer;flex:0 0 auto;';
   function isService(ev) { return !/practice|meeting|workshop/i.test(ev.type || ''); }
   function fire(el) { var e; try { e = new Event('change', { bubbles: true }); } catch (x) { e = document.createEvent('Event'); e.initEvent('change', true, true); } el.dispatchEvent(e); }
 
@@ -207,10 +207,15 @@
     var sel = wrap.querySelector('[data-uk="list"]');
 
     function real() { return Array.prototype.filter.call(sel.options, function (op) { return op.value && !op.hasAttribute('data-other'); }); }
+    /* Only the latest move picks a service: an earlier one still waiting
+       for its date to be read would otherwise pick after it, and the list
+       would say one service while the page showed another. */
+    var picking = 0, choosing = false;
     function pickType(type) {
       if (!type || !o.eventSelect) return;
-      var n = 0;
+      var mine = ++picking, n = 0;
       (function look() {
+        if (mine !== picking) return;
         var s = document.getElementById(o.eventSelect);
         var hit = s && Array.prototype.filter.call(s.options, function (op) { return op.value !== '' && op.text.indexOf(type) === 0; })[0];
         if (hit) { if (s.value !== hit.value) { s.value = hit.value; fire(s); } return; }
@@ -225,7 +230,7 @@
     }
     function choose(v) {
       var bits = String(v).split('|'), date = bits[0], type = bits.slice(1).join('|');
-      if (input.value !== date) { clearServices(); input.value = date; fire(input); } else sync();
+      if (input.value !== date) { clearServices(); input.value = date; choosing = true; try { fire(input); } finally { choosing = false; } } else sync();
       paintDate(input);
       pickType(type);
     }
@@ -247,28 +252,14 @@
       else t = list.filter(function (op) { return op.value.split('|')[0] < d; }).pop();
       if (t) { sel.value = t.value; choose(t.value); }
     }
-    /* At the first or last service there is nothing to step to: say so by
-       greying the arrow out, rather than a button that does nothing (audit,
-       15 Oct 2026). */
-    function target(k) {
-      var list = real(), i = list.map(function (op) { return op.value; }).indexOf(sel.value), d = input.value;
-      if (i >= 0) return list[i + k] || null;
-      return k > 0 ? (list.filter(function (op) { return op.value.split('|')[0] > d; })[0] || null)
-                   : (list.filter(function (op) { return op.value.split('|')[0] < d; }).pop() || null);
-    }
-    function paintEnds() {
-      [['prev', -1], ['next', 1]].forEach(function (p) {
-        var b = wrap.querySelector('[data-uk="' + p[0] + '"]'); if (!b) return;
-        var none = !target(p[1]);
-        b.disabled = none; b.style.opacity = none ? '.35' : ''; b.style.cursor = none ? 'default' : '';
-        b.title = none ? (p[1] < 0 ? 'No earlier service on the rota' : 'No later service on the rota') : '';
-      });
-    }
-    try { new MutationObserver(paintEnds).observe(sel, { childList: true }); } catch (e) {}
-    sel.addEventListener('change', paintEnds);
-    input.addEventListener('change', paintEnds);
-    setTimeout(paintEnds, 0);
     input.addEventListener('change', sync);
+    /* A date picked from the calendar ("Pick another date") that is in the
+       list: its service, as the list would have chosen it. */
+    input.addEventListener('change', function () {
+      if (choosing) return;
+      var hit = real().filter(function (op) { return op.value.split('|')[0] === input.value; })[0];
+      if (hit) { clearServices(); pickType(hit.value.split('|').slice(1).join('|')); }
+    });
     sel.addEventListener('change', function () { if (sel.value) choose(sel.value); });
     wrap.querySelector('[data-uk="prev"]').onclick = function () { step(-1); };
     wrap.querySelector('[data-uk="next"]').onclick = function () { step(1); };
@@ -929,8 +920,24 @@
   /* The date whose team and songs are really on screen. Save and Email refuse
      anything else, so one Sunday's plan can never land on another. */
   var spPlanShownFor = '';
+  /* A NEW DATE SHOWS NOTHING OF THE LAST ONE (going-live test, 2 Nov
+     2026): a date picked from the calendar left the last date's team,
+     songs and notes on screen under it until a service was chosen. */
+  function spClearShown() {
+    spService = null; spLeader = '';
+    document.getElementById('spLeaderName').textContent = 'None';
+    document.getElementById('spTeamBody').innerHTML = '';
+    document.getElementById('sp-order').innerHTML = '';
+    ['spTypeNotes', 'spIntro', 'spOutro'].forEach(function (id) { document.getElementById(id).value = ''; });
+  }
+  /* Only the latest choice of service draws: a morning and then the
+     evening chosen quickly on one date could draw the morning last. */
+  var spSelectSeq = 0;
+
   async function spLoadRota() {
     spPlanShownFor = '';
+    spSelectSeq++;
+    spClearShown();
     var date = document.getElementById('spDate').value;
     var snap = await db().collection('events').get();
     if (document.getElementById('spDate').value !== date) return;
@@ -964,6 +971,7 @@
   var NOTE_CELL = '<td><textarea class="sp-instr-note" placeholder="Notes..." rows="1" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-family:var(--font);font-size:12px;font-weight:600;color:var(--teal);outline:none;resize:none;overflow:hidden;"></textarea></td>';
 
   async function spSelectEvent() {
+    var seq = ++spSelectSeq;
     var index = document.getElementById('spEventSelect').value;
     if (index === '') return;
     var data = spEventsForDay[index];
@@ -1010,7 +1018,7 @@
       db().collection('songSummaries').doc(EGBCPlanStore.summaryId(data.date, data.id, spEventsForDay)).get()
         .catch(function (e) { console.warn('Could not read the emailed plan', e); return null; })
     ]);
-    if (document.getElementById('spDate').value !== data.date) return;
+    if (seq !== spSelectSeq || document.getElementById('spDate').value !== data.date) return;
     var snap = both[0], ss = both[1];
     document.getElementById('sp-order').innerHTML = '';
     var mine = EGBCPlanStore.planFor(snap.docs.map(function (d) { return { id: d.id, data: d.data() }; }), data.id, spEventsForDay);

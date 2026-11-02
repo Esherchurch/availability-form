@@ -1701,17 +1701,48 @@ async function keyChanged(id) {
   container.innerHTML = html;
 }
 
+/* A NEW DATE SHOWS NOTHING OF THE LAST ONE, only the latest choice of
+   service draws, and Save writes only the plan on screen for the date on
+   screen (going-live test, 2 Nov 2026): the service list kept the last
+   date's services until the new date was read, a quick choice drew the
+   last date's plan under the new date, and Save stored it there. */
+let selectSeq = 0, planShownFor = '';
+/* A YOUTH SERVICE IS ONE FOR THE YOUTH JOB'S TEAMS (going-live test, 2 Nov
+   2026; as youthserviceplanner.html's isYouthEvent). It went by the word
+   "youth" in the description, so a youth service described any other way
+   was view-only here and could not be saved. Words only for an event with
+   no teams, as there. */
+const isYouthEvent = ev => {
+  const teams = Array.isArray(ev.teams) ? ev.teams : [];
+  if (!teams.length) return (ev.description || ev.type || '').toLowerCase().includes('youth');
+  const T = EGBCAuth.TEAMS || {};
+  return EGBCAuth.teamsForJob('youth').some(t => teams.includes(t) || (T[t] && teams.includes(T[t].label)));
+};
+function clearShown() {
+  currentService = null; worshipLeaderName = ''; planShownFor = '';
+  document.getElementById('leaderName').textContent = 'None';
+  document.getElementById('teamBody').innerHTML = '';
+  document.getElementById('service-order').innerHTML = '';
+  ['serviceTypeNotes', 'introBox', 'outroBox'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('eventSelect').innerHTML = '<option value="">Select Service…</option>';
+}
+
 async function loadRota() {
+  selectSeq++;
+  clearShown();
   const date = document.getElementById('serviceDate').value;
   const snap = await db.collection('events').get();
+  if (document.getElementById('serviceDate').value !== date) return;
   /* Every service that day, each with its id, in time order (H-11 item 0). */
   const day = [];
   snap.forEach(d => { const ev = d.data(); if (ev.date === date && ev.archived !== true) day.push({ id: d.id, ...ev }); });
   eventsForDay = EGBCPlanStore.inOrder(day);
+  if (EGBCAuth.loadPerms) await EGBCAuth.loadPerms().catch(() => {});
+  if (document.getElementById('serviceDate').value !== date) return;
   const select = document.getElementById('eventSelect');
   select.innerHTML = '<option value="">Select Service…</option>';
   eventsForDay.forEach((ev, i) => {
-    const isYouth = (ev.description || ev.type || '').toLowerCase().includes('youth');
+    const isYouth = isYouthEvent(ev);
     select.innerHTML += `<option value="${i}">${EGBCPlanStore.label(ev, eventsForDay.length)}${isYouth ? '' : ' (view only)'}</option>`;
   });
   setReadonlyMode(false);
@@ -1728,11 +1759,15 @@ function sortAssignments(arr) {
 }
 
 async function selectEvent() {
+  const seq = ++selectSeq;
+  planShownFor = '';
   const index = document.getElementById('eventSelect').value;
   if (index === '') return;
   const data = eventsForDay[index];
   currentService = data;
-  isYouthService = (data.description || data.type || '').toLowerCase().includes('youth');
+  if (EGBCAuth.loadPerms) await EGBCAuth.loadPerms().catch(() => {});
+  if (seq !== selectSeq) return;
+  isYouthService = isYouthEvent(data);
   setReadonlyMode(!isYouthService);
   document.getElementById('serviceTypeNotes').value = data.description || '';
   worshipLeaderName = data.assignments?.['Worship Leader']?.name || 'None';
@@ -1747,6 +1782,7 @@ async function selectEvent() {
       if (name) teamBody.innerHTML += `<tr><td>${role}</td><td>${name}</td><td><textarea class="instr-note" placeholder="Specific instructions..." rows="1"></textarea></td></tr>`;
   });
   if (EGBCAuth.loadPerms) await EGBCAuth.loadPerms().catch(() => {});
+  if (seq !== selectSeq) return;
   let rows = sortAssignments(Object.entries(worshipOnly(data.assignments)));
   rows.forEach(([role, person]) => {
     teamBody.innerHTML += `<tr><td>${role}</td><td>${person.name}</td><td><textarea class="instr-note" placeholder="Specific instructions..." rows="1"></textarea></td></tr>`;
@@ -1755,7 +1791,15 @@ async function selectEvent() {
   /* THIS SERVICE'S PLAN, not the date's first (H-11 item 0). */
   const q = db.collection('services').where('date', '==', data.date);
   const snap = await q.get();
+  if (seq !== selectSeq || document.getElementById('serviceDate').value !== data.date) return;
   const mine = EGBCPlanStore.planFor(snap.docs.map(d => ({ id: d.id, data: d.data() })), data.id, eventsForDay);
+  if (!mine) {
+    /* No plan: a fresh order, never the last date's songs. */
+    document.getElementById('service-order').innerHTML = '';
+    document.getElementById('introBox').value = '';
+    document.getElementById('outroBox').value = '';
+    setupDefaultOrder(); updateSongNumbers(); autoFitTextAreas();
+  }
   if (mine) {
     const saved = mine.data;
     document.getElementById('introBox').value = saved.introText || '';
@@ -1785,11 +1829,13 @@ async function selectEvent() {
     });
     updateSongNumbers(); autoFitTextAreas();
   }
+  planShownFor = data.date;
 }
 
 async function saveSchedule() {
   if (!isYouthService) { alert('This is not a youth service - you can view it but cannot save changes.'); return; }
   const date = document.getElementById('serviceDate').value;
+  if (!date || planShownFor !== date) { alert('This page is still showing another date, or no service is chosen. Choose the service for this date, then save.'); return; }
   const introText = document.getElementById('introBox').value;
   const outroText = document.getElementById('outroBox').value;
   const serviceNotes = document.getElementById('serviceTypeNotes').value;

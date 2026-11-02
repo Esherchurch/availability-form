@@ -479,9 +479,26 @@ const DUMMY_EVENT = {
     }
 };
 
+/* A NEW DATE SHOWS NOTHING OF THE LAST ONE, and only the latest choice of
+   service draws (going-live test, 2 Nov 2026; as SundayServicePlanner):
+   the service list kept the last date's services until the new date was
+   read, so a quick choice drew the last date's plan under the new date. */
+function clearShown() {
+    worshipLeaderName = "";
+    document.getElementById('leaderName').innerText = 'None';
+    document.getElementById('teamBody').innerHTML = '';
+    document.getElementById('service-order').innerHTML = '';
+    ['serviceTypeNotes', 'introBox', 'outroBox'].forEach(id => { document.getElementById(id).value = ''; });
+    document.getElementById('eventSelect').innerHTML = '<option value="">Select Service...</option>';
+}
+let selectSeq = 0;
+
 window.loadRota = async () => {
+    selectSeq++;
+    clearShown();
     const date = document.getElementById('serviceDate').value;
     const snap = await getDocs(collection(db, "events"));
+    if (document.getElementById('serviceDate').value !== date) return;
     /* Every service that day, each with its id, in time order (H-11 item 0). */
     const day = [];
     snap.forEach(d => {
@@ -512,6 +529,7 @@ function sortAssignments(assignmentsArray) {
 }
 
 window.selectEvent = async () => {
+    const seq = ++selectSeq;
     const index = document.getElementById('eventSelect').value;
     if (index === "") return;
     const data = eventsForDay[index];
@@ -542,11 +560,18 @@ window.selectEvent = async () => {
     /* THIS SERVICE'S PLAN, not the date's first (H-11 item 0). */
     const q = query(collection(db, "services"), where("date", "==", data.date));
     const snap = await getDocs(q);
+    if (seq !== selectSeq || document.getElementById('serviceDate').value !== data.date) return;
     const mine = data.id ? EGBCPlanStore.planFor(snap.docs.map(d => ({ id: d.id, data: d.data() })), data.id, eventsForDay) : null;
     if (mine) {
         const saved = mine.data;
         loadSavedServiceData(saved);
-    } else { autoFitTextAreas(); }
+    } else {
+        /* No plan: a fresh order, never the last date's songs. */
+        document.getElementById('service-order').innerHTML = '';
+        document.getElementById('introBox').value = '';
+        document.getElementById('outroBox').value = '';
+        setupDefaultOrder(); updateSongNumbers(); autoFitTextAreas();
+    }
 };
 
 function loadSavedServiceData(saved) {

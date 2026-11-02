@@ -212,19 +212,30 @@
     var sel = wrap.querySelector('[data-uk="list"]');
 
     function real() { return Array.prototype.filter.call(sel.options, function (op) { return op.value && !op.hasAttribute('data-other'); }); }
+    /* Only the latest move picks a service: an earlier one still waiting
+       for its date to be read would otherwise pick after it, and the list
+       would say one service while the page showed another. */
+    var picking = 0, choosing = false;
     function pickType(type) {
       if (!type || !o.eventSelect) return;
-      var n = 0;
+      var mine = ++picking, n = 0;
       (function look() {
+        if (mine !== picking) return;
         var s = document.getElementById(o.eventSelect);
         var hit = s && Array.prototype.filter.call(s.options, function (op) { return op.value !== '' && op.text.indexOf(type) === 0; })[0];
         if (hit) { if (s.value !== hit.value) { s.value = hit.value; fire(s); } return; }
-        if (++n < 40) setTimeout(look, 100);
+        if (++n < 150) setTimeout(look, 100);
       })();
+    }
+    /* The list still holds the date being left until the page has read the new
+       one, so empty it first: pickType must only ever see the new date's services. */
+    function clearServices() {
+      var s = o.eventSelect && document.getElementById(o.eventSelect);
+      if (s) { while (s.options.length > 1) s.remove(1); s.selectedIndex = 0; }
     }
     function choose(v) {
       var bits = String(v).split('|'), date = bits[0], type = bits.slice(1).join('|');
-      if (input.value !== date) { input.value = date; fire(input); } else sync();
+      if (input.value !== date) { clearServices(); input.value = date; choosing = true; try { fire(input); } finally { choosing = false; } } else sync();
       paintDate(input);
       pickType(type);
     }
@@ -247,6 +258,13 @@
       if (t) { sel.value = t.value; choose(t.value); }
     }
     input.addEventListener('change', sync);
+    /* A date picked from the calendar ("Pick another date") that is in the
+       list: its service, as the list would have chosen it. */
+    input.addEventListener('change', function () {
+      if (choosing) return;
+      var hit = real().filter(function (op) { return op.value.split('|')[0] === input.value; })[0];
+      if (hit) { clearServices(); pickType(hit.value.split('|').slice(1).join('|')); }
+    });
     sel.addEventListener('change', function () { if (sel.value) choose(sel.value); });
     wrap.querySelector('[data-uk="prev"]').onclick = function () { step(-1); };
     wrap.querySelector('[data-uk="next"]').onclick = function () { step(1); };
