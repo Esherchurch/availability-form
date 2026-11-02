@@ -79,6 +79,32 @@ export const auth = getAuth(app);
    getFirestore on the same app - a page cannot add it afterwards.
    Falls back to the plain client where IndexedDB is not available, which is
    private windows and older iOS. */
+
+/* IF FIRESTORE BREAKS, SAY SO (the going-live audit, 2 Nov 2026). Now and
+   then the SDK stops itself with "INTERNAL ASSERTION FAILED: Unexpected
+   state" (seen once in about 900 audit taps on the Rota planner; known in
+   10.6 to 11.x with offline storage, no fix released). After it, nothing
+   on this page reaches the database until it is reloaded: a save made
+   before it is kept in the browser and goes on the next load, but one made
+   after it is refused, and some pages save each change without a message.
+   So the person is told at once, plainly, instead of losing work quietly. */
+function firestoreBroke(why) {
+  if (!/FIRESTORE[^]*INTERNAL ASSERTION FAILED|AsyncQueue is already failed/.test(String(why || ''))) return;
+  if (document.getElementById('egbc-db-broke')) return;
+  const bar = document.createElement('div');
+  bar.id = 'egbc-db-broke';
+  bar.setAttribute('role', 'alert');
+  bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:99999;background:#b0392c;color:#fff;padding:14px 16px;border-radius:12px;font:500 15px Inter,system-ui,sans-serif;display:flex;gap:12px;align-items:center;flex-wrap:wrap;box-shadow:0 6px 20px rgba(0,0,0,.25)';
+  bar.innerHTML = '<span style="flex:1;min-width:200px">This page has lost its link to the database. Anything you change now will not be saved. Copy anything you have not saved, then reload.</span>'
+    + '<button type="button" style="min-height:44px;padding:0 16px;border:0;border-radius:10px;background:#fff;color:#b0392c;font:600 15px Inter,system-ui,sans-serif;cursor:pointer">Reload</button>';
+  bar.querySelector('button').onclick = () => location.reload();
+  (document.body || document.documentElement).appendChild(bar);
+}
+window.addEventListener('unhandledrejection', (e) => firestoreBroke(e.reason && (e.reason.stack || e.reason.message || e.reason)));
+window.addEventListener('error', (e) => firestoreBroke(e.message));
+/** For tests: as if the SDK had stopped itself. */
+export const _firestoreBroke = firestoreBroke;
+
 export const firestore = (function () {
   try {
     return initializeFirestore(app, {

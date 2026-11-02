@@ -13,7 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202611022300"></script>
+<script src="egbc-auth.js?v=202611030600"></script>
 <script src="egbc-church.js?v=202611030100"></script>
 <!-- EVERYONE ON THE PLAN EMAIL CAN READ THE PLAN (Martin, 12 Oct 2026:
      "That includes the preachers and service leader"). This page is what
@@ -27,7 +27,10 @@
      database and the page says so in plain words. That is the right way
      round: the page cannot know who is on a particular Sunday without
      reading the plan, which is the very thing being gated. -->
-<script src="egbc-guard.js?v=202611011200" data-job="worship" data-role="member"></script>
+<!-- 2 Nov 2026: the going-live test's stage 1 had added data-job="worship" here,
+     which refused the preacher on no team this comment is about. Taken off
+     again: signed in reaches the page, the rules decide what it reads. -->
+<script src="egbc-guard.js?v=202611030600"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Song Summary</title>
@@ -530,7 +533,7 @@ if (!date) {
         document.getElementById('content').innerHTML = refused
             ? `<div class="error">This plan was sent to the people serving on ${escapeHtml(date)}.
                If you think you should be able to see it, ask whoever sent the email to add you
-               to that Sunday&rsquo;s rota.</div>`
+               to that Sunday&rsquo;s rota.</div><p style="margin-top:16px"><a href="hub.html">Back to the hub</a></p>`
             : `<div class="error">Error loading data: ${escapeHtml(e.message || String(e))}</div>`;
     }
 }

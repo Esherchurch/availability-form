@@ -4,12 +4,12 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202611022300"></script>
+<script src="egbc-auth.js?v=202611030600"></script>
 <!-- Opened from the app (?app=1): the app's header and tab bar, not the website's (egbc-appmode.js). -->
 <script src="egbc-appmode.js?v=202611011200"></script>
 <script src="egbc-church.js?v=202611030100"></script>
 <script src="egbc-plan-store.js?v=202610252100"></script>
-<script src="egbc-guard.js?v=202611011200" data-job="worship" data-role="member"></script>
+<script src="egbc-guard.js?v=202611030600" data-job="worship" data-role="member"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -182,7 +182,9 @@ body {
   flex-direction: column;
   padding-top: var(--safe-top);
 }
-/* Opened from the app: between its header and its tab bar, not under them (egbc-appmode.js sets the two heights). */
+/* Opened from the app: between its header and tab bar. The two screens fill
+   the viewport, which app mode takes for a pop-up backdrop and leaves where
+   it is, so they say they place themselves (data-am-own) and do it here. */
 [data-egbc-app-mode] #startScreen,
 [data-egbc-app-mode] #songScreen { top: var(--am-top, 60px); bottom: var(--am-bottom, 64px); }
 
@@ -1608,7 +1610,7 @@ window.cacheAllPDFs = async () => {
 <div class="perf-pill">Performance Mode</div>
 
 <!-- ══ START SCREEN ══ -->
-<div id="startScreen">
+<div id="startScreen" data-am-own>
   <div class="start-hero">
     <img class="start-logo" id="startChurchLogo" data-church-logo alt="" style="visibility:hidden" onerror="this.style.display='none'">
     <div class="start-hero-title">Performance Notes</div>
@@ -1639,7 +1641,7 @@ window.cacheAllPDFs = async () => {
 </div>
 
 <!-- ══ SONG SCREEN ══ -->
-<div id="songScreen">
+<div id="songScreen" data-am-own>
   <div class="song-topbar">
     <button class="topbar-menu-btn" onclick="toggleMenu()">☰</button>
     <div class="song-title-bar">

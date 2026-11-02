@@ -1874,9 +1874,28 @@ function renderLatestCount() {
   el.style.display = n ? '' : 'none';
 }
 
+/* While the notices panel is open the page behind it is inert: the dimming
+   only looked modal, and a keyboard or a screen reader still reached the
+   hub's buttons under it (the going-live audit, 2 Nov 2026). Only what this
+   set is put back on close. */
+let latestInert = [];
+function latestBehind(on) {
+  if (on) {
+    /* Not the panel, nor anything that opens over it: a modal (the notice editor) or a shared egbc- sheet (help, care). */
+    latestInert = [...document.body.children].filter(el => !['latestPanel', 'latestScrim'].includes(el.id) && el.tagName !== 'SCRIPT' && !el.inert
+      && !el.classList.contains('modal') && !el.hasAttribute('data-egbc-overlay')
+      && !['egbc-help', 'egbc-help-bg', 'egbc-care-back', 'egbc-nav', 'egbc-nav-scrim'].includes(el.id));
+    latestInert.forEach(el => { el.inert = true; });
+  } else {
+    latestInert.forEach(el => { el.inert = false; });
+    latestInert = [];
+  }
+}
+
 function openLatest() {
   document.getElementById('latestPanel').classList.add('on');
   document.getElementById('latestScrim').classList.add('on');
+  latestBehind(true);
   /* Opened is read. The newest notice decides the mark, so a notice posted
      while the panel is open still counts as unread next time. */
   const newest = NEWS.reduce((m, n) => Math.max(m, newsMillis(n)), 0);
@@ -1888,6 +1907,7 @@ function openLatest() {
 function closeLatest() {
   document.getElementById('latestPanel').classList.remove('on');
   document.getElementById('latestScrim').classList.remove('on');
+  latestBehind(false);
   stopNewsScroll();
 }
 

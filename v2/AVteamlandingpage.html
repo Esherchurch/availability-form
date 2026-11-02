@@ -5,10 +5,10 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202611022300"></script>
+<script src="egbc-auth.js?v=202611030600"></script>
 
 <script src="egbc-shell.js?v=202611030100" data-title="AV Team Charter"></script>
-<script src="egbc-guard.js?v=202611011200" data-job="av" data-role="member"></script>
+<script src="egbc-guard.js?v=202611030600" data-job="av" data-role="member"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AV Team Charter</title>
@@ -425,7 +425,10 @@ let isEditingTitle = false;
 let photos  = [];
 
 // ── INIT ──
-window.addEventListener('load', loadSaved);
+/* Only once the guard has let this person in: for anyone else the page says
+   it isn't for them, and reading underneath only filled the console with
+   refusals (the going-live audit, 2 Nov 2026). */
+window.addEventListener('load', () => EGBCGuard.allowed.then(loadSaved));
 
 async function loadSaved() {
     let saved = {};

@@ -78,6 +78,10 @@
   var feature = script ? script.getAttribute('data-feature') : null;
   /* data-master - master admins only (Church settings; 21 Oct 2026). */
   var masterOnly = script ? script.hasAttribute('data-master') : false;
+  /* data-master="words": what the page is, said to anyone it refuses (2 Nov
+     2026: the mix tools were told they held the church's settings). Empty:
+     Church settings' words, as before. */
+  var masterWhy = masterOnly ? (script.getAttribute('data-master') || '') : '';
   /* data-book-room (or the older data-leads) - Book a room's people:
      team leaders, core teams, the office job and the bookings admins
      (EGBCAuth.mayBookRoom; Martin, 26 and 27 Oct 2026). */
@@ -243,6 +247,7 @@
     if (allowPending) opts.allowPending = allowPending;
     if (anyTeam) opts.anyTeam = true;
     if (masterOnly) opts.master = true;
+    if (masterWhy) opts.masterWhy = masterWhy;
     if (leadsOnly) opts.leadsOrCore = true;
 
     setTimeout(sayStuck, SETTLE_MS);

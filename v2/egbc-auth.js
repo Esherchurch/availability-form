@@ -523,7 +523,7 @@
        as counts as the person being viewed (isMaster honours it). */
     if (opts.master && !EGBCAuth.isMaster()) {
       return ['Master admins only',
-        'This page holds the whole church’s settings, so only a master admin can open it.'];
+        opts.masterWhy || 'This page holds the whole church’s settings, so only a master admin can open it.'];
     }
 
     /* data-job: the teams doing one of these jobs, and master admins. */

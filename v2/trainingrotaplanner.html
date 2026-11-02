@@ -5,8 +5,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202611022300"></script>
-<script src="egbc-guard.js?v=202611011200" data-job="worship,children,youth" data-role="leader"></script>
+<script src="egbc-auth.js?v=202611030600"></script>
+<script src="egbc-guard.js?v=202611030600" data-job="worship,children,youth" data-role="leader"></script>
 <script src="egbc-church.js?v=202611030100"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -201,7 +201,7 @@
         // "Send All Rotas" → faithful replica of PowerShell sender UI (simulated sends)
         // ═══════════════════════════════════════════════════════════════════════════
 
-        import { db, storage, ready } from './egbc-db.js';
+        import { db, storage, ready, allowed } from './egbc-db.js';
         import { collection, onSnapshot, query, orderBy, getDoc, getDocs, doc, where }
                                     from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
         import { ref, getDownloadURL }
@@ -214,6 +214,9 @@
            user, so once the rules are deployed they would be refused and a
            training session would open on an empty rota. */
         await ready;
+/* And the guard's yes: for anyone else the page says it isn't for them, and
+   reading underneath only filled the console with refusals (going-live audit). */
+await allowed;
 
         /* THE SAME TEAM LISTS AS THE ROTA PLANNER (EGBCAuth; Teams & groups,
            "Skills and rota places"): "+ Role" offers the AV, worship and choir

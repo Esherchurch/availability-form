@@ -118,6 +118,21 @@ if (opt('pages-file')) {
 const NO_APP = flag('no-app'), NO_SITE = flag('no-site');
 const LIVE_URL = (opt('live-url') || 'https://egbc.churchhq.co.uk/').replace(/\/?$/, '/');
 const MAX_TAPS = Number(opt('max-taps') || 40);
+/* --every (the going-live test, Stage 2; the reviewer, 2 Nov 2026: "press
+   each control as every kind of person who can see it, not just the first
+   one... at phone and desktop size"): taps on every screen, for every role,
+   at every size asked for; fields are filled too; and each control used is
+   written down by its code keys (tools/control-inventory.mjs) in
+   tests/out/controls-reached.json, so the inventory can say N of N. */
+const EVERY = flag('every');
+const REACHED = [], SKIPPED_KEYS = [];
+const REACHED_FILE = path.join(V2, 'tests', 'out', 'controls-reached.json');
+const { KEYS_JS } = await import('../tools/control-inventory.mjs');
+function saveReached() {
+  fs.mkdirSync(path.dirname(REACHED_FILE), { recursive: true });
+  fs.writeFileSync(REACHED_FILE, JSON.stringify(REACHED));
+  fs.writeFileSync(REACHED_FILE.replace(/\.json$/, '-skipped.json'), JSON.stringify(SKIPPED_KEYS));
+}
 
 /* Never tapped: things that change the world for somebody else. In --live,
    nothing that saves, sends or books either. */
@@ -135,7 +150,29 @@ const OFF_MENU_BY_DESIGN = {
   'quiz.html': { roles: 'all', why: 'a player’s page for a quiz code: nothing without the code' },
   /* F-293 (the events window): anyone may open it to report a concern; they
      see only that, or "no events for you here". */
-  'safeguarding.html': { roles: 'all', why: 'report a concern: open to anyone; the lead’s parts only for the lead' }
+  'safeguarding.html': { roles: 'all', why: 'report a concern: open to anyone; the lead’s parts only for the lead' },
+  /* The main window's, decided 2 Nov 2026 (the reviewer: a page opened by
+     someone it isn't for says so; instruction pages open to anyone signed
+     in). tests/stage2/off-menu-pages.mjs proves nothing private shows. */
+  'song-summary.html': { roles: 'all', why: 'a Sunday plan email\'s song list: signed in reaches it, the rules let only that Sunday\'s people read it, and anyone else is told so' },
+  'rotaplannerinstructions.html': { roles: 'all', why: 'words only, for anyone signed in; linked from the Rota planner' },
+  'Serviceplannerinstructions.html': { roles: 'all', why: 'words only, for anyone signed in; linked from the service planners' },
+  'uploaderinstructions.html': { roles: 'all', why: 'words only, for anyone signed in; linked from the Music Uploader' },
+  'emailcompilerinstructions.html': { roles: 'all', why: 'words only, for anyone signed in; linked from Send an email' },
+  'worshiphubapp.html': { roles: 'all', why: 'sends everyone to the hub app (the old installed Worship Hub)' },
+  'CoreTeamApp.html': { roles: ['core', 'master'], why: 'the core teams\' own installed app' },
+  'AVteamlandingpage.html': { roles: ['worship', 'areaAdmin', 'core', 'master'], why: 'the AV team\'s installed app: Worship and AV are one team; and those covering them' },
+  'EGBCWorship&AV.html': { roles: ['worship', 'areaAdmin', 'core', 'master'], why: 'the worship team\'s installed app, and those covering it' },
+  'sundayplannersonglibrary.html': { roles: ['worship', 'areaAdmin', 'core', 'master'], why: 'opened from the Sunday planner, for the worship team' },
+  'music-uploader.html': { roles: ['areaAdmin', 'core', 'master'], why: 'opened from the planners\' Upload Song, for worship leaders and the core teams covering them' },
+  'trainingportalhub.html': { roles: ['worship', 'areaAdmin', 'core', 'master'], why: 'Worship Training\'s Practice planners, for the worship team' },
+  'trainingmusicdatabase.html': { roles: ['worship', 'areaAdmin', 'core', 'master'], why: 'a practice copy, for the worship team' },
+  'training Sunday planner.html': { roles: ['areaAdmin', 'core', 'master'], why: 'a practice copy, for worship leaders' },
+  'trainingbatchimporter.html': { roles: ['areaAdmin', 'core', 'master'], why: 'a practice copy, for worship leaders' },
+  'trainingrotaplanner.html': { roles: ['areaAdmin', 'core', 'master'], why: 'a practice copy, for leaders' },
+  'mix-builder.html': { roles: ['master'], why: 'Martin\'s own mix tools: master admins on the hub' },
+  'mix-player.html': { roles: ['master'], why: 'Martin\'s own mix tools: master admins on the hub' },
+  'mix-analyser.html': { roles: ['master'], why: 'Martin\'s own mix tools: master admins on the hub' }
 };
 /* PAGES IN NOBODY'S MENU THAT ARE AUDITED ANYWAY: reached from another page
    (check-menu's REACHED_ELSEWHERE), so menuFor() never lists them. */
@@ -397,13 +434,14 @@ const CONTROLS = `(function(){
     var r = el.getBoundingClientRect(); if (r.width < 1 || r.height < 1) return false;
     for (var p = el; p; p = p.parentElement) { var s = getComputedStyle(p); if (s.display === 'none' || s.visibility === 'hidden' || +s.opacity === 0) return false; } return true; }
   var list = [];
-  document.querySelectorAll('a[href],button,[role=button],[data-act],[data-lact],[data-mact],[onclick],summary').forEach(function (el, i) {
+  var K = ${KEYS_JS};
+  document.querySelectorAll('a[href],button,[role=button],[role=tab],[data-act],[data-lact],[data-mact],[data-tab],[onclick],summary').forEach(function (el, i) {
     if (!vis(el) || el.disabled || el.getAttribute('aria-disabled') === 'true') return;
     if (el.closest('[aria-hidden="true"]')) return;
     if (el.parentElement && el.parentElement.closest('a[href],button,[role=button],[data-act]') ) return;
     var words = ((el.getAttribute('aria-label') || '') + ' ' + (el.innerText || el.textContent || '')).replace(/\\s+/g, ' ').trim().slice(0, 60);
     var href = el.getAttribute('href') || '';
-    list.push({ i: i, sig: el.tagName + '|' + words + '|' + href + '|' + (el.getAttribute('data-act') || el.getAttribute('data-lact') || ''), words: words, href: href,
+    list.push({ i: i, sig: el.tagName + '|' + words + '|' + href + '|' + (el.getAttribute('data-act') || el.getAttribute('data-lact') || ''), words: words, href: href, keys: K(el),
       tel: /^(mailto|tel|sms|webcal|intent|whatsapp|geo):/i.test(href),
       needsSel: el.hasAttribute('data-needs-selection'),
       chosen: el.getAttribute('aria-pressed') === 'true' || el.getAttribute('aria-selected') === 'true' || !!el.getAttribute('aria-current') || /(^| )(on|active|selected|is-active|current)( |$)/.test(typeof el.className === 'string' ? el.className : '') });
@@ -564,7 +602,10 @@ const VIEWHASH = `(function(){var h=0,n=0,all=document.querySelectorAll('body *'
     for(var j=0;j<s.length;j++)h=(h*31+s.charCodeAt(j))|0;n++;}
   return h+':'+n;})()`;
 const HERE = '(window.EGBCApp&&EGBCApp.state?JSON.stringify(EGBCApp.state()):location.pathname+location.search)';
-async function tapAll(B, url, reopen) {
+async function tapAll(B, url, reopen, ctx) {
+  ctx = ctx || {};
+  const used = (next, how) => { if (ctx.page && next.keys && next.keys.length) REACHED.push({ page: ctx.page, role: ctx.role, size: ctx.size, keys: next.keys, how }); };
+  const notUsed = (next, why) => { if (ctx.page && next.keys && next.keys.length) SKIPPED_KEYS.push({ page: ctx.page, role: ctx.role, size: ctx.size, keys: next.keys, words: next.words || next.href, why }); };
   const why = [], skipped = [], tapped = new Set();
   /* How busy is the page by itself? A clock or a carousel changes the DOM
      without anybody tapping, so taps must beat that. */
@@ -582,12 +623,12 @@ async function tapAll(B, url, reopen) {
     /* mailto:, tel:, webcal: and the like open another app: they work by
        definition, and tapping one in a headless browser (webcal: did it)
        stops every later tap reaching the page. */
-    if (next.tel) continue;
-    if (next.chosen) continue;      /* the choice already made: tapping it rightly changes nothing */
-    if (next.needsSel) continue;    /* Bold, Italic...: they act on selected text, and there is none */
-    if (SKIP_TAP.test(next.words) || (LIVE && SKIP_LIVE.test(next.words))) { skipped.push(next.words || next.href); continue; }
+    if (next.tel) { notUsed(next, 'opens another app (mail, phone, calendar)'); continue; }
+    if (next.chosen) { used(next, 'already chosen'); continue; }      /* the choice already made: tapping it rightly changes nothing */
+    if (next.needsSel) { notUsed(next, 'acts on selected text'); continue; }    /* Bold, Italic...: they act on selected text, and there is none */
+    if (SKIP_TAP.test(next.words) || (LIVE && SKIP_LIVE.test(next.words))) { skipped.push(next.words || next.href); notUsed(next, 'not tapped: changes things for others (sign out, delete, send...)'); continue; }
     n++;
-    const sel = '(document.querySelectorAll("a[href],button,[role=button],[data-act],[data-lact],[data-mact],[onclick],summary")[' + next.i + '])';
+    const sel = '(document.querySelectorAll("a[href],button,[role=button],[role=tab],[data-act],[data-lact],[data-mact],[data-tab],[onclick],summary")[' + next.i + '])';
     /* SCROLL, LET IT SETTLE, THEN MEASURE (26 Oct 2026). Pages that build
        their styles as they go (the Tailwind script on the knowledge-base
        pages) move a moment after a change, and a tap measured before that
@@ -603,9 +644,9 @@ async function tapAll(B, url, reopen) {
     if (!pt.ok) {
       /* Something left open by the last tap? Start the page again and try
          this one once more before calling it covered. */
-      if (pt.by === 'nothing') { n--; continue; }            /* off screen (an off-canvas panel): not something to tap */
+      if (pt.by === 'nothing') { n--; notUsed(next, 'off screen (an off-canvas panel)'); continue; }            /* off screen (an off-canvas panel): not something to tap */
       if (!retried.has(next.sig) && ((await B.ev(OVERLAY)) || 'null') !== resting) { retried.add(next.sig); tapped.delete(next.sig); n--; await reopen(); continue; }
-      why.push('covered: "' + (next.words || next.href) + '" is under ' + pt.by); continue;
+      why.push('covered: "' + (next.words || next.href) + '" is under ' + pt.by); notUsed(next, 'covered by ' + pt.by); continue;
     }
     const overBefore = (await B.ev(OVERLAY)) || 'null';
     const viewBefore = await B.ev(VIEWHASH);
@@ -626,6 +667,7 @@ async function tapAll(B, url, reopen) {
     const did = B.acts.length || after.acts.length || viewAfter !== viewBefore || after.mut - before.mut > Math.ceil(noise * 1.2) + 2 || after.sx !== before.sx || after.sy !== before.sy
       || after.f !== before.f || after.u !== before.u;
     if (!did) why.push('dead: "' + (next.words || next.href || 'a control') + '" does nothing');
+    else used(next, 'pressed');
     /* A sheet or pop-up came up: it must have a close that can be seen,
        even scrolled to the bottom. Then close it. */
     const overAfter = (await B.ev(OVERLAY)) || 'null';
@@ -649,6 +691,59 @@ async function tapAll(B, url, reopen) {
   const deadOnes = why.filter(w => w.startsWith('dead:')).length;
   if (n >= 4 && deadOnes === n) return { why: why.filter(w => !w.startsWith('dead:')).concat(['audit: no tap registered on this page (' + n + ' tried); re-run it alone']), skipped };
   return { why, skipped };
+}
+
+/* EVERY FIELD, FILLED (--every): a box typed in, a list changed, a tick-box
+   ticked, a date set, then left - as a person does. A file picker is
+   written down as not used (it needs a file: the journeys do that). A
+   console error while filling one fails the screen. */
+const FIELDS = `(function(){
+  function vis(el) { var r = el.getBoundingClientRect(); if (r.width < 1 || r.height < 1) return false;
+    for (var p = el; p; p = p.parentElement) { var s = getComputedStyle(p); if (s.display === 'none' || s.visibility === 'hidden') return false; } return true; }
+  var K = ${KEYS_JS}, out = [];
+  document.querySelectorAll('input:not([type=hidden]),select,textarea').forEach(function (el, i) {
+    if (el.disabled || el.readOnly || el.closest('[aria-hidden="true"]') || el.closest('[inert]')) return;
+    var box = el.parentElement && el.parentElement.hasAttribute('data-uk-date') ? el.parentElement : el;
+    if (!vis(box)) return;
+    out.push({ i: i, keys: K(el), type: (el.type || el.tagName).toLowerCase(), words: (el.getAttribute('aria-label') || el.name || el.id || el.placeholder || '').slice(0, 40) });
+  });
+  return JSON.stringify(out);
+})()`;
+const FILL = (i) => `(function(){
+  var el = document.querySelectorAll('input:not([type=hidden]),select,textarea')[${i}]; if (!el) return 'gone';
+  var t = (el.type || el.tagName).toLowerCase();
+  if (t === 'file') return 'file';
+  try { el.scrollIntoView({ block: 'center' }); el.focus(); } catch (e) {}
+  if (t === 'checkbox' || t === 'radio') { el.click(); }
+  else if (el.tagName === 'SELECT') { var o = [].filter.call(el.options, function (x) { return x.value && x.value !== el.value && !x.disabled; })[0]; if (!o) return 'one choice'; el.value = o.value; }
+  else if (t === 'date') el.value = new Date(Date.now() + 864e5 * 9).toISOString().slice(0, 10);
+  else if (t === 'time') el.value = '10:30';
+  else if (t === 'number' || t === 'range') el.value = '2';
+  else if (t === 'email') el.value = 'synthetic.person@example.invalid';
+  else if (t === 'color') el.value = '#3d6263';
+  else el.value = 'Synthetic words';
+  el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true }));
+  try { el.blur(); } catch (e) {}
+  return 'filled';
+})()`;
+async function fillFields(B, reopen, ctx) {
+  const why = [];
+  const home = await B.ev(HERE), resting = (await B.ev(OVERLAY)) || 'null';
+  const done = new Set();
+  for (let guard = 0; guard < 400; guard++) {
+    const list = JSON.parse((await B.ev(FIELDS)) || '[]');
+    const next = list.find((f) => !done.has(f.keys.join('|') + '#' + f.i));
+    if (!next) break;
+    done.add(next.keys.join('|') + '#' + next.i);
+    const before = B.errors.length;
+    const r = await B.ev(FILL(next.i));
+    await sleep(350);
+    if (r === 'file') { if (next.keys.length) SKIPPED_KEYS.push({ page: ctx.page, role: ctx.role, size: ctx.size, keys: next.keys, words: next.words, why: 'a file picker: needs a file (the journeys upload real files)' }); continue; }
+    if (r === 'filled' || r === 'one choice') { if (next.keys.length) REACHED.push({ page: ctx.page, role: ctx.role, size: ctx.size, keys: next.keys, how: r === 'filled' ? 'filled' : 'shown (one choice)' }); }
+    if (B.errors.length > before) why.push('console: filling "' + next.words + '": ' + B.errors[before]);
+    if (((await B.ev(OVERLAY)) || 'null') !== resting || (await B.ev(HERE)) !== home) await reopen();
+  }
+  return why;
 }
 
 /* ---------------- the run ---------------- */
@@ -675,8 +770,10 @@ async function auditScreen(B, { role, size, screen, url, inApp, taps, base, shot
   await B.shot(path.join(OUT, role, String(size), slug(shotName || screen) + '.png'));
   let skipped = [];
   if (taps) {
-    const t = await tapAll(B, url, () => B.go(url));
+    const ctx = { page: String(screen).replace(/^from the app: /, '').split('?')[0], role, size };
+    const t = await tapAll(B, url, () => B.go(url), ctx);
     why.push(...t.why); skipped = t.skipped;
+    if (EVERY) { await B.go(url); why.push(...await fillFields(B, () => B.go(url), ctx)); saveReached(); }
   }
   const pageErrs = (await B.ev('JSON.stringify((window.__aud&&window.__aud.errs)||[])')) || '[]';
   JSON.parse(pageErrs).filter(e => !errs.includes(e)).slice(0, 2).forEach(e => why.push('console: ' + e));
@@ -727,8 +824,11 @@ async function auditAppScreen(B, { role, size, space, tab, taps, base, appPages 
   let skipped = [];
   if (taps) {
     B.acts.length = 0;
-    const t = await tapAll(B, url, async () => { await B.go(url); await goApp(B, space, tab); });
+    const back = async () => { await B.go(url); await goApp(B, space, tab); };
+    const ctx = { page: 'app.html', role, size };
+    const t = await tapAll(B, url, back, ctx);
     why.push(...t.why); skipped = t.skipped;
+    if (EVERY) { await back(); why.push(...await fillFields(B, back, ctx)); saveReached(); }
   }
   /* The pages this screen opens, as the app opens them. */
   await B.ev('1');
@@ -835,7 +935,8 @@ async function findability(B, role, size, base) {
 }
 
 async function runRole(B, role, size, base, shared) {
-  const tapsHere = !NO_TAPS && String(size) === TAP_SIZE;
+  /* --every: taps at every size, for every role, on every screen they see. */
+  const tapsHere = !NO_TAPS && (EVERY || String(size) === TAP_SIZE);
   await signIn(B, base, role);
   await B.size(...ALL_SIZES[size]);
   if (!NO_SITE && (String(size) === TAP_SIZE || size === '1440')) await findability(B, role, size, base);
@@ -867,7 +968,7 @@ async function runRole(B, role, size, base, shared) {
         continue;
       }
       const key = page;
-      const tapNow = tapsHere && !shared.tappedPages.has(key);
+      const tapNow = tapsHere && (EVERY || !shared.tappedPages.has(key));
       if (tapNow) shared.tappedPages.add(key);
       let m = await auditScreen(B, { role, size, screen: page, url: base + page, inApp: false, taps: tapNow, base });
       const flaky = (r) => r.why.some(w => /client is offline|audit: no tap/i.test(w)) || m.blocked || /login\.html$/.test(m.path || '');
@@ -891,7 +992,7 @@ async function runRole(B, role, size, base, shared) {
     const screens = await appScreens(B, base);
     const opened = new Set();
     for (const [space, tab] of screens) {
-      const tapNow = tapsHere && !shared.tappedApp.has(role + space + tab);
+      const tapNow = tapsHere && (EVERY || !shared.tappedApp.has(role + space + tab));
       if (tapNow) shared.tappedApp.add(role + space + tab);
       await auditAppScreen(B, { role, size, space, tab, taps: tapNow, base });
       await B.go(base + 'app.html#' + space + ':' + tab); await goApp(B, space, tab);
@@ -904,7 +1005,7 @@ async function runRole(B, role, size, base, shared) {
       if (WEBSITE[page]) continue;                   /* the website itself, audited above */
       if (page === 'login.html') continue;           /* the app's Sign out: opening it signs them out */
       const url = base + u + (u.indexOf('?') === -1 ? '?app=1' : '&app=1');
-      const tapNow = tapsHere && !shared.tappedPages.has('app:' + page);
+      const tapNow = tapsHere && (EVERY || !shared.tappedPages.has('app:' + page));
       if (tapNow) shared.tappedPages.add('app:' + page);
       await auditScreen(B, { role, size, screen: 'from the app: ' + u, url, inApp: true, taps: tapNow, base, shotName: 'app-page-' + u });
       await backToApp(B, { role, size, from: u, url });
@@ -986,6 +1087,7 @@ if (flag('live-words')) { process.exit(liveWordsCheck() ? 0 : 1); }
   await Promise.all(workers);
   if (!LIVE) await unseed();
   writeReport(started);
+  if (EVERY) saveReached();
   const fails = RESULTS.filter(r => !r.pass).length;
   console.log('\n' + fails + ' failing of ' + RESULTS.length + ' screens. Report: tests/audit-report.md');
   if (server) server.close();
