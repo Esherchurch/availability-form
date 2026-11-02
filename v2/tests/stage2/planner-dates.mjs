@@ -202,6 +202,37 @@ async function run(b, lead, P) {
     const list = await page.evaluate((w) => [...eval(w).querySelector('[data-uk="list"]').options].map((o) => o.value).filter(Boolean), wrapOf(P));
     ok(where, 'the list holds every coming service (' + list.length + ')', EVENTS.every((e) => list.includes(e.date + '|' + e.type)), JSON.stringify(list));
     const idx = (d) => list.findIndex((v) => v.split('|')[0] === d);
+    /* The ends: at the first and last service the arrow is greyed out and
+       does nothing; moving away brings it back (audit, 15 Oct). */
+    const ends = () => page.evaluate((w) => { const x = eval(w); return { prev: x.querySelector('[data-uk="prev"]').disabled, next: x.querySelector('[data-uk="next"]').disabled }; }, wrapOf(P));
+    const val = (v) => v.split('|')[0];
+    r = await step('the list: the first service', val(list[0]), () => listPick(page, P, list[0]));
+    let e = await ends();
+    ok(where, 'at the first service ◀ is disabled and ▶ is not', e.prev && !e.next, JSON.stringify(e));
+    await page.evaluate((w) => eval(w).querySelector('[data-uk="prev"]').click(), wrapOf(P));
+    r = await step('◀ tapped at the first service stays there', val(list[0]));
+    r = await step('▶ away from the first', val(list[1]), () => arrow(page, P, 'next'));
+    e = await ends();
+    ok(where, 'one along, ◀ works again', !e.prev && !e.next, JSON.stringify(e));
+    r = await step('◀ back to the first', val(list[0]), () => arrow(page, P, 'prev'));
+    const lastV = list[list.length - 1];
+    r = await step('the list: the last service', val(lastV), () => listPick(page, P, lastV));
+    e = await ends();
+    ok(where, 'at the last service ▶ is disabled and ◀ is not', e.next && !e.prev, JSON.stringify(e));
+    await page.evaluate((w) => eval(w).querySelector('[data-uk="next"]').click(), wrapOf(P));
+    r = await step('▶ tapped at the last service stays there', val(lastV));
+    r = await step('◀ away from the last', val(list[list.length - 2]), () => arrow(page, P, 'prev'));
+    e = await ends();
+    ok(where, 'one back, ▶ works again', !e.prev && !e.next, JSON.stringify(e));
+    r = await step('▶ back to the last', val(lastV), () => arrow(page, P, 'next'));
+    /* "Pick another date" at phone width: big enough to tap. */
+    await page.setViewport({ width: 390, height: 844 }); // isMobile would reload the page
+    await sleep(300);
+    const h = await page.evaluate((w) => { const o = eval(w).querySelector('[data-uk="other"]'); const q = o.getBoundingClientRect(); return { h: q.height, w: q.width }; }, wrapOf(P));
+    ok(where, '"Pick another date" is at least 44px tall at phone width (' + Math.round(h.h) + 'px)', h.h >= 44, JSON.stringify(h));
+    await page.setViewport({ width: 1280, height: 900 });
+    await sleep(300);
+    r = await step('back to the opening service', val(list[0]), () => listPick(page, P, list[0]));
     /* Where k steps from the service the list is on now lands. */
     const from = (k) => { const i = list.indexOf(r.s.list); return (list[Math.max(0, Math.min(list.length - 1, i + k))] || '').split('|')[0]; };
     /* Slowly: forwards twice, back once. */

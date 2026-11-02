@@ -1,7 +1,7 @@
 /* Rotas hide past dates; UK dates in the planners (Martin, 14 Oct 2026;
    FINDINGS-events F-171). Events window. Invented people only, events
-   emulators only, network guard; the planner's email goes to the page's
-   own outbox (egbc-nosend), never out.
+   emulators only, network guard; the planner's email is read from the
+   page's hubSend call, which never goes out (no functions emulator).
 
      npx firebase emulators:exec --config firebase.events.json --only auth,firestore,storage \
        --project egbc-worship-planner "node screenshots/events/rota-dates.test.mjs"
@@ -134,7 +134,7 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'churchSettings', 'details'), { name: 'Test Green Church', enquiryEmail: 'office@example.invalid', logoUrl: '', logoPath: '' });
   for (const k of Object.keys(EV)) {
     const e = EV[k];
-    await setDoc(doc(db, 'events', k), { date: e.date, type: e.type, termLabel: termOf(e.date), description: e.description || '', teams: ['Worship Team', 'Youth'],
+    await setDoc(doc(db, 'events', k), { date: e.date, type: e.type, termLabel: termOf(e.date), description: e.description || '', teams: k === 'ev_youth' ? ['Youth Worship'] : ['Worship Team'],
       roles: ['Guitar'], assignments: e.assignments || {}, archived: false, draft: false, startTime: '10:30', endTime: '12:00' });
   }
   await setDoc(doc(db, 'songSummaries', EV.ev_later.date), { date: EV.ev_later.date, worshipLeader: ME.name, items: [] });
@@ -291,8 +291,16 @@ try {
   await SP.evaluate(() => { window.__egbcOutbox = window.__egbcOutbox || []; window.__egbcOutbox.length = 0; });
   await SP.evaluate(() => window.emailSchedule());
   await SP.waitForSelector('#modalTeamBtn', { visible: true, timeout: 15000 });
+  /* Every v2 email goes through the hub's hubSend (since 21 Oct), not a fetch
+     the outbox sees. This run has no functions emulator, so the call fails at
+     the browser's CORS check before it is sent: read what the page asked it to send. */
+  await SP.evaluate(() => {
+    window.__hubSent = [];
+    const real = window.fetch;
+    window.fetch = function (u, o) { if (String(u).split('?')[0].endsWith('/hubSend')) { try { window.__hubSent.push(JSON.parse(o.body).data); } catch (e) {} } return real.apply(this, arguments); };
+  });
   await SP.$eval('#modalTeamBtn', b => b.click());
-  const mail = await until(() => SP.evaluate(() => (window.__egbcOutbox || []).map(m => m.payload || m).find(m => m && m.subject)));
+  const mail = await until(() => SP.evaluate(() => (window.__hubSent || []).find(m => m && m.subject)));
   const LONG = U.long(EV.ev_next.date);
   ok('   THE EMAILED PLAN says "' + LONG + '", subject and heading', mail && mail.subject === 'Sunday Worship Plan: ' + LONG && mail.html.includes(LONG) && !mail.html.includes('>' + EV.ev_next.date), mail && mail.subject);
   await SP.setViewport({ width: 375, height: 800 });
