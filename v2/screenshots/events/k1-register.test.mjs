@@ -179,15 +179,15 @@ try {
 
   /* ---------- 2. not for everyone ---------- */
   const lB = await as('lena'); const L = lB.page;
-  await go(L, 'kids-admin.html', '#noaccess');
-  ok('2. a member on no children\'s team cannot open the register', /for the children's team/.test(await L.$eval('#noaccess', e => e.textContent)));
+  await go(L, 'kids-admin.html', '#egbc-blocked-card');
+  ok('2. a member on no children\'s team cannot open the register', /for the children.s team/.test(await L.$eval('#egbc-blocked-card', e => e.textContent)));
 
   /* ---------- 3. Kids Church sends the form; a parent fills it in ---------- */
   const sB = await as('samy'); const S = sB.page;
   await go(S, 'kids-admin.html', '[data-tab="registration"]');
   const dB = await as('sid'); const Dd = dB.page;
-  await go(Dd, 'kids-admin.html', '#noaccess');
-  ok('3. someone on Kids Church who leads no group sees nothing', /children's team leads/.test(await Dd.$eval('#noaccess', e => e.textContent)));
+  await go(Dd, 'kids-admin.html', '#egbc-blocked-card');
+  ok('3. someone on Kids Church who leads no group sees nothing', /children.s team leads/.test(await Dd.$eval('#egbc-blocked-card', e => e.textContent)));
   await dB.close();
   async function sendTo(page) {
     await tap(page, '[data-tab="registration"]'); await page.waitForSelector('#r-name');

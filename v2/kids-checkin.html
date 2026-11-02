@@ -15,7 +15,7 @@
 <script src="egbc-church.js?v=202611030100"></script>
 <script src="egbc-guard.js?v=202611011200"></script>
 <script src="egbc-email.js?v=202610212000"></script>
-<script src="egbc-events.js?v=202610281600"></script>
+<script src="egbc-events.js?v=202611021400"></script>
 <script src="egbc-events-forms.js?v=202610291200"></script>
 <script src="egbc-events-kids.js?v=202610291200"></script>
 <script src="egbc-notify-core.js?v=202611011000"></script>
@@ -141,8 +141,33 @@
     document.getElementById('main').innerHTML = K.notSetUpHtml({ admin: !!(EGBCAuth.isAdmin && EGBCAuth.isAdmin()), noSite: noSite, canChooseTeam: canChoose });
   }
   function noAccess() {
-    E.refused();
-    document.getElementById('main').innerHTML = '<div class="card" id="noaccess">This page is for the children\'s team leads and each group\'s leaders. If you lead a children\'s group, ask a lead to add you to it on the Children\'s register.</div>';
+    E.notForYou('the children’s team leads, the safeguarding lead and deputy, each children’s group’s leaders and the morning’s session leader. If you lead a group, ask a lead to add you to it on the Children’s register');
+  }
+  /* Every site's kids settings. A lead on no team (a safeguarding lead,
+     say) may read only their own sites', so they are read one by one. */
+  function settingsAll() {
+    return db().collection('kidsSettings').get().catch(function () {
+      return db().collection('sites').get().then(function (s) {
+        return Promise.all(s.docs.map(function (d) {
+          return db().collection('kidsSettings').doc(d.id).get().then(function (x) { return x.exists ? x : null; }, function () { return 'no'; });
+        }));
+      }).then(function (l) {
+        return { docs: l.filter(function (x) { return x && x !== 'no'; }), refused: l.length > 0 && l.every(function (x) { return x === 'no'; }) };
+      });
+    });
+  }
+  /* A refused read is someone the page isn't for; anything else is a fault,
+     said plainly, so a lead is never told the page isn't theirs. */
+  function failed(e) {
+    if (/permission/i.test(String((e && (e.code || e.message)) || ''))) return noAccess();
+    if (window.console) console.warn(e);
+    document.getElementById('main').innerHTML = '<div class="card" id="loadFail">Something went wrong opening this page: ' + esc((e && e.message) || e) + '. Reload the page to try again.</div>';
+  }
+  /* Who the page is for, as the Menu decides it, so "not set up yet" is
+     never shown to someone the page isn't for. */
+  function mayKids(canChoose) {
+    return !!ME.masterAdmin || canChoose || MYGROUPS.length > 0 || ROTASL
+      || !!(EGBCAuth.isKidsLead && EGBCAuth.isKidsLead()) || !!(EGBCAuth.isSafeguardingLead && EGBCAuth.isSafeguardingLead());
   }
 
   /* ---- load: the leads read the site; a group leader reads their groups ---- */
@@ -849,13 +874,13 @@
         return load();
       }).catch(function () { noAccess(); });
     }
-    return load().catch(function () { noAccess(); });
+    return load().catch(failed);
   }
   function begin() {
     var mid = ME.memberId || '-', adminFor = ME.adminFor || [];
     return Promise.all([db().collection('sites').get(), db().collection('bookingSettings').get().catch(function () { return { docs: [] }; }),
                         /* Refused (not on the children's team): say so, not "not set up". */
-                        db().collection('kidsSettings').get().catch(function () { return { docs: [], refused: true }; }),
+                        settingsAll(),
                         db().collection('kidsGroups').where('leaderIds', 'array-contains', mid).get().catch(function () { return { docs: [] }; })]).then(function (r) {
       var bs = {}, ks = {};
       all(r[1]).forEach(function (s) { bs[s.id] = s; }); all(r[2]).forEach(function (s) { ks[s.id] = s; });
@@ -874,7 +899,7 @@
       var live = all(r[0]).filter(function (s) { return s.active !== false; });
       var anyTeam = live.some(function (s) { return ((ks[s.id] || {}).teams || []).length > 0; });
       var canChoose = !!ME.masterAdmin || live.some(function (s) { var b = bs[s.id] || {}; return b.safeguardingLead === mid || b.safeguardingDeputy === mid; });
-      if (!live.length || !anyTeam) return notSetUp(!live.length, canChoose);
+      if (!live.length || !anyTeam) return mayKids(canChoose) ? notSetUp(!live.length, canChoose) : noAccess();
       SITES = all(r[0]).map(function (s, i) { s._i = i; return s; }).filter(function (s) { return s.active !== false; }).map(function (s) { var i = s._i;
         s._settings = ks[s.id] || {};
         var sg = (bs[s.id] || {}).safeguardingLead === mid || (bs[s.id] || {}).safeguardingDeputy === mid;
@@ -898,7 +923,8 @@
     ME = E.asSeen(profile || {});   /* view as: the person being viewed */
     /* F-185: print on the church's label size. */
     if (window.EGBCLabels) EGBCLabels.load().then(EGBCLabels.apply);
-    return begin();
+    /* the team jobs: before kids settings exist, the children job names the kids teams */
+    return EGBCAuth.loadPerms().catch(function () {}).then(begin);
   }).catch(function (e) { document.getElementById('main').innerHTML = '<div class="card">' + esc(e.message || e) + '</div>'; });
 })();
 </script>

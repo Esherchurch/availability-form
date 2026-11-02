@@ -13,7 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202611022300"></script>
 <script src="egbc-church.js?v=202611030100"></script>
-<script src="egbc-events.js?v=202610281600"></script>
+<script src="egbc-events.js?v=202611021400"></script>
 <script src="egbc-events-checkin.js?v=202611011800"></script>
 <script src="egbc-events-safeguarding.js?v=202610261500"></script>
 <script src="egbc-ra-core.js?v=202610271600"></script>
@@ -178,7 +178,27 @@
     });
   }
 
-  EGBCAuth.require().then(function () {
+  /* WHO MAY PRINT WHAT, as the Safeguarding risks page and the rules decide
+     it: the register and its snapshots, the safeguarding lead and deputy,
+     the trustees and master admins; an event's assessment, those and the
+     event's own organisers and leaders. Safeguarding is never widened to
+     any admin. An event with no assessment yet is readable by anyone signed
+     in, so the page asks itself rather than waiting for a refused read. */
+  var WHO = 'the safeguarding lead and deputy, the trustees and master admins';
+  function mayPrint() {
+    if (EGBCAuth.isMaster() || EGBCAuth.isSafeguardingLead() || EGBCAuth.isSgTrustee()) return Promise.resolve(true);
+    var id = q.get('event');
+    if (!id) return Promise.resolve(false);
+    WHO += ', and the event’s organisers and leaders';
+    return Promise.all([db().collection('calEvents').doc(id).get(), db().collection('eventLeaders').doc(id).get().catch(function () { return null; })]).then(function (r) {
+      var me = (EGBCAuth.user() || {}).uid || '';
+      return (r[0].exists && E.runsEvent(Object.assign({ id: id }, r[0].data())))
+        || !!(r[1] && r[1].exists && me && (r[1].data().leaderUids || []).indexOf(me) !== -1);
+    }, function () { return false; });
+  }
+
+  EGBCAuth.require().then(function () { return EGBCAuth.loadPerms().catch(function () {}); }).then(mayPrint).then(function (may) {
+    if (!may) return E.notForYou(WHO);
     var go = q.get('event') ? printEvent(q.get('event')) : q.get('register') ? printRegister(q.get('register')) : q.get('snapshot') ? printSnapshot(q.get('snapshot')) : Promise.reject(new Error('nothing was chosen. Use the Print link on the Safeguarding risk register: on Standing risks, an event assessment or a snapshot.'));
     return go.then(function () { sheet.setAttribute('data-ready', '1'); }, fail);
   }).catch(fail);

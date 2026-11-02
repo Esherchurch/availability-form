@@ -5,7 +5,7 @@ This page holds the church's Sunday children's groups, the children registered f
 ## Who can use it
 - The leads see every child and every tab. They are master admins, the safeguarding lead and deputy, and the admins of the children's teams.
 - A group's leaders see only their own group's children, with their medical details. They see one tab, **Your group**.
-- Anyone else is told the page is for the children's team leads and each group's leaders.
+- Anyone else sees **This page isn't for you**, which says who it is for, with a **Back to hub** button. Nothing about the children shows.
 - If the church has more than one site, choose the **Site** at the top.
 
 ## Find a child

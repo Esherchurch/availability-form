@@ -7,6 +7,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="egbc-auth.js?v=202611022300"></script>
+<!-- Hidden until youthDoor() knows the page is for this person. -->
+<style id="youth-door">body{visibility:hidden}</style>
 <script src="egbc-manifest.js?v=202611011200"></script>
 <script src="egbc-church.js?v=202611030100"></script>
 <script src="egbc-plan-store.js?v=202610252100"></script>
@@ -1487,7 +1489,31 @@ function autoFitTextAreas() {
   document.querySelectorAll('textarea.styled-input').forEach(t => { t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; });
 }
 
+/* WHO THIS PAGE IS FOR: a young person with an access code (their own
+   youthAccess record, still in date), and the people the Youth page is for
+   (its guard: the youth groups, their admins and master admins). Anyone
+   else is told so, with a way back, before anything is read. */
+async function youthDoor() {
+  const show = () => { const d = document.getElementById('youth-door'); if (d) d.remove(); };
+  const p = await EGBCAuth.optional();
+  const u = EGBCAuth.user();
+  if (p && p.status === 'active') {
+    await EGBCAuth.loadPerms().catch(() => {});
+    if (EGBCAuth.guardVerdict({ youthGroups: true }) === '') { show(); return true; }
+  } else if (u) {
+    try {
+      const g = await db.collection('youthAccess').doc(u.uid).get(), d = g.exists ? g.data() : null;
+      if (d && d.active && d.expiresAt && d.expiresAt.toDate() > new Date()) { show(); return true; }
+    } catch (e) { /* no record of theirs: not a youth phone */ }
+  }
+  show();
+  EGBCAuth._blockPage('This page isn’t for you', 'This page is for the youth group and the youth team. ' +
+    'If you are in the youth group, <a href="youth-access.html" style="color:#5f7a4a;font-weight:800">enter your access code</a>.', p && p.status === 'active' ? p : null);
+  return false;
+}
+
 window.addEventListener('load', async () => {
+  if (!(await youthDoor())) return;
   Sortable.create(document.getElementById('service-order'), {
     animation: 150, handle: '.drag-handle', onEnd: () => updateSongNumbers()
   });

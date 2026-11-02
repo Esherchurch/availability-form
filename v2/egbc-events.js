@@ -181,6 +181,16 @@
      guard does (data-egbc-blocked), so a checker - and anything else that
      looks - can tell "not for you" from a page that opened. */
   function refused() { if (document.body) document.body.setAttribute('data-egbc-blocked', 'refused by the page'); }
+  /**
+   * Turns away someone a page isn't for, with the shared guard's card: plain
+   * words, and a way back to the hub. The page underneath is put away, so
+   * nothing it has drawn or read stays on screen.
+   * @param {string} who finishes "This page is for ...", in plain words
+   */
+  function notForYou(who) {
+    EGBCAuth._blockPage('This page isn’t for you', 'This page is for ' + who +
+      '. If you think you should have it, ask the church office.', (EGBCAuth.profile && EGBCAuth.profile()) || null);
+  }
   /* WHO MAY OPEN WHICH ADMIN PAGE (Martin, 16 Oct; the Menu asks the same):
        - Places and the Picture library: the church office, master admins
          and bookings admins - everyone EGBCAuth gives the "bookings" part
@@ -1020,7 +1030,7 @@
     audienceFor: audienceFor,
     myAudiences: myAudiences,
     signedIn: signedIn,
-    onTeam: onTeam, ready: ready, refused: refused, mayRunPlaces: mayRunPlaces, mayHeadcount: mayHeadcount, viewing: viewing, asSeen: asSeen, myUid: myUid, anyOf: anyOf,
+    onTeam: onTeam, ready: ready, refused: refused, notForYou: notForYou, mayRunPlaces: mayRunPlaces, mayHeadcount: mayHeadcount, viewing: viewing, asSeen: asSeen, myUid: myUid, anyOf: anyOf,
     runsEvent: runsEvent,
     eventsIRun: eventsIRun,
     listUpcoming: listUpcoming,

@@ -245,8 +245,8 @@ try {
 
   /* ---------- 4. another team's admin, and the roll-call ---------- */
   const wB = await as('wes'); const W = wB.page;
-  await go(W, 'kids-checkin.html', '#noaccess');
-  ok('4. an admin of another team (Worship) cannot open Sunday check-in', /children's team leads and each group's leaders/.test(await text(W, '#noaccess')));
+  await go(W, 'kids-checkin.html', '#egbc-blocked-card');
+  ok('4. an admin of another team (Worship) cannot open Sunday check-in', /children.s team leads, the safeguarding lead and deputy, each children.s group.s leaders/.test(await text(W, '#egbc-blocked-card')));
   const wsneak = await W.evaluate((id, day) => Promise.all([
     EGBCAuth.db.collection('checkins').doc(id).get().then(() => 'read', e => e.code),
     EGBCAuth.db.collection('checkins').where('day', '==', day).get().then(() => 'read', e => e.code),

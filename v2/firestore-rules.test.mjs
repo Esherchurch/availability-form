@@ -1031,7 +1031,10 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('a medical answer cannot be changed afterwards', 'deny', () => updateDoc(doc(as('martin'), 'sensitiveResponses', 'secret_old_00000000000000000000'), { answers: {} }));
 
   /* Who may read the medical half. */
-  await check('the parent\'s private link opens what they sent', 'allow', () => getDoc(doc(anon(), 'sensitiveResponses', 'secret_old_00000000000000000000')));
+  /* The parent's link reads what they sent through formAnswers, which checks
+     the link's key: the secret or the record's id alone opens nothing here. */
+  await check('the secret alone, signed out, does not open the medical half', 'deny', () => getDoc(doc(anon(), 'sensitiveResponses', 'secret_old_00000000000000000000')));
+  await check('nor do the ordinary answers open by their id', 'deny', () => getDoc(doc(anon(), 'formResponses', 'resp_old')));
   await check('nobody without an account can list medical answers', 'deny', () => getDocs(collection(anon(), 'sensitiveResponses')));
   await check('an admin of the form\u2019s own team lists the ordinary answers', 'allow', () => getDocs(query(collection(as('karen'), 'formResponses'), where('formId', '==', 'form_consent'))));
   await check('an admin of another team (AV) does not (F-087)', 'deny', () => getDocs(query(collection(ella(), 'formResponses'), where('formId', '==', 'form_consent'))));
@@ -1081,7 +1084,7 @@ await check('nobody without an account can read either', 'deny', () => getDoc(do
   await check('a leader cannot read another event\'s medical answers', 'deny', () => q(leo(), 'sensitiveResponses', 'calEventId', 'ev_other'));
   await check('a member who is not a leader of that event cannot read them', 'deny', () => q(as('samy'), 'sensitiveResponses', 'calEventId', 'ev_safe'));
   await check('an ordinary admin cannot read them either', 'deny', () => q(ella(), 'sensitiveResponses', 'calEventId', 'ev_safe'));
-  await check('a guest\'s private key opens their own record', 'allow', () => getDoc(doc(anon(), 'sensitiveResponses', 'secret_safe_000000000000000000000')));
+  await check('a guest\'s private key alone does not open their record (formAnswers does, with the link)', 'deny', () => getDoc(doc(anon(), 'sensitiveResponses', 'secret_safe_000000000000000000000')));
   await check('and nothing else: a guest cannot list them', 'deny', () => q(anon(), 'sensitiveResponses', 'calEventId', 'ev_safe'));
 
   /* "Still correct" for a second event: the lead shares a copy. */

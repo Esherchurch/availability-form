@@ -2157,7 +2157,7 @@ allow create: if request.resource.data.keys().hasOnly(['siteId', 'day', 'n', 'fa
 allow update, delete: if false;
 }
 match /kidsSettings/{siteId} {
-allow read: if volunteer();
+allow read: if volunteer() || kidsLead(siteId);
 allow write: if ((isMaster() || sgLeadOf(siteId))
 && request.resource.data.get('teams', []) is list && request.resource.data.get('teams', []).size() <= 500
 && request.resource.data.get('formId', '') is string
@@ -2167,7 +2167,7 @@ allow write: if ((isMaster() || sgLeadOf(siteId))
 && request.resource.data.screenPaging is bool);
 }
 match /kidsGroups/{groupId} {
-allow read: if volunteer();
+allow read: if volunteer() || kidsLead(resource.data.get('siteId', ''));
 allow write: if kidsLead(request.resource.data.siteId)
 && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80
 && request.resource.data.get('ratio', 0) is int
@@ -2319,7 +2319,7 @@ return t is map && t.keys().hasOnly(['name', 'from', 'to'])
 && t.to is string && t.to.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}') && t.from <= t.to;
 }
 match /kidsTerms/{siteId} {
-allow read: if volunteer();
+allow read: if volunteer() || kidsLead(siteId);
 allow write: if kidsLead(siteId)
 && request.resource.data.keys().hasOnly(['terms', 'updatedAt', 'updatedBy'])
 && request.resource.data.terms is list && request.resource.data.terms.size() == 3

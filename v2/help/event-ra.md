@@ -5,7 +5,7 @@ This is the health and safety risk assessment for one event. It adds only what t
 ## Who can use it
 - The event's organisers and leaders, the office, the trustees, the health and safety leads and master admins can open it.
 - The organisers, leaders, the office and the building's health and safety lead or deputy can change it while it is a draft.
-- Anyone else is told who the page is for.
+- Anyone else sees **This page isn't for you**, which says who it is for, with a **Back to hub** button.
 
 ## Say what kind of event it is
 1. Under **The event**, choose **What kind of event**.

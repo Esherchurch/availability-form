@@ -4016,7 +4016,7 @@ service cloud.firestore {
     }
 
     match /kidsSettings/{siteId} {
-      allow read: if volunteer();
+      allow read: if volunteer() || kidsLead(siteId);
       // Who the leads are is set by a master admin or the safeguarding lead.
       allow write: if ((isMaster() || sgLeadOf(siteId))
                    && request.resource.data.get('teams', []) is list && request.resource.data.get('teams', []).size() <= 500
@@ -4030,7 +4030,9 @@ service cloud.firestore {
     // Groups by school year, each with its room, day and time, ratio and
     // leaders. The leads set them.
     match /kidsGroups/{groupId} {
-      allow read: if volunteer();
+      // ...and the leads, the safeguarding lead and deputy among them, who may
+      // be on no team at all.
+      allow read: if volunteer() || kidsLead(resource.data.get('siteId', ''));
       allow write: if kidsLead(request.resource.data.siteId)
                    && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80
                    && request.resource.data.get('ratio', 0) is int
@@ -4238,7 +4240,7 @@ service cloud.firestore {
              && t.to is string && t.to.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}') && t.from <= t.to;
     }
     match /kidsTerms/{siteId} {
-      allow read: if volunteer();
+      allow read: if volunteer() || kidsLead(siteId);
       allow write: if kidsLead(siteId)
                    && request.resource.data.keys().hasOnly(['terms', 'updatedAt', 'updatedBy'])
                    && request.resource.data.terms is list && request.resource.data.terms.size() == 3

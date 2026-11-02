@@ -252,8 +252,8 @@ try {
     EGBCAuth.db.collection('kidsChildren').doc('kc_ben').get().then(() => 'read', e => e.code),
     EGBCAuth.db.collection('checkins').doc('kids_kg_junior_' + EGBCCheckin.today() + '__kc_ben__0').get().then(() => 'read', e => e.code)]));
   ok('   but not Eve\'s, who has not come; nor anyone\'s record or check-in', msneak.every(x => /permission/.test(x)), J(msneak));
-  await go(N, 'kids-checkin.html', '#noaccess');
-  ok('   someone on Kids Church not leading this morning sees nothing', !!(await N.$('#noaccess')));
+  await go(N, 'kids-checkin.html', '#egbc-blocked-card');
+  ok('   someone on Kids Church not leading this morning sees nothing', !!(await N.$('#egbc-blocked-card')));
   await env.withSecurityRulesDisabled(async (ctx) => { await updateDoc(doc(ctx.firestore(), 'kidsMornings', 'site_t_' + UTCDAY), { expiresAt: Timestamp.fromMillis(Date.now() - 60000) }); });
   const after = await M.evaluate(() => EGBCAuth.db.collection('kidsMedical').doc('kc_ben').get().then(() => 'read', e => e.code));
   ok('   WHEN THE MORNING CLOSES: the Session Leader no longer sees the medical details', /permission/.test(after), after);
