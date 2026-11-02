@@ -6,7 +6,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202611022000"></script>
+<script src="egbc-auth.js?v=202611022300"></script>
 <script src="egbc-manifest.js?v=202611011200"></script>
 <script src="egbc-video.js?v=202610311600"></script>
 <script src="egbc-church.js?v=202611011200"></script>
@@ -1009,6 +1009,10 @@ ${body}
             alert(`Auto-fill complete!\n\nServices filled: ${sundayEvents.length}\nPractices synced: ${practicesSynced}`);
         };
 
+        /* hubSend refuses an address only under-18s hold; a child on a
+           parent's address still gets their rota there. */
+        const under18Only = (email) => EGBCAuth.under18Only(email, addressBook);
+
         /* Everyone in a person's household.
 
            The address book records households two ways. Natasha and Daniel
@@ -1142,9 +1146,14 @@ ${body}
             const termLabels = selectedTerm || [...new Set(activeEvents.map(e => e.termLabel).filter(Boolean))].join(', ');
             const fullDoc = await getPdfBlob('full', null, activeEvents);
 
-            const members = addressBook.filter(m => m.email && activeEvents.some(e => isInvitedTo(e, m.id)));
+            const serving = addressBook.filter(m => m.email && activeEvents.some(e => isInvitedTo(e, m.id)));
+            /* The hub never emails under-18s, so they are left out here and
+               named, rather than counted as a failed send. */
+            const young = serving.filter(m => under18Only(m.email));
+            const members = serving.filter(m => !under18Only(m.email));
+            const youngNote = young.length ? `\n\nNot emailed, because the hub never emails under-18s: ${young.map(m => m.name).join(', ')}.` : '';
 
-            if (members.length === 0) { alert("No team members found."); return; }
+            if (members.length === 0) { alert("No team members found." + youngNote); return; }
 
             /* The failsafe. One rota, several people filling it in at
                different times - so someone on two teams would otherwise get an
@@ -1162,7 +1171,7 @@ ${body}
                     + 'anyone on two teams getting a rota with half their duties missing.');
                 return;
             }
-            if (!confirm(`Send rotas to ${members.length} team members for ${termLabels}?`)) return;
+            if (!confirm(`Send rotas to ${members.length} team members for ${termLabels}?${youngNote}`)) return;
 
             const toast = document.createElement('div');
             toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#3d6263;color:white;padding:14px 22px;border-radius:14px;font-family:Inter, system-ui, sans-serif;font-size:13px;font-weight:500;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.25);min-width:240px;line-height:1.4;';
@@ -1273,6 +1282,7 @@ ${body}
             toast.innerHTML = failed === 0
                 ? `Rotas sent to all <strong>${sent}</strong> team members`
                 : `Done: <strong>${sent}</strong> sent, <strong>${failed}</strong> failed`;
+            if (young.length) toast.innerHTML += `<br><span style="font-weight:400;opacity:0.9;">Not emailed (under 18): ${escE(young.map(m => m.name).join(', '))}</span>`;
             toast.style.background = failed === 0 ? '#3B7D23' : '#e05555';
             setTimeout(() => toast.remove(), 6000);
         };
@@ -1281,6 +1291,7 @@ ${body}
             if (!memberId) return alert("Please select a team member first.");
             const member = addressBook.find(m => m.id === memberId);
             if (!member || !member.email) return alert("Member not found or has no email.");
+            if (under18Only(member.email)) return alert(`${member.name} is not emailed: the hub never emails under-18s.`);
             if (!confirm(`Send rota to ${member.name} (${member.email})?`)) return;
 
             await Promise.all([churchDetails(), svcReady, churchShortName()]);

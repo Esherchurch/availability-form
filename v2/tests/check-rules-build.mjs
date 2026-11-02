@@ -49,7 +49,8 @@ const allows = (stChurch.match(/allow [^:]+: if /g) || []).length, gated = (stCh
 ok('  every allow in it is behind the church gate (' + gated + ' of ' + allows + ')', allows > 0 && gated === allows - 1, gated + ' of ' + allows + ' (the one left is the catch-all)');
 
 const configs = fs.readdirSync(V2).filter((f) => /^firebase(\..+)?\.json$/.test(f));
-const wrong = configs.filter((f) => { const c = JSON.parse(read(f)); return c.firestore && c.firestore.rules && c.firestore.rules !== BUILT; })
+/* A church config (firebase.churches-*.json, for runs inside churches/{cid}) loads the built church rules, which are built too. */
+const wrong = configs.filter((f) => { const c = JSON.parse(read(f)), r = c.firestore && c.firestore.rules; return r && r !== BUILT && !(/^firebase.churches/.test(f) && r === CHURCH_BUILT); })
   .map((f) => f + ' -> ' + JSON.parse(read(f)).firestore.rules);
 ok('firebase.json and every emulator config load the built rules (' + configs.join(', ') + ')', wrong.length === 0, wrong.join('; '));
 

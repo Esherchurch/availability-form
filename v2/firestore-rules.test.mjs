@@ -299,6 +299,7 @@ await env.withSecurityRulesDisabled(async (ctx) => {
     date: '2026-11-15', items: [], audience: ['u_someone_else'], audienceUnresolved: [] });
   await setDoc(doc(db, 'inventory', 'inv1'), { name: 'Synthetic mixing desk', where: 'Main Hall' });
   await setDoc(doc(db, 'av_schematic', 'main'), { boxes: [] });
+  await setDoc(doc(db, 'egbc-config', 'monitor-mix'), { wedges: [] });
   await setDoc(doc(db, 'resources', 'r1'), { title: 'Charter' });
   await setDoc(doc(db, 'kb_playthrough', 'k1'), { title: 'Play-through' });
   await setDoc(doc(db, 'rotaSignoff', 'Autumn 2026__Kids Church'), { by: 'Karen' });
@@ -913,6 +914,11 @@ await check('a member cannot change the inventory', 'deny', () => setDoc(doc(as(
 await check('a master admin can', 'allow', () => setDoc(doc(as('martin'), 'inventory', 'inv1'), { name: 'Synthetic mixing desk' }));
 await check('a member reads the AV schematic', 'allow', () => getDoc(doc(as('samy'), 'av_schematic', 'main')));
 await check('a member cannot redraw it', 'deny', () => setDoc(doc(as('samy'), 'av_schematic', 'main'), { boxes: [] }));
+/* Monitor Setup (egbc-config/monitor-mix): the stage page reads it; AV's admins change it. */
+await check('a member reads the monitor setup', 'allow', () => getDoc(doc(as('samy'), 'egbc-config', 'monitor-mix')));
+await check('a member cannot change it', 'deny', () => setDoc(doc(as('samy'), 'egbc-config', 'monitor-mix'), { wedges: [] }));
+await check('an AV admin can', 'allow', () => setDoc(doc(as('avLead'), 'egbc-config', 'monitor-mix'), { wedges: [{ id: 'w1' }] }));
+await check('nobody without an account reads it', 'deny', () => getDoc(doc(anon(), 'egbc-config', 'monitor-mix')));
 await check('nobody without an account can read either', 'deny', () => getDoc(doc(anon(), 'inventory', 'inv1')));
 
 // ── EVENTS (events window) ── check-in and attendance (Chunk 3, stage 1)

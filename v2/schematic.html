@@ -4,7 +4,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202611022000"></script>
+<script src="egbc-auth.js?v=202611022300"></script>
 <script src="egbc-church.js?v=202611011200"></script>
 
 <script src="egbc-shell.js?v=202611011500" data-title="AV Infrastructure Mapper"></script>
@@ -700,15 +700,27 @@ function initFirebase() {
 }
 
 // ── FIREBASE SAVE HELPERS ──
-function saveLocations() {
-    db.collection('av_schematic').doc('locations').set({ list: locations });
+/* WHO MAY CHANGE THE MAP: an admin, as the rules say (av_schematic: AV's
+   admins, or anyone who administers something). Everyone else on the team
+   can look. A change they try was refused out of sight and stayed on their
+   screen as if saved (the going-live test, Stage 2, 2 Nov 2026): now it is
+   put back and they are told. */
+function mayEdit() { return EGBCAuth.isAdmin(); }
+function refuseEdit() {
+    alert('Only AV leaders can change the map. You can look at it here.');
+    db.collection('av_schematic').get().then(s => {
+        const saved = { locations: [], signals: [], hops: [] };
+        s.forEach(d => { if (d.id in saved) saved[d.id] = d.data().list || []; });
+        locations = saved.locations; signals = saved.signals; hops = saved.hops;
+    }).then(() => { renderRegistry(); renderHopDropdowns(); renderSignalsList(); renderHopsList(); });
 }
-function saveSignals() {
-    db.collection('av_schematic').doc('signals').set({ list: signals });
+function saveList(id, list) {
+    if (!mayEdit()) { refuseEdit(); return; }
+    db.collection('av_schematic').doc(id).set({ list }).catch(e => alert('That did not save: ' + e.message));
 }
-function saveHops() {
-    db.collection('av_schematic').doc('hops').set({ list: hops });
-}
+function saveLocations() { saveList('locations', locations); }
+function saveSignals() { saveList('signals', signals); }
+function saveHops() { saveList('hops', hops); }
 
 // ── TABS ──
 function showTab(name) {
@@ -760,6 +772,7 @@ function deleteLocation(name) {
 }
 
 function clearAllData() {
+    if (!mayEdit()) { refuseEdit(); return; }
     const input = document.getElementById('reset-confirm-input');
     if (!input || input.value.trim() !== 'RESET') {
         input.style.borderColor = '#e53e3e';

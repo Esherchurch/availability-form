@@ -1253,6 +1253,10 @@
       try { var s = await db().collection('addressBook').get(); s.forEach(function (d2) { var r = d2.data(); if (r.email) spAddressBook.push(r); }); } catch (e) {}
     }
     var spRecipients = [...new Set(spAddressBook.filter(function (p) { return rosterNames.includes(p.name && p.name.trim()) && p.email; }).map(function (p) { return p.email; }))];
+    /* The hub never emails under-18s, and refuses a whole message with one
+       in it: they are left out and named when it goes. */
+    var spYoung = [...new Set(spAddressBook.filter(function (p) { return p.email && spRecipients.includes(p.email) && EGBCAuth.under18Only(p.email, spAddressBook); }).map(function (p) { return p.name; }))];
+    spRecipients = spRecipients.filter(function (e) { return !EGBCAuth.under18Only(e, spAddressBook); });
     var spSubject = 'Service Plan: ' + EGBCUKDates.long(date);
     var senderBox = document.getElementById('spSenderEmail');
     /* Replies go to the address typed in, else the worship team's own
@@ -1265,7 +1269,7 @@
       toast('Sending plan...');
       try {
         var result = await EGBCAuth.sendEmail(Object.assign({ source: 'servicePlan' }, { to: spRecipients, subject: spSubject, html: html, replyTo: senderEmail }));
-        if (result.ok) toast('Plan sent to ' + spRecipients.length + ' people');
+        if (result.ok) toast('Plan sent to ' + spRecipients.length + ' people' + (spYoung.length ? '. Not emailed (under 18): ' + spYoung.join(', ') : ''));
         else toast('Could not send: ' + (result.error || 'unknown error'));
       } catch (e) { toast('Could not send: no connection'); }
     } else { toast('No recipients found'); }

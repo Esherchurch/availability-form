@@ -7,7 +7,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202611022000"></script>
+<script src="egbc-auth.js?v=202611022300"></script>
 <script src="egbc-church.js?v=202611011200"></script>
 <script src="egbc-kbupload.js?v=202610062000"></script>
 <script src="egbc-guard.js?v=202611011200" data-job="worship" data-role="member"></script>
@@ -95,8 +95,8 @@
     </div>
     <div class="flex flex-wrap gap-2 mt-4">
       <span class="text-[12px] font-semibold opacity-40 self-center">Quick:</span>
-      <button onclick="quickSearch('Sovereign intro')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-lg text-[12px] font-semibold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Sovereign intro</button>
-      <button onclick="quickSearch('Way Maker')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-lg text-[12px] font-semibold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Way Maker</button>
+      <!-- The church's own two newest songs (loadAssets), not two names in the code. -->
+      <span id="ptQuickSongs" class="contents"></span>
       <button onclick="quickSearch('songs in G')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-lg text-[12px] font-semibold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Songs in G</button>
       <button onclick="quickSearch('keyboard intro')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-lg text-[12px] font-semibold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Keyboard intro</button>
       <button onclick="quickSearch('guitar chorus')" class="bg-[#f0f6f6] px-4 py-1.5 rounded-lg text-[12px] font-semibold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all">Guitar chorus</button>
@@ -366,7 +366,21 @@ async function loadAssets(){
     allAssets=snap.docs.map(d=>({id:d.id,...d.data()}));
   }catch(e){console.log('KB load error:',e.message);allAssets=[];}
   renderContent(allAssets);
+  quickSongs();
   return allAssets;
+}
+
+/* The first two quick links are this church's two newest play-through
+   songs. They were two of one church's songs, written into the page, so
+   every other church's found nothing (the going-live test, Stage 2). */
+function quickSongs(){
+  const box=document.getElementById('ptQuickSongs');if(!box)return;
+  box.innerHTML='';
+  [...new Set(allAssets.map(a=>(a.songTitle||a.title||'').trim()).filter(Boolean))].slice(0,2).forEach(t=>{
+    const b=document.createElement('button');
+    b.className='bg-[#f0f6f6] px-4 py-1.5 rounded-lg text-[12px] font-semibold border border-[#d1dfdf] hover:bg-[#3d6263] hover:text-white transition-all';
+    b.textContent=t;b.onclick=()=>quickSearch(t);box.appendChild(b);
+  });
 }
 
 async function loadAll(){

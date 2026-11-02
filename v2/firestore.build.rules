@@ -618,6 +618,10 @@ match /av_schematic/{docId} {
 allow read: if volunteer();
 allow write: if canAct('AV Team') || isAdmin();
 }
+match /egbc-config/{docId} {
+allow read: if volunteer();
+allow write: if canAct('AV Team') || isAdmin();
+}
 match /schedules/{scheduleId} {
 allow read: if volunteer();
 allow write: if canAct('Worship Team') || canAct('Youth Worship');

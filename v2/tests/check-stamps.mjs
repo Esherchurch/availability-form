@@ -73,6 +73,17 @@ for (const lib of ['egbc-auth.js', 'egbc-shell.js']) {
     stamps.slice(0, -1).map(s => seen[s].slice(0, 5).join(', ') + ' at ' + s).join('; ') + ' - the rest at ' + stamps[stamps.length - 1]);
 }
 
+/* VERSION.JSON IS THE SHELL'S STAMP (2 Nov 2026): egbc-shell.js reloads a
+   page once in each new tab when the two differ (checkFresh). version.json
+   was left at 8 Oct, so every page reloaded once in every tab, and the
+   Rota planner's Populate, pressed in that moment, made 2 of a term's 18
+   Sundays (the going-live test, Stage 2). */
+{
+  const shellStamp = fs.readdirSync(V2).filter(n => /\.html$/i.test(n)).map(n => (read(n).match(/egbc-shell\.js\?v=(\d{12})/) || [])[1]).find(Boolean);
+  const ver = JSON.parse(read('version.json').replace(/^﻿/, '')).stamp;
+  ok('version.json is the stamp every page loads egbc-shell.js with', String(ver) === shellStamp, 'version.json ' + ver + ', egbc-shell.js ' + shellStamp);
+}
+
 /* THE APP AND THE HUB ARE NEVER BEHIND (22 Oct 2026): the events window
    bumped egbc-events.js on its pages and asked for the app's (F-270); the
    app was also found asking for older copies of six more scripts than

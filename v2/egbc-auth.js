@@ -2350,6 +2350,17 @@
       });
     },
 
+    /** True when only under-18s hold this address in the address book the
+     * page has (ticked Under 16 or Under 18): hubSend refuses a message with
+     * one in it, so a team list leaves it out and says who. A child on a
+     * parent's address is not left out (functions/under18.js).
+     * @param {string} email @param {object[]} book address-book records */
+    under18Only: function (email, book) {
+      var e = String(email || '').trim().toLowerCase();
+      var holders = (book || []).filter(function (m) { return m && String(m.email || '').trim().toLowerCase() === e; });
+      return holders.length > 0 && holders.every(function (m) { return m.isMinor === true || m.under18 === true; });
+    },
+
     isAttender: function () {
       return !!(currentProfile && currentProfile.attender === true);
     },

@@ -47,6 +47,7 @@ This is where the worship leader plans a Sunday service: the songs, the keys, th
 2. In **Your Email (reply-to)**, type your email. Replies come to you. Leave it empty and replies go to the church's enquiry email (Church settings).
 3. Press **Email Whole Team**. It goes to everyone on the service (each person, when a slot has several) and to the worship core team: the core team set for the worship teams in Teams and groups.
 4. Or choose a name under **Or email one person:** and press **Email This Person**.
+- Anyone under 18 is left out of **Email Whole Team**, because the hub never emails under-18s. When it has sent, it names them.
 5. It says "Sent" when it has gone.
 - The email carries the church's name and logo from Church settings. If none is set, they are left off.
 

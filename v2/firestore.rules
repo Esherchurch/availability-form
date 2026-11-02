@@ -1568,6 +1568,16 @@ service cloud.firestore {
       allow write: if canAct('AV Team') || isAdmin();
     }
 
+    /* Monitor Setup's wedges, groups and bridge address (MonitorStageMap.html
+       writes monitor-mix; Performancenotes.html reads it on stage). It had no
+       rule, so under these rules nobody could save it and the stage page
+       could not read it (the going-live test, Stage 2, 2 Nov 2026). The same
+       as the mapper: the teams read it, AV's admins change it. */
+    match /egbc-config/{docId} {
+      allow read: if volunteer();
+      allow write: if canAct('AV Team') || isAdmin();
+    }
+
     match /schedules/{scheduleId} {
       allow read: if volunteer();
       allow write: if canAct('Worship Team') || canAct('Youth Worship');

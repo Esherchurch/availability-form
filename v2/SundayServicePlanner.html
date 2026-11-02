@@ -8,7 +8,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-plan-audience.js?v=202610131430"></script>
 <script src="egbc-plan-store.js?v=202610252100"></script>
-<script src="egbc-auth.js?v=202611022000"></script>
+<script src="egbc-auth.js?v=202611022300"></script>
 <script src="egbc-manifest.js?v=202611011200"></script>
 <script src="egbc-church.js?v=202611011200"></script>
 <script src="egbc-guard.js?v=202611011200" data-job="worship" data-role="leader"></script>
@@ -930,7 +930,11 @@ window.emailSchedule = async () => {
         if ((rosterNames.includes(p.name?.trim()) || isCore) && p.email) teamRecipients.push(p.email);
     });
     teamRecipients = [...new Set(teamRecipients)];
-    async function sendViaResend(toAddresses, emailSubject, emailHtml) {
+    /* The hub never emails under-18s, and refuses a whole message with one
+       in it: they are left out of the team's email and named when it goes. */
+    const youngLeft = [...new Set(addressBook.filter(p => p.email && teamRecipients.includes(p.email) && EGBCAuth.under18Only(p.email, addressBook)).map(p => p.name))];
+    teamRecipients = teamRecipients.filter(e => !EGBCAuth.under18Only(e, addressBook));
+    async function sendViaResend(toAddresses, emailSubject, emailHtml, left) {
         if (date !== "TBC") await window.saveSchedule(true);
         const statusEl = document.getElementById('modalStatus');
         statusEl.textContent = "Sending…";
@@ -938,11 +942,11 @@ window.emailSchedule = async () => {
         try {
             const reply = replyAddr();
             const result = await EGBCAuth.sendEmail(Object.assign({ source: 'servicePlan' }, { to: toAddresses, subject: emailSubject, html: emailHtml }, reply ? { replyTo: reply } : {}));
-            if (result.ok) { statusEl.textContent = "Sent"; statusEl.style.color = "#3B7D23"; setTimeout(() => modal.classList.remove('active'), 1800); }
+            if (result.ok) { statusEl.textContent = "Sent" + (left && left.length ? ". Not emailed (under 18): " + left.join(', ') : ""); statusEl.style.color = "#3B7D23"; setTimeout(() => modal.classList.remove('active'), left && left.length ? 6000 : 1800); }
             else { statusEl.textContent = "Could not send: " + (result.error || "unknown error"); statusEl.style.color = "#e05555"; }
         } catch (e) { statusEl.textContent = "Could not send: no connection (" + e.message + ")"; statusEl.style.color = "#e05555"; }
     }
-    document.getElementById('modalTeamBtn').onclick = async () => { document.getElementById('modalTeamBtn').disabled = true; document.getElementById('modalIndividualBtn').disabled = true; await sendViaResend(teamRecipients, subject, htmlEmail); document.getElementById('modalTeamBtn').disabled = false; document.getElementById('modalIndividualBtn').disabled = false; };
+    document.getElementById('modalTeamBtn').onclick = async () => { document.getElementById('modalTeamBtn').disabled = true; document.getElementById('modalIndividualBtn').disabled = true; await sendViaResend(teamRecipients, subject, htmlEmail, youngLeft); document.getElementById('modalTeamBtn').disabled = false; document.getElementById('modalIndividualBtn').disabled = false; };
     document.getElementById('modalIndividualBtn').onclick = async () => { const email = individualSelect.value; if (!email) { alert("Please select a person first."); return; } document.getElementById('modalTeamBtn').disabled = true; document.getElementById('modalIndividualBtn').disabled = true; await sendViaResend([email], subject, htmlEmail); document.getElementById('modalTeamBtn').disabled = false; document.getElementById('modalIndividualBtn').disabled = false; };
     document.getElementById('modalCancelBtn').onclick = () => modal.classList.remove('active');
     const savedSender = localStorage.getItem('egbc-sender-email') || '';
