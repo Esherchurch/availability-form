@@ -247,7 +247,9 @@
       var EMU = location.port === '5601'
         ? { firestore: 8182, auth: 9098, storage: 9198 }
         : { firestore: 8181, auth: 9099, storage: 9199 };
-      db.useEmulator('localhost', EMU.firestore);
+      /* rawDb, not db: a church's db is a wrapper with no useEmulator, and
+         the throw left a localhost church page talking to the live project. */
+      rawDb.useEmulator('localhost', EMU.firestore);
       /* disableWarnings: the Firebase SDK pins a red "Running in emulator
          mode" bar to the bottom of the page. It is the SDK's own, it only
          ever appears against the emulator, and it is never on a real
@@ -2465,10 +2467,11 @@
     },
     /* A meeting's title or notes changed. */
     setMeetingField: function (id, field, value) {
-      /* The rota's notes box saves on blur, and can be blank for a moment
-         before the meeting's own part has been read: a blank never replaces
-         its words (functions/meeting-split.js keeps the same rule). */
-      if ((field === 'description' || field === 'title') && !String(value == null ? '' : value).trim()) return Promise.resolve();
+      /* The rota's notes box saves on blur, and is blank for a moment before
+         the meeting's own part has been read: until it has, a blank never
+         replaces its words. Once read, clearing the box clears them
+         (functions/meeting-split.js keeps the same rule). */
+      if ((field === 'description' || field === 'title') && !String(value == null ? '' : value).trim() && !MEETING_CACHE[id]) return Promise.resolve();
       var p = {}; p[field] = value; p.updatedAt = new Date().toISOString(); p.updatedBy = (currentUser && currentUser.uid) || '';
       return db.collection('meetings').doc(id).set(p, { merge: true }).then(function () {
         MEETING_CACHE[id] = Object.assign(MEETING_CACHE[id] || {}, p);

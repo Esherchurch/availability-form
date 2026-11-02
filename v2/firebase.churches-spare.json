@@ -1,0 +1,51 @@
+{
+  "comment": "As firebase.spare.json, with the church rules (firestore.churches.rules, storage.churches.rules): a browser run inside churches/{cid} (tests/stage2/harness.mjs inChurch).",
+  "firestore": {
+    "rules": "firestore.churches.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.churches.rules"
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "hub",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "*.local"
+      ]
+    }
+  ],
+  "emulators": {
+    "auth": {
+      "port": 9089
+    },
+    "firestore": {
+      "port": 8171
+    },
+    "storage": {
+      "port": 9189
+    },
+    "functions": {
+      "port": 5191
+    },
+    "ui": {
+      "enabled": false
+    },
+    "singleProjectMode": true,
+    "hub": {
+      "port": 4412
+    },
+    "logging": {
+      "port": 4512
+    },
+    "eventarc": {
+      "port": 9312
+    },
+    "tasks": {
+      "port": 9512
+    }
+  }
+}

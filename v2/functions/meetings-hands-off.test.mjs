@@ -6,9 +6,10 @@
  * In EGBC's top-level data, an original-style Core Team Meeting (no
  * meeting: true, a video room by its kind) that clashes with another keeps
  * its description on the row and gets no room of its own; a test church
- * treats it as before. Anywhere, a blank notes box saved on blur never
- * replaces a hub meeting's words. With the switch as shipped, as the
- * triggers use it.
+ * treats it as before. Anywhere, a blank notes box saved on blur by a writer
+ * who never saw the words never replaces them; words the writer saw on the
+ * row and cleared are cleared. With the switch as shipped, as the triggers
+ * use it.
  */
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -48,6 +49,9 @@ for (const cid of [null, 'st-aidans-test']) {
   ok(kept.description === 'Plan the carol service' && kept.title === 'Carols' && !('description' in row), who + 'a blank blur-save keeps a hub meeting\'s title and notes (and leaves nothing on the row)');
   await splitOne(D, 'hub1', Object.assign({}, blank, { description: 'Carols and mince pies' }), await serviceKinds(D), true, guess);
   ok((await D.collection('meetings').doc('hub1').get()).data().description === 'Carols and mince pies', who + 'real new words still replace them');
+  /* The words were on the row the writer read (before this write), and they cleared them. */
+  await splitOne(D, 'hub1', blank, await serviceKinds(D), true, guess, Object.assign({}, blank, { description: 'Carols and mince pies' }));
+  ok((await D.collection('meetings').doc('hub1').get()).data().description === '', who + 'words the writer saw and cleared are cleared');
 }
 console.log(bad ? bad + ' failed' : 'all passed');
 process.exit(bad ? 1 : 0);

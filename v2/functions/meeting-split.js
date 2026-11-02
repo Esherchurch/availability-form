@@ -41,8 +41,9 @@ export function isMeeting(ev, services, guess = true) {
   return !!ev.videoRoom && !services.includes(ev.type) && ev.whatsOn !== true;
 }
 
-/* -> null (nothing to do) or what it did. */
-export async function splitOne(db, id, ev, services, apply = true, guess = true) {
+/* -> null (nothing to do) or what it did. before: the row as it was before
+   this write (the trigger passes it), so a blank can be told apart. */
+export async function splitOne(db, id, ev, services, apply = true, guess = true, before = null) {
   if (!isMeeting(ev, services, guess)) return null;
   const moving = PRIVATE.filter((k) => ev[k] !== undefined);
   const mref = db.collection('meetings').doc(id), eref = db.collection('events').doc(id);
@@ -54,8 +55,11 @@ export async function splitOne(db, id, ev, services, apply = true, guess = true)
   if (!apply) return out;
   const priv = {};
   moving.forEach((k) => { if (k !== 'publicTitle') priv[k] = ev[k]; else if (!m.description && !ev.description) priv.description = ev[k]; });
-  /* A notes box saved on blur sends a blank: it never replaces a meeting's words. */
-  WORDS.forEach((k) => { if (priv[k] !== undefined && !String(priv[k]).trim() && String(m[k] || '').trim()) delete priv[k]; });
+  /* A notes box saved on blur sends a blank when the writer never saw the
+     words (they are not on the row): that blank never replaces them. Words
+     the writer did see on the row and cleared are cleared on purpose. */
+  const said = (o, k) => !!(o && String(o[k] == null ? '' : o[k]).trim());
+  WORDS.forEach((k) => { if (priv[k] !== undefined && !said(priv, k) && said(m, k) && !said(before, k)) delete priv[k]; });
   const { FieldValue } = await import('firebase-admin/firestore');
   const batch = db.batch();
   batch.set(mref, Object.assign({}, priv, copy, { updatedAt: new Date().toISOString(), updatedBy: 'meeting-split' }), { merge: true });

@@ -12,7 +12,11 @@
  *   browser()                      headless Chrome (puppeteer-core)
  *   person(p)                      a sign-in, its users record and address-book entry
  *   signIn(page, p, url)           opens url signed in as p
- *   put / get / del / query        owner writes and reads (past the rules)
+ *   put / get / del / all          owner writes and reads (past the rules)
+ *   inChurch(cid)                  put/get/del/all and person() inside
+ *                                  churches/{cid} (null: EGBC's top level);
+ *                                  run with firebase.churches-spare.json,
+ *                                  which loads the church rules
  */
 import http from 'node:http';
 import fs from 'node:fs';
@@ -56,7 +60,12 @@ export const plain = (v) => {
   if ('mapValue' in v) return Object.fromEntries(Object.entries(v.mapValue.fields || {}).map(([k, x]) => [k, plain(x)]));
   return v;
 };
-const enc = (p) => p.split('/').map(encodeURIComponent).join('/');
+/* The church a run is in: '' is EGBC's top level. */
+let SCOPE = '';
+export const CHURCH = () => SCOPE ? SCOPE.split('/')[1] : null;
+/** @param {string|null} cid */
+export function inChurch(cid) { SCOPE = cid ? 'churches/' + cid + '/' : ''; }
+const enc = (p) => (SCOPE + p).split('/').map(encodeURIComponent).join('/');
 export const put = (p, o) => req(PORTS.firestore, 'PATCH', DOCS + '/' + enc(p), { fields: Object.fromEntries(Object.entries(o).map(([k, v]) => [k, val(v)])) }, OWNER);
 export const del = (p) => req(PORTS.firestore, 'DELETE', DOCS + '/' + enc(p), undefined, OWNER);
 export async function get(p) {
@@ -66,7 +75,7 @@ export async function get(p) {
 }
 /** Every record of a collection (owner), as [{ id, ...fields }]. @param {string} coll */
 export async function all(coll) {
-  const r = await req(PORTS.firestore, 'POST', DOCS + ':runQuery', { structuredQuery: { from: [{ collectionId: coll }] } }, OWNER);
+  const r = await req(PORTS.firestore, 'POST', DOCS + (SCOPE ? '/' + SCOPE.slice(0, -1) : '') + ':runQuery', { structuredQuery: { from: [{ collectionId: coll }] } }, OWNER);
   return JSON.parse(r.body || '[]').filter((x) => x.document).map((x) => Object.assign({ id: x.document.name.split('/').pop() }, plain({ mapValue: { fields: x.document.fields || {} } })));
 }
 /** Empties the spare Firestore and Auth (between runs). */
@@ -117,7 +126,11 @@ export function serve(port) {
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 /** @returns {Promise<import('puppeteer-core').Browser>} */
 export function browser() {
-  return puppeteer.launch({ executablePath: CHROME, headless: true, userDataDir: path.join(os.tmpdir(), 'stage2-' + process.pid + '-' + Date.now()), args: ['--no-first-run'] });
+  /* The live project's hosts lead nowhere, so a page whose emulator hookup
+     fails cannot reach live data; it fails loudly instead. */
+  const live = ['identitytoolkit.googleapis.com', 'securetoken.googleapis.com', 'firestore.googleapis.com', 'firebasestorage.googleapis.com', '*.firebaseio.com', '*.cloudfunctions.net', '*.run.app'];
+  return puppeteer.launch({ executablePath: CHROME, headless: true, userDataDir: path.join(os.tmpdir(), 'stage2-' + process.pid + '-' + Date.now()),
+    args: ['--no-first-run', '--host-resolver-rules=' + live.map((h) => 'MAP ' + h + ' ~NOTFOUND').join(', ')] });
 }
 
 /**
@@ -130,7 +143,8 @@ export async function person(p) {
   let up = JSON.parse((await req(PORTS.auth, 'POST', '/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key', { email, password: PW, returnSecureToken: true })).body || '{}');
   if (!up.localId) up = JSON.parse((await req(PORTS.auth, 'POST', '/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake-api-key', { email, password: PW, returnSecureToken: true })).body || '{}');
   const uid = up.localId, member = 'ab_' + p.key;
-  await req(PORTS.auth, 'POST', '/identitytoolkit.googleapis.com/v1/projects/' + PROJECT + '/accounts:update', { localId: uid, emailVerified: true }, OWNER);
+  /* In a church, the sign-in carries it (functions/hq-directory.js's claim). */
+  await req(PORTS.auth, 'POST', '/identitytoolkit.googleapis.com/v1/projects/' + PROJECT + '/accounts:update', Object.assign({ localId: uid, emailVerified: true }, CHURCH() ? { customAttributes: JSON.stringify({ churches: [CHURCH()] }) } : {}), OWNER);
   await put('addressBook/' + member, Object.assign({ name: p.name, email, markers: p.teams || [], adminFor: p.adminFor || [], churchMember: true, archived: false, isMinor: !!p.minor }, p.book || {}));
   /* What the server keeps on the record for the rules (functions/core-teams.js). */
   const teams = p.teams || [], covers = coversFor(teams, DEFAULT_CORES), tj = { map: null, set: {} };
@@ -142,7 +156,8 @@ export async function person(p) {
 
 /** Opens url signed in as p (signing in on the first page it loads). */
 export async function signIn(page, base, p, url) {
-  await page.goto(base + '/__signin.html', { waitUntil: 'domcontentloaded' });
+  if (url && CHURCH()) url += (url.includes('?') ? '&' : '?') + 'church=' + CHURCH();
+  await page.goto(base + '/__signin.html' + (CHURCH() ? '?church=' + CHURCH() : '?church=egbc'), { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => window.EGBCAuth && window.firebase && firebase.auth(EGBCAuth.app), { timeout: 30000 });
   await page.evaluate((e, pw) => firebase.auth(EGBCAuth.app).signOut().then(() => firebase.auth(EGBCAuth.app).signInWithEmailAndPassword(e, pw)).then(() => 1), p.email, PW);
   if (url) await page.goto(base + '/' + url, { waitUntil: 'domcontentloaded' });

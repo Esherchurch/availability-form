@@ -725,7 +725,7 @@ export const [meetingSplit, meetingSplitChurch] = twins(onDocumentWritten, 'even
   /* A deleted meeting's own part, guest links and sends: the data map's cascade (data-links.js). */
   if (!event.data.after.exists) return null;
   /* EGBC's top level: only the hub's own meetings until it goes live (egbc-tidying.js). */
-  return splitMeeting(ch.db, event.params.id, event.data.after.data(), await meetingServiceKinds(ch.db), true, mayGuessMeetings(ch.id));
+  return splitMeeting(ch.db, event.params.id, event.data.after.data(), await meetingServiceKinds(ch.db), true, mayGuessMeetings(ch.id), event.data.before.exists ? event.data.before.data() : null);
 });
 export const [permsOnSettings, permsOnSettingsChurch] = twins(onDocumentWritten, 'churchSettings/{id}', async (ch, event) => {
   if (!['permissions', 'teamJobs'].includes(event.params.id)) return;
