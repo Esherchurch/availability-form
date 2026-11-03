@@ -39,6 +39,14 @@
         .tpill { background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.4); border-radius:9999px; padding:2px 10px; font-size:10px; }
         #exit-btn { background:white; color:#92400e; border:none; border-radius:9999px; padding:6px 16px; font-family:'Montserrat',sans-serif; font-weight:800; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; flex-shrink:0; transition:all 0.2s; }
         #exit-btn:hover { background:#fef3c7; }
+        /* On a phone the banner's pills pushed Exit Training off the screen, and
+           the planner's small buttons were under 30px to tap (the going-live audit,
+           3 Nov 2026): the banner wraps, and every control is at least 44px tall. */
+        @media (max-width:640px) {
+            #training-banner, #training-banner > div { flex-wrap:wrap; }
+            #training-banner { padding:10px 12px; }
+            button, select, input:not([type=checkbox]):not([type=radio]) { min-height:44px; }
+        }
 
         /* ── Toast ── */
         #training-toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#92400e; color:white; padding:10px 22px; border-radius:9999px; font-family:'Montserrat',sans-serif; font-weight:800; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; z-index:2000; display:none; border:2px dashed #fbbf24; pointer-events:none; box-shadow:0 4px 20px rgba(146,64,14,0.4); }
@@ -863,9 +871,10 @@ await allowed;
 <!-- Availability email preview modal -->
 <div id="emailPreviewModal" class="t-modal">
     <div class="t-modal-box">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+        <!-- Sticks to the box's top, so Close is still there after scrolling a long preview (the going-live audit, 3 Nov 2026). -->
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:-2rem -2rem 1rem;padding:1rem 2rem;position:sticky;top:-2rem;background:white;z-index:1;">
             <h2 style="font-size:16px;font-weight:800;color:#3d6263;">📧 Availability Request Email Preview</h2>
-            <button onclick="closeEmailPreview()" style="background:#f0f6f6;border:none;border-radius:9999px;padding:6px 14px;font-weight:800;font-size:11px;color:#3d6263;cursor:pointer;text-transform:uppercase;letter-spacing:0.06em;font-family:'Montserrat',sans-serif;">Close</button>
+            <button onclick="closeEmailPreview()" style="min-height:44px;flex-shrink:0;background:#f0f6f6;border:none;border-radius:9999px;padding:6px 14px;font-weight:800;font-size:11px;color:#3d6263;cursor:pointer;text-transform:uppercase;letter-spacing:0.06em;font-family:'Montserrat',sans-serif;">Close</button>
         </div>
         <div style="background:#fef3c7;border:2px dashed #f59e0b;padding:10px 14px;border-radius:10px;margin-bottom:1rem;font-size:11px;font-weight:800;color:#92400e;text-transform:uppercase;letter-spacing:0.06em;font-family:'Montserrat',sans-serif;">⚠️ Training mode — this email is NOT sent. Preview only.</div>
         <div id="ep-note" style="background:#f0f6f6;border-radius:10px;padding:10px 14px;margin-bottom:1rem;font-size:12px;font-weight:700;color:#3d6263;line-height:1.6;white-space:pre-wrap;font-family:'Montserrat',sans-serif;"></div>

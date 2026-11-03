@@ -150,6 +150,8 @@ input:focus, select:focus{ outline:none; border-color:var(--brand); box-shadow:0
 
 <button class="btn-primary" onclick="processAll()">Upload</button>
 
+<!-- Scrolls sideways on a phone: eleven columns ran the page off the screen (the going-live audit, 3 Nov 2026). -->
+<div style="overflow-x:auto;max-width:100%">
 <table>
 <thead>
 <tr>
@@ -168,6 +170,7 @@ input:focus, select:focus{ outline:none; border-color:var(--brand); box-shadow:0
 </thead>
 <tbody id="table"></tbody>
 </table>
+</div>
 
 <script>
 

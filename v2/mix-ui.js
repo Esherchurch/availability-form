@@ -828,11 +828,28 @@
     return notes.length ? notes : null;
   }
 
+  /* A message has to be seen. On a phone the status line sat off the screen,
+     and pressing a button twice set the same words again, so a press looked
+     dead (the going-live audit, 3 Nov 2026). A repeat is blanked for a frame
+     so it shows again, and a problem is scrolled into view; progress
+     messages never move the page. */
+  function say(el, msg, isErr) {
+    el.classList.toggle('err', !!isErr);
+    var n = el._sayN = (el._sayN || 0) + 1;   /* a later message wins over a held-back repeat */
+    var show = function () {
+      if (el._sayN !== n) return;
+      el.textContent = msg;
+      if (!isErr) return;
+      var r = el.getBoundingClientRect();
+      if (r.bottom < 0 || r.top > window.innerHeight) el.scrollIntoView({ block: 'nearest' });
+    };
+    if (el.textContent === msg) { el.textContent = ''; requestAnimationFrame(show); } else show();
+  }
+
   function setStatus(msg, isErr) {
     var el = $('status');
     if (!el) return;
-    el.textContent = msg;
-    el.classList.toggle('err', !!isErr);
+    say(el, msg, isErr);
   }
 
   /* --------------------------------------------- running order import --- */
@@ -4990,8 +5007,7 @@
   function renderSay(msg, isErr) {
     var el = $('renderStatus');
     if (!el) return;
-    el.textContent = msg;
-    el.classList.toggle('err', !!isErr);
+    say(el, msg, isErr);
   }
 
   function showReport(rep) {

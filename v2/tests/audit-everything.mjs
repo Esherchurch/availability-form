@@ -568,7 +568,12 @@ async function browser(port, tag) {
   B.size = async (w, h) => send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: w < 900 });
   B.go = async (url) => {
     B.errors.length = 0; B.tapping = false;
+    /* The same page with another #part is not a fresh page: Chrome only moves the
+       hash, so a pop-up left open (the app's song picker) stayed and covered all
+       after it (3 Nov 2026). Reload it. */
+    const same = url.includes('#') && (await B.ev('location.href.split("#")[0]')) === url.split('#')[0];
     await send('Page.navigate', { url });
+    if (same) await send('Page.reload', {});
     /* Settled: loaded, the guard's splash gone, and a beat for the data. */
     for (let i = 0; i < 28; i++) {
       await sleep(500);
@@ -669,7 +674,7 @@ async function tapAll(B, url, reopen, ctx) {
   await B.ev('window.__aud&&(window.__aud.mut0=window.__aud.mut);1'); await sleep(700);
   const resting = (await B.ev(OVERLAY)) || 'null';
   const home = await B.ev(HERE);
-  const retried = new Set();
+  const retried = new Set(), moved = new Set();
   const noise = (await B.ev('window.__aud?window.__aud.mut-window.__aud.mut0:0')) || 0;
   let n = 0;
   for (let guard = 0; guard < MAX_TAPS * 2 && n < MAX_TAPS; guard++) {
@@ -706,6 +711,11 @@ async function tapAll(B, url, reopen, ctx) {
     await B.ev('(function(){var el=' + sel + ';if(el)el.scrollIntoView({block:"center",inline:"center"});return 1})()');
     /* Only a button that is still moving is waited for, so the audit keeps its pace. */
     for (let k = 0, was = await B.ev(where); k < 4; k++) { await sleep(k ? 200 : 30); const now = await B.ev(where); if (now === was) break; was = now; }
+    /* Still the same control? A list drawn again meanwhile (the Rota planner's,
+       when the service just added arrived) moves every index after it, and the
+       one measured was a page button behind the sheet (3 Nov 2026). Look again. */
+    { const again = JSON.parse((await B.ev(CONTROLS)) || '[]').find((c) => c.sig === next.sig);
+      if (!again || again.i !== next.i) { if (!moved.has(next.sig)) { moved.add(next.sig); tapped.delete(next.sig); } else notUsed(next, 'the page kept drawing it again as it was pressed'); n--; continue; } }
     const pt = JSON.parse((await B.ev('(function(){var el=' + sel + ';if(!el)return "null";var r=el.getBoundingClientRect();'
       + 'var x=r.left+Math.min(r.width/2,r.width-2),y=r.top+Math.min(r.height/2,r.height-2),hit=document.elementFromPoint(x,y);'
       /* A backdrop is tapped beside the panel it sits under, not in its
@@ -719,7 +729,10 @@ async function tapAll(B, url, reopen, ctx) {
       if (pt.by === 'nothing') { n--; notUsed(next, 'off screen (an off-canvas panel)'); continue; }            /* off screen (an off-canvas panel): not something to tap */
       /* The shell's small drop-downs (You) are too small to count as a pop-up, but
          one left open by an earlier tap covers the corner under it (3 Nov 2026). */
-      if (!retried.has(next.sig) && (/^DIV#egbc-(you|nav)/.test(pt.by) || ((await B.ev(OVERLAY)) || 'null') !== resting)) { retried.add(next.sig); tapped.delete(next.sig); n--; await reopen(); continue; }
+      /* A first-visit tour covers the page until it is ended, as a person's first
+         tap anywhere ends it (CoreTeamApp, youthapp2): end it and try again. */
+      if (!retried.has(next.sig) && /tour-dismiss/.test(pt.by)) { retried.add(next.sig); tapped.delete(next.sig); n--; await B.ev('(window.endTour&&endTour(),1)'); await sleep(300); continue; }
+      if (!retried.has(next.sig) && (/^DIV(#egbc-(you|nav)|.ey-)/.test(pt.by) || ((await B.ev(OVERLAY)) || 'null') !== resting)) { retried.add(next.sig); tapped.delete(next.sig); n--; await reopen(); continue; }
       why.push('covered: "' + (next.words || next.href) + '" is under ' + pt.by); notUsed(next, 'covered by ' + pt.by); continue;
     }
     const overBefore = (await B.ev(OVERLAY)) || 'null';

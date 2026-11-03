@@ -24,7 +24,13 @@
  *   - the hub's Menu sits above its top bar, so on a phone its close is
  *     not under the avatar;
  *   - the service planners' Save Schedule says "Saving…" at once, and a
- *     long event name no longer runs their page off a phone's screen.
+ *     long event name no longer runs their page off a phone's screen;
+ *   - the training copies' banner keeps Exit Training on a phone's screen,
+ *     and the training planner's email preview keeps its Close in reach;
+ *   - the mix builder's messages show on a phone, and again on a second press;
+ *   - the first-visit tours' "Don't show this again" is 44px to tap;
+ *   - the birthday invite maker's tick boxes are 44px, and its email invite
+ *     keeps its close and buttons in reach.
  */
 import { serve, browser, person, signIn, put, wipe, sleep } from './harness.mjs';
 import { EGBC_UNDER18 } from '../../functions/under18-teams.js';
@@ -148,6 +154,56 @@ try {
     const wide = await p.evaluate(() => { const s = document.getElementById('eventSelect'); const o = document.createElement('option'); o.textContent = 'A very long event name, the kind a church gives its harvest all-age service'; s.appendChild(o); s.value = o.value; return document.documentElement.scrollWidth; });
     ok(pg + ': a long event name keeps the page on the screen', wide <= 375, wide + 'px');
     ok(pg + ': no errors', !p.__errs.length, p.__errs.join(' | ')); await p.browserContext().close(); }
+
+  console.log('\nThe training copies, on a phone');
+  for (const pg of ['trainingrotaplanner.html', 'trainingbatchimporter.html', 'trainingmusicdatabase.html', 'training Sunday planner.html']) {
+    const p = await fresh(lead, pg, 375, 812); await sleep(7000);
+    /* A song's row was what ran the practice Sunday planner off the screen. */
+    if (/Sunday/.test(pg)) { await p.evaluate(() => { addSong(); addItem(); }); await sleep(500); }
+    /* Content in a box that scrolls sideways is meant to be wider than the screen. */
+    const inScroller = 'function(e){for(var a=e.parentElement;a&&a!==document.body;a=a.parentElement)if(/^(auto|scroll)$/.test(getComputedStyle(a).overflowX))return true;return false}';
+    const wide = await p.evaluate((f) => { const ok = eval('(' + f + ')'); return Math.max(document.documentElement.scrollWidth, ...[...document.querySelectorAll('.service-block *')].filter((e) => !ok(e)).map((e) => Math.round(e.getBoundingClientRect().right))); }, inScroller);
+    const widest = wide <= 375 ? '' : await p.evaluate((f) => { const ok = eval('(' + f + ')'); return [...document.querySelectorAll('body *')].filter((e) => !ok(e)).map((e) => [Math.round(e.getBoundingClientRect().right), e.tagName + (e.id ? '#' + e.id : '') + '.' + String(e.className).slice(0, 40)]).sort((a, b) => b[0] - a[0]).slice(0, 4).map((x) => x.join(' ')).join(' | '); }, inScroller);
+    ok(pg + ': the page stays on the screen', wide <= 375, wide + 'px: ' + widest);
+    ok(pg + ': Exit Training is big enough to tap', await p.evaluate(() => (document.getElementById('exit-btn') || document.getElementById('exit-training-btn')).getBoundingClientRect().height >= 44));
+    if (pg === 'trainingrotaplanner.html') {
+      /* Gather Avail opens it only once there are services to simulate; the fix is the box's own
+         layout, so it is opened as Gather Avail does, with a long email in it. */
+      await p.evaluate(() => { document.getElementById('ep-body').innerText = 'A long availability email.\n'.repeat(80); document.getElementById('emailPreviewModal').classList.add('show'); }); await sleep(500);
+      await p.evaluate(() => { const b = document.querySelector('#emailPreviewModal .t-modal-box'); b.scrollTop = b.scrollHeight; }); await sleep(300);
+      const f = await p.evaluate(() => { const el = document.querySelector('#emailPreviewModal button[onclick="closeEmailPreview()"]'); if (!document.getElementById('emailPreviewModal').classList.contains('show')) return 'not open'; const r = el.getBoundingClientRect(), h = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return h === el || el.contains(h) ? 'free' : 'under ' + (h ? h.tagName + '.' + h.className : 'nothing (scrolled away)'); });
+      ok(pg + ': the email preview\'s Close is still there after scrolling it', f === 'free', f);
+    }
+    ok(pg + ': no errors', !p.__errs.length, p.__errs.join(' | ')); await p.browserContext().close(); }
+
+  console.log('\nThe mix builder, on a phone');
+  { const p = await fresh(lead, 'mix-builder.html', 375, 812); await sleep(7000);
+    const seen = async (btn, box) => { await p.evaluate((btn) => { const b = document.getElementById(btn); b.scrollIntoView({ block: 'center' }); b.click(); }, btn); await sleep(400);
+      return p.evaluate((box) => { const el = document.getElementById(box), r = el.getBoundingClientRect(); return el.textContent.trim() && r.bottom > 0 && r.top < innerHeight ? 'seen' : 'not seen: "' + el.textContent + '" at ' + Math.round(r.top); }, box); };
+    for (const [btn, box, what] of [['normaliseBtn', 'status', 'Level the tracks'], ['renderBtn', 'renderStatus', 'Render the whole set']]) {
+      const one = await seen(btn, box), two = await seen(btn, box);
+      ok(what + ' with nothing loaded says so where it can be seen, each time', one === 'seen' && two === 'seen', one + ' / ' + two);
+    }
+    ok('no errors', !p.__errs.length, p.__errs.join(' | ')); await p.browserContext().close(); }
+
+  console.log('\nThe first-visit tours, on a phone');
+  for (const pg of ['CoreTeamApp.html', 'youthapp2.html']) {
+    const p = await fresh(lead, pg, 375, 812); await sleep(7000);
+    const got = await p.evaluate(() => { startTour(true); const l = document.querySelector('label[for="tour-dont-show"]'); if (!l) return 'no label'; const h = Math.round(l.getBoundingClientRect().height); l.click(); return h + 'px, ticked ' + document.getElementById('tour-dont-show').checked; });
+    ok(pg + ': "Don\'t show this again" is 44px to tap, and ticks the box', /^(4[4-9]|[5-9]\d)px, ticked true$/.test(got), got);
+    const skip = await p.evaluate(() => { const r = document.querySelector('.tour-skip').getBoundingClientRect(); return Math.round(Math.min(r.width, r.height)); });
+    ok(pg + ': the tour\'s Skip is big enough to tap', skip >= 30, skip + 'px');
+    ok(pg + ': no errors', !p.__errs.length, p.__errs.join(' | ')); await p.browserContext().close(); }
+
+  console.log('\nThe birthday invite maker, on a phone');
+  { const p = await fresh(lead, 'birthday.html', 375, 812); await sleep(7000);
+    ok('"Custom colour for this part" is 44px to tap', await p.evaluate(() => document.getElementById('el-colon').closest('label').getBoundingClientRect().height >= 44));
+    await p.evaluate(() => openEmail()); await sleep(800);
+    const got = await p.evaluate(() => { const m = document.querySelector('#modal-back .modal'), body = m.querySelector('.modal-body'); body.scrollTop = body.scrollHeight; m.scrollTop = m.scrollHeight;
+      const x = m.querySelector('.modal-head button'), r = x.getBoundingClientRect(), h = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2), foot = m.querySelector('.modal-foot').getBoundingClientRect();
+      return (h === x || x.contains(h) ? 'close free' : 'close under ' + (h ? h.className : 'nothing')) + ', foot ' + (foot.bottom <= m.getBoundingClientRect().bottom + 1 ? 'shown' : 'clipped'); });
+    ok('the email invite keeps its close and its buttons in reach after scrolling', got === 'close free, foot shown', got);
+    ok('no errors', !p.__errs.length, p.__errs.join(' | ')); await p.browserContext().close(); }
 } catch (e) { ok('the run itself', false, e && e.stack || e); }
 finally { await b.close(); server.close(); }
 console.log('\n' + R.filter(Boolean).length + ' of ' + R.length + ' checks passed');

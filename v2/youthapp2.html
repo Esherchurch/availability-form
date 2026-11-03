@@ -662,7 +662,8 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
 .tour-tooltip-title { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
 .tour-tooltip-text { font-size: 12px; opacity: 0.85; line-height: 1.4; margin-bottom: 14px; }
 .tour-btn-row { display: flex; justify-content: space-between; align-items: center; }
-.tour-skip { font-size: 12px; font-weight: 600; opacity: 0.6; cursor: pointer; background: none; border: none; color: white; padding: 0; }
+/* 44px to tap: it was 25x15 on a phone (the going-live audit, 3 Nov 2026). */
+.tour-skip { font-size: 12px; font-weight: 600; opacity: 0.6; cursor: pointer; background: none; border: none; color: white; padding: 0 8px; min-width: 44px; min-height: 44px; }
 .tour-next { background: #3d6263; color: white; border: none; border-radius: 8px; padding: 8px 18px; font-family: var(--font); font-size: 12px; font-weight: 600; cursor: pointer; }
 .tour-step-count { font-size: 12px; opacity: 0.5; }
 .tour-highlight { position: absolute; border-radius: 12px; box-shadow: 0 0 0 4px white, 0 0 0 8px rgba(255,255,255,0.3); pointer-events: none; z-index: 2; transition: all 0.3s; }
@@ -1274,7 +1275,7 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
 
 <!-- TOUR OVERLAY -->
 <div id="tour-overlay">
-  <div style="position:absolute;inset:0;z-index:1;cursor:pointer;" onclick="endTour()"></div>
+  <div class="tour-dismiss-layer" style="position:absolute;inset:0;z-index:1;cursor:pointer;" onclick="endTour()"></div>
   <div class="tour-backdrop"></div>
   <div class="tour-highlight" id="tour-highlight"></div>
   <div class="tour-tooltip" id="tour-tooltip">
@@ -1286,7 +1287,8 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
            did not read as one, which check-icon-buttons.mjs found the moment
            this page joined its list. Tying it to the checkbox lets the
            browser do the wiring, so the hand-rolled toggle goes as well. -->
-      <label for="tour-dont-show" style="cursor:pointer;">Don't show this again</label>
+      <!-- 44px tall, so a phone can tap it (the going-live audit, 3 Nov 2026). -->
+      <label for="tour-dont-show" style="cursor:pointer;display:flex;align-items:center;min-height:44px;">Don't show this again</label>
     </div>
     <div class="tour-btn-row">
       <button class="tour-skip" onclick="endTour()">Skip</button>

@@ -38,7 +38,8 @@
       .form-group{ display:flex; flex-direction:column; gap:6px; }
       .form-row{ display:flex; gap:10px; } .form-row .form-group{ flex:1; }
       label{ font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
-      .cb-label{ display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; color:var(--ink); text-transform:none; letter-spacing:0; cursor:pointer; }
+      /* 44px tall: on a phone the row was 22px, too small to tap (the going-live audit, 3 Nov 2026). */
+      .cb-label{ min-height:44px; display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; color:var(--ink); text-transform:none; letter-spacing:0; cursor:pointer; }
       .cb-label input{ width:16px; height:16px; accent-color:var(--brand); }
       input[type=text], textarea, select, input[type=file]{ width:100%; background:var(--surface); border:1px solid var(--hairline-strong); color:var(--ink); padding:10px 12px; border-radius:var(--r-md); font-family:inherit; font-size:14px; outline:none; transition:border-color .15s, box-shadow .15s; }
       textarea{ resize:vertical; line-height:1.5; }
@@ -103,8 +104,10 @@
       .modal{ background:var(--surface); border-radius:var(--r-lg); max-width:680px; width:100%; max-height:88vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 30px 80px rgba(0,0,0,.4); }
       .modal-head{ padding:16px 20px; border-bottom:1px solid var(--hairline); display:flex; align-items:center; justify-content:space-between; }
       .modal-head h3{ margin:0; font-size:16px; color:var(--ink); font-weight:800; }
-      .modal-head button{ background:none; border:none; font-size:22px; cursor:pointer; color:var(--muted); line-height:1; }
-      .modal-body{ padding:20px; overflow-y:auto; background:var(--surface-2); }
+      .modal-head button{ background:none; border:none; font-size:22px; cursor:pointer; color:var(--muted); line-height:1; min-width:44px; min-height:44px; }
+      /* min-height:0, or a long invite grows the column past the box and the box clips
+         its own foot, so only the body scrolls (the going-live audit, 3 Nov 2026). */
+      .modal-body{ padding:20px; overflow-y:auto; background:var(--surface-2); flex:1; min-height:0; }
       .modal-foot{ padding:14px 20px; border-top:1px solid var(--hairline); display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
 
       /* ═══════════ INVITATION CARD (size-independent, em-scaled) ═══════════ */

@@ -138,6 +138,23 @@
         box-shadow: 0 4px 20px rgba(146,64,14,0.4);
         pointer-events: none;
     }
+
+    /* ---- phone: the Sunday planner's own rules, copied so the practice copy
+       behaves like the real one (the going-live audit, 3 Nov 2026): the song's
+       row went 598px wide on a 375px screen, the banner pushed Exit Training
+       off it, and small buttons were under 30px to tap. */
+    @media (max-width: 640px) {
+      .flex > *, .flex-1 { min-width: 0; }
+      input, select, textarea { max-width: 100%; }
+      body { overflow-x: hidden; }
+      #training-banner, #training-banner .banner-left { flex-wrap: wrap; }
+      #training-banner { padding: 10px 12px; }
+      button, select { min-height: 44px; }
+    }
+    .collapse-btn, .song-block button[onclick*="remove()"], #service-order button[onclick*="remove()"] {
+      flex: none; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center;
+    }
+    .song-block > .flex:first-child { flex-wrap: wrap; }
 </style>
 
 <script type="module">

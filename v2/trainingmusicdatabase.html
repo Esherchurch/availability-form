@@ -44,6 +44,8 @@
         @keyframes tsh { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
         .tpill { background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.4); border-radius:9999px; padding:2px 10px; font-size:10px; }
         #exit-btn { background:white; color:#92400e; border:none; border-radius:9999px; padding:6px 16px; font-weight:800; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; flex-shrink:0; }
+        /* On a phone the pills pushed Exit Training off the screen (the going-live audit, 3 Nov 2026). */
+        @media (max-width:640px) { #training-banner, #training-banner > div { flex-wrap:wrap; } #exit-btn { min-height:44px; } }
         #exit-btn:hover { background:#fef3c7; }
 
         #content-area {

@@ -2346,10 +2346,13 @@ function maybeTriggerTour(section) {
   <div class="tour-tooltip" id="tour-tooltip" onclick="event.stopPropagation()">
     <div class="tour-tooltip-title" id="tour-title"></div>
     <div class="tour-tooltip-text"  id="tour-text"></div>
-    <div style="display:flex;align-items:center;gap:8px;font-size:13px;opacity:0.75;margin-bottom:10px;">
-      <input type="checkbox" id="tour-dont-show" style="width:16px;height:16px;accent-color:#9bc34a;cursor:pointer;" onclick="event.stopPropagation()">
-      <span style="cursor:pointer;" onclick="document.getElementById('tour-dont-show').checked=!document.getElementById('tour-dont-show').checked">Don't show this again</span>
-    </div>
+    <!-- The whole row is the label, 44px tall: the box alone was 16px and the
+         words 16px high, too small to tap on a phone (the going-live audit,
+         3 Nov 2026). As youthapp2's tour does, the browser does the wiring. -->
+    <label for="tour-dont-show" style="display:flex;align-items:center;gap:8px;min-height:44px;font-size:13px;opacity:0.75;margin-bottom:10px;cursor:pointer;">
+      <input type="checkbox" id="tour-dont-show" style="width:18px;height:18px;accent-color:#9bc34a;cursor:pointer;flex-shrink:0;">
+      <span>Don't show this again</span>
+    </label>
     <div class="tour-btn-row">
       <button class="tour-skip" onclick="endTour()">Skip</button>
       <span class="tour-step-count" id="tour-count"></span>
