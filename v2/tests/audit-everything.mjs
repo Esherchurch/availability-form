@@ -100,7 +100,14 @@ const ROLES_ALL = {
   kids:      { label: 'Kids Church leader', teams: ['Kids Church'], adminFor: [], masterAdmin: false },
   core:      { label: 'Core Team', teams: ['Core Team'], adminFor: [], masterAdmin: false },
   areaAdmin: { label: 'Area admin (Worship)', teams: ['Worship Team'], adminFor: ['Worship Team'], masterAdmin: false },
-  master:    { label: 'Master admin', teams: ['Core Team'], adminFor: ['Core Team'], masterAdmin: true }
+  master:    { label: 'Master admin', teams: ['Core Team'], adminFor: ['Core Team'], masterAdmin: true },
+  /* The Kids Church Sunday's people (the going-live test, Stage 3), only
+     when asked for by --roles; --seed gives them their groups, families
+     and the safeguarding lead's place. */
+  kidsLead:    { label: 'Kids Church lead', teams: ['Kids Church'], adminFor: ['Kids Church'], masterAdmin: false, stage3: true },
+  groupLeader: { label: 'Children’s group leader', teams: ['Kids Church'], adminFor: [], masterAdmin: false, stage3: true },
+  sgLead:      { label: 'Safeguarding lead (no team)', teams: [], adminFor: [], masterAdmin: false, stage3: true },
+  parent:      { label: 'Parent (no team)', teams: [], adminFor: [], masterAdmin: false, stage3: true }
 };
 /* Master first: taps are made once a page, by the first role that sees it, so that is the one who sees the most. */
 const ROLES = LIVE ? ['live'] : (opt('roles') ? opt('roles').split(',') : ['master', 'areaAdmin', 'core', 'kids', 'worship', 'everyone']).filter(r => ROLES_ALL[r]);
@@ -126,7 +133,7 @@ const MAX_TAPS = Number(opt('max-taps') || 40);
    tests/out/controls-reached.json, so the inventory can say N of N. */
 const EVERY = flag('every');
 const REACHED = [], SKIPPED_KEYS = [], SHARED_SHEETS = new Set();
-const REACHED_FILE = path.join(V2, 'tests', 'out', 'controls-reached.json');
+const REACHED_FILE = path.join(V2, 'tests', 'out', EVENTS ? 'controls-reached-events.json' : 'controls-reached.json');
 const { KEYS_JS } = await import('../tools/control-inventory.mjs');
 function saveReached() {
   fs.mkdirSync(path.dirname(REACHED_FILE), { recursive: true });
@@ -250,6 +257,7 @@ async function restoreSettings() {
 async function seed() {
   await snapSettings();
   for (const [key, r] of Object.entries(ROLES_ALL)) {
+    if (r.stage3 && !ROLES.includes(key)) continue;
     r.email = 'audit.' + key.toLowerCase() + '@example.invalid'; r.member = 'ab_audit_' + key.toLowerCase(); r.name = 'Audit ' + r.label + ' Synthetic';
     let up = JSON.parse((await req(AUTH_PORT, 'POST', '/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key', { email: r.email, password: PW, returnSecureToken: true })).body || '{}');
     if (!up.localId) up = JSON.parse((await req(AUTH_PORT, 'POST', '/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake-api-key', { email: r.email, password: PW, returnSecureToken: true })).body || '{}');
@@ -268,6 +276,13 @@ async function seed() {
   await put('calEvents/audit_event', { title: 'Audit Coffee Morning Synthetic', description: 'Synthetic.', category: 'social', visibility: 'public',
     status: 'confirmed', audience: ['public', 'members'], startLocal: new Date(t).toISOString().slice(0, 16), startUtc: t, endUtc: t + 3600000,
     allDay: false, location: { kind: 'room', siteId: '', roomIds: [] }, signupOn: false, createdBy: 'audit' });
+}
+/* --seed=file.mjs: what a test's people need besides their sign-in (its
+   default export gets { put, del, roles, dayIso }). */
+async function seedMore() {
+  if (!opt('seed')) return;
+  const { pathToFileURL } = await import('node:url');
+  await (await import(pathToFileURL(path.resolve(opt('seed'))).href)).default({ put, del, roles: ROLES_ALL, dayIso });
 }
 async function unseed() { await del('events/audit_sunday'); await del('calEvents/audit_event'); }
 
@@ -1185,7 +1200,7 @@ if (flag('live-words')) { process.exit(liveWordsCheck() ? 0 : 1); }
   const base = LIVE ? LIVE_URL : 'http://localhost:' + SERVE + '/';
   if (SELF) { await selfTest(base); return; }
   if (LIVE && !(process.env.AUDIT_EMAIL && process.env.AUDIT_PASSWORD)) { console.error('--live needs AUDIT_EMAIL and AUDIT_PASSWORD (a test user).'); process.exit(2); }
-  if (!LIVE) await seed();
+  if (!LIVE) { await seed(); await seedMore(); }
   const started = new Date();
   const shared = { tappedPages: new Set(), tappedApp: new Set() };
   /* TWO BROWSERS, not one a size: four at once overloaded the emulator and

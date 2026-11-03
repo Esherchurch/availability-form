@@ -194,7 +194,7 @@ try {
   const run0 = (await db.collection('quizRuns').get()).docs[0], runId = run0.id, code = run0.data().code;
   await until(() => tv.$('#pzStage [data-qr] img, #pzStage [data-qr] canvas'), 15000);
   const qrUrl = await tv.$eval('#pzStage [data-qr]', e => e.getAttribute('data-qr')).catch(() => '');
-  ok('3. PHONES MODE: a 6-digit code, the short address and a QR code on the TV', /^\d{6}$/.test(code) && /churchhq\.co\.uk\/quiz/.test(await text(tv, '#pzStage [data-qshort]')) && qrUrl === 'https://churchhq.co.uk/quiz?c=' + code && !!(await tv.$('#pzStage [data-qr] img, #pzStage [data-qr] canvas')), J({ code, qrUrl }));
+  ok('3. PHONES MODE: a 6-digit code, the church’s own short address and a QR code to it on the TV', /^\d{6}$/.test(code) && /churchhq\.co\.uk\/quiz/.test(await text(tv, '#pzStage [data-qshort]')) && run0.data().join === 'egbc.churchhq.co.uk/quiz' && qrUrl === 'https://' + run0.data().join + '?c=' + code && !!(await tv.$('#pzStage [data-qr] img, #pzStage [data-qr] canvas')), J({ code, qrUrl, join: run0.data().join, short: await text(tv, '#pzStage [data-qshort]'), qr: !!(await tv.$('#pzStage [data-qr] img, #pzStage [data-qr] canvas')) }));
   await tv.screenshot({ path: path.join(HERE, 'quiz-real-tv-join.png') });
   /* the players: no account, each in its own private window */
   const pb = await puppeteer.launch({ executablePath: CHROME, headless: 'new', args: ['--no-first-run'] }); browsers.push(pb); GUARD.watchBrowser(pb);
@@ -291,7 +291,7 @@ try {
   ok('4. "END": the run, its code, the secret, every key and every answer are deleted', J(left) === J([false, false, 0, 0]), J(left));
   await until(async () => /Thanks for playing/.test(await text(sam)));
   ok('   the phones say so: everything has been deleted', /everything about it has been deleted/.test(await text(sam)), await text(sam));
-  ok('   the presenter\u2019s quiz is cleared', !(await db.collection('presentNow').doc('ps_ps_q').get()).data().quiz);
+  ok('   the presenter\u2019s quiz is cleared', !!(await until(async () => !(await db.collection('presentNow').doc('ps_ps_q').get()).data().quiz)));
   /* the sweep */
   const old = Date.now() - 25 * 3600 * 1000;
   await db.collection('quizRuns').doc('oldRun0000000000000000').set({ code: '111111', createdAt: old, phase: 'board', players: {} });

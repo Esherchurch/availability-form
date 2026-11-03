@@ -13,7 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202611030800"></script>
 <script src="egbc-church.js?v=202611030900"></script>
-<script src="egbc-events.js?v=202610281600"></script>
+<script src="egbc-events.js?v=202611021400"></script>
 <script src="egbc-events-safeguarding.js?v=202610261500"></script>
 <script src="egbc-ra-core.js?v=202610271600"></script>
 <script src="egbc-sg-templates.js?v=202610271600"></script>
@@ -394,8 +394,9 @@
      register reads that activity's risks, read only: what to watch, the
      controls, what is still to do. Nothing else of the register. */
   function leaderView(mid) {
-    var none = '<div class="card" id="notYours"><p style="margin:0">This page is for the safeguarding lead and deputy, the trustees, and the leaders of an activity in the register.</p></div>';
-    if (!mid) { app.innerHTML = none; return; }
+    /* anyone else: the shared card, with its way back */
+    var none = function () { EGBCEvents.notForYou('the safeguarding lead and deputy, the trustees, and the leaders of an activity in the register'); };
+    if (!mid) { none(); return; }
     var q = function (p) { return p.then(function (s) { return s.docs; }, function () { return []; }); };
     return Promise.all([['kidsGroup', 'kidsGroups'], ['planGroup', 'planGroups'], ['smallGroup', 'smallGroups']].map(function (t) {
       return q(db().collection(t[1]).where('leaderIds', 'array-contains', mid).limit(50).get()).then(function (gs) {
@@ -404,7 +405,7 @@
     })).then(function (r) {
       ACTS = [].concat.apply([], [].concat.apply([], r)).map(function (d) { return Object.assign({ id: d.id }, d.data()); }).filter(function (a) { return a.active !== false; })
         .sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
-      if (!ACTS.length) { app.innerHTML = none; return; }
+      if (!ACTS.length) { none(); return; }
       return Promise.all(ACTS.map(function (a) { return q(db().collection('sgRisks').where('activityId', '==', a.id).get()); })).then(function (rs) {
         RISKS = [].concat.apply([], rs).map(function (d) { return Object.assign({ id: d.id }, d.data()); });
         document.getElementById('sub').textContent = 'The risks of the activities you lead, how they are controlled, and what is still to do.';

@@ -248,8 +248,8 @@ try {
   await go(T, 'sg-print.html?event=' + EID, '#sheet[data-ready]');
   ok('   and an event\u2019s assessment, without the bookings (not theirs to see): "Not available to you"', /Not available to you/.test(await text(T, '#pKids')) && !PRIVATE.test(await text(T, '#sheet')));
   const S = await as('sam');
-  await go(S, 'sg-print.html?event=' + EID, '#pFail');
-  ok('   A VOLUNTEER can\u2019t print it', /can’t be printed here/.test(await text(S, '#pFail')));
+  await go(S, 'sg-print.html?event=' + EID, '#egbc-blocked-card');
+  ok('   A VOLUNTEER can\u2019t print it', /isn.t for you/.test(await text(S, '#egbc-blocked-card')) && !/Brazil|Example/.test(await text(S)));
   /* a team-only event (like the practice trip: shown only to its team) - its site's lead still assesses and prints it */
   const EIDT = EID + '_team';
   await db.collection('calEvents').doc(EIDT).set(Object.assign((await db.collection('calEvents').doc(EID).get()).data(), { audience: [], visibility: 'unlisted', title: 'Example: Brazil trip, team only (test, not real)' }));

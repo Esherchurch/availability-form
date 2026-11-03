@@ -91,7 +91,7 @@ await db.collection('sites').doc('site_b').set({ name: 'Hall annex (invented)', 
 /* The coming Sunday, on the rota: Tom on Kids Church, Ava marked away. */
 const d0 = new Date(); d0.setDate(d0.getDate() + ((7 - d0.getDay()) % 7 || 7));
 const SUN = d0.getFullYear() + '-' + String(d0.getMonth() + 1).padStart(2, '0') + '-' + String(d0.getDate()).padStart(2, '0');
-await db.collection('events').doc('svc1').set({ date: SUN, startTime: '10:30', type: 'Morning service', assignments: { 'Leader (Younger)': { id: 'm_tom', name: 'Tom Team (invented)' }, 'Worship Leader': { id: 'm_mia', name: 'Mia Member (invented)' } } });
+await db.collection('events').doc('svc1').set({ date: SUN, startTime: '10:30', type: 'Sunday Morning Worship', assignments: { 'Leader (Younger)': { id: 'm_tom', name: 'Tom Team (invented)' }, 'Worship Leader': { id: 'm_mia', name: 'Mia Member (invented)' } } });
 await db.collection('availability').doc('av1').set({ eventId: 'svc1', memberId: 'm_ava', status: 'unavailable' });
 const outbox = async () => (await db.collection('emailOutbox').get()).docs.map(d => d.data());
 
@@ -259,9 +259,9 @@ try {
   /* Before switch-over the key can't be saved (privateSettings is readable until the rules deploy). */
   await db.collection('teamMailSettings').doc('config').set({ shutForTest: true });
   await M.goto(URLB + 'church-settings.html', { waitUntil: 'networkidle2' });
-  await until(async () => /switches over/.test(await text(M, '#bible-form')));
-  ok('7. BEFORE SWITCH-OVER: Church settings says "The API.Bible key can be saved when the church switches over", with no box to paste into',
-    /The API\.Bible key can be saved when the church switches over\./.test(await text(M, '#bible-form')) && !(await M.$('#bk-key')), await text(M, '#bible-form'));
+  await until(async () => /goes live/.test(await text(M, '#bible-form')));
+  ok('7. BEFORE GOING LIVE: Church settings says "The API.Bible key can be saved when the hub goes live", with no box to paste into',
+    /The API\.Bible key can be saved when the hub goes live\./.test(await text(M, '#bible-form')) && !(await M.$('#bk-key')), await text(M, '#bible-form'));
   const shutSave = await M.evaluate(() => EGBCAuth.call('bibleKeySave', { key: 'synthetic-key-0123456789abcdef' }).then(() => 'saved', e => e.code || e.message));
   ok('   and the server refuses to save one, so nothing is kept', /failed-precondition/.test(shutSave) && !(await db.collection('privateSettings').doc('apiBible').get()).exists, shutSave);
   await db.collection('teamMailSettings').doc('config').delete();

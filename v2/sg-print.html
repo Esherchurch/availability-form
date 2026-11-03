@@ -185,15 +185,28 @@
      any admin. An event with no assessment yet is readable by anyone signed
      in, so the page asks itself rather than waiting for a refused read. */
   var WHO = 'the safeguarding lead and deputy, the trustees and master admins';
+  /* The site's own lead or deputy, from where the rules read it (Places),
+     so a lead just named is never turned away while the server catches up. */
+  function siteLead(siteId) {
+    var mid = ((EGBCAuth.profile && EGBCAuth.profile()) || {}).memberId || '';
+    if (!siteId || !mid) return Promise.resolve(false);
+    return db().collection('bookingSettings').doc(siteId).get().then(function (b) {
+      var d = b.exists ? b.data() : {};
+      return d.safeguardingLead === mid || d.safeguardingDeputy === mid;
+    }, function () { return false; });
+  }
   function mayPrint() {
     if (EGBCAuth.isMaster() || EGBCAuth.isSafeguardingLead() || EGBCAuth.isSgTrustee()) return Promise.resolve(true);
+    if (q.get('register')) return siteLead(q.get('register'));
+    /* a snapshot is readable only by those it is for (the rules) */
+    if (q.get('snapshot')) return db().collection('sgSnapshots').doc(q.get('snapshot')).get().then(function (s) { return s.exists; }, function () { return false; });
     var id = q.get('event');
     if (!id) return Promise.resolve(false);
     WHO += ', and the event’s organisers and leaders';
     return Promise.all([db().collection('calEvents').doc(id).get(), db().collection('eventLeaders').doc(id).get().catch(function () { return null; })]).then(function (r) {
-      var me = (EGBCAuth.user() || {}).uid || '';
-      return (r[0].exists && E.runsEvent(Object.assign({ id: id }, r[0].data())))
-        || !!(r[1] && r[1].exists && me && (r[1].data().leaderUids || []).indexOf(me) !== -1);
+      var me = (EGBCAuth.user() || {}).uid || '', ev = r[0].exists ? r[0].data() : null;
+      if ((ev && E.runsEvent(Object.assign({ id: id }, ev))) || !!(r[1] && r[1].exists && me && (r[1].data().leaderUids || []).indexOf(me) !== -1)) return true;
+      return siteLead(ev && ev.location && ev.location.siteId);
     }, function () { return false; });
   }
 

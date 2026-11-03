@@ -212,7 +212,7 @@ try {
       await val(G, '#f_children__' + i + '__name', n); await val(G, '#f_children__' + i + '__dob', dob);
       if (yr) await val(G, '#f_children__' + i + '__year', yr);
       await val(G, '#f_children__' + i + '__allergies', al); await val(G, '#f_children__' + i + '__medical', med);
-      await val(G, '#f_children__' + i + '__photo', photo); await val(G, '#f_children__' + i + '__firstaid', 'Yes');
+      await val(G, '#f_children__' + i + '__photo', photo); await val(G, '#f_children__' + i + '__firstaid', 'Yes'); await val(G, '#f_children__' + i + '__film', 'Yes');
     }
     await val(G, '#f_parentName', 'Parent Synthetic'); await val(G, '#f_parentPhone', '07700 900111');
     await val(G, '#f_emergency', 'Aunt Invented 07700 900222, Uncle Invented 07700 900333'); await val(G, '#f_collectors', 'Grandma Invented');

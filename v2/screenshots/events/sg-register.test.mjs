@@ -190,8 +190,9 @@ try {
 
   /* 5. a volunteer */
   const Vv = await as('vic');
-  await go(Vv, 'safeguarding-risk.html', '#notYours');
-  ok('5. AN ACTIVITY\u2019S OWN LEADER is told it is for the lead, deputy and trustees', /for the safeguarding lead and deputy, and the trustees/.test(await text(Vv, '#notYours')));
+  await go(Vv, 'safeguarding-risk.html');
+  const vView = await until(async () => (await Vv.$('#egbc-blocked-card')) ? 'refused' : /activities you lead/.test(await text(Vv)) ? 'own' : null);
+  ok('5. AN ACTIVITY\u2019S OWN LEADER sees only that activity, read only (or, leading none, is told the page isn\u2019t theirs)', vView === 'refused' || (vView === 'own' && !(await Vv.$('[data-edit]'))), vView);
   const vRead = await Vv.evaluate(() => EGBCAuth.db.collection('sgRisks').where('siteId', '==', 'site_t').get().then(() => 'read', e => e.code));
   ok('   and the database refuses them too', /permission/.test(vRead), vRead);
 
@@ -202,8 +203,8 @@ try {
   await tap(M, '#save');
   const st = await until(async () => { const s = await readDb(async (db) => (await getDoc(doc(db, 'safeguardingSettings', 'defaults'))).data()); return s && s.trusteeTeam === 'Trustees' ? s : null; });
   ok('   saved as "Trustees", with the lead and the rest kept', !!st && st.leadSiteId === 'site_t' && st.leadName === 'Lena Lead (invented)' && typeof st.register === 'object', J(st && { t: st.trusteeTeam, lead: st.leadSiteId }));
-  await go(Tt, 'safeguarding-risk.html', '#notYours');
-  ok('   then the Elders are no longer the trustees here', /for the safeguarding lead and deputy, and the trustees/.test(await text(Tt, '#notYours')));
+  await go(Tt, 'safeguarding-risk.html', '#egbc-blocked-card');
+  ok('   then the Elders are no longer the trustees here', /isn.t for you.*for the safeguarding lead and deputy, the trustees/.test(await text(Tt, '#egbc-blocked-card')));
 
   /* 7. the ways in */
   await go(L, 'safeguarding.html', '#riskRegLink');

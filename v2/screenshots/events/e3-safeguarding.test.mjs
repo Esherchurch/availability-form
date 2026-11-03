@@ -4,8 +4,9 @@
    sites, no service worker, any outside reply fails the run.
 
      npm i --no-save puppeteer-core
-     npx firebase emulators:exec --config firebase.events.json --only auth,firestore,storage \
+     npx firebase emulators:exec --config firebase.events.json --only auth,firestore,storage,functions \
        --project egbc-worship-planner "node screenshots/events/e3-safeguarding.test.mjs"
+     (functions: a parent's "still correct?" reads their earlier answers through formAnswers)
 
    The people:
      Lena    the site's safeguarding lead. A member, NOT an admin.
@@ -201,6 +202,7 @@ try {
     await val(G, '#f_children__' + i + '__dob', i ? '2016-04-01' : '2020-06-01');
     await val(G, '#f_children__' + i + '__photo', 'Yes');
     await val(G, '#f_children__' + i + '__firstaid', 'Yes');
+    await val(G, '#f_children__' + i + '__film', 'Yes');
   }
   await val(G, '#f_children__0__allergies', 'Peanuts - carries an EpiPen');
   await val(G, '#f_children__1__allergies', 'None');

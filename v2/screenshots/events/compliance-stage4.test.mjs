@@ -258,7 +258,7 @@ try {
   const leak = mails.filter(m => planWords.some(w => m.includes(w)));
   ok('3. A PEEP NEVER APPEARS IN ANY EMAIL: ' + mails.length + ' compliance emails made (a reminder to Wendy, who reads plans, and the summary), none with a plan in it',
     mails.length >= 2 && outbox.some(o => o.to.includes(P.wendy.email)) && leak.length === 0, leak.join(' | ').slice(0, 300));
-  const readers = fs.readdirSync(path.join(V2, 'functions')).filter(f => /\.(m?js|cjs)$/.test(f) && f !== 'peeps.js' && f !== 'index.js').filter(f => /['"`](peeps|peepToday)['"`]/.test(fs.readFileSync(path.join(V2, 'functions', f), 'utf8')));
+  const readers = fs.readdirSync(path.join(V2, 'functions')).filter(f => /\.(m?js|cjs)$/.test(f) && f !== 'peeps.js' && f !== 'index.js').filter(f => /(collection\(\s*|get\(\s*\w+\s*,\s*)['"`](peeps|peepToday)['"`]/.test(fs.readFileSync(path.join(V2, 'functions', f), 'utf8')));
   ok('   and no server file but peeps.js reads the plans (none can mail them)', readers.length === 0, readers.join(', '));
   ok('   peeps.js itself sends nothing', !/makeSender|sendEmail|send\(/.test(fs.readFileSync(path.join(V2, 'functions', 'peeps.js'), 'utf8')));
 

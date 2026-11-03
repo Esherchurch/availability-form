@@ -726,14 +726,20 @@
       });
     });
     db().collection('geeps').get().then(function (q) { GEEPS = q.docs.map(function (d) { return Object.assign({ siteId: d.id }, d.data()); }); render(LAST); }, function () {});
+    /* Each change redraws, and a redraw may wait for its events' names: only
+       the newest may write, or an older one finishing later would draw over
+       it (the children's names went missing that way). */
+    var DRAWN = 0;
     function render(cks) {
       LAST = cks;
+      var mine = ++DRAWN;
       var ins = cks.filter(function (c) { return c.state === 'in'; });
       var need = ins.filter(function (c) { return c.kind !== 'child'; }).map(function (c) { return c.calEventId; }).filter(function (id, i, a) { return a.indexOf(id) === i && !evCache[id]; });
       return Promise.all(need.map(function (id) {
         return db().collection('calEvents').doc(id).get().then(function (s) { evCache[id] = s.exists ? s.data() : { title: 'Event' }; })
           .catch(function () { evCache[id] = { title: 'Event' }; });
       })).then(function () { return lookups; }).then(function (look) {
+        if (mine !== DRAWN) return;
         var groups = {};
         ins.forEach(function (c) {
           var ev = c.kind === 'child' ? { title: EGBCAuth.serviceDay() + ' children\'s groups' } : (evCache[c.calEventId] || {});

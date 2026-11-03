@@ -155,7 +155,9 @@ await db.collection('churchSettings').doc('details').set({ name: 'Test Green Chu
 await db.collection('churchSettings').doc('launch').set({ rulesLocked: true });
 await db.collection('presentSettings').doc('test').set({ converterUrl: 'http://127.0.0.1:5612' });
 await db.collection('planGroups').doc('pg_kids').set({ name: 'Kids Church', kind: 'children', leaderIds: ['m_karen', 'm_lois'], teamName: 'Kids Church' });
-await db.collection('planSessions').doc('ps_1').set({ groupId: 'pg_kids', date: '2026-11-01', title: 'Born again?', parts: [{ id: 'p1', title: 'Welcome', show: [] }], updatedBy: P.karen.uid });
+/* The next two Sundays: Present lists only sessions still to come. */
+const SUNDAYS = (() => { const d = new Date(); d.setUTCHours(12, 0, 0, 0); do d.setUTCDate(d.getUTCDate() + 1); while (d.getUTCDay() !== 0); const a = d.toISOString().slice(0, 10); d.setUTCDate(d.getUTCDate() + 7); return [a, d.toISOString().slice(0, 10)]; })();
+await db.collection('planSessions').doc('ps_1').set({ groupId: 'pg_kids', date: SUNDAYS[0], title: 'Born again?', parts: [{ id: 'p1', title: 'Welcome', show: [] }], updatedBy: P.karen.uid });
 
 const errors = [], browsers = [];
 async function as(who, w = 375, h = 812) {
@@ -357,7 +359,7 @@ try {
     && vm.some(m => m.shown === 2 && m.src === 'm3-0.mp4' && m.start === 'auto'), J({ vr, status: vd.status, why: vd.why, vm }));
   ok('   stored as it was (H.264, streams as it is), beside the slide pictures', vfile && vfile.contentType === 'video/mp4' && +vfile.size === CLIP.length, J(vfile && { t: vfile.contentType, s: vfile.size }));
   ok('   a YouTube link is kept as a link, not fetched', vm.some(m => m.shown === 3 && m.youtube === 'INVENTED01' && !m.src && /youtube\.com/.test(m.link)), J(vm));
-  await db.collection('planSessions').doc('ps_v').set({ groupId: 'pg_kids', date: '2026-11-08', title: 'Video night', parts: [{ id: 'p1', title: 'Watch', show: [{ type: 'pptx', deckId: 'dk_video01', name: 'Video night (invented)', count: 4 }] }], updatedBy: P.karen.uid });
+  await db.collection('planSessions').doc('ps_v').set({ groupId: 'pg_kids', date: SUNDAYS[1], title: 'Video night', parts: [{ id: 'p1', title: 'Watch', show: [{ type: 'pptx', deckId: 'dk_video01', name: 'Video night (invented)', count: 4 }] }], updatedBy: P.karen.uid });
 
   await vk.goto(URLB + 'present.html?s=ps_v', { waitUntil: 'networkidle2' });
   await until(() => vk.$('[data-start]'));

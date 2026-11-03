@@ -133,7 +133,8 @@ const REFUSE = [
   ['event-ra.html', ['eve', 'will']],
   ['sg-print.html?event=ev1', ['eve', 'will', 'cora', 'kay']],
   ['sg-print.html?register=site_t', ['eve', 'will', 'cora', 'kay']],
-  ['youthapp2.html', ['out', 'eve', 'will', 'kay']]
+  ['youthapp2.html', ['out', 'eve', 'will', 'kay']],
+  ['safeguarding-risk.html', ['eve', 'will', 'cora']]
 ];
 const OPEN = [
   ['kids-admin.html', ['kay', 'sage', 'max']],
@@ -142,7 +143,8 @@ const OPEN = [
   ['event-ra.html', ['cora', 'max']],
   ['sg-print.html?event=ev1', ['sage', 'max']],
   ['sg-print.html?register=site_t', ['sage', 'max']],
-  ['youthapp2.html', ['max']]
+  ['youthapp2.html', ['max']],
+  ['safeguarding-risk.html', ['sage', 'max']]
 ];
 
 try {

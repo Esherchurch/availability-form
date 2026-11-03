@@ -158,9 +158,10 @@ try {
   const emb = await G.$eval('[data-ev="ev_trip"]', e => e.innerText.replace(/\s+/g, ' ')).catch(() => '');
   ok('   THE WEBSITE\u2019S EMBED: the same words, not "Sign up"', /Bookings open after safeguarding sign-off/.test(emb) && !/Sign up/.test(emb), emb);
   await go(O, 'screenshots/events/app-harness.html?space=me&tab=whatson', '.hello');
-  await until(() => O.$('[data-w="events"]'));
+  /* the app settles on its own opening space after it loads: ask for What's on once it has */
+  await until(async () => (await O.evaluate(() => { if (window.__harnessReady) EGBCApp.go('me', 'whatson'); return 1; })) && O.$('[data-w="events"]'));
   const appList = await O.$eval('[data-wact="event:ev_trip"]', e => e.innerText.replace(/\s+/g, ' ')).catch(() => '');
-  ok('   THE APP: "Not open yet", not "Sign up"', /Not open yet/.test(appList) && !/Sign up/.test(appList), appList);
+  ok('   THE APP: "Not open yet", not "Sign up"', /Not open yet/.test(appList) && !/Sign up/.test(appList), appList || (await O.$eval("body", (b) => b.innerText.replace(/\s+/g, " "))).slice(0, 700));
   await tap(O, '[data-wact="event:ev_trip"]');
   await until(async () => /Not open for booking yet/.test(await text(O, '#egbc-content')));
   ok('   and its event view: "Bookings open after safeguarding sign-off", no Sign up', /Bookings open after safeguarding sign-off/.test(await text(O, '#egbc-content')) && !/Sign up/.test(await text(O, '#egbc-content')), await text(O, '#egbc-content'));

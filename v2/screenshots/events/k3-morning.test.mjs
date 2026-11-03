@@ -173,11 +173,13 @@ try {
   await KA.setViewport({ width: 375, height: 800 });
   await KA.screenshot({ path: path.join(HERE, 'k3-not-set-up-375.png'), fullPage: true });
   await KA.setViewport({ width: 1100, height: 900 });
-  await go(N, 'kids-admin.html', '#notsetup');
-  ok('   someone who is not an admin is told to ask the office', /Please ask the church office/.test(await text(N, '#notsetup')) && !(await N.$('#ns-places')), await text(N, 'body'));
+  /* Nat helps on Kids Church but leads nothing: the pages aren't for Nat,
+     set up or not (the Menu offers them to the leads and group leaders). */
+  await go(N, 'kids-admin.html', '#egbc-blocked-card');
+  ok('   a helper who leads nothing is told the page isn’t for them, not "not set up"', /isn.t for you/.test(await text(N, '#egbc-blocked-card')) && !(await N.$('#notsetup')), await text(N, 'body'));
   await go(KA, 'kids-checkin.html', '#notsetup');
-  await go(N, 'kids-checkin.html', '#notsetup');
-  ok('   the same on Sunday check-in', !!(await KA.$('#ns-places')) && /ask the church office/.test(await text(N, '#notsetup')));
+  await go(N, 'kids-checkin.html', '#egbc-blocked-card');
+  ok('   the same on Sunday check-in', !!(await KA.$('#ns-places')) && /isn.t for you/.test(await text(N, '#egbc-blocked-card')));
   await env.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
     await setDoc(doc(db, 'sites', 'site_t'), { name: 'Test Green', address: 'Invented Street', active: true, order: 1 });

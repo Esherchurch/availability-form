@@ -217,7 +217,7 @@ try {
   await M.goto(URLB + 'checkin.html?view=rollcall', { waitUntil: 'networkidle2' });
   await until(async () => /Dan Synthetic-Child/.test(await text(M, '#wrap')) && /total 2/.test(await text(M, '#wrap')));
   const mk = await text(M, '#wrap');
-  ok('    a master admin still has the names, counted once (3 adults + 3 children = 6)', /Dan Synthetic-Child/.test(mk) && /\b6\b People in the building/.test(mk), mk.slice(250, 1400));
+  ok('    a master admin still has the names, counted once (3 adults + 3 children = 6)', /Dan Synthetic-Child/.test(mk) && /\b6\b People in the building/.test(mk), mk.slice(0, 1600));
 
   ok('no page errors', errors.length === 0, errors.join(' | '));
 } catch (e) {

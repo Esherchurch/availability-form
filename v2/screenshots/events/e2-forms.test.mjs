@@ -3,8 +3,9 @@
    before anything is written).
 
      npm i --no-save puppeteer-core
-     npx firebase emulators:exec --config firebase.events.json --only auth,firestore,storage \
+     npx firebase emulators:exec --config firebase.events.json --only auth,firestore,storage,functions \
        --project egbc-worship-planner "node screenshots/events/e2-forms.test.mjs"
+     (functions: the parent's private link reads what they sent through formAnswers)
 
    What it proves, in order:
      1. an admin builds the parent consent form from its template; a new
@@ -95,6 +96,8 @@ const signup = (ev, key, name, email, kids) => [key, { calEventId: ev, personKin
 
 await env.withSecurityRulesDisabled(async (ctx) => {
   const db = ctx.firestore();
+  /* the church's own name and logo (Church settings), drawn in the header */
+  await setDoc(doc(db, 'churchSettings', 'details'), { name: "St Aidan's with St Hild, Testbury (synthetic)", shortName: "St Aidan's (synthetic)", logoUrl: URLB + 'icon-192.png', enquiryEmail: 'office@example.invalid' }, { merge: true });
   await setDoc(doc(db, 'addressBook', 'm_master'), { name: MASTER.name, email: MASTER.email, markers: ['Core Team'], adminFor: [], masterAdmin: true });
   await setDoc(doc(db, 'users', MASTER.uid), { memberId: 'm_master', linkedBy: 'admin', name: MASTER.name, email: MASTER.email, teams: ['Core Team'], adminFor: [], masterAdmin: true, status: 'active' });
   await setDoc(doc(db, 'addressBook', 'm_av'), { name: AVADMIN.name, email: AVADMIN.email, markers: ['AV Team'], adminFor: ['AV Team'], masterAdmin: false });
@@ -196,6 +199,7 @@ try {
   for (const i of [0, 1]) {
     await val(G, '#f_children__' + i + '__dob', i ? '2020-06-01' : '2018-03-01');
     await val(G, '#f_children__' + i + '__photo', 'Yes');
+    await val(G, '#f_children__' + i + '__film', 'Yes');
     await val(G, '#f_children__' + i + '__firstaid', 'Yes');
   }
   await val(G, '#f_children__0__allergies', 'Peanuts - carries an EpiPen');
@@ -218,8 +222,8 @@ try {
   ok('name typed but box not ticked: it asks for the tick', /Please sign the form: tick the box under your name/.test(unticked), unticked);
   await tap(G, '#f_sign_a');
   ok('ticking the box clears that message too', (await G.$eval('#err', e => e.textContent)) === '');
-  ok('the logo in the page header draws (a stand-in for the live picture)',
-    await G.$eval('img[alt="EGBC"]', i => i.complete && i.naturalWidth > 0).catch(() => false));
+  ok('the church’s own logo draws in the page header, named for the church',
+    await G.$eval('#egbc-bar .eb-l img', i => i.complete && i.naturalWidth > 0 && /St Aidan/.test(i.alt)).catch(() => false));
   await G.screenshot({ path: path.join(HERE, 'e2-form-fill-375.png'), fullPage: true });
   await tap(G, '#go');
   await until(() => G.$eval('body', e => /Your form is in/.test(e.innerText)), 15000);
