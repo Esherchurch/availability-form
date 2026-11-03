@@ -91,8 +91,16 @@ const eve = await person('cc.eve@example.invalid', {});
 const dot = await person('cc.dot@example.invalid', { churches: [A, B] });
 const seeded = [];
 const seed = async (p, o) => { seeded.push(p); await put(p, o); };
+/* A church's address book is where its people's access comes from: when the
+   record changes, churchBookToUsers rewrites the users records linked to it.
+   So alpha's record says what Ann is there - a master admin and a church
+   member - or that trigger, landing a moment after the users seed below,
+   made her a plain youth volunteer and 20 of her checks were refused (77 of
+   97, the events window, 3 Nov 2026). Dot shares the id, and is only ever
+   checked in beta. */
 const household = async (root, first, kin) => {
-  await seed(root + 'addressBook/' + MID, { name: first + ' Synthetic', email: '', householdId: MID + '_k', markers: ['Youth Worship'] });
+  await seed(root + 'addressBook/' + MID, Object.assign({ name: first + ' Synthetic', email: '', householdId: MID + '_k', markers: ['Youth Worship'] },
+    root === 'churches/' + A + '/' ? { masterAdmin: true, churchMember: true } : {}));
   await seed(root + 'addressBook/' + MID + '_k', { name: kin + ' Synthetic', householdId: MID });
 };
 for (const [root, first, kin] of [['churches/' + A + '/', 'Ann', 'Alfie'], ['churches/' + B + '/', 'Bea', 'Bertie'], ['', 'Eve', 'Egg']]) await household(root, first, kin);
@@ -127,6 +135,7 @@ for (const [root, tag] of [['churches/' + A + '/', 'a'], ['churches/' + B + '/',
 }
 await seed('churches/' + A + '/churchSettings/video', { rooms: [{ key: 'Prayer', label: 'Prayer (made up)', teams: ['Prayer Team'], hostTeams: [] }] });
 await seed('churches/' + B + '/churchSettings/video', { churchId: B, rooms: [{ key: 'BetaRoom', label: 'Beta room (made up)', teams: [], hostTeams: [] }] });
+await seed('churchSettings/video', { rooms: [{ key: 'TopPrayer', label: 'Top-level prayer (made up)', teams: [], hostTeams: [] }] });
 const gil = await person('cc.gil@example.invalid', { churches: ['mc-gamma'] });
 await seed('churches/mc-gamma/users/' + gil.uid, { status: 'active', memberId: 'm_gil', name: 'Gil Synthetic' });
 seeded.push('churches/mc-gamma/churchSettings/video', 'churchSettings/video');
@@ -236,9 +245,12 @@ try {
   ok('  Ann naming beta is refused', refused(await call(ann, 'videoRoomsEnsure', { churchId: B }), 'PERMISSION_DENIED'));
   r = await call(gil, 'videoRoomsEnsure');
   ok("  a church with no rooms yet has none - not EGBC's seven", JSON.stringify(((r.result || {}).rooms || [])) === '[]', JSON.stringify(r));
+  /* The top level has no built-in rooms any more (no church's own in the code,
+     1ea9f6ae): it gets the rooms its settings list, as every church does,
+     still named egbc- in Daily. */
   r = await call(eve, 'videoRoomsEnsure');
   const erooms = ((r.result || {}).rooms || []);
-  ok("  Eve (no claim) gets EGBC's rooms, named egbc-, as today", erooms.length >= 5 && erooms.every(x => /\/egbc-/.test(x.url || '')), JSON.stringify(erooms.map(x => x.url)));
+  ok("  Eve (no claim) gets the top level's own rooms, named egbc-, as today", erooms.map(x => x.key).join(',') === 'TopPrayer' && erooms.every(x => /\/egbc-/.test(x.url || '')), JSON.stringify(erooms.map(x => x.url)));
   r = await call(ann, 'meetingHostToken', { room: 'Prayer' });
   ok("  Ann hosts alpha's room: the token is for alpha's Daily room", /^test-owner\.mc-alpha-prayer\./.test((r.result || {}).token || ''), JSON.stringify(r));
   ok("  Ann asking to host beta's room: no such room (in alpha)", refused(await call(ann, 'meetingHostToken', { room: 'BetaRoom' }), 'NOT_FOUND'));
@@ -270,7 +282,10 @@ try {
   console.log('\nYouth codes (batch 4)');
   await seed('churches/' + A + '/youthGrants/CCAA-2345', { memberId: MID, memberName: 'Kid Alpha', active: true });
   await seed('youthGrants/CCEE-2345', { memberId: MID, memberName: 'Kid Egbc', active: true });
-  let yix = null; for (let i = 0; i < 40 && !yix; i++) { yix = await getDoc('hqCodes/youth_' + codeHash('CCAA-2345')); if (!yix) await new Promise(r2 => setTimeout(r2, 250)); }
+  /* Up to 30 seconds: the emulator starts a fresh worker for the first
+     youthGrants trigger, and that alone outlasted the 10 this allowed (it
+     ran just after the check gave up, 3 Nov 2026). */
+  let yix = null; for (let i = 0; i < 120 && !yix; i++) { yix = await getDoc('hqCodes/youth_' + codeHash('CCAA-2345')); if (!yix) await new Promise(r2 => setTimeout(r2, 250)); }
   ok("  a church's new youth code is indexed by the server", !!yix && yix.churchId.stringValue === A);
   seeded.push('hqCodes/youth_' + codeHash('CCAA-2345'));
   red = await postJson('redeemYouthCode', { code: 'ccaa2345' });

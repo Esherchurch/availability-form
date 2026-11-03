@@ -12,7 +12,7 @@
 <script src="egbc-auth.js?v=202611030800"></script>
 <script src="egbc-manifest.js?v=202611011200"></script>
 <script src="egbc-guard.js?v=202611030600" data-core-of="worship"></script>
-<script src="egbc-church.js?v=202611030900"></script>
+<script src="egbc-church.js?v=202611031810"></script>
 <meta charset="UTF-8">
     <link rel="manifest" href="./manifest-coreteam.json">
     <link rel="apple-touch-icon" href="icon-192.png">
@@ -502,6 +502,8 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
   pointer-events: all; z-index: 3; cursor: default;
 }
 .tour-tooltip-title { font-size: 14px; font-weight:600; margin-bottom: 6px; }
+.tour-x { position: absolute; top: 4px; right: 4px; width: 44px; height: 44px; border: 0; border-radius: 10px; background: none; color: inherit; font-size: 22px; line-height: 1; cursor: pointer; opacity: 0.85; }
+.tour-x:hover, .tour-x:focus-visible { opacity: 1; background: rgba(255,255,255,0.15); }
 .tour-tooltip-text  { font-size: 12px; font-weight: 600; opacity: 0.85; line-height: 1.5; margin-bottom: 12px; }
 .tour-btn-row { display: flex; align-items: center; gap: 8px; }
 /* 8px, not a capsule. A3 took the pills off every control on this page except
@@ -2308,6 +2310,8 @@ function nextTourStep() {
   showTourStep(steps);
 }
 
+/* Escape ends the tour too, as a close should. */
+document.addEventListener('keydown', function (e) { var o = document.getElementById('tour-overlay'); if (e.key === 'Escape' && o && o.classList.contains('active')) endTour(); });
 function endTour() {
   const cb = document.getElementById('tour-dont-show');
   if (cb?.checked) {
@@ -2344,7 +2348,9 @@ function maybeTriggerTour(section) {
   <div class="tour-dismiss-layer" onclick="endTour()"></div>
   <div class="tour-highlight" id="tour-highlight"></div>
   <div class="tour-tooltip" id="tour-tooltip" onclick="event.stopPropagation()">
-    <div class="tour-tooltip-title" id="tour-title"></div>
+    <!-- A close you can see, as the Youth Hub's tour has (3 Nov 2026). -->
+    <button type="button" class="tour-x" onclick="endTour()" aria-label="Close the tour">&times;</button>
+    <div class="tour-tooltip-title" id="tour-title" style="padding-right:40px"></div>
     <div class="tour-tooltip-text"  id="tour-text"></div>
     <!-- The whole row is the label, 44px tall: the box alone was 16px and the
          words 16px high, too small to tap on a phone (the going-live audit,

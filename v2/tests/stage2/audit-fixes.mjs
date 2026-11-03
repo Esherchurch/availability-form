@@ -33,7 +33,11 @@
  *     keeps its close and buttons in reach;
  *   - the safeguarding risk register tells a master admin of a church with
  *     no places yet to add them, rather than that the page is not for them;
- *   - on a page opened from the app, Help sits above the app's tab bar.
+ *   - on a page opened from the app, Help sits above the app's tab bar;
+ *   - Help makes the page behind it inert while open; the tours have a ✕
+ *     and close on Escape;
+ *   - the AV, worship and core charters have no password in their source:
+ *     a team member who is not its admin is told so, a master admin edits.
  */
 import { serve, browser, person, signIn, put, wipe, sleep } from './harness.mjs';
 import { EGBC_UNDER18 } from '../../functions/under18-teams.js';
@@ -50,6 +54,7 @@ await put('teamFlags/boards', { boards: boardsOf([]) });
 const lead = await person({ key: 'af_lead', name: 'Ava Lead Synthetic', teams: ['Worship Team', 'AV Team'], adminFor: ['Worship Team', 'AV Team'], master: true, book: { masterAdmin: true } });
 const preacher = await person({ key: 'af_preach', name: 'Pip Preacher Synthetic', teams: [] });
 const other = await person({ key: 'af_other', name: 'Ola Other Synthetic', teams: [] });
+const avMember = await person({ key: 'af_av', name: 'Aldo AV Synthetic', teams: ['AV Team'] });
 await put('songSummaries/' + DATE, { date: DATE, items: [{ title: 'Hymn For The Plan Synthetic', key: 'G' }], audience: [preacher.uid], audienceUnresolved: [] });
 await put('news/af_n1', { title: 'Synthetic notice', body: '<p>Words</p>', teams: [], createdAt: new Date().toISOString(), date: '', pinned: false });
 const server = await serve(SERVE);
@@ -136,6 +141,8 @@ try {
     ok('Help\'s close can be pressed (not under the page bar)', (await free(p, 'document.querySelector("#egbc-help .x")')) === 'free');
     const said = await p.evaluate(() => { const f = document.querySelector('#egbc-help form.ask'); if (!f) return 'no Ask box (signed out?)'; f.querySelector('textarea').value = ''; f.querySelector('button[type=submit]').click(); return f.querySelector('.answer').textContent; });
     ok('Ask with nothing typed says so', /Type your question first/.test(said), said);
+    const inert = await p.evaluate(() => { const behind = [...document.body.children].filter((e) => !/^egbc-help/.test(e.id) && e.tagName !== 'SCRIPT' && e.tagName !== 'STYLE'); const open = behind.length > 0 && behind.every((e) => e.inert); EGBCHelp.close(); const back = behind.every((e) => !e.inert); return open + '/' + back; });
+    ok('while Help is open the page behind it is inert, and it is given back on close', inert === 'true/true', inert);
     ok('no errors', !p.__errs.length, p.__errs.join(' | ')); await p.browserContext().close(); }
 
   console.log('\nThe hub\'s Menu, on a phone');
@@ -196,6 +203,10 @@ try {
     ok(pg + ': "Don\'t show this again" is 44px to tap, and ticks the box', /^(4[4-9]|[5-9]\d)px, ticked true$/.test(got), got);
     const skip = await p.evaluate(() => { const r = document.querySelector('.tour-skip').getBoundingClientRect(); return Math.round(Math.min(r.width, r.height)); });
     ok(pg + ': the tour\'s Skip is big enough to tap', skip >= 30, skip + 'px');
+    const x = await p.evaluate(() => { startTour(true); const b = document.querySelector('#tour-tooltip .tour-x'); if (!b) return 'no ✕'; const r = b.getBoundingClientRect(), h = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); if (!(h === b || b.contains(h))) return 'covered'; b.click(); return document.getElementById('tour-overlay').classList.contains('active') ? 'still open' : Math.round(Math.min(r.width, r.height)) + 'px, ends it'; });
+    ok(pg + ': the tour has a ✕ you can see and tap, 44px, and it ends the tour', /^4\dpx, ends it$/.test(x), x);
+    const esc = await p.evaluate(async () => { startTour(true); document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); await new Promise((r) => setTimeout(r, 100)); return !document.getElementById('tour-overlay').classList.contains('active'); });
+    ok(pg + ': Escape ends the tour', esc);
     ok(pg + ': no errors', !p.__errs.length, p.__errs.join(' | ')); await p.browserContext().close(); }
 
   console.log('\nThe birthday invite maker, on a phone');
@@ -220,6 +231,16 @@ try {
     const got = await p.evaluate(() => { if (!document.documentElement.hasAttribute('data-egbc-app-mode')) return 'not in app mode'; const b = document.getElementById('egbc-help-btn'); if (!b) return 'no Help button'; const r = b.getBoundingClientRect(), h = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return h === b || b.contains(h) ? 'free' : 'under ' + (h ? h.tagName + '.' + h.className : 'nothing'); });
     ok(pg + ': Help is above the app\'s tab bar, not under it', got === 'free', got);
     await p.browserContext().close(); }
+
+  console.log('\nThe team charters: no password, the team\'s admins edit');
+  { const fs = await import('node:fs');
+    const has = ['AVteamlandingpage.html', 'Coreteamcharter.html', 'Worshipteamcharter.html'].filter((f) => /ADMIN_PW|Surreykt10/.test(fs.readFileSync(new URL('../../' + f, import.meta.url), 'utf8')));
+    ok('no password in the three charters\' source', !has.length, has.join(', '));
+    const tri = (p) => p.evaluate(async () => { const bar = document.getElementById('admin-bar'), r = bar.getBoundingClientRect(); for (let i = 0; i < 3; i++) bar.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: r.right - 5, clientY: r.top + r.height / 2 })); await new Promise((r) => setTimeout(r, 300)); return document.body.classList.contains('admin-mode') ? 'edit mode' : (document.getElementById('toast') || {}).textContent || 'nothing'; });
+    { const p = await fresh(avMember, 'AVteamlandingpage.html'); await sleep(6000);
+      const got = await tri(p); ok('an AV team member who is not its admin is told only its admins can edit, and stays out of edit mode', /only this team.s admins/i.test(got), got); await p.browserContext().close(); }
+    { const p = await fresh(lead, 'AVteamlandingpage.html'); await sleep(6000);
+      const got = await tri(p); ok('a master admin gets edit mode', got === 'edit mode', got); await p.browserContext().close(); } }
 } catch (e) { ok('the run itself', false, e && e.stack || e); }
 finally { await b.close(); server.close(); }
 console.log('\n' + R.filter(Boolean).length + ' of ' + R.length + ' checks passed');

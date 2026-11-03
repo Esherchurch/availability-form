@@ -228,6 +228,14 @@ const offMachine = u => {
       if ((await evl('!!document.querySelector(' + JSON.stringify(waitFor) + ') && !document.getElementById("egbc-guard-style")')) === true) break;
     }
     await sleep(extra || 600);
+    /* A page that sends you on (enews.html opens the editor on a computer,
+       once its data is in) is judged where it lands, not on its way out: it
+       read as having no Care button (the events window, 3 Nov 2026). */
+    for (let k = 0, at = await evl('location.pathname'); k < 10; k++) {
+      await sleep(500); const now = await evl('location.pathname');
+      if (now === at) break; at = now;
+      for (let i = 0; i < 40; i++) { await sleep(250); if ((await evl('!!document.querySelector(' + JSON.stringify(waitFor) + ') && !document.getElementById("egbc-guard-style")')) === true) break; }
+    }
     /* The hub asks a first-time visitor to pick a team, over everything -
        pick one, as check-home-fits does, so the page underneath is what is
        measured. */

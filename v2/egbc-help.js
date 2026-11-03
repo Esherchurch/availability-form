@@ -111,8 +111,26 @@
     }).then(function () { btn.disabled = false; });
   }
 
+  /* While Help is open the page behind it is inert, as a modal should be: it
+     was only marked aria-modal, so a tap or a keyboard still reached the
+     page's own controls under the panel (kids-admin's Open, the going-live
+     audit, 3 Nov 2026). Only what this made inert is given back. */
+  var benched = [];
+  function bench(on) {
+    if (on) {
+      benched = Array.prototype.filter.call(document.body.children, function (e) {
+        return e !== panel.bg && e !== panel.el && !e.inert && e.tagName !== 'SCRIPT' && e.tagName !== 'STYLE';
+      });
+      benched.forEach(function (e) { e.inert = true; });
+    } else {
+      benched.forEach(function (e) { e.inert = false; });
+      benched = [];
+    }
+  }
+
   function close() {
     if (!panel) return;
+    bench(false);
     panel.bg.remove();
     panel.el.remove();
     panel = null;
@@ -144,6 +162,7 @@
     document.body.appendChild(bg);
     document.body.appendChild(el);
     panel = { bg: bg, el: el };
+    bench(true);
     el.querySelector('.x').addEventListener('click', close);
     var form = el.querySelector('form.ask');
     if (form) form.addEventListener('submit', function (e) {

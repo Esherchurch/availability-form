@@ -733,6 +733,10 @@ async function tapAll(B, url, reopen, ctx) {
          one left open by an earlier tap covers the corner under it (3 Nov 2026). */
       /* A first-visit tour covers the page until it is ended, as a person's first
          tap anywhere ends it (CoreTeamApp, youthapp2): end it and try again. */
+      /* Help open beside the page (a person opened it, then went back to the
+         page): close it, as they would, and press the page's control (the
+         events window, 3 Nov 2026). */
+      if (!retried.has(next.sig) && await B.ev('!!document.getElementById("egbc-help")')) { retried.add(next.sig); tapped.delete(next.sig); n--; await B.ev('(window.EGBCHelp&&EGBCHelp.close(),1)'); await sleep(300); continue; }
       if (!retried.has(next.sig) && /tour-dismiss/.test(pt.by)) { retried.add(next.sig); tapped.delete(next.sig); n--; await B.ev('(window.endTour&&endTour(),1)'); await sleep(300); continue; }
       if (!retried.has(next.sig) && (/^[A-Z]+(#egbc-(you|nav)|.ey-)/.test(pt.by) || ((await B.ev(OVERLAY)) || 'null') !== resting)) { retried.add(next.sig); tapped.delete(next.sig); n--; await reopen(); continue; }
       why.push('covered: "' + (next.words || next.href) + '" is under ' + pt.by); notUsed(next, 'covered by ' + pt.by); continue;

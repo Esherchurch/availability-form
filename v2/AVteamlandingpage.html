@@ -7,7 +7,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="egbc-auth.js?v=202611030800"></script>
 
-<script src="egbc-shell.js?v=202611031700" data-title="AV Team Charter"></script>
+<script src="egbc-shell.js?v=202611031800" data-title="AV Team Charter"></script>
 <script src="egbc-guard.js?v=202611030600" data-job="av" data-role="member"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -409,7 +409,15 @@
 
 <script>
 const PAGE_ID  = 'av-team-charter';
-const ADMIN_PW = 'Surreykt10';
+/* WHO MAY EDIT: master admins and the admins of the teams this page is for,
+   the same people the rules let write pageContent. It was a password in the
+   page's source, readable by anyone, and the hidden gesture let anyone into
+   edit mode (the events window, 3 Nov 2026). */
+function mayEdit() {
+    if (EGBCAuth.isMaster && EGBCAuth.isMaster()) return true;
+    var teams = (EGBCAuth.guardTeams && EGBCAuth.guardTeams({ job: 'av', role: 'member' })) || [];
+    return teams.some(function (t) { return EGBCAuth.isAdminOf(t); });
+}
 
 // Shared storage — admin edits are now saved to Firebase so everyone sees them
 // (previously saved to this browser's localStorage only).
@@ -456,7 +464,7 @@ async function saveAll() {
         }, { merge: true });
     } catch (e) {
         console.error('Charter save failed', e);
-        toast('Save failed — check your connection');
+        toast(e && e.code === 'permission-denied' ? 'Not saved: only this team’s admins can change this page.' : 'Save failed — check your connection');
     }
 }
 
@@ -473,7 +481,7 @@ async function saveAll() {
     var r = bar.getBoundingClientRect();
     if (e.clientX < r.right - r.width * 0.4) return;
     clicks++; clearTimeout(timer); timer = setTimeout(function(){ clicks = 0; }, 1200);
-    if (clicks >= 3 && !isAdmin) { clicks = 0; unlockAdmin(); }
+    if (clicks >= 3 && !isAdmin) { clicks = 0; if (mayEdit()) unlockAdmin(); else toast('Only this team’s admins can edit this page.'); }
   });
 })();
 function unlockAdmin(){
@@ -499,7 +507,7 @@ document.getElementById('pw-modal').addEventListener('click', function(e) {
 });
 
 function checkPassword() {
-    if (document.getElementById('pw-input').value === ADMIN_PW) {
+    if (mayEdit()) {
         isAdmin = true;
         closePwModal();
         document.getElementById('admin-locked-controls').style.display   = 'none';
