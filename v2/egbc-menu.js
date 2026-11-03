@@ -338,7 +338,9 @@
             description: 'Plan a youth service' }
         ] },
       /* KIDS CHURCH (F-089): the children's team's own area. */
-      { title: 'Kids Church', icon: 'baby', team: 'Kids Church',
+      /* kidsLeads: the heading shows, too, to those its two pages are for who
+         may be on no team at all - the safeguarding lead and deputy. */
+      { title: 'Kids Church', icon: 'baby', team: 'Kids Church', kidsLeads: true,
         description: "The children's team, and the children in their care",
         children: [
           /* The kids leads and each group's leaders (the access matrix,
@@ -452,7 +454,7 @@
        the children's team, and a Menu that offers everybody everything is
        the wall this replaced. The page turns away anyone who gets there
        another way. */
-    if (node.team && !onTeam(node.team, who)) return false;
+    if (node.team && !onTeam(node.team, who) && !(node.kidsLeads && (who.isMaster || who.isKidsLead || who.isSgLead))) return false;
     if (node.master && !who.isMaster) return false;
     /* A leader of that team, as the page's own guard decides it. */
     /* One team or a list (a leader of any of them), exactly as the page's
@@ -520,7 +522,7 @@
       /* A TEAM heading is different: not on the team means nothing under it
          either. Otherwise Worship & AV's ungated pages kept the heading on
          screen for Kids Church (Martin, 8 Oct 2026). */
-      if (node.team && !onTeam(node.team, who)) continue;
+      if (node.team && !onTeam(node.team, who) && !(node.kidsLeads && (who.isMaster || who.isKidsLead || who.isSgLead))) continue;
       const kids = node.children ? prune(node.children, who) : null;
       const hasKids = !!(kids && kids.length);
       const self = visible(node, who);

@@ -37,5 +37,7 @@ export default async function seedStage3({ put, roles, dayIso }) {
     startLocal: new Date(t).toISOString().slice(0, 16), endLocal: new Date(t + 3 * 3600000).toISOString().slice(0, 16), startUtc: t, endUtc: t + 3 * 3600000, allDay: false,
     location: { kind: 'room', siteId: SITE, roomIds: ['room_s3'] }, under18: true, signupOn: false, createdBy: roles.kidsLead.uid || '',
     teamMemberIds: [mid('kidsLead')], teamUids: [roles.kidsLead.uid || ''] });
-  await put('sgRisks/r_s3', { siteId: SITE, title: 'Collection at the end (synthetic)', rl: 2, ri: 3, controls: ['Collector list checked'], owner: 'Kids Church', reviewOn: dayIso(60) });
+  /* the Sunday group as an activity in the register, with one standing risk, in the shapes the page writes */
+  await put('sgActivities/a_s3', { siteId: SITE, kind: 'sunday', name: 'Little ones (synthetic)', link: { type: 'kidsGroup', id: 'g_s3' }, active: true });
+  await put('sgRisks/r_s3', { siteId: SITE, activityId: 'a_s3', risk: 'Collection at the end (synthetic)', who: 'Children', l: 3, i: 4, rl: 2, ri: 3, controls: ['Collector list checked'], ownerName: 'Kids Church lead (synthetic)', reviewDue: dayIso(60), status: 'open', todo: [] });
 }

@@ -223,8 +223,8 @@
     var T = ctx.T, actName = {};
     (ctx.acts || []).forEach(function (a) { actName[a.id] = a.name; });
     var risks = (ctx.risks || []).slice(0, 500).map(function (r) {
-      return { activity: String(actName[r.activityId] || '').slice(0, 80), risk: r.risk, who: r.who || '', before: T.rating(r.l, r.i), beforeScore: T.score(r.l, r.i),
-        after: T.rating(r.rl, r.ri), afterScore: T.score(r.rl, r.ri), controls: (r.controls || []).slice(0, 50).map(T.controlLabel), owner: r.ownerName || '', reviewDue: r.reviewDue || '', status: r.status,
+      return { activity: String(actName[r.activityId] || '').slice(0, 80), risk: String(r.risk || ''), who: r.who || '', before: T.rating(r.l, r.i), beforeScore: T.score(r.l, r.i),
+        after: T.rating(r.rl, r.ri), afterScore: T.score(r.rl, r.ri), controls: (r.controls || []).slice(0, 50).map(T.controlLabel), owner: r.ownerName || '', reviewDue: r.reviewDue || '', status: r.status || '',
         /* STILL TO DO (S4), as it stood when the snapshot was taken */
         todo: (r.todo || []).filter(function (t) { return t && t.what; }).slice(0, T.MAX_TODO).map(function (t) { return { what: String(t.what), who: String(t.who || ''), by: t.by || '', done: !!t.done }; }) };
     });

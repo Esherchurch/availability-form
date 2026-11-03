@@ -7,7 +7,7 @@
 
 <script src="egbc-nosend.js?v=202611011200"></script>
 <script src="egbc-appmode.js?v=202611011200"></script>
-<script src="egbc-shell.js?v=202611031600" data-title="Safeguarding risks"></script>
+<script src="egbc-shell.js?v=202611031700" data-title="Safeguarding risks"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -18,7 +18,7 @@
 <script src="egbc-ra-core.js?v=202610271600"></script>
 <script src="egbc-sg-templates.js?v=202610271600"></script>
 <script src="egbc-sg-assess.js?v=202610281600"></script>
-<script src="egbc-sg-dash.js?v=202610271600"></script>
+<script src="egbc-sg-dash.js?v=202611031600"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{--brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
@@ -56,6 +56,8 @@
   .back{position:fixed;inset:0;background:rgba(17,24,39,.45);display:none;align-items:flex-end;justify-content:center;z-index:50}
   .sheet{background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:640px;max-height:92vh;overflow:auto;padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
   @media (min-width:700px){.back{align-items:center}.sheet{border-radius:16px}}
+  /* every sheet's close, kept in view however far it is scrolled */
+  .sheet .x{position:sticky;top:0;float:right;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:#fff;font-size:18px;cursor:pointer;z-index:2}
   .sheet h3{margin:0 0 6px;font-size:18px;color:var(--ink)}
   .f{margin:12px 0 0}.f label{display:block;font:600 13px Inter,sans-serif;color:var(--ink);margin:0 0 4px}
   .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -179,7 +181,7 @@
     var mine = RISKS.filter(function (r) { return r.activityId === a.id; });
     var open = mine.filter(function (r) { return r.status !== 'closed'; }).sort(function (x, y) { return T.score(y.rl, y.ri) - T.score(x.rl, x.ri) || T.score(y.l, y.i) - T.score(x.l, x.i); });
     var closed = mine.filter(function (r) { return r.status === 'closed'; });
-    return '<div class="card" data-act="' + esc(a.id) + '"><h2>' + esc(a.name) + ' <span class="hint" style="font-weight:400">' + esc(T.kindLabel(a.kind)) + '</span></h2>' +
+    return '<div class="card" data-activity="' + esc(a.id) + '"><h2>' + esc(a.name) + ' <span class="hint" style="font-weight:400">' + esc(T.kindLabel(a.kind)) + '</span></h2>' +
       (open.length ? open.map(riskRow).join('') : '<p class="hint" data-norisks>No risks recorded yet.</p>') +
       (closed.length ? '<details style="margin-top:8px"><summary class="hint">Closed (' + closed.length + ')</summary>' + closed.map(riskRow).join('') + '</details>' : '') +
       (keeps() ? '<div class="row"><button class="btn sec sm" data-addrisk="' + esc(a.id) + '">Add a risk</button>' + ((T.STARTERS[a.kind] || []).length ? '<button class="btn sec sm" data-starter="' + esc(a.id) + '">Add from the starter list</button>' : '') + '</div>' : '') + '</div>';
@@ -235,7 +237,7 @@
       .then(load, function (e) { alert('Could not add it: ' + (e.message || e)); });
   }
   function close() { document.getElementById('back').style.display = 'none'; }
-  function open(html) { var s = document.getElementById('sheet'); s.innerHTML = html; document.getElementById('back').style.display = 'flex'; s.querySelectorAll('[data-close]').forEach(function (b) { b.onclick = close; }); }
+  function open(html) { var s = document.getElementById('sheet'); s.innerHTML = '<button class="x" type="button" data-close aria-label="Close">✕</button>' + html; document.getElementById('back').style.display = 'flex'; s.querySelectorAll('[data-close]').forEach(function (b) { b.onclick = close; }); }
   var opts = function (sel) { var o = ''; for (var n = 1; n <= 5; n++) o += '<option value="' + n + '"' + (n === sel ? ' selected' : '') + '>' + n + '</option>'; return o; };
   /* The editor: general words only. */
   function edit(r, actId) {
@@ -405,6 +407,10 @@
     })).then(function (r) {
       ACTS = [].concat.apply([], [].concat.apply([], r)).map(function (d) { return Object.assign({ id: d.id }, d.data()); }).filter(function (a) { return a.active !== false; })
         .sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+      /* Leading a group is what the Menu offers this page for; with none of
+         those groups in the register yet, say so rather than turn them away. */
+      var groups = r.reduce(function (n, perType) { return n + perType.length; }, 0);
+      if (!ACTS.length && groups) { app.innerHTML = '<div class="card" id="noActsYet"><p style="margin:0">None of the groups you lead is in the safeguarding risk register yet. The safeguarding lead adds them; their risks will show here when they do.</p></div>'; return; }
       if (!ACTS.length) { none(); return; }
       return Promise.all(ACTS.map(function (a) { return q(db().collection('sgRisks').where('activityId', '==', a.id).get()); })).then(function (rs) {
         RISKS = [].concat.apply([], rs).map(function (d) { return Object.assign({ id: d.id }, d.data()); });

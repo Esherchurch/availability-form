@@ -13758,3 +13758,40 @@ Each function checks `usesPart` and does nothing for a church with that part off
   - screenshots/events/form-privacy.check.mjs: 11/11 on the emulator (signed out refused for both halves; another member refused; the lead and the signed-in parent allowed; screen numbers as above);
   - formAnswers: 3/3 (key and secret give both halves; no secret, no medical half; another request's key gets nothing).
 - **For main:** app.html loads egbc-events-checkin.js at `202610152300`. Please make it `202611011800`. index.js has one new export line (form-answers.js).
+
+### F-324 — Stage 3's first three: the form-answer rule tests; "this page isn't for you"; covered buttons (the reviewing window) (the events window, 2 Nov)
+
+- **Form-answer rule tests (firestore-rules.test.mjs):** the two that failed expected the old signed-out read of the medical half by its secret. formAnswers replaced that read on purpose (F-323), so the tests were wrong, not the rules. They now expect a refusal, plus one more: the ordinary answers by their id. 2,082/2,082. No rule let anyone read answers they should not.
+- **Pages turn away the people they aren't for** with the shared card and a way back (`EGBCEvents.notForYou`), as the Menu decides it:
+  - kids-admin, kids-checkin: the kids leads, the safeguarding lead and deputy, each group's leaders (check-in: and the morning's session leader), master admins. "Not set up yet" shows only to them;
+  - event-ra: the event's organisers and leaders, the office, the trustees, the health and safety leads, master admins;
+  - sg-print: the safeguarding lead and deputy, the trustees, master admins; an event's assessment also its organisers and leaders;
+  - youthapp2: a young person with a valid code, the youth teams, their admins, master admins.
+- **Rules:** kidsSettings, kidsGroups and kidsTerms are readable by the kids leads too, so a safeguarding lead on no team can open the register. They go live when the hub goes live.
+- **Behaviour removed:** youthapp2 opened for anyone, even signed out; sg-print printed an event with no assessment for anyone signed in; a helper on Kids Church who leads nothing saw "not set up yet" (now "isn't for you").
+- **Checked:** screenshots/events/not-for-you.check.mjs, 70/70 (refusals at 375 and 1280, nothing private on screen, the right people let in).
+
+### F-325 — Stage 3: a Kids Church Sunday, start to finish (the reviewing window) (the events window, 3 Nov)
+
+On my own emulators (firebase.events.json) with the locked rules, made-up children and parents only.
+
+- **Rules:** tests/rules-first-stage.test.mjs 7/7 principles (9,696 tries: 101 collections, 24 kinds of person, four ways); firestore-rules 2,082/2,082; church rulesets 11/11 and 2,863/2,863.
+- **Journeys (browser), all passing:** e2-forms 45, k1-register 28, kids-today 20, parents 13, session-planner 58, import-term 14, present 55, present-quiz 39, present-microsoft 42, k2-sunday 39, f098-screen 34, notify-e2e 36, fire-rollcall 24, k3-morning 31, e1-checkin 52, e3-safeguarding 38, sg-warnings 35, sg-register 32, sg-dash 46, sg-print 42, sg-assess 53, under18 20, compliance-stage4 41, not-for-you 70.
+- **Functions no other check ran:** tests/stage3/functions-stage3.mjs 19/19 (formAnswers, ChurchShow's services and words, careStatusFromSettings, youthGrantIndex: the normal case and the refusals, at the top level and in a made-up parish).
+- **Main's checks, on my emulators:** check-youth-access 34/34; check-care 62/63 (enews has no Care button at computer width: main's); check-church-calls 77/97 (Ann re-seeded as a youth volunteer before the alpha steps: test order, main's).
+- **Every control (tests/out/controls-stage3.md):** 236 of 524 coded controls reached on the 14 pages of Kids, Safeguarding and ChurchShow: 73 pressed by tests/audit-everything.mjs --every as nine kinds of person at 375 and 1440, and 163 more by a journey test. 288 are not reached, listed with where they are. Part of that is how they are counted: a page is credited with every control in every script it loads, drawn there or not. event-ra has no journey test of its own.
+- **Fixed:**
+  - the fire roll-call's redraws raced, and a master admin's list could lose the children's names (checkin.html);
+  - the Youth Hub turned away a young person with a valid code (my F-324 door; pushed separately as 092f734c);
+  - a youth phone no longer makes a users record;
+  - sg-print lets the site's own safeguarding lead in from Places;
+  - a group leader whose groups are not in the register yet is told so, not refused;
+  - "Take a snapshot" no longer breaks on an old risk;
+  - every safeguarding-risk sheet has a ✕;
+  - the activity card is no longer marked as a button;
+  - event-ra: 44px ticks, and Save above "View as";
+  - print pages fit a phone (watermark, tables);
+  - the Menu offers Children's register and Sunday check-in to a safeguarding lead or kids lead on no team (egbc-menu.js, main's, restamped).
+- **Tests brought up to date** with agreed changes: filming consent, the church's own logo and quiz address, "goes live", the church's service kinds, activity leaders reading their risks, the not-for-you card, and dates that had passed.
+- **Behaviour removed:** none beyond F-324's.
+- **Deploy:** nothing. The kidsLead read rule (F-324) goes live with the rules.

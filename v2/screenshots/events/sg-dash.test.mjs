@@ -209,7 +209,7 @@ try {
   await shot(T, 'sg-dash-trustee-desk.png');
   const Vv = await as('vic');
   await go(Vv, 'safeguarding-risk.html');
-  const vView = await until(async () => (await Vv.$('#egbc-blocked-card')) ? 'refused' : /activities you lead/.test(await text(Vv)) ? 'own' : null);
+  const vView = await until(async () => (await Vv.$('#egbc-blocked-card')) ? 'refused' : (await Vv.$('#noActsYet')) ? 'none yet' : /activities you lead/.test(await text(Vv)) ? 'own' : null);
   ok('   A VOLUNTEER sees no dials: told the page isn\u2019t theirs, or shown only the activity they lead', !!vView && !(await Vv.$('#pDials, [data-dial]')), vView);
   const vr = await Vv.evaluate(() => EGBCAuth.db.collection('sgDashboard').doc('site_t').get().then(() => 'read', e => e.code));
   ok('   A VOLUNTEER: the page and the database refuse the dials', /permission/.test(vr), vr);

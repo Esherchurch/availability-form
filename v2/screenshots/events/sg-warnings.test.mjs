@@ -187,7 +187,7 @@ try {
   /* 5. a volunteer */
   const Vv = await as('vic');
   await go(Vv, 'safeguarding-risk.html');
-  const vView = await until(async () => (await Vv.$('#egbc-blocked-card')) ? 'refused' : /activities you lead/.test(await text(Vv)) ? 'own' : null);
+  const vView = await until(async () => (await Vv.$('#egbc-blocked-card')) ? 'refused' : (await Vv.$('#noActsYet')) ? 'none yet' : /activities you lead/.test(await text(Vv)) ? 'own' : null);
   ok('5. A VOLUNTEER sees no warnings: told the page isn\u2019t theirs, or shown only the activity they lead', !!vView && !(await Vv.$('[data-warn]')), vView);
   const vRead = await Vv.evaluate(() => EGBCAuth.db.collection('sgWarnings').doc('site_t').get().then(() => 'read', e => e.code));
   ok('5. A VOLUNTEER: the database refuses the warnings', /permission/.test(vRead), vRead);

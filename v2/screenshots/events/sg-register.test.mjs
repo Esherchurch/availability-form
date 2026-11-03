@@ -113,24 +113,24 @@ try {
   await go(L, 'safeguarding-risk.html?tab=risks', '#addAct');
   ok('1. THE LEAD: the hub\u2019s own Sunday group is offered as an activity', /Juniors \(invented\)/.test(await text(L, '#addAct')), await text(L, '#addAct'));
   await tap(L, '[data-sugg="0"]');
-  await L.waitForSelector('[data-act]', { timeout: 15000 });
+  await L.waitForSelector('[data-activity]', { timeout: 15000 });
   const act = await readDb(async (db) => (await getDocs(collection(db, 'sgActivities'))).docs.map(d => d.data())[0]);
   ok('   added, linked to the group, as a Sunday children\u2019s group', act && act.kind === 'sunday' && act.link.type === 'kidsGroup' && act.link.id === 'kg_juniors' && act.siteId === 'site_t', J(act));
   ok('   and no longer offered', !/\+ Juniors/.test(await text(L, '#addAct')));
   await L.select('#newKind', 'transport');
   await L.$eval('#newName', e => { e.value = 'Lifts to the youth weekend (invented)'; });
   await tap(L, '#newGo');
-  await until(async () => (await L.$$('[data-act]')).length === 2);
-  ok('   and another, by kind', (await L.$$('[data-act]')).length === 2 && /Lifts to the youth weekend/.test(await text(L)));
+  await until(async () => (await L.$$('[data-activity]')).length === 2);
+  ok('   and another, by kind', (await L.$$('[data-activity]')).length === 2 && /Lifts to the youth weekend/.test(await text(L)));
 
   /* 2. starter risks, adapt one, close one */
-  const actId = await L.$eval('[data-act]', e => e.getAttribute('data-act'));
+  const actId = await L.$eval('[data-activity]', e => e.getAttribute('data-activity'));
   const juniorsId = (await readDb(async (db) => (await getDocs(collection(db, 'sgActivities'))).docs.find(d => d.data().kind === 'sunday').id));
   await tap(L, `[data-starter="${juniorsId}"]`);
   await L.waitForSelector('#sGo');
   const n = await L.$$eval('[data-st]', a => a.length);
   await tap(L, '#sGo');
-  await until(async () => (await L.$$(`[data-act="${juniorsId}"] [data-risk]`)).length === n);
+  await until(async () => (await L.$$(`[data-activity="${juniorsId}"] [data-risk]`)).length === n);
   const rs = await risks();
   ok('2. THE STARTER LIST: ' + n + ' risks added, in general words, marked as from the list', rs.length === n && rs.every(r => r.source === 'starter' && r.starterId && r.status === 'open'), J(rs.map(r => r.starterId)));
   await tap(L, `[data-starter="${juniorsId}"]`);
@@ -153,7 +153,7 @@ try {
   ok('3. THE RATING IN WORDS AND COLOUR: "Before: High 20", "After: Medium 12"', /Before: High 20/.test(row) && /After: Medium 12/.test(row) && await L.$eval(`[data-risk="${target.id}"] [data-rag="red"]`, e => !!e).catch(() => false), row);
   ok('   an overdue review says so', /Review overdue \(2025-01-01\)/.test(row), row);
   ok('   a watched control is marked as one the hub watches', await L.$eval(`[data-risk="${target.id}"] [data-linked="ratio"]`, e => /hub watches/.test(e.title)).catch(() => false));
-  const top = await L.$eval(`[data-act="${juniorsId}"] [data-risk]`, e => e.getAttribute('data-risk'));
+  const top = await L.$eval(`[data-activity="${juniorsId}"] [data-risk]`, e => e.getAttribute('data-risk'));
   ok('   the worst after its controls is first', top === target.id, top);
   /* S4: still to do on a standing risk (Derby's steps 4 and 5) */
   await tap(L, `[data-edit="${target.id}"]`); await L.waitForSelector('[data-rtodo] [data-rt="what"]');
@@ -170,8 +170,8 @@ try {
   const toClose = rs.find(r => r.starterId === 'sun-photos');
   await tap(L, `[data-edit="${toClose.id}"]`); await L.waitForSelector('#eClosed');
   await L.$eval('#eClosed', e => { e.checked = true; }); await tap(L, '#eSave');
-  await until(async () => /Closed \(1\)/.test(await text(L, `[data-act="${juniorsId}"]`)));
-  ok('   CLOSED, NOT DELETED: kept under "Closed (1)"', /Closed \(1\)/.test(await text(L, `[data-act="${juniorsId}"]`)) && (await risks()).find(r => r.id === toClose.id).status === 'closed');
+  await until(async () => /Closed \(1\)/.test(await text(L, `[data-activity="${juniorsId}"]`)));
+  ok('   CLOSED, NOT DELETED: kept under "Closed (1)"', /Closed \(1\)/.test(await text(L, `[data-activity="${juniorsId}"]`)) && (await risks()).find(r => r.id === toClose.id).status === 'closed');
   ok('   nothing scrolls sideways at a computer', (await L.evaluate(() => document.scrollingElement.scrollWidth - innerWidth)) <= 0);
   await L.screenshot({ path: path.join(HERE, 'sg-register-lead-desk.png'), fullPage: true });
   await L.setViewport({ width: 375, height: 812 }); await sleep(300);
@@ -181,18 +181,18 @@ try {
 
   /* 4. the trustee and the master admin read it */
   const Tt = await as('tom');
-  await go(Tt, 'safeguarding-risk.html?tab=risks', '[data-act]');
+  await go(Tt, 'safeguarding-risk.html?tab=risks', '[data-activity]');
   ok('4. A TRUSTEE (Elders) reads the register, read-only', /Read only/.test(await text(Tt, '#readOnly')) && /High 20/.test(await text(Tt)) && !(await Tt.$('[data-edit]')) && !(await Tt.$('#addAct')) && !(await Tt.$('[data-starter]')));
   await Tt.screenshot({ path: path.join(HERE, 'sg-register-trustee-desk.png'), fullPage: true });
   const M = await as('max');
-  await go(M, 'safeguarding-risk.html?tab=risks', '[data-act]');
+  await go(M, 'safeguarding-risk.html?tab=risks', '[data-activity]');
   ok('   a master admin reads it, read-only too (the lead and deputy keep it)', /Read only/.test(await text(M, '#readOnly')) && !(await M.$('[data-edit]')));
 
   /* 5. a volunteer */
   const Vv = await as('vic');
   await go(Vv, 'safeguarding-risk.html');
-  const vView = await until(async () => (await Vv.$('#egbc-blocked-card')) ? 'refused' : /activities you lead/.test(await text(Vv)) ? 'own' : null);
-  ok('5. AN ACTIVITY\u2019S OWN LEADER sees only that activity, read only (or, leading none, is told the page isn\u2019t theirs)', vView === 'refused' || (vView === 'own' && !(await Vv.$('[data-edit]'))), vView);
+  const vView = await until(async () => (await Vv.$('#egbc-blocked-card')) ? 'refused' : (await Vv.$('#noActsYet')) ? 'none yet' : /activities you lead/.test(await text(Vv)) ? 'own' : null);
+  ok('5. AN ACTIVITY\u2019S OWN LEADER sees only that activity, read only (or, leading none, is told the page isn\u2019t theirs)', vView === 'refused' || vView === 'none yet' || (vView === 'own' && !(await Vv.$('[data-edit]'))), vView);
   const vRead = await Vv.evaluate(() => EGBCAuth.db.collection('sgRisks').where('siteId', '==', 'site_t').get().then(() => 'read', e => e.code));
   ok('   and the database refuses them too', /permission/.test(vRead), vRead);
 
