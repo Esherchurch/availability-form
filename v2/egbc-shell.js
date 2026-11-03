@@ -233,7 +233,10 @@
     /* A link back to the hub is not navigation - it is two clicks to reach
        anything. The same list the hub shows goes on every page. */
     var right = '';
-    right += '<a class="eb-b eb-home" href="hub.html" title="Back to the Team Hub">' + ic('house', 16) + '<span class="eb-lbl">Hub</span></a>';
+    /* On the hub itself it is the page you are on: said so (aria-current),
+       rather than a link that seems to do nothing (the going-live audit). */
+    var onHub = /(^|\/)hub\.html$/.test(location.pathname);
+    right += '<a class="eb-b eb-home" href="hub.html" title="Back to the Team Hub"' + (onHub ? ' aria-current="page"' : '') + '>' + ic('house', 16) + '<span class="eb-lbl">Hub</span></a>';
     if (profile) right += '<button class="eb-b eb-nav" id="egbc-nav-btn">' + ic('layout-grid', 16) + '<span class="eb-lbl">Menu</span></button>';
     /* CARE & SUPPORT (NEXT-BRIEF §24, Martin 14 Oct 2026), beside the
        initials on every page, signed in or not. It is never hidden - not

@@ -1702,10 +1702,11 @@
         /* margin:0 and padding:0 because a page that styles a bare
            `label` styles this one - Library has
            `label{display:block;margin-bottom:8px;padding-left:2px}`. */
-        'margin:0;padding:0;min-height:0;font-size:13px;' +
+        /* 32px tall: a tap target on a phone (the going-live audit: 60x17). */
+        'margin:0;padding:0;min-height:32px;font-size:13px;' +
         (narrow ? 'flex:none;' : '') + 'cursor:' + (v ? 'pointer' : 'default;opacity:.55') + '"' +
         (v ? '' : ' title="Choose a team first"') + '>' +
-        '<input type="checkbox" id="egbc-va-admin" style="width:16px;height:16px;min-height:0;margin:0;flex:none"' + (v && v.admin ? ' checked' : '') + (v ? '' : ' disabled') + '>' +
+        '<input type="checkbox" id="egbc-va-admin" style="width:18px;height:18px;min-height:0;margin:0;flex:none"' + (v && v.admin ? ' checked' : '') + (v ? '' : ' disabled') + '>' +
         (narrow ? ' admin' : ' as an admin') +
         /* The hint is the first thing to go on a phone: the checkbox is
            already greyed out and carries the same words in its title. */

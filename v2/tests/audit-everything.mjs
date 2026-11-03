@@ -174,6 +174,15 @@ const OFF_MENU_BY_DESIGN = {
   'mix-player.html': { roles: ['master'], why: 'Martin\'s own mix tools: master admins on the hub' },
   'mix-analyser.html': { roles: ['master'], why: 'Martin\'s own mix tools: master admins on the hub' }
 };
+/* OTHER WINDOWS' PAGES IN NOBODY'S MENU, pressed in an --every run by the
+   people their own guard lets in (3 Nov 2026). Who may open them is still
+   judged as before; this only says who presses them. */
+const PRESS_AS = {
+  'birthday.html': ['core', 'master'],                 /* data-core-of="worship" */
+  'youthapp2.html': ['master'],                        /* youth groups, their admins, master admins */
+  'youth-access.html': 'all',                          /* the young people's own sign-in */
+  'sg-print.html': 'all', 'event-ra.html': 'all', 'ra-print.html': 'all', 'assessment.html': 'all'
+};
 /* PAGES IN NOBODY'S MENU THAT ARE AUDITED ANYWAY: reached from another page
    (check-menu's REACHED_ELSEWHERE), so menuFor() never lists them. */
 const ALSO_AUDIT = ['sg-print.html',   /* the reviewing window, F-296 item 3 */
@@ -390,7 +399,7 @@ const MEASURE = `(function(){
     if (!vis(el) || el.disabled) return;
     var r = el.getBoundingClientRect(), box = r;
     if (el.matches('input[type=checkbox],input[type=radio]')) { var lab = el.closest('label') || (el.id && document.querySelector('label[for="' + el.id + '"]')); if (lab) box = lab.getBoundingClientRect(); }
-    if (Math.min(box.width, box.height) < 30) { seenS++; if (small.length < 3) small.push((el.getAttribute('aria-label') || el.textContent || el.tagName).replace(/\s+/g, ' ').trim().slice(0, 24) + ' ' + Math.round(box.width) + 'x' + Math.round(box.height)); } });
+    if (Math.min(box.width, box.height) < 30) { seenS++; if (small.length < 3) small.push(((el.getAttribute('aria-label') || el.textContent || el.tagName) + (el.id ? '#' + el.id : el.type ? '[' + el.type + ']' : '')).replace(/\s+/g, ' ').trim().slice(0, 24) + ' ' + Math.round(box.width) + 'x' + Math.round(box.height)); } });
   out.small = seenS; out.smallEg = small;
   out.tabbars = bots.filter(function (x) { return x[2].querySelectorAll('a,button').length >= 3; }).length;
   var bar = document.getElementById('egbc-bar'); out.siteBar = !!(bar && vis(bar));
@@ -414,6 +423,25 @@ const OVERLAY = `(function(){
   if(!best)return 'null';
   return JSON.stringify({sig:(best.id||'')+'.'+String(best.className||best.tagName).slice(0,40)+'|'+best.childElementCount});
 })()`;
+/* INSIDE A POP-UP (--every, 3 Nov 2026). The reviewer: every button, link,
+   form and tab, nothing sampled - and an editor's Save or a sheet's tabs are
+   only there once something opens them. Marks the pop-up OVERLAY found (or,
+   when that is a bare backdrop, the fixed element holding the most
+   controls), so CONTROLS and FIELDS list only what is inside it. */
+const MARK_SCOPE = `(function(){
+  var iw=innerWidth, ih=innerHeight, best=null, ba=0, most=null, mn=0;
+  document.querySelectorAll('[data-aud-scope]').forEach(function(e){e.removeAttribute('data-aud-scope')});
+  document.querySelectorAll('body *').forEach(function(el){ var s=getComputedStyle(el); if(s.position!=='fixed'||s.display==='none'||s.visibility==='hidden'||+s.opacity===0)return;
+    if(el.id==='egbc-app'||el.querySelector('#egbc-app'))return;
+    var n=el.querySelectorAll('a[href],button,input,select,textarea,[data-act],[onclick]').length; if(n>mn&&el!==document.body){most=el;mn=n;}
+    var r=el.getBoundingClientRect(), a=Math.max(0,Math.min(r.right,iw)-Math.max(r.left,0))*Math.max(0,Math.min(r.bottom,ih)-Math.max(r.top,0)); if(a < iw*ih*0.35)return;
+    if(!(el.textContent||'').trim())return;
+    if(!best||a<ba){best=el;ba=a;} });
+  var el = best && best.querySelector('a[href],button,input,select,textarea,[data-act],[onclick]') ? best : most;
+  if(!el)return 'null';
+  el.setAttribute('data-aud-scope','1');
+  return (el.id||'')+'.'+String(el.className||el.tagName).slice(0,40);
+})()`;
 const SHEET_CLOSE = `(function(){
   var iw=innerWidth, ih=innerHeight, best=null, ba=0;
   document.querySelectorAll('body *').forEach(function(el){ var s=getComputedStyle(el); if(s.position!=='fixed'||s.display==='none'||s.visibility==='hidden'||+s.opacity===0)return;
@@ -435,9 +463,12 @@ const CONTROLS = `(function(){
     for (var p = el; p; p = p.parentElement) { var s = getComputedStyle(p); if (s.display === 'none' || s.visibility === 'hidden' || +s.opacity === 0) return false; } return true; }
   var list = [];
   var K = ${KEYS_JS};
+  var scope = document.querySelector('[data-aud-scope]');
   document.querySelectorAll('a[href],button,[role=button],[role=tab],[data-act],[data-lact],[data-mact],[data-tab],[onclick],summary').forEach(function (el, i) {
+    if (scope && !scope.contains(el)) return;      /* inside an open pop-up, only its own controls (--every) */
     if (!vis(el) || el.disabled || el.getAttribute('aria-disabled') === 'true') return;
     if (el.closest('[aria-hidden="true"]')) return;
+    if (el.closest('[inert]')) return;      /* behind an open panel: nobody can reach it, by design */
     if (el.parentElement && el.parentElement.closest('a[href],button,[role=button],[data-act]') ) return;
     var words = ((el.getAttribute('aria-label') || '') + ' ' + (el.innerText || el.textContent || '')).replace(/\\s+/g, ' ').trim().slice(0, 60);
     var href = el.getAttribute('href') || '';
@@ -562,15 +593,20 @@ async function signIn(B, base, role) {
     return;
   }
   const r = ROLES_ALL[role];
-  await B.go(base + '__signin.html');
-  await B.ev('firebase.auth(EGBCAuth.app).signOut()', true);
-  await B.ev('sessionStorage.clear();localStorage.clear();1');
-  for (let i = 0; i < 3; i++) {
-    await B.ev('firebase.auth(EGBCAuth.app).signInWithEmailAndPassword(' + JSON.stringify(r.email) + ',' + JSON.stringify(PW) + ').then(function(){return 1},function(){return 0})', true);
+  /* A long run (--every) outlasts a blip: tries over a couple of minutes,
+     reloading the sign-in page between, and says why if it still can't. */
+  let last = '';
+  for (let i = 0; i < 6; i++) {
+    await B.go(base + '__signin.html');
+    await B.ev('firebase.auth(EGBCAuth.app).signOut()', true);
+    await B.ev('sessionStorage.clear();localStorage.clear();1');
+    last = String(await B.ev('(window.firebase&&window.EGBCAuth)?firebase.auth(EGBCAuth.app).signInWithEmailAndPassword(' + JSON.stringify(r.email) + ',' + JSON.stringify(PW)
+      + ').then(function(){return "ok"},function(e){return "refused: "+(e&&(e.code||e.message))}):Promise.resolve("the sign-in page did not load its scripts")', true));
     await sleep(600);
-    if ((await B.ev('(firebase.auth(EGBCAuth.app).currentUser||{}).email||""')) === r.email) return;
+    if ((await B.ev('(window.firebase&&firebase.auth(EGBCAuth.app).currentUser||{}).email||""')) === r.email) return;
+    await sleep(5000 * (i + 1));
   }
-  throw new Error('could not sign in as ' + role);
+  throw new Error('could not sign in as ' + role + ' (' + last + ')');
 }
 
 /* ---------------- judging one screen ---------------- */
@@ -674,6 +710,29 @@ async function tapAll(B, url, reopen, ctx) {
     const sheet = overAfter !== 'null' && overAfter !== overBefore ? JSON.parse((await B.ev(SHEET_CLOSE)) || 'null') : null;
     if (sheet) {
       if (!sheet.close) why.push('sheet: "' + (next.words || 'a control') + '" opens a sheet (' + sheet.sig + ') with no visible close after scrolling it');
+      /* --every: press and fill what is inside it, each time from the page
+         opened afresh and this control pressed again; each pop-up once per
+         page, person and size, one level deep. */
+      const sheets = ctx.sheets || (ctx.sheets = new Set());
+      if (EVERY && !ctx.depth && !sheets.has(sheet.sig)) {
+        sheets.add(sheet.sig);
+        const opener = next.sig;
+        const reopenSheet = async () => {
+          await reopen(); await sleep(300);
+          await B.ev('(function(){document.querySelectorAll("[data-aud-scope]").forEach(function(e){e.removeAttribute("data-aud-scope")});var l=' + CONTROLS + ';var c=JSON.parse(l).filter(function(x){return x.sig===' + JSON.stringify(opener) + '})[0];'
+            + 'if(!c)return 0;document.querySelectorAll("a[href],button,[role=button],[role=tab],[data-act],[data-lact],[data-mact],[data-tab],[onclick],summary")[c.i].click();return 1})()');
+          await sleep(600); await B.ev(MARK_SCOPE);
+        };
+        if ((await B.ev(MARK_SCOPE)) !== 'null') {
+          const inner = await tapAll(B, url, reopenSheet, Object.assign({}, ctx, { depth: 1, sheets }));
+          why.push(...inner.why.map((w) => w.replace(/^(\w+): /, '$1 (in "' + (next.words || 'a pop-up').slice(0, 30) + '"): ')));
+          await reopenSheet();
+          why.push(...(await fillFields(B, reopenSheet, ctx)).map((w) => w + ' (in "' + (next.words || 'a pop-up').slice(0, 30) + '")'));
+          await B.ev('(function(){document.querySelectorAll("[data-aud-scope]").forEach(function(e){e.removeAttribute("data-aud-scope")});return 1})()');
+          await reopen();
+          continue;
+        }
+      }
       await B.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
       await B.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
       await sleep(250);
@@ -700,12 +759,16 @@ async function tapAll(B, url, reopen, ctx) {
 const FIELDS = `(function(){
   function vis(el) { var r = el.getBoundingClientRect(); if (r.width < 1 || r.height < 1) return false;
     for (var p = el; p; p = p.parentElement) { var s = getComputedStyle(p); if (s.display === 'none' || s.visibility === 'hidden') return false; } return true; }
-  var K = ${KEYS_JS}, out = [];
+  var K = ${KEYS_JS}, out = [], scope = document.querySelector('[data-aud-scope]');
   document.querySelectorAll('input:not([type=hidden]),select,textarea').forEach(function (el, i) {
+    if (scope && !scope.contains(el)) return;
     if (el.disabled || el.readOnly || el.closest('[aria-hidden="true"]') || el.closest('[inert]')) return;
     var box = el.parentElement && el.parentElement.hasAttribute('data-uk-date') ? el.parentElement : el;
     if (!vis(box)) return;
-    out.push({ i: i, keys: K(el), type: (el.type || el.tagName).toLowerCase(), words: (el.getAttribute('aria-label') || el.name || el.id || el.placeholder || '').slice(0, 40) });
+    /* The master admin's "View as" bar changes who you are for every page after
+       it, like Sign out: written down, not filled. */
+    var viewAs = /^egbc-va-/.test(el.id || '') || !!el.closest('#egbc-viewas-bar');
+    out.push({ i: i, keys: K(el), type: (el.type || el.tagName).toLowerCase(), words: (el.getAttribute('aria-label') || el.name || el.id || el.placeholder || '').slice(0, 40), viewAs: viewAs });
   });
   return JSON.stringify(out);
 })()`;
@@ -735,8 +798,11 @@ async function fillFields(B, reopen, ctx) {
     const next = list.find((f) => !done.has(f.keys.join('|') + '#' + f.i));
     if (!next) break;
     done.add(next.keys.join('|') + '#' + next.i);
+    if (next.viewAs) { if (next.keys.length) SKIPPED_KEYS.push({ page: ctx.page, role: ctx.role, size: ctx.size, keys: next.keys, words: next.words, why: 'View as: changes who you are for every page after it (its own checks: check-viewas-*)' }); continue; }
     const before = B.errors.length;
+    if (process.env.FIELD_DEBUG) console.log('    fill', ctx.page, next.type, next.words, JSON.stringify(next.keys));
     const r = await B.ev(FILL(next.i));
+    if (process.env.FIELD_DEBUG) console.log('      ->', r);
     await sleep(350);
     if (r === 'file') { if (next.keys.length) SKIPPED_KEYS.push({ page: ctx.page, role: ctx.role, size: ctx.size, keys: next.keys, words: next.words, why: 'a file picker: needs a file (the journeys upload real files)' }); continue; }
     if (r === 'filled' || r === 'one choice') { if (next.keys.length) REACHED.push({ page: ctx.page, role: ctx.role, size: ctx.size, keys: next.keys, how: r === 'filled' ? 'filled' : 'shown (one choice)' }); }
@@ -770,7 +836,7 @@ async function auditScreen(B, { role, size, screen, url, inApp, taps, base, shot
   await B.shot(path.join(OUT, role, String(size), slug(shotName || screen) + '.png'));
   let skipped = [];
   if (taps) {
-    const ctx = { page: String(screen).replace(/^from the app: /, '').split('?')[0], role, size };
+    const ctx = { page: String(screen).replace(/^from the app: /, '').replace(/ \(.*\)$/, '').split('?')[0], role, size };
     const t = await tapAll(B, url, () => B.go(url), ctx);
     why.push(...t.why); skipped = t.skipped;
     if (EVERY) { await B.go(url); why.push(...await fillFields(B, () => B.go(url), ctx)); saveReached(); }
@@ -952,6 +1018,14 @@ async function runRole(B, role, size, base, shared) {
          page itself is (22 Oct 2026 - it was counted as a page apart). */
       const should = mine.has(page) || mine.has(page.split('?')[0]);
       if (!should && String(size) !== TAP_SIZE) continue;      /* access is checked once */
+      /* --every: a page in nobody's Menu is pressed, like any other, by the
+         people OFF_MENU_BY_DESIGN says it is for (3 Nov 2026); everyone else
+         has its access checked below. */
+      const forThem = OFF_MENU_BY_DESIGN[page.split('?')[0]] || (PRESS_AS[page.split('?')[0]] && { roles: PRESS_AS[page.split('?')[0]] });
+      if (!should && EVERY && forThem && (forThem.roles === 'all' || [].concat(forThem.roles).includes(role))) {
+        await auditScreen(B, { role, size, screen: page + ' (opened from another page)', url: base + page, inApp: false, taps: tapsHere, base });
+        continue;
+      }
       if (!should) {
         await B.size(...ALL_SIZES[size]);
         await B.go(base + page);
@@ -1080,7 +1154,11 @@ if (flag('live-words')) { process.exit(liveWordsCheck() ? 0 : 1); }
       for (const size of sizes) for (const role of ROLES) {
         console.log('\n== ' + role + ' at ' + size + ' ==');
         try { await runRole(B, role, size, base, shared); }
-        catch (e) { record({ screen: '(the run)', role, size, pass: false, why: ['the audit itself failed: ' + (e && e.message)], skipped: [] }); }
+        catch (e) {
+          record({ screen: '(the run)', role, size, pass: false, why: ['the audit itself failed: ' + (e && e.message)], skipped: [] });
+          /* A browser that stopped answering stays stopped: the next role gets a fresh one. */
+          try { await B.restart(); } catch (x) { /* the next role says so */ }
+        }
       }
     } finally { B.close(); }
   })());
