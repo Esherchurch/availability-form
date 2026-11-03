@@ -154,15 +154,45 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   console.log(Object.keys(inv.pages).length + ' pages, ' + n + ' coded controls (' + inv.shared.length + ' shared).');
   if (process.argv.includes('--report')) {
     const reached = JSON.parse(fs.readFileSync(path.join(OUT, 'controls-reached.json'), 'utf8'));
+    const skippedFile = path.join(OUT, 'controls-reached-skipped.json');
+    const skipped = fs.existsSync(skippedFile) ? JSON.parse(fs.readFileSync(skippedFile, 'utf8')) : [];
     const r = report(inv, reached);
+    /* WHAT THE AUDIT SAW (the reviewer, 3 Nov 2026: "prove every control
+       credited from a shared script that a page never draws, and list it
+       separately with the reason"). Seen = pressed or filled (reached) or on
+       screen and left alone with a reason (skipped). A control from a script
+       several pages load, seen on another of them but never on this page by
+       any kind of person at any size, is that script's, not this page's: it
+       is listed apart, with where it is drawn. One seen nowhere stays in
+       "Not reached". */
+    const seen = {}, why = {};
+    const mark = (page, keys, w) => keys.forEach((k) => { (seen[page] = seen[page] || new Set()).add(k); if (w) (why[page + '\u0000' + k] = why[page + '\u0000' + k] || new Set()).add(w); });
+    reached.forEach((x) => mark(x.page, x.keys));
+    skipped.forEach((x) => mark(x.page, x.keys, x.why));
+    const seenOn = (page, key) => { const s = seen[page]; if (!s) return false; if (!key.endsWith('*')) return s.has(key); const pre = key.slice(0, -1); return [...s].some((k) => k.startsWith(pre)); };
+    const loads = (f) => Object.keys(inv.pages).filter((p) => p === f || inv.pages[p].some((c) => c.file === f));
+    const notReached = r.rows.filter((x) => !x.by.length);
+    const elsewhere = [], open = [];
+    for (const x of notReached) {
+      const others = x.page !== '(shared)' && x.file !== x.page && /\.js$/.test(x.file) && !seenOn(x.page, x.key)
+        ? loads(x.file).filter((p) => p !== x.page && seenOn(p, x.key)) : [];
+      if (others.length) elsewhere.push(Object.assign({ drawnOn: others }, x)); else open.push(x);
+    }
+    const reason = (x) => { const w = why[x.page + '\u0000' + x.key] || (x.page === '(shared)' ? null : null); if (w && w.size) return [...w].join('; '); return seenOn(x.page, x.key) ? 'on screen, not pressed (no reason recorded)' : 'never on screen for any kind of person at either size'; };
+    const total = r.total - elsewhere.length;
     const md = ['# Every control in the first-stage pages, from the code', '',
-      '**' + r.reached + ' of ' + r.total + ' coded controls reached** (pressed, or filled, by at least one kind of person at some size).', '',
-      'Made by `node tools/control-inventory.mjs --report` from tests/out/controls-reached.json (`tests/audit-everything.mjs --every`).', '',
-      '## Not reached', '', '| Page | Control | Kind | Where in the code |', '|---|---|---|---|'];
-    for (const x of r.rows.filter((x) => !x.by.length)) md.push('| ' + x.page + ' | `' + x.key.replace(/\|/g, '/') + '` | ' + x.kind + ' | ' + x.file + ':' + x.at + ' |');
+      '**' + r.reached + ' of ' + total + ' coded controls reached** (pressed, or filled, by at least one kind of person at some size). '
+        + elsewhere.length + ' more are in scripts several pages load and are drawn only on another of them: listed apart below, not counted.', '',
+      'Made by `node tools/control-inventory.mjs --report` from tests/out/controls-reached.json and controls-reached-skipped.json (`tests/audit-everything.mjs --every`).', '',
+      '## Not reached (' + open.length + ')', '', '| Page | Control | Kind | Where in the code | Why |', '|---|---|---|---|---|'];
+    for (const x of open) md.push('| ' + x.page + ' | `' + x.key.replace(/\|/g, '/') + '` | ' + x.kind + ' | ' + x.file + ':' + x.at + ' | ' + reason(x).replace(/\|/g, '/') + ' |');
+    md.push('', '## In a shared script, never drawn on this page (' + elsewhere.length + ')', '',
+      'Never on screen on this page for any kind of person at either size; drawn by the same script on the pages named.', '',
+      '| Page | Control | Script | Drawn on |', '|---|---|---|---|');
+    for (const x of elsewhere) md.push('| ' + x.page + ' | `' + x.key.replace(/\|/g, '/') + '` | ' + x.file + ':' + x.at + ' | ' + x.drawnOn.join(', ') + ' |');
     md.push('', '## Reached, by whom', '', '| Page | Control | Kinds of person @ size |', '|---|---|---|');
     for (const x of r.rows.filter((x) => x.by.length)) md.push('| ' + x.page + ' | `' + x.key.replace(/\|/g, '/') + '` | ' + x.by.sort().join(', ') + ' |');
     fs.writeFileSync(path.join(OUT, 'controls-report.md'), md.join('\n'));
-    console.log(r.reached + ' of ' + r.total + ' coded controls reached. tests/out/controls-report.md');
+    console.log(r.reached + ' of ' + total + ' coded controls reached; ' + open.length + ' not reached; ' + elsewhere.length + ' drawn only on another page. tests/out/controls-report.md');
   }
 }

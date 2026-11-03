@@ -3,7 +3,7 @@
 <head>
 <script src="egbc-nosend.js?v=202611011200"></script>
 <!-- Opened from the app (?app=1): the app's header and tab bar, not the website's (egbc-appmode.js). -->
-<script src="egbc-appmode.js?v=202611011200"></script>
+<script src="egbc-appmode.js?v=202611031900"></script>
 <script src="egbc-shell.js?v=202611031800" data-title="Youth Service Planner"></script>
 <!-- Sign-in. The page reads the address book to build its name list and the
      events collection for its dates; both are shut to strangers now
@@ -1243,6 +1243,18 @@ window.emailSchedule = async () => {
     document.getElementById('senderEmail').value = savedSender;
     modal.classList.add('active');
 };
+/* "Preparing..." at once, and a failure said: the send saves the plan and the song
+   list first, and when the rules refused that (anyone not on the youth worship team) it
+   stopped with nothing on screen - "Email Team does nothing" (the going-live
+   audit, 3 Nov 2026). */
+{ const send = window.emailSchedule;
+  window.emailSchedule = async () => {
+    const btn = document.querySelector('button[onclick="emailSchedule()"]'), was = btn && btn.textContent;
+    if (btn) { btn.disabled = true; btn.textContent = 'Preparing…'; }
+    try { return await send(); }
+    catch (e) { console.error('Email Team:', e); alert(e && e.code === 'permission-denied' ? 'Not sent: only the youth worship team can send the plan.' : 'Not sent: ' + (e && e.message || e)); }
+    finally { if (btn) { btn.disabled = false; btn.textContent = was; } }
+  }; }
 </script>
 <script>
 /* ── egbc-uk-dates (Martin, 14 Oct 2026) ─────────────────────────────

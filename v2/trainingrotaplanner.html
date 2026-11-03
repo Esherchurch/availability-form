@@ -46,6 +46,14 @@
             #training-banner, #training-banner > div { flex-wrap:wrap; }
             #training-banner { padding:10px 12px; }
             button, select, input:not([type=checkbox]):not([type=radio]) { min-height:44px; }
+            button { min-width:44px; }
+            /* As the real planners: a flex child may shrink, a field never runs past its box,
+               and a tick box's label is the 44px to tap. */
+            .flex > *, .flex-1 { min-width:0; }
+            input, select, textarea { max-width:100%; }
+            label:has(> input[type=checkbox]), label:has(> input[type=radio]) { min-height:44px; display:inline-flex; align-items:center; }
+            /* After the line above, and as specific: a button in a flex row keeps its 44px. */
+            .flex > button, button { min-width:44px; }
         }
 
         /* ── Toast ── */
@@ -819,7 +827,8 @@ await allowed;
             EVENT_TYPES.forEach(t=>{h+=`<option value="${t}" ${ev.type===t?'selected':''}>${t}</option>`;});
             h+=`</select>`;
             h+=`<textarea rows="1" onblur="updateField('${ev.id}','description',this.value)" placeholder="Notes..." class="flex-grow bg-white px-5 py-2 rounded-xl text-[12px] font-bold border border-[#d1dfdf] outline-none text-[#3d6263]">${ev.description||''}</textarea>`;
-            h+=`<div class="flex gap-3 bg-white px-4 py-2 rounded-full border border-[#d1dfdf] shadow-sm">`;
+            /* flex-wrap: five teams in one row ran a phone 418px wide (the going-live audit, 3 Nov 2026). */
+            h+=`<div class="flex flex-wrap gap-3 bg-white px-4 py-2 rounded-2xl border border-[#d1dfdf] shadow-sm">`;
             ["Core Team","Worship Team","AV Team","Choir","Youth"].forEach(t=>{h+=`<label class="text-[9px] font-black uppercase flex items-center gap-1.5 cursor-pointer text-[#3d6263]"><input type="checkbox" onchange="toggleTeam('${ev.id}','${t}')" ${ev.teams?.includes(t)?'checked':''} class="w-3.5 h-3.5 accent-[#3d6263]"><span>${t}</span></label>`;});
             h+=`</div>`;
             if(!isSunday) h+=`<button onclick="autoFillPractice('${ev.id}')" class="bg-[#d1dfdf] text-[#3d6263] px-5 py-2 rounded-full font-black text-[10px] uppercase shadow-sm flex items-center gap-1 hover:bg-[#3d6263] hover:text-white transition-all"><svg ${is} viewBox="0 0 24 24" class="w-3 h-3"><path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>Sync</button>`;

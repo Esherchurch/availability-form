@@ -242,7 +242,7 @@
         <div class="header-right">
             <div class="training-badge">🎓 Training Environment</div>
             <div class="portal-name">Worship &amp; AV Training Hub</div>
-            <div id="secret-trigger" onclick="handleSecret()" style="cursor:pointer;">
+            <div id="secret-trigger" onclick="handleSecret()" style="cursor:pointer;min-height:44px;display:flex;align-items:center;"><!-- 44px to tap: it was 15px (the going-live audit, 3 Nov 2026) -->
                 <div id="sync-status">Connecting…</div>
             </div>
         </div>
@@ -618,6 +618,7 @@ function renderMenu() {
         });
     };
     buildTree('none');
+    markCurrent(CURRENT || 'landing');
 }
 
 function updateFocusState() { const nl = document.getElementById('nav-list'); nl.classList.toggle('has-open', !!nl.querySelector('.has-children.open')); }
@@ -633,13 +634,25 @@ function handleItemClick(event, id, url, logo) {
     if (url && url !== '#' && url !== 'landing') navigate(url, logo);
     else if (url === 'landing') showLanding(logo);
 }
+/* The row for what is showing says so (aria-current): pressed again, the
+   Dashboard row rightly changes nothing, and read as dead (the going-live
+   audit, 3 Nov 2026). */
+var CURRENT = 'landing';   /* var: the menu can be drawn before this line runs */
+function markCurrent(url) {
+    CURRENT = url;
+    document.querySelectorAll('#nav-list .nav-row').forEach(function (r) {
+        if ((r.getAttribute('onclick') || '').indexOf(",'" + url + "',") !== -1) r.setAttribute('aria-current', 'page'); else r.removeAttribute('aria-current');
+    });
+}
 function navigate(url, logoUrl) {
+    markCurrent(url);
     document.getElementById('dept-logo').src = logoUrl || DEFAULT_LOGO;
     document.getElementById('landing-content').style.display = 'none';
     const frame = document.getElementById('app-frame');
     frame.style.display = 'block'; frame.src = url;
 }
 function showLanding(logoUrl) {
+    markCurrent('landing');
     document.getElementById('dept-logo').src = logoUrl || DEFAULT_LOGO;
     document.getElementById('app-frame').style.display = 'none';
     document.getElementById('landing-content').style.display = 'flex';

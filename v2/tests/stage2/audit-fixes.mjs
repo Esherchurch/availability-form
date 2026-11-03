@@ -37,7 +37,9 @@
  *   - Help makes the page behind it inert while open; the tours have a ✕
  *     and close on Escape;
  *   - the AV, worship and core charters have no password in their source:
- *     a team member who is not its admin is told so, a master admin edits.
+ *     a team member who is not its admin is told so, a master admin edits;
+ *   - the practice Sunday planner shows a new item and keeps Email Team's
+ *     close in reach, as the real planner does.
  */
 import { serve, browser, person, signIn, put, wipe, sleep } from './harness.mjs';
 import { EGBC_UNDER18 } from '../../functions/under18-teams.js';
@@ -131,6 +133,11 @@ try {
     for (const w of ['Populate', 'Auto-Populate', 'Add Practices']) ok(w + ' can be pressed (the sheet\'s title is not over it)', (await free(p, '[...document.querySelectorAll("#ppSheet button")].find((b) => b.innerText.trim() === ' + JSON.stringify(w) + ')')) === 'free');
     ok('the sheet\'s title sticks to the sheet\'s top', await p.evaluate(() => Math.abs(document.querySelector('#ppSheet .pp-sh').getBoundingClientRect().top - document.getElementById('ppSheet').getBoundingClientRect().top) <= 1));
     ok('no errors', !p.__errs.length, p.__errs.join(' | ')); await p.browserContext().close(); }
+  /* The same, opened from the app: app mode had its own shifting, without the shell's rule. */
+  { const p = await fresh(lead, 'Planner.html?app=1', 375, 812); await sleep(8000);
+    await p.evaluate(() => document.querySelector('#ppBar .pp-more').click()); await sleep(800);
+    for (const w of ['Populate', 'Auto-Populate']) { const f = await free(p, '[...document.querySelectorAll("#ppSheet button")].find((b) => b.innerText.trim() === ' + JSON.stringify(w) + ')'); ok('from the app: ' + w + ' can be pressed', f === 'free', f); }
+    await p.browserContext().close(); }
   { const p = await fresh(lead, 'session-planner.html', 375, 812); await sleep(6000);
     ok('a sheet\'s sticky close keeps top 0 (session planner)', await p.evaluate(() => { const x = document.querySelector('.sheet .x'); return !x || getComputedStyle(x).top === '0px'; }));
     await p.browserContext().close(); }
@@ -231,6 +238,14 @@ try {
     const got = await p.evaluate(() => { if (!document.documentElement.hasAttribute('data-egbc-app-mode')) return 'not in app mode'; const b = document.getElementById('egbc-help-btn'); if (!b) return 'no Help button'; const r = b.getBoundingClientRect(), h = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return h === b || b.contains(h) ? 'free' : 'under ' + (h ? h.tagName + '.' + h.className : 'nothing'); });
     ok(pg + ': Help is above the app\'s tab bar, not under it', got === 'free', got);
     await p.browserContext().close(); }
+
+  console.log('\nThe practice Sunday planner, on a phone');
+  { const p = await fresh(lead, 'training Sunday planner.html', 375, 812); await sleep(7000);
+    const add = await p.evaluate(async () => { const b = [...document.querySelectorAll('button')].find((x) => x.getAttribute('onclick') === 'addItem()'); b.click(); await new Promise((r) => setTimeout(r, 900)); const rows = document.querySelectorAll('#service-order .item-block'), last = rows[rows.length - 1], r = last.getBoundingClientRect(); return (r.top >= 0 && r.bottom <= innerHeight ? 'shown' : 'out of sight') + ', ' + (document.activeElement === last.querySelector('input') ? 'cursor in it' : 'no cursor'); });
+    ok('"+ Add Item" shows the new row and puts the cursor in it', add === 'shown, cursor in it', add);
+    const cl = await p.evaluate(() => { const m = document.getElementById('emailModal'); m.classList.add('active'); const box = document.getElementById('emailModalBox'); box.scrollTop = box.scrollHeight; const x = box.querySelector('button.close'); if (!x) return 'no close'; const r = x.getBoundingClientRect(), h = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return h === x || x.contains(h) ? 'free' : 'under ' + (h ? h.tagName : 'nothing'); });
+    ok('Email Team\'s box keeps a close in reach after scrolling', cl === 'free', cl);
+    ok('no errors', !p.__errs.length, p.__errs.join(' | ')); await p.browserContext().close(); }
 
   console.log('\nThe team charters: no password, the team\'s admins edit');
   { const fs = await import('node:fs');

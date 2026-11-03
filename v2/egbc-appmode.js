@@ -284,6 +284,11 @@
     }
     return document.scrollingElement;
   }
+  /* Inside something fixed (a sheet or pop-up), which is where it sticks. */
+  function inFixed(el) {
+    for (var p = el.parentElement; p && p !== document.body; p = p.parentElement) if (getComputedStyle(p).position === 'fixed') return true;
+    return false;
+  }
 
   function shiftFixed() {
     if (!on() || !document.body) return;
@@ -309,6 +314,11 @@
          chrome, because its box is. */
       if (cs.position !== 'fixed' && cs.position !== 'sticky') continue;
       if (cs.position === 'sticky' && scrollerOf(el) !== document.scrollingElement) continue;
+      /* Nor sticky inside a fixed box: it sticks to that box, which is placed
+         already. Moved, the Rota planner's More sheet title sat over
+         Populate on a page opened from the app - the shell had this rule,
+         app mode did not (the going-live audit, 3 Nov 2026). */
+      if (cs.position === 'sticky' && (inFixed(el) || el.hasAttribute('data-egbc-overlay'))) continue;
       var r = el.getBoundingClientRect();
       if (r.width >= innerWidth - 2 && r.height >= innerHeight - 2) continue;
 

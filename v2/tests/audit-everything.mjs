@@ -334,7 +334,13 @@ function startServer(port) {
 const INSTRUMENT = `(function(){
   if (window.__aud) return;
   var A = window.__aud = { mut: 0, acts: [], errs: [] };
-  try { new MutationObserver(function (m) { A.mut += m.length; }).observe(document, { subtree: true, childList: true, attributes: true, characterData: true }); } catch (e) {}
+  /* The page writing to its own status line answers the press, even with the
+     same words as before (the mix builder says "Nothing to render yet." for
+     two buttons, 3 Nov 2026): a person sees it said again. */
+  var SAYS = '[role=status],[aria-live],.status';
+  try { new MutationObserver(function (m) { A.mut += m.length;
+    for (var i = 0; i < m.length; i++) { var t = m[i].target, e = t.nodeType === 1 ? t : t.parentElement; if (e && e.closest && e.closest(SAYS) && (e.closest(SAYS).textContent || '').trim()) { A.acts.push('said'); break; } }
+  }).observe(document, { subtree: true, childList: true, attributes: true, characterData: true }); } catch (e) {}
   ['pushState', 'replaceState'].forEach(function (k) { var o = history[k]; history[k] = function () { A.acts.push('history'); return o.apply(this, arguments); }; });
   window.open = function (u) { A.acts.push('open:' + u); return null; };
   window.alert = function () { A.acts.push('dialog'); };
@@ -433,11 +439,13 @@ const MEASURE = `(function(){
    computer is 380px wide, under the 35%, and its backdrop is empty, so it
    was never seen as open, never closed, and covered all that came after.
    A page's own full-screen view, placed between the app's bars (data-am-own,
-   Performance Notes' start), is the page, not a pop-up of it (3 Nov 2026). */
+   Performance Notes' start), is the page, not a pop-up of it (3 Nov 2026);
+   so is one a page marks data-page-view (CoreTeamApp's #app-content, fixed
+   between its own bars). */
 const OVERLAY = `(function(){
   var iw=innerWidth, ih=innerHeight, best=null, ba=0, all=[];
   document.querySelectorAll('body *').forEach(function(el){ var s=getComputedStyle(el); if(s.position!=='fixed'||s.display==='none'||s.visibility==='hidden'||+s.opacity===0)return;
-    var r=el.getBoundingClientRect(), a=Math.max(0,Math.min(r.right,iw)-Math.max(r.left,0))*Math.max(0,Math.min(r.bottom,ih)-Math.max(r.top,0)); if(a < iw*ih*0.35 && !(r.left < iw && r.right > 0 && Math.min(r.bottom,ih)-Math.max(r.top,0) >= ih*0.6 && el.querySelectorAll("a[href],button").length >= 3))return; if(el.hasAttribute("data-am-own"))return; if(el.id==='egbc-app'||el.querySelector('#egbc-app'))return;
+    var r=el.getBoundingClientRect(), a=Math.max(0,Math.min(r.right,iw)-Math.max(r.left,0))*Math.max(0,Math.min(r.bottom,ih)-Math.max(r.top,0)); if(a < iw*ih*0.35 && !(r.left < iw && r.right > 0 && Math.min(r.bottom,ih)-Math.max(r.top,0) >= ih*0.6 && el.querySelectorAll("a[href],button").length >= 3))return; if(el.hasAttribute("data-am-own")||el.hasAttribute("data-page-view"))return; if(el.id==='egbc-app'||el.querySelector('#egbc-app'))return;
     if(!(el.textContent||'').trim())return;
     if(!best||a<ba){best=el;ba=a;} all.push((el.id||'')+'.'+String(el.className||el.tagName).slice(0,40)); });
   if(!best)return 'null';
@@ -456,7 +464,7 @@ const MARK_SCOPE = `(function(){
   document.querySelectorAll('body *').forEach(function(el){ var s=getComputedStyle(el); if(s.position!=='fixed'||s.display==='none'||s.visibility==='hidden'||+s.opacity===0)return;
     if(el.id==='egbc-app'||el.querySelector('#egbc-app'))return;
     var n=el.querySelectorAll('a[href],button,input,select,textarea,[data-act],[onclick]').length; if(n>mn&&el!==document.body){most=el;mn=n;}
-    var r=el.getBoundingClientRect(), a=Math.max(0,Math.min(r.right,iw)-Math.max(r.left,0))*Math.max(0,Math.min(r.bottom,ih)-Math.max(r.top,0)); if(a < iw*ih*0.35 && !(r.left < iw && r.right > 0 && Math.min(r.bottom,ih)-Math.max(r.top,0) >= ih*0.6 && el.querySelectorAll("a[href],button").length >= 3))return; if(el.hasAttribute("data-am-own"))return;
+    var r=el.getBoundingClientRect(), a=Math.max(0,Math.min(r.right,iw)-Math.max(r.left,0))*Math.max(0,Math.min(r.bottom,ih)-Math.max(r.top,0)); if(a < iw*ih*0.35 && !(r.left < iw && r.right > 0 && Math.min(r.bottom,ih)-Math.max(r.top,0) >= ih*0.6 && el.querySelectorAll("a[href],button").length >= 3))return; if(el.hasAttribute("data-am-own")||el.hasAttribute("data-page-view"))return;
     if(!(el.textContent||'').trim())return;
     if(!best||a<ba){best=el;ba=a;} });
   var el = best && best.querySelector('a[href],button,input,select,textarea,[data-act],[onclick]') ? best : most;
@@ -467,7 +475,7 @@ const MARK_SCOPE = `(function(){
 const SHEET_CLOSE = `(function(){
   var iw=innerWidth, ih=innerHeight, best=null, ba=0;
   document.querySelectorAll('body *').forEach(function(el){ var s=getComputedStyle(el); if(s.position!=='fixed'||s.display==='none'||s.visibility==='hidden'||+s.opacity===0)return;
-    var r=el.getBoundingClientRect(), a=Math.max(0,Math.min(r.right,iw)-Math.max(r.left,0))*Math.max(0,Math.min(r.bottom,ih)-Math.max(r.top,0)); if(a < iw*ih*0.35 && !(r.left < iw && r.right > 0 && Math.min(r.bottom,ih)-Math.max(r.top,0) >= ih*0.6 && el.querySelectorAll("a[href],button").length >= 3))return; if(el.hasAttribute("data-am-own"))return; if(el.id==='egbc-app'||el.querySelector('#egbc-app'))return;
+    var r=el.getBoundingClientRect(), a=Math.max(0,Math.min(r.right,iw)-Math.max(r.left,0))*Math.max(0,Math.min(r.bottom,ih)-Math.max(r.top,0)); if(a < iw*ih*0.35 && !(r.left < iw && r.right > 0 && Math.min(r.bottom,ih)-Math.max(r.top,0) >= ih*0.6 && el.querySelectorAll("a[href],button").length >= 3))return; if(el.hasAttribute("data-am-own")||el.hasAttribute("data-page-view"))return; if(el.id==='egbc-app'||el.querySelector('#egbc-app'))return;
     if(!(el.textContent||'').trim())return;
     if(!best||a<ba){best=el;ba=a;} });
   if(!best)return 'null';
@@ -723,7 +731,7 @@ async function tapAll(B, url, reopen, ctx) {
       /* A backdrop is tapped beside the panel it sits under, not in its
          middle (3 Nov 2026): any part of it that shows will do. */
       + 'if(!(hit&&(hit===el||el.contains(hit)))&&r.width*r.height>innerWidth*innerHeight*0.35){for(var gi=1;gi<8;gi++)for(var gj=1;gj<8;gj++){var gx=Math.max(1,r.left)+(Math.min(r.right,innerWidth)-Math.max(1,r.left))*gi/8,gy=Math.max(1,r.top)+(Math.min(r.bottom,innerHeight)-Math.max(1,r.top))*gj/8,gh=document.elementFromPoint(gx,gy);if(gh===el){x=gx;y=gy;hit=gh;gi=gj=9;}}}'
-      + 'var vv=window.visualViewport;return JSON.stringify({x:x,y:y,vx:vv?vv.offsetLeft:0,vy:vv?vv.offsetTop:0,ok:!!hit&&(hit===el||el.contains(hit)||hit.contains(el)),by:hit?(hit.tagName+(hit.id?"#"+hit.id:"")+(typeof hit.className==="string"&&hit.className?"."+hit.className.trim().split(/\\s+/)[0]:"")):"nothing"})})()')) || 'null');
+      + 'var vv=window.visualViewport;return JSON.stringify({x:x,y:y,vx:vv?vv.offsetLeft:0,vy:vv?vv.offsetTop:0,ok:!!hit&&(hit===el||el.contains(hit)||hit.contains(el)),shell:!!(hit&&hit.closest&&hit.closest("[id^=egbc-you],[id^=egbc-nav]")),by:hit?(hit.tagName+(hit.id?"#"+hit.id:"")+(typeof hit.className==="string"&&hit.className?"."+hit.className.trim().split(/\\s+/)[0]:"")):"nothing"})})()')) || 'null');
     if (!pt) continue;
     if (!pt.ok) {
       /* Something left open by the last tap? Start the page again and try
@@ -738,7 +746,7 @@ async function tapAll(B, url, reopen, ctx) {
          events window, 3 Nov 2026). */
       if (!retried.has(next.sig) && await B.ev('!!document.getElementById("egbc-help")')) { retried.add(next.sig); tapped.delete(next.sig); n--; await B.ev('(window.EGBCHelp&&EGBCHelp.close(),1)'); await sleep(300); continue; }
       if (!retried.has(next.sig) && /tour-dismiss/.test(pt.by)) { retried.add(next.sig); tapped.delete(next.sig); n--; await B.ev('(window.endTour&&endTour(),1)'); await sleep(300); continue; }
-      if (!retried.has(next.sig) && (/^[A-Z]+(#egbc-(you|nav)|.ey-)/.test(pt.by) || ((await B.ev(OVERLAY)) || 'null') !== resting)) { retried.add(next.sig); tapped.delete(next.sig); n--; await reopen(); continue; }
+      if (!retried.has(next.sig) && (pt.shell || /^[A-Z]+(#egbc-(you|nav)|.ey-)/.test(pt.by) || ((await B.ev(OVERLAY)) || 'null') !== resting)) { retried.add(next.sig); tapped.delete(next.sig); n--; await reopen(); continue; }
       why.push('covered: "' + (next.words || next.href) + '" is under ' + pt.by); notUsed(next, 'covered by ' + pt.by); continue;
     }
     const overBefore = (await B.ev(OVERLAY)) || 'null';
@@ -931,14 +939,27 @@ async function auditScreen(B, { role, size, screen, url, inApp, taps, base, shot
 async function menuFor(B, base) {
   await B.go(base + 'hub.html');
   await sleep(1500);
-  return JSON.parse((await B.ev(`JSON.stringify((function(){
+  /* Read until it holds still, with the person's profile in: read once, at
+     1.5 s, a slow sign-in left a core team member's Menu with only the
+     basics, and every team page then read as "not offered" (core at 375,
+     3 Nov 2026). */
+  let last = null, now = null;
+  for (let i = 0; i < 20; i++) {
+    now = await readMenu(B);
+    if (now === last && (await B.ev('!!(window.EGBCAuth&&EGBCAuth.profile&&EGBCAuth.profile())'))) break;
+    last = now; await sleep(500);
+  }
+  return JSON.parse(now || '{"all":[],"mine":[]}');
+}
+async function readMenu(B) {
+  return (await B.ev(`JSON.stringify((function(){
     var all=[], mine=[];
     (EGBCMenu.allPages()||[]).forEach(function(p){ if(p.url) all.push(String(p.url)); });
     (function w(n){ n.forEach(function(x){ if(x.url) mine.push(String(x.url)); if(x.children) w(x.children); }); })(EGBCMenu.forPerson(EGBCMenu.who()));
     /* The "you" menu offers some pages too (My availability is index.html). */
     if (EGBCMenu.youLinks) EGBCMenu.youLinks(EGBCAuth.profile && EGBCAuth.profile()).forEach(function(u){ mine.push(String(u)); });
     return {all:all, mine:mine};
-  })())`)) || '{"all":[],"mine":[]}');
+  })())`)) || '{"all":[],"mine":[]}';
 }
 
 async function appScreens(B, base) {

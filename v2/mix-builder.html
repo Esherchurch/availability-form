@@ -513,7 +513,7 @@ if (/^https?:$/.test(location.protocol)) {
     <input id="file" type="file" accept="audio/*" multiple class="hidden">
   </div>
 
-  <div id="status" class="status"></div>
+  <div id="status" class="status" role="status" aria-live="polite"></div>
 
   <div class="card">
     <span class="lbl">The set</span>
@@ -630,7 +630,7 @@ if (/^https?:$/.test(location.protocol)) {
     <div id="renderProgress" class="hidden">
       <div class="bar"><div class="bar-fill" id="renderBar"></div></div>
     </div>
-    <div id="renderStatus" class="status"></div>
+    <div id="renderStatus" class="status" role="status" aria-live="polite"></div>
     <div id="renderReport"></div>
   </div>
 

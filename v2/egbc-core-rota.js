@@ -1485,6 +1485,23 @@
     return into;
   }
 
+  /* A REFUSED SAVE SAYS SO. These save straight to the rota, and when the rules
+     refused one (someone not on that service's teams, nor covering them) the
+     change stayed on screen and only the console knew (the going-live audit,
+     3 Nov 2026). Now it is said, and the rota is drawn again as it really is. */
+  ['updateField', 'toggleTeam', 'addRole', 'removeRole', 'doAssign', 'doSetAvailability', 'doUnassign',
+   'assignPerson', 'unassignPerson', 'deleteEvent', 'archiveTerm', 'onDropRole', 'onDropBucket', 'createRotaEvent',
+   'addSingleLine', 'generateTerm', 'addThursdayPractices', 'autoFillPractice', 'autoFillAllEvents', 'gatherTermAvailability'].forEach(function (name) {
+    var f = global[name]; if (typeof f !== 'function') return;
+    global[name] = async function () {
+      try { return await f.apply(this, arguments); }
+      catch (e) {
+        console.warn('Rota: ' + name, e);
+        toast(e && e.code === 'permission-denied' ? 'Not saved: only the teams on this service, and those who cover them, can change it.' : 'Not saved: ' + ((e && e.message) || e));
+        try { renderPlanner(); } catch (e2) {}
+      }
+    };
+  });
   global.EGBCCoreRota = {
     mount: mount,
     newEvent: function () { global.openNewEventModal(); },
