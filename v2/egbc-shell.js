@@ -691,6 +691,22 @@
       var top = parseFloat(cs.top);
       if (isNaN(top) || top < 0 || top > 200) continue;
 
+      /* A sticky heading or close inside a pop-up (a fixed panel, or a box
+         that scrolls by itself) sticks to that, not the page, and the bar
+         never covers it. Pushed down, the Rota planner's "More" sheet laid
+         its title over Populate and Auto-Populate on a phone, and the
+         sheets' sticky closes sat 74px down (the going-live audit, 3 Nov
+         2026). A pop-up that only becomes fixed when opened marks its own
+         heading data-egbc-overlay, as the planner's does. */
+      if (cs.position === 'sticky') {
+        var inBox = false;
+        for (var a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+          var acs = window.getComputedStyle(a);
+          if (acs.position === 'fixed' || /^(auto|scroll)$/.test(acs.overflowY)) { inBox = true; break; }
+        }
+        if (inBox) continue;
+      }
+
       el.style.top = (top + h) + 'px';
 
       /* A tall sticky column - the address book's entry form is one - was

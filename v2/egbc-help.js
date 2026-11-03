@@ -70,8 +70,9 @@
       '#egbc-help-btn{position:fixed;bottom:24px;right:24px;z-index:900;width:40px;height:40px;border-radius:8px;background:#fff;border:1.5px solid #d1dfdf;',
       'color:#3d6263;font:600 16px Inter,system-ui,sans-serif;box-shadow:0 2px 12px rgba(61,98,99,.12);cursor:pointer}',
       'html[data-egbc-app-mode] #egbc-help-btn{bottom:calc(var(--am-bottom,64px) + 16px)}',
-      '#egbc-help-bg{position:fixed;inset:0;background:rgba(17,24,39,.35);z-index:2000}',
-      '#egbc-help{position:fixed;top:0;right:0;bottom:0;width:min(440px,100%);background:#fff;color:#374151;z-index:2001;display:flex;flex-direction:column;',
+      /* Above the page bar (9000), the app's bars (9500) and the Menu (9600), below Care (10000): under the bar, a phone could not reach Help's close (the going-live audit, 3 Nov 2026). */
+      '#egbc-help-bg{position:fixed;inset:0;background:rgba(17,24,39,.35);z-index:9700}',
+      '#egbc-help{position:fixed;top:0;right:0;bottom:0;width:min(440px,100%);background:#fff;color:#374151;z-index:9701;display:flex;flex-direction:column;',
       'font:400 15px/1.55 Inter,system-ui,sans-serif;box-shadow:-4px 0 24px rgba(0,0,0,.15)}',
       '#egbc-help header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #e5e7eb}',
       '#egbc-help header h2{margin:0;font-size:17px;color:#111827}',
@@ -149,6 +150,8 @@
       e.preventDefault();
       var q = form.querySelector('textarea').value.trim();
       if (q) ask(q, form.querySelector('.answer'), form.querySelector('button'));
+      /* Pressed with the box empty it said nothing (the going-live audit). */
+      else { form.querySelector('.answer').textContent = 'Type your question first.'; form.querySelector('textarea').focus(); }
     });
     document.addEventListener('keydown', onKey);
     el.querySelector('.x').focus();

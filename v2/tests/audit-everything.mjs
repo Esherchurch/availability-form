@@ -413,11 +413,14 @@ const MEASURE = `(function(){
 })()`;
 
 /* The controls on screen, in order, with a signature to remember them by. */
-/* The biggest fixed thing covering much of the screen: a sheet or pop-up. */
+/* The biggest fixed thing covering much of the screen: a sheet or pop-up.
+   Or a tall side panel holding controls (3 Nov 2026): the Menu on a
+   computer is 380px wide, under the 35%, and its backdrop is empty, so it
+   was never seen as open, never closed, and covered all that came after. */
 const OVERLAY = `(function(){
   var iw=innerWidth, ih=innerHeight, best=null, ba=0, all=[];
   document.querySelectorAll('body *').forEach(function(el){ var s=getComputedStyle(el); if(s.position!=='fixed'||s.display==='none'||s.visibility==='hidden'||+s.opacity===0)return;
-    var r=el.getBoundingClientRect(), a=Math.max(0,Math.min(r.right,iw)-Math.max(r.left,0))*Math.max(0,Math.min(r.bottom,ih)-Math.max(r.top,0)); if(a < iw*ih*0.35)return; if(el.id==='egbc-app'||el.querySelector('#egbc-app'))return;
+    var r=el.getBoundingClientRect(), a=Math.max(0,Math.min(r.right,iw)-Math.max(r.left,0))*Math.max(0,Math.min(r.bottom,ih)-Math.max(r.top,0)); if(a < iw*ih*0.35 && !(r.left < iw && r.right > 0 && Math.min(r.bottom,ih)-Math.max(r.top,0) >= ih*0.6 && el.querySelectorAll("a[href],button").length >= 3))return; if(el.id==='egbc-app'||el.querySelector('#egbc-app'))return;
     if(!(el.textContent||'').trim())return;
     if(!best||a<ba){best=el;ba=a;} all.push((el.id||'')+'.'+String(el.className||el.tagName).slice(0,40)); });
   if(!best)return 'null';
@@ -436,7 +439,7 @@ const MARK_SCOPE = `(function(){
   document.querySelectorAll('body *').forEach(function(el){ var s=getComputedStyle(el); if(s.position!=='fixed'||s.display==='none'||s.visibility==='hidden'||+s.opacity===0)return;
     if(el.id==='egbc-app'||el.querySelector('#egbc-app'))return;
     var n=el.querySelectorAll('a[href],button,input,select,textarea,[data-act],[onclick]').length; if(n>mn&&el!==document.body){most=el;mn=n;}
-    var r=el.getBoundingClientRect(), a=Math.max(0,Math.min(r.right,iw)-Math.max(r.left,0))*Math.max(0,Math.min(r.bottom,ih)-Math.max(r.top,0)); if(a < iw*ih*0.35)return;
+    var r=el.getBoundingClientRect(), a=Math.max(0,Math.min(r.right,iw)-Math.max(r.left,0))*Math.max(0,Math.min(r.bottom,ih)-Math.max(r.top,0)); if(a < iw*ih*0.35 && !(r.left < iw && r.right > 0 && Math.min(r.bottom,ih)-Math.max(r.top,0) >= ih*0.6 && el.querySelectorAll("a[href],button").length >= 3))return;
     if(!(el.textContent||'').trim())return;
     if(!best||a<ba){best=el;ba=a;} });
   var el = best && best.querySelector('a[href],button,input,select,textarea,[data-act],[onclick]') ? best : most;
@@ -447,7 +450,7 @@ const MARK_SCOPE = `(function(){
 const SHEET_CLOSE = `(function(){
   var iw=innerWidth, ih=innerHeight, best=null, ba=0;
   document.querySelectorAll('body *').forEach(function(el){ var s=getComputedStyle(el); if(s.position!=='fixed'||s.display==='none'||s.visibility==='hidden'||+s.opacity===0)return;
-    var r=el.getBoundingClientRect(), a=Math.max(0,Math.min(r.right,iw)-Math.max(r.left,0))*Math.max(0,Math.min(r.bottom,ih)-Math.max(r.top,0)); if(a < iw*ih*0.35)return; if(el.id==='egbc-app'||el.querySelector('#egbc-app'))return;
+    var r=el.getBoundingClientRect(), a=Math.max(0,Math.min(r.right,iw)-Math.max(r.left,0))*Math.max(0,Math.min(r.bottom,ih)-Math.max(r.top,0)); if(a < iw*ih*0.35 && !(r.left < iw && r.right > 0 && Math.min(r.bottom,ih)-Math.max(r.top,0) >= ih*0.6 && el.querySelectorAll("a[href],button").length >= 3))return; if(el.id==='egbc-app'||el.querySelector('#egbc-app'))return;
     if(!(el.textContent||'').trim())return;
     if(!best||a<ba){best=el;ba=a;} });
   if(!best)return 'null';

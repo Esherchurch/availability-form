@@ -15,7 +15,12 @@
  *   - the hub's notices panel makes the page behind it inert, and gives it
  *     back on close;
  *   - song-summary opens for a preacher on no team who is on that Sunday's
- *     plan, and someone not on it is told so, with a way back.
+ *     plan, and someone not on it is told so, with a way back;
+ *   - on a phone, the Rota planner's More sheet keeps its title off
+ *     Populate and Auto-Populate, and a sheet's sticky close is not pushed
+ *     down by the page bar (3 Nov 2026);
+ *   - Help sits above the page bar, so its close can be pressed on a
+ *     phone, and Ask with nothing typed says so.
  */
 import { serve, browser, person, signIn, put, wipe, sleep } from './harness.mjs';
 import { EGBC_UNDER18 } from '../../functions/under18-teams.js';
@@ -98,6 +103,27 @@ try {
   { const p = await fresh(other, 'song-summary.html?date=' + DATE); await sleep(7000);
     const t = await p.evaluate(() => document.body.innerText);
     ok('someone not on it is told the plan went to the people serving, with a way back, and sees no songs', /sent to the people serving/.test(t) && !/Hymn For The Plan/.test(t) && await p.evaluate(() => !!document.querySelector('a[href="hub.html"]')), t.slice(0, 300)); await p.browserContext().close(); }
+
+  /* Whether a person's tap at the middle of el lands on it. */
+  const free = (p, find) => p.evaluate((find) => { const el = eval(find); if (!el) return 'missing'; el.scrollIntoView({ block: 'center' }); const r = el.getBoundingClientRect(), h = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return h === el || el.contains(h) ? 'free' : 'under ' + (h ? h.tagName + '.' + h.className : 'nothing'); }, find);
+
+  console.log('\nThe Rota planner\'s More sheet, on a phone');
+  { const p = await fresh(lead, 'Planner.html', 375, 812); await sleep(7000);
+    await p.evaluate(() => document.querySelector('#ppBar .pp-more').click()); await sleep(800);
+    for (const w of ['Populate', 'Auto-Populate', 'Add Practices']) ok(w + ' can be pressed (the sheet\'s title is not over it)', (await free(p, '[...document.querySelectorAll("#ppSheet button")].find((b) => b.innerText.trim() === ' + JSON.stringify(w) + ')')) === 'free');
+    ok('the sheet\'s title sticks to the sheet\'s top', await p.evaluate(() => Math.abs(document.querySelector('#ppSheet .pp-sh').getBoundingClientRect().top - document.getElementById('ppSheet').getBoundingClientRect().top) <= 1));
+    ok('no errors', !p.__errs.length, p.__errs.join(' | ')); await p.browserContext().close(); }
+  { const p = await fresh(lead, 'session-planner.html', 375, 812); await sleep(6000);
+    ok('a sheet\'s sticky close keeps top 0 (session planner)', await p.evaluate(() => { const x = document.querySelector('.sheet .x'); return !x || getComputedStyle(x).top === '0px'; }));
+    await p.browserContext().close(); }
+
+  console.log('\nHelp, on a phone');
+  { const p = await fresh(lead, 'view-only-rota.html', 375, 812); await sleep(6000);
+    await p.evaluate(() => document.getElementById('egbc-help-btn').click()); await sleep(1200);
+    ok('Help\'s close can be pressed (not under the page bar)', (await free(p, 'document.querySelector("#egbc-help .x")')) === 'free');
+    const said = await p.evaluate(() => { const f = document.querySelector('#egbc-help form.ask'); if (!f) return 'no Ask box (signed out?)'; f.querySelector('textarea').value = ''; f.querySelector('button[type=submit]').click(); return f.querySelector('.answer').textContent; });
+    ok('Ask with nothing typed says so', /Type your question first/.test(said), said);
+    ok('no errors', !p.__errs.length, p.__errs.join(' | ')); await p.browserContext().close(); }
 } catch (e) { ok('the run itself', false, e && e.stack || e); }
 finally { await b.close(); server.close(); }
 console.log('\n' + R.filter(Boolean).length + ' of ' + R.length + ' checks passed');
