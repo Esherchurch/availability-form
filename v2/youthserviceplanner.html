@@ -52,6 +52,9 @@
         transition: all 0.18s;
         height: auto;
         overflow: hidden;
+        /* A select is as wide as its longest event name; on a phone that ran
+           off the screen (the going-live audit, 3 Nov 2026). */
+        max-width: 100%;
     }
     .styled-input:focus {
         outline: none;
@@ -959,6 +962,15 @@ window.saveSchedule = async (quiet) => {
         alert("Could not save the youth service: " + (err?.message || err));
     }
 };
+/* "Saving…" at once: on a slow connection Save Schedule looked dead until the
+   save came back (the going-live audit, 3 Nov 2026). Send's quiet save is left alone. */
+{ const save = window.saveSchedule;
+  window.saveSchedule = async (quiet) => {
+    const btn = quiet ? null : document.querySelector('button[onclick="saveSchedule()"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    /* Given back as view only says: another service may have been chosen meanwhile. */
+    try { return await save(quiet); } finally { if (btn) { btn.disabled = document.body.classList.contains('readonly-mode'); btn.textContent = 'Save Schedule'; } }
+  }; }
 
 async function saveSongSummaryToFirestore(date) {
     const blocks = document.querySelectorAll('.service-block');

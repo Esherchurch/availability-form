@@ -702,7 +702,9 @@ async function tapAll(B, url, reopen, ctx) {
       /* Something left open by the last tap? Start the page again and try
          this one once more before calling it covered. */
       if (pt.by === 'nothing') { n--; notUsed(next, 'off screen (an off-canvas panel)'); continue; }            /* off screen (an off-canvas panel): not something to tap */
-      if (!retried.has(next.sig) && ((await B.ev(OVERLAY)) || 'null') !== resting) { retried.add(next.sig); tapped.delete(next.sig); n--; await reopen(); continue; }
+      /* The shell's small drop-downs (You) are too small to count as a pop-up, but
+         one left open by an earlier tap covers the corner under it (3 Nov 2026). */
+      if (!retried.has(next.sig) && (/^DIV#egbc-(you|nav)/.test(pt.by) || ((await B.ev(OVERLAY)) || 'null') !== resting)) { retried.add(next.sig); tapped.delete(next.sig); n--; await reopen(); continue; }
       why.push('covered: "' + (next.words || next.href) + '" is under ' + pt.by); notUsed(next, 'covered by ' + pt.by); continue;
     }
     const overBefore = (await B.ev(OVERLAY)) || 'null';

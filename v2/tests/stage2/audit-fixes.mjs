@@ -20,7 +20,11 @@
  *     Populate and Auto-Populate, and a sheet's sticky close is not pushed
  *     down by the page bar (3 Nov 2026);
  *   - Help sits above the page bar, so its close can be pressed on a
- *     phone, and Ask with nothing typed says so.
+ *     phone, and Ask with nothing typed says so;
+ *   - the hub's Menu sits above its top bar, so on a phone its close is
+ *     not under the avatar;
+ *   - the service planners' Save Schedule says "Saving…" at once, and a
+ *     long event name no longer runs their page off a phone's screen.
  */
 import { serve, browser, person, signIn, put, wipe, sleep } from './harness.mjs';
 import { EGBC_UNDER18 } from '../../functions/under18-teams.js';
@@ -124,6 +128,26 @@ try {
     const said = await p.evaluate(() => { const f = document.querySelector('#egbc-help form.ask'); if (!f) return 'no Ask box (signed out?)'; f.querySelector('textarea').value = ''; f.querySelector('button[type=submit]').click(); return f.querySelector('.answer').textContent; });
     ok('Ask with nothing typed says so', /Type your question first/.test(said), said);
     ok('no errors', !p.__errs.length, p.__errs.join(' | ')); await p.browserContext().close(); }
+
+  console.log('\nThe hub\'s Menu, on a phone');
+  { const p = await fresh(lead, 'hub.html', 375, 812); await sleep(7000);
+    /* Someone on several teams is first asked "Which team today?"; they answer it before the Menu. */
+    await p.evaluate(() => { if (document.getElementById('teamPicker').offsetParent !== null || getComputedStyle(document.getElementById('teamPicker')).display !== 'none') closeTeamPicker(); openTools(); }); await sleep(600);
+    { const f = await free(p, 'document.querySelector("#panel .hd .x")'); ok('the Menu\'s close can be pressed (not under the avatar)', f === 'free', f); }
+    await p.evaluate(() => document.querySelector('#panel .hd .x').click()); await sleep(500);
+    ok('and it shuts the Menu', await p.evaluate(() => !document.getElementById('panel').classList.contains('on')));
+    ok('no errors', !p.__errs.length, p.__errs.join(' | ')); await p.browserContext().close(); }
+
+  console.log('\nThe service planners, on a phone');
+  for (const pg of ['SundayServicePlanner.html', 'youthserviceplanner.html']) {
+    const p = await fresh(lead, pg, 375, 812); await sleep(7000);
+    const said = await p.evaluate(() => { window.alert = () => {}; const b = document.querySelector('button[onclick="saveSchedule()"]'); if (!b || b.disabled) return 'not pressable'; b.click(); return b.textContent; });
+    ok(pg + ': Save Schedule says "Saving…" at once', said === 'Saving…', said);
+    await sleep(1500);
+    ok(pg + ': and gives the button back', await p.evaluate(() => document.querySelector('button[onclick="saveSchedule()"]').textContent === 'Save Schedule'));
+    const wide = await p.evaluate(() => { const s = document.getElementById('eventSelect'); const o = document.createElement('option'); o.textContent = 'A very long event name, the kind a church gives its harvest all-age service'; s.appendChild(o); s.value = o.value; return document.documentElement.scrollWidth; });
+    ok(pg + ': a long event name keeps the page on the screen', wide <= 375, wide + 'px');
+    ok(pg + ': no errors', !p.__errs.length, p.__errs.join(' | ')); await p.browserContext().close(); }
 } catch (e) { ok('the run itself', false, e && e.stack || e); }
 finally { await b.close(); server.close(); }
 console.log('\n' + R.filter(Boolean).length + ' of ' + R.length + ' checks passed');
