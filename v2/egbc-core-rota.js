@@ -571,7 +571,9 @@
     closeSheet();
     var d = document.createElement('div');
     d.id = 'rota-sheet';
-    d.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(20,32,31,.45);display:flex;align-items:flex-end;justify-content:center;';
+    /* Above the app's bars (9500), below the Menu (9600): at 9000 the app's tab bar
+       covered the foot of this bottom sheet (the going-live audit, 3 Nov 2026). */
+    d.style.cssText = 'position:fixed;inset:0;z-index:9550;background:rgba(20,32,31,.45);display:flex;align-items:flex-end;justify-content:center;';
     d.onclick = function (e) { if (e.target === d) closeSheet(); };
     d.innerHTML =
       '<div style="background:#fff;width:100%;max-width:520px;border-radius:20px 20px 0 0;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 -8px 40px rgba(20,32,31,.2)">'
@@ -581,10 +583,12 @@
       + '<div style="font-size:15px;font-weight:600;color:#14201f">' + title + '</div>'
       + '<div style="font-size:13px;color:#6b8281;margin-top:2px">' + sub + '</div>'
       + '</div>'
-      + '<button onclick="closeSheet()" style="background:#f0f6f6;border:none;width:30px;height:30px;border-radius:8px;font-size:15px;color:#3d6263;cursor:pointer;flex-shrink:0">&times;</button>'
+      + '<button onclick="closeSheet()" aria-label="Close" style="background:#f0f6f6;border:none;width:44px;height:44px;border-radius:8px;font-size:15px;color:#3d6263;cursor:pointer;flex-shrink:0">&times;</button>'
       + '</div>'
       + '</div>'
-      + '<div style="padding:12px 16px 22px;overflow-y:auto">' + body + '</div>'
+      /* flex:1 and min-height:0, or a long list grows past the box and pushes its
+         title and close off the top (the going-live audit, 3 Nov 2026). */
+      + '<div style="padding:12px 16px 22px;overflow-y:auto;flex:1;min-height:0">' + body + '</div>'
       + '</div>';
     document.body.appendChild(d);
   }
@@ -797,7 +801,8 @@
     'background:var(--white,#fff);margin:0 -16px 12px;padding:6px 12px 10px 16px}',
     '.cr-x{width:44px;height:44px;flex:none;display:grid;place-items:center;border:0;border-radius:12px;background:none;color:#6b7280;cursor:pointer}',
     '.cr-overlay{display:none;position:fixed;inset:0;background:rgba(20,32,31,.45);',
-    'backdrop-filter:blur(4px);z-index:9100;align-items:flex-end;justify-content:center}',
+    /* 9550: above the app's bars (9500), as the rota sheet is (the going-live audit, 3 Nov 2026). */
+    'backdrop-filter:blur(4px);z-index:9550;align-items:flex-end;justify-content:center}',
     '.cr-overlay.open{display:flex}',
     '.cr-sheet{background:var(--white,#fff);border-radius:24px 24px 0 0;width:100%;max-height:90vh;',
     'overflow-y:auto;padding:20px 16px calc(env(safe-area-inset-bottom, 0px) + 20px);',

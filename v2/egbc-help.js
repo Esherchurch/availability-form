@@ -171,6 +171,11 @@
     b.type = 'button';
     b.textContent = '?';
     b.setAttribute('aria-label', 'Help for this page');
+    /* It places itself above the app's tab bar (its own app-mode rule), so app
+       mode's shifting of fixed things leaves it alone: shifted as well, from a
+       place measured before app mode was on, it sat on the tab bar (the
+       going-live audit, 3 Nov 2026). */
+    b.setAttribute('data-am-own', '');
     b.addEventListener('click', open);
     document.body.appendChild(b);
   }

@@ -431,11 +431,13 @@ const MEASURE = `(function(){
 /* The biggest fixed thing covering much of the screen: a sheet or pop-up.
    Or a tall side panel holding controls (3 Nov 2026): the Menu on a
    computer is 380px wide, under the 35%, and its backdrop is empty, so it
-   was never seen as open, never closed, and covered all that came after. */
+   was never seen as open, never closed, and covered all that came after.
+   A page's own full-screen view, placed between the app's bars (data-am-own,
+   Performance Notes' start), is the page, not a pop-up of it (3 Nov 2026). */
 const OVERLAY = `(function(){
   var iw=innerWidth, ih=innerHeight, best=null, ba=0, all=[];
   document.querySelectorAll('body *').forEach(function(el){ var s=getComputedStyle(el); if(s.position!=='fixed'||s.display==='none'||s.visibility==='hidden'||+s.opacity===0)return;
-    var r=el.getBoundingClientRect(), a=Math.max(0,Math.min(r.right,iw)-Math.max(r.left,0))*Math.max(0,Math.min(r.bottom,ih)-Math.max(r.top,0)); if(a < iw*ih*0.35 && !(r.left < iw && r.right > 0 && Math.min(r.bottom,ih)-Math.max(r.top,0) >= ih*0.6 && el.querySelectorAll("a[href],button").length >= 3))return; if(el.id==='egbc-app'||el.querySelector('#egbc-app'))return;
+    var r=el.getBoundingClientRect(), a=Math.max(0,Math.min(r.right,iw)-Math.max(r.left,0))*Math.max(0,Math.min(r.bottom,ih)-Math.max(r.top,0)); if(a < iw*ih*0.35 && !(r.left < iw && r.right > 0 && Math.min(r.bottom,ih)-Math.max(r.top,0) >= ih*0.6 && el.querySelectorAll("a[href],button").length >= 3))return; if(el.hasAttribute("data-am-own"))return; if(el.id==='egbc-app'||el.querySelector('#egbc-app'))return;
     if(!(el.textContent||'').trim())return;
     if(!best||a<ba){best=el;ba=a;} all.push((el.id||'')+'.'+String(el.className||el.tagName).slice(0,40)); });
   if(!best)return 'null';
@@ -454,7 +456,7 @@ const MARK_SCOPE = `(function(){
   document.querySelectorAll('body *').forEach(function(el){ var s=getComputedStyle(el); if(s.position!=='fixed'||s.display==='none'||s.visibility==='hidden'||+s.opacity===0)return;
     if(el.id==='egbc-app'||el.querySelector('#egbc-app'))return;
     var n=el.querySelectorAll('a[href],button,input,select,textarea,[data-act],[onclick]').length; if(n>mn&&el!==document.body){most=el;mn=n;}
-    var r=el.getBoundingClientRect(), a=Math.max(0,Math.min(r.right,iw)-Math.max(r.left,0))*Math.max(0,Math.min(r.bottom,ih)-Math.max(r.top,0)); if(a < iw*ih*0.35 && !(r.left < iw && r.right > 0 && Math.min(r.bottom,ih)-Math.max(r.top,0) >= ih*0.6 && el.querySelectorAll("a[href],button").length >= 3))return;
+    var r=el.getBoundingClientRect(), a=Math.max(0,Math.min(r.right,iw)-Math.max(r.left,0))*Math.max(0,Math.min(r.bottom,ih)-Math.max(r.top,0)); if(a < iw*ih*0.35 && !(r.left < iw && r.right > 0 && Math.min(r.bottom,ih)-Math.max(r.top,0) >= ih*0.6 && el.querySelectorAll("a[href],button").length >= 3))return; if(el.hasAttribute("data-am-own"))return;
     if(!(el.textContent||'').trim())return;
     if(!best||a<ba){best=el;ba=a;} });
   var el = best && best.querySelector('a[href],button,input,select,textarea,[data-act],[onclick]') ? best : most;
@@ -465,7 +467,7 @@ const MARK_SCOPE = `(function(){
 const SHEET_CLOSE = `(function(){
   var iw=innerWidth, ih=innerHeight, best=null, ba=0;
   document.querySelectorAll('body *').forEach(function(el){ var s=getComputedStyle(el); if(s.position!=='fixed'||s.display==='none'||s.visibility==='hidden'||+s.opacity===0)return;
-    var r=el.getBoundingClientRect(), a=Math.max(0,Math.min(r.right,iw)-Math.max(r.left,0))*Math.max(0,Math.min(r.bottom,ih)-Math.max(r.top,0)); if(a < iw*ih*0.35 && !(r.left < iw && r.right > 0 && Math.min(r.bottom,ih)-Math.max(r.top,0) >= ih*0.6 && el.querySelectorAll("a[href],button").length >= 3))return; if(el.id==='egbc-app'||el.querySelector('#egbc-app'))return;
+    var r=el.getBoundingClientRect(), a=Math.max(0,Math.min(r.right,iw)-Math.max(r.left,0))*Math.max(0,Math.min(r.bottom,ih)-Math.max(r.top,0)); if(a < iw*ih*0.35 && !(r.left < iw && r.right > 0 && Math.min(r.bottom,ih)-Math.max(r.top,0) >= ih*0.6 && el.querySelectorAll("a[href],button").length >= 3))return; if(el.hasAttribute("data-am-own"))return; if(el.id==='egbc-app'||el.querySelector('#egbc-app'))return;
     if(!(el.textContent||'').trim())return;
     if(!best||a<ba){best=el;ba=a;} });
   if(!best)return 'null';
@@ -732,7 +734,7 @@ async function tapAll(B, url, reopen, ctx) {
       /* A first-visit tour covers the page until it is ended, as a person's first
          tap anywhere ends it (CoreTeamApp, youthapp2): end it and try again. */
       if (!retried.has(next.sig) && /tour-dismiss/.test(pt.by)) { retried.add(next.sig); tapped.delete(next.sig); n--; await B.ev('(window.endTour&&endTour(),1)'); await sleep(300); continue; }
-      if (!retried.has(next.sig) && (/^DIV(#egbc-(you|nav)|.ey-)/.test(pt.by) || ((await B.ev(OVERLAY)) || 'null') !== resting)) { retried.add(next.sig); tapped.delete(next.sig); n--; await reopen(); continue; }
+      if (!retried.has(next.sig) && (/^[A-Z]+(#egbc-(you|nav)|.ey-)/.test(pt.by) || ((await B.ev(OVERLAY)) || 'null') !== resting)) { retried.add(next.sig); tapped.delete(next.sig); n--; await reopen(); continue; }
       why.push('covered: "' + (next.words || next.href) + '" is under ' + pt.by); notUsed(next, 'covered by ' + pt.by); continue;
     }
     const overBefore = (await B.ev(OVERLAY)) || 'null';
@@ -774,6 +776,9 @@ async function tapAll(B, url, reopen, ctx) {
     else used(next, didScrolled ? 'pressed, scrolled down' : 'pressed');
     /* A sheet or pop-up came up: it must have a close that can be seen,
        even scrolled to the bottom. Then close it. */
+    /* Another page opened after all (the app's Performance Notes, 3 Nov 2026):
+       its own full-screen start is not a pop-up of this one. Start again. */
+    if ((await B.ev('location.pathname')) !== new URL(before.u).pathname) { await reopen(); continue; }
     const overAfter = (await B.ev(OVERLAY)) || 'null';
     const sheet = overAfter !== 'null' && overAfter !== overBefore ? JSON.parse((await B.ev(SHEET_CLOSE)) || 'null') : null;
     if (sheet) {

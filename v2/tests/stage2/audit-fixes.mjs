@@ -30,7 +30,10 @@
  *   - the mix builder's messages show on a phone, and again on a second press;
  *   - the first-visit tours' "Don't show this again" is 44px to tap;
  *   - the birthday invite maker's tick boxes are 44px, and its email invite
- *     keeps its close and buttons in reach.
+ *     keeps its close and buttons in reach;
+ *   - the safeguarding risk register tells a master admin of a church with
+ *     no places yet to add them, rather than that the page is not for them;
+ *   - on a page opened from the app, Help sits above the app's tab bar.
  */
 import { serve, browser, person, signIn, put, wipe, sleep } from './harness.mjs';
 import { EGBC_UNDER18 } from '../../functions/under18-teams.js';
@@ -204,6 +207,19 @@ try {
       return (h === x || x.contains(h) ? 'close free' : 'close under ' + (h ? h.className : 'nothing')) + ', foot ' + (foot.bottom <= m.getBoundingClientRect().bottom + 1 ? 'shown' : 'clipped'); });
     ok('the email invite keeps its close and its buttons in reach after scrolling', got === 'close free, foot shown', got);
     ok('no errors', !p.__errs.length, p.__errs.join(' | ')); await p.browserContext().close(); }
+
+  console.log('\nThe safeguarding risk register, with no places yet');
+  { const p = await fresh(lead, 'safeguarding-risk.html'); await sleep(7000);
+    const got = await p.evaluate(() => { const c = document.querySelector('#noPlaces,#regOff,#notYours,.card'); return c ? (c.id || 'card') + ': ' + c.innerText.slice(0, 120) : document.body.innerText.slice(0, 120); });
+    ok('a master admin is told to add the places, with the link, not that the page is not for them', /^noPlaces:/.test(got) && await p.evaluate(() => !!document.querySelector('#noPlaces a[href="places-admin.html"]')), got);
+    ok('no errors', !p.__errs.length, p.__errs.join(' | ')); await p.browserContext().close(); }
+
+  console.log('\nHelp on a page opened from the app, on a computer');
+  for (const pg of ['view-only-rota.html', 'kids-admin.html']) {
+    const p = await fresh(lead, pg + '?app=1', 1440, 900); await sleep(8000);
+    const got = await p.evaluate(() => { if (!document.documentElement.hasAttribute('data-egbc-app-mode')) return 'not in app mode'; const b = document.getElementById('egbc-help-btn'); if (!b) return 'no Help button'; const r = b.getBoundingClientRect(), h = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return h === b || b.contains(h) ? 'free' : 'under ' + (h ? h.tagName + '.' + h.className : 'nothing'); });
+    ok(pg + ': Help is above the app\'s tab bar, not under it', got === 'free', got);
+    await p.browserContext().close(); }
 } catch (e) { ok('the run itself', false, e && e.stack || e); }
 finally { await b.close(); server.close(); }
 console.log('\n' + R.filter(Boolean).length + ' of ' + R.length + ' checks passed');

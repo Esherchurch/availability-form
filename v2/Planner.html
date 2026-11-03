@@ -4,7 +4,7 @@
 <script src="egbc-nosend.js?v=202611011200"></script>
 <!-- Opened from the app (?app=1): the app's header and tab bar, not the website's (egbc-appmode.js). -->
 <script src="egbc-appmode.js?v=202611011200"></script>
-<script src="egbc-shell.js?v=202611030900" data-title="Rota Planner"></script>
+<script src="egbc-shell.js?v=202611031600" data-title="Rota Planner"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -857,8 +857,14 @@ ${body}
                     updates[`assignments.${role}`] = { id: sundayPerson.id, name: sundayPerson.name };
                 }
             });
+            /* Pressed, it says what happened: with nobody on the service yet it
+               copied nothing and said nothing, and a refused save was silent too
+               (the going-live audit, 3 Nov 2026). The background sync stays quiet. */
             if(Object.keys(updates).length > 0) {
-                await updateDoc(doc(db, "events", practiceId), updates);
+                try { await updateDoc(doc(db, "events", practiceId), updates); }
+                catch (e) { if (silent) throw e; console.warn('Planner: practice sync', e); alert("That did not save: " + (e && e.message || e)); }
+            } else if (!silent) {
+                alert("Nobody is on that service's rota yet, so there is no one to copy to this practice.");
             }
         };
 

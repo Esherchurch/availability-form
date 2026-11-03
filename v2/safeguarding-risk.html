@@ -7,7 +7,7 @@
 
 <script src="egbc-nosend.js?v=202611011200"></script>
 <script src="egbc-appmode.js?v=202611011200"></script>
-<script src="egbc-shell.js?v=202611030900" data-title="Safeguarding risks"></script>
+<script src="egbc-shell.js?v=202611031600" data-title="Safeguarding risks"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -431,6 +431,10 @@
         TRUSTEE = teams.some(function (t) { return !!(EGBCAuth.inTeam && EGBCAuth.inTeam(t)); });
         var all = r[2].docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
         SITES = (MASTER || TRUSTEE) ? all : all.filter(function (x) { return LEADSITES.indexOf(x.id) >= 0; });
+        /* The register is kept per place. A church with no places yet told its
+           master admin and trustees "this page isn't for you" (the going-live
+           audit, 3 Nov 2026): it is for them, there is just nowhere to keep it. */
+        if (!all.length && (MASTER || TRUSTEE || LEADSITES.length)) { app.innerHTML = '<div class="card" id="noPlaces"><p style="margin:0 0 8px">The register is kept for each of the church’s places, and none is set up yet.</p>' + (MASTER ? '<p style="margin:0"><a href="places-admin.html">Add the church’s places</a>, then the register opens here.</p>' : '<p style="margin:0">Ask a master admin to add the church’s places; the register opens here then.</p>') + '</div>'; return; }
         if (!SITES.length) return leaderView((profile || {}).memberId || '');
         V.site = (SITES.filter(function (x) { return LEADSITES.indexOf(x.id) >= 0; })[0] || SITES[0]).id;
         return load();
