@@ -7,7 +7,8 @@
  *   - a page on egbc-db.js whose Firestore stops itself ("INTERNAL
  *     ASSERTION FAILED") says so at once, with Reload (the Rota planner and
  *     Performance notes, two of the eleven pages on it);
- *   - worshiphubapp.html sends everyone to the hub app's worship Rota;
+ *   - worshiphubapp.html sends everyone to the hub app's worship Rota, and
+ *     EGBCWorship&AV.html to the hub;
  *   - Performance notes opened from the app sits between the app's header
  *     and tab bar, at phone and desktop size, and the Switch sheet opens
  *     over it and closes again;
@@ -55,6 +56,9 @@ try {
   console.log('\nThe old Worship Hub sends people to the hub app');
   { const p = await fresh(lead, 'worshiphubapp.html'); await sleep(6000);
     ok('worshiphubapp.html lands on the hub app\'s worship Rota', await p.evaluate(() => /app\.html$/.test(location.pathname) && location.hash === '#worship:rota' && document.querySelector('[data-tab="rota"][aria-current="page"]') !== null), await p.evaluate(() => location.href));
+    ok('no errors', !p.__errs.length, p.__errs.join(' | ')); await p.browserContext().close(); }
+  { const p = await fresh(lead, 'EGBCWorship%26AV.html'); await sleep(6000);
+    ok('EGBCWorship&AV.html lands on the hub, with its notices', await p.evaluate(() => /hub\.html$/.test(location.pathname) && !!document.getElementById('latestBtn')), await p.evaluate(() => location.href));
     ok('no errors', !p.__errs.length, p.__errs.join(' | ')); await p.browserContext().close(); }
 
   console.log('\nPerformance notes, opened from the app');

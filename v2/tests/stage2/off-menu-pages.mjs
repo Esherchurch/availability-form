@@ -34,7 +34,7 @@ const PAGES = {
   'AVteamlandingpage.html': { for: 'the AV team and the worship team (Worship and AV are one team), those covering them, master admins (its installed app)', kinds: ['worship', 'core', 'areaAdmin', 'master'], private: [] },
   'birthday.html': { for: 'the core teams covering worship, and master admins (Calla Design: invitations)', kinds: ['core', 'master'], private: [] },
   'CoreTeamApp.html': { for: 'the core teams covering worship, and master admins (their installed app; the hub app has a Core space too)', kinds: ['core', 'master'], private: ['rota'] },
-  'EGBCWorship&AV.html': { for: 'the worship team and those covering it (its installed app)', kinds: ['worship', 'core', 'areaAdmin', 'master'], private: ['rota'] },
+  'EGBCWorship&AV.html': { for: 'nobody now: it sends everyone to the hub, which does its jobs (behaviour change, 3 Nov 2026)', kinds: [], private: [] },
   'emailcompilerinstructions.html': { for: 'anyone signed in (words only; linked from Send an email)', kinds: ['everyone', 'worship', 'kids', 'core', 'areaAdmin', 'master'], private: [] },
   'event-ra.html': { for: 'anyone signed in reaching it from an event (with no event chosen it says how to open one)', kinds: ['everyone', 'worship', 'kids', 'core', 'areaAdmin', 'master'], private: [] },
   'kids-admin.html': { for: 'the children\'s teams\' leaders, and master admins', kinds: ['kids', 'master'], private: ['child'] },

@@ -1,6 +1,6 @@
 # The pages in nobody's Menu: who each is for, and what each kind of person sees
 
-Made by tests/stage2/off-menu-pages.mjs on the spare emulators with the locked rules, 2026-11-02T23:12 UTC. "[shows: ...]" names any seeded private word on the page.
+Made by tests/stage2/off-menu-pages.mjs on the spare emulators with the locked rules, 2026-11-03T03:54 UTC. "[shows: ...]" names any seeded private word on the page.
 
 ## AVteamlandingpage.html
 
@@ -40,50 +40,50 @@ Made by tests/stage2/off-menu-pages.mjs on the spare emulators with the locked r
 
 ## EGBCWorship&AV.html
 
-**For:** the worship team and those covering it (its installed app)
+**For:** nobody now: it sends everyone to the hub, which does its jobs (behaviour change, 3 Nov 2026)
 
 - signed out: sent to sign in
-- everyone: opens: "Could not check your access This is nearly always the connection. Your"
-- worship: opens: "Could not check your access This is nearly always the connection. Your"
-- kids: opens: "Could not check your access This is nearly always the connection. Your"
-- core: opens: "Could not check your access This is nearly always the connection. Your"
-- areaAdmin: opens: "Could not check your access This is nearly always the connection. Your"
-- master: opens: "Could not check your access This is nearly always the connection. Your"
+- everyone: sent to hub.html
+- worship: sent to hub.html
+- kids: sent to hub.html
+- core: sent to hub.html
+- areaAdmin: sent to hub.html
+- master: sent to hub.html
 
 ## emailcompilerinstructions.html
 
 **For:** anyone signed in (words only; linked from Send an email)
 
 - signed out: sent to sign in
-- everyone: opens: "Email Compiler - how to Hub Menu Care & support EE Secure Portal Worsh"
+- everyone: refused: "Email Compiler - how to Hub Care & support 🔒 Something went wrong Fai"
 - worship: opens: "Email Compiler - how to Hub Menu Care & support WW Secure Portal Worsh"
-- kids: opens: "Email Compiler - how to Hub Menu Care & support KK Secure Portal Worsh"
-- core: opens: "Email Compiler - how to Hub Menu Care & support CC Secure Portal Worsh"
+- kids: refused: "Email Compiler - how to Hub Care & support 🔒 Something went wrong Fai"
+- core: opens: "Could not check your access This is nearly always the connection. Your"
 - areaAdmin: opens: "Email Compiler - how to Hub Menu Care & support AA Secure Portal Worsh"
-- master: opens: "Email Compiler - how to Hub Menu Care & support MM Secure Portal Worsh"
+- master: refused: "Email Compiler - how to Hub Care & support 🔒 Something went wrong Fai"
 
 ## event-ra.html
 
 **For:** anyone signed in reaching it from an event (with no event chosen it says how to open one)
 
 - signed out: sent to sign in
-- everyone: opens: "Event risk assessment Hub Menu Care & support EE Event risk assessment"
-- worship: opens: "Event risk assessment Hub Menu Care & support WW Event risk assessment"
-- kids: opens: "Event risk assessment Hub Menu Care & support KK Event risk assessment"
-- core: opens: "Event risk assessment Hub Menu Care & support CC Event risk assessment"
+- everyone: refused: "Event risk assessment Hub Care & support 🔒 Something went wrong Faile"
+- worship: refused: "Event risk assessment Hub Menu Care & support WW 🔒 This page isn’t fo"
+- kids: refused: "Event risk assessment Hub Menu Care & support KK 🔒 This page isn’t fo"
+- core: refused: "Event risk assessment Hub Menu Care & support CC 🔒 This page isn’t fo"
 - areaAdmin: opens: "Event risk assessment Hub Menu Care & support AA Event risk assessment"
-- master: opens: "Event risk assessment Hub Menu Care & support MM Event risk assessment"
+- master: refused: "Event risk assessment Hub Care & support 🔒 Something went wrong Faile"
 
 ## kids-admin.html
 
 **For:** the children's teams' leaders, and master admins
 
 - signed out: sent to sign in
-- everyone: refused: "Children's register Hub Menu Care & support EE Children's register Sun"
-- worship: opens: "Children's register Hub Menu Care & support WW Children's register Sun"
-- kids: opens: "Children's register Hub Menu Care & support KK Children's register Sun"
-- core: opens: "Children's register Hub Menu Care & support CC Children's register Sun"
-- areaAdmin: opens: "Children's register Hub Menu Care & support AA Children's register Sun"
+- everyone: refused: "Children's register Hub Menu Care & support EE 🔒 This page isn’t for "
+- worship: refused: "Children's register Hub Menu Care & support WW 🔒 This page isn’t for "
+- kids: refused: "Children's register Hub Menu Care & support KK 🔒 This page isn’t for "
+- core: refused: "Children's register Hub Menu Care & support CC 🔒 This page isn’t for "
+- areaAdmin: refused: "Children's register Hub Menu Care & support AA 🔒 This page isn’t for "
 - master: opens: "Children's register Hub Menu Care & support MM Children's register Sun"
 
 ## kids-checkin.html
@@ -91,11 +91,11 @@ Made by tests/stage2/off-menu-pages.mjs on the spare emulators with the locked r
 **For:** the children's teams, and master admins
 
 - signed out: sent to sign in
-- everyone: refused: "Sunday check-in Hub Menu Care & support EE Sunday check-in Children in"
-- worship: opens: "Sunday check-in Hub Menu Care & support WW Sunday check-in Children in"
-- kids: opens: "Sunday check-in Hub Menu Care & support KK Sunday check-in Children in"
-- core: opens: "Sunday check-in Hub Menu Care & support CC Sunday check-in Children in"
-- areaAdmin: opens: "Sunday check-in Hub Menu Care & support AA Sunday check-in Children in"
+- everyone: refused: "Sunday check-in Hub Menu Care & support EE 🔒 This page isn’t for you "
+- worship: refused: "Sunday check-in Hub Menu Care & support WW 🔒 This page isn’t for you "
+- kids: refused: "Sunday check-in Hub Menu Care & support KK 🔒 This page isn’t for you "
+- core: refused: "Sunday check-in Hub Menu Care & support CC 🔒 This page isn’t for you "
+- areaAdmin: refused: "Sunday check-in Hub Menu Care & support AA 🔒 This page isn’t for you "
 - master: opens: "Sunday check-in Hub Menu Care & support MM Sunday check-in Children in"
 
 ## mix-analyser.html
@@ -127,11 +127,11 @@ Made by tests/stage2/off-menu-pages.mjs on the spare emulators with the locked r
 **For:** master admins on the hub (as above)
 
 - signed out: sent to sign in
-- everyone: opens: "Could not check your access This is nearly always the connection. Your"
-- worship: opens: "Could not check your access This is nearly always the connection. Your"
-- kids: opens: "Could not check your access This is nearly always the connection. Your"
+- everyone: refused: "🔒 Master admins only Martin’s own mix tools: for master admins only. "
+- worship: refused: "🔒 Master admins only Martin’s own mix tools: for master admins only. "
+- kids: refused: "🔒 Master admins only Martin’s own mix tools: for master admins only. "
 - core: opens: "Could not check your access This is nearly always the connection. Your"
-- areaAdmin: opens: "Could not check your access This is nearly always the connection. Your"
+- areaAdmin: refused: "🔒 Master admins only Martin’s own mix tools: for master admins only. "
 - master: opens: "Could not check your access This is nearly always the connection. Your"
 
 ## music-uploader.html
@@ -187,11 +187,11 @@ Made by tests/stage2/off-menu-pages.mjs on the spare emulators with the locked r
 **For:** whoever pressed Print on a safeguarding record (with nothing chosen it prints nothing)
 
 - signed out: sent to sign in
-- everyone: opens: "Safeguarding: print Hub Menu Care & support EE Print / save as PDF Cho"
-- worship: opens: "Safeguarding: print Hub Menu Care & support WW Print / save as PDF Cho"
-- kids: opens: "Safeguarding: print Hub Menu Care & support KK Print / save as PDF Cho"
-- core: opens: "Safeguarding: print Hub Menu Care & support CC Print / save as PDF Cho"
-- areaAdmin: opens: "Safeguarding: print Hub Menu Care & support AA Print / save as PDF Cho"
+- everyone: refused: "Safeguarding: print Hub Menu Care & support EE 🔒 This page isn’t for "
+- worship: refused: "Safeguarding: print Hub Menu Care & support WW 🔒 This page isn’t for "
+- kids: refused: "Safeguarding: print Hub Menu Care & support KK 🔒 This page isn’t for "
+- core: refused: "Safeguarding: print Hub Menu Care & support CC 🔒 This page isn’t for "
+- areaAdmin: refused: "Safeguarding: print Hub Menu Care & support AA 🔒 This page isn’t for "
 - master: opens: "Safeguarding: print Hub Menu Care & support MM Print / save as PDF Cho"
 
 ## song-summary.html
@@ -199,12 +199,12 @@ Made by tests/stage2/off-menu-pages.mjs on the spare emulators with the locked r
 **For:** everyone on that Sunday's plan email, and any volunteer on a team (the rules: the plan's audience, or volunteer())
 
 - signed out: sent to sign in
-- everyone: opens: "Song Summary Hub Menu Care & support EE Song Summary Wednesday 11 Nove"
-- worship: opens: "Song Summary Hub Menu Care & support WW Song Summary Wednesday 11 Nove" [shows: plan]
-- kids: opens: "Song Summary Hub Menu Care & support KK Song Summary Wednesday 11 Nove" [shows: plan]
-- core: opens: "Song Summary Hub Menu Care & support CC Song Summary Wednesday 11 Nove" [shows: plan]
-- areaAdmin: opens: "Song Summary Hub Menu Care & support AA Song Summary Wednesday 11 Nove" [shows: plan]
-- master: opens: "Song Summary Hub Menu Care & support MM Song Summary Wednesday 11 Nove" [shows: plan]
+- everyone: opens: "Song Summary Hub Menu Care & support EE Song Summary Thursday 12 Novem"
+- worship: opens: "Song Summary Hub Menu Care & support WW Song Summary Thursday 12 Novem" [shows: plan]
+- kids: opens: "Song Summary Hub Menu Care & support KK Song Summary Thursday 12 Novem" [shows: plan]
+- core: opens: "Song Summary Hub Menu Care & support CC Song Summary Thursday 12 Novem" [shows: plan]
+- areaAdmin: opens: "Song Summary Hub Menu Care & support AA Song Summary Thursday 12 Novem" [shows: plan]
+- master: opens: "Song Summary Hub Menu Care & support MM Song Summary Thursday 12 Novem" [shows: plan]
 
 ## sundayplannersonglibrary.html
 
@@ -318,10 +318,10 @@ Made by tests/stage2/off-menu-pages.mjs on the spare emulators with the locked r
 
 **For:** the youth teams and young people with a code
 
-- signed out: opens: "Youth Hub ? Youth Worship Youth Tools Service Planner Plan songs, orde"
-- everyone: opens: "Youth Hub ? Youth Worship Youth Tools Service Planner Plan songs, orde"
-- worship: opens: "Youth Hub ? Youth Worship Youth Tools Service Planner Plan songs, orde"
-- kids: opens: "Youth Hub ? Youth Worship Youth Tools Service Planner Plan songs, orde"
-- core: opens: "Youth Hub ? Youth Worship Youth Tools Service Planner Plan songs, orde"
-- areaAdmin: opens: "Youth Hub ? Youth Worship Youth Tools Service Planner Plan songs, orde"
+- signed out: refused: "🔒 This page isn’t for you This page is for the youth group and the yo"
+- everyone: refused: "🔒 This page isn’t for you This page is for the youth group and the yo"
+- worship: refused: "🔒 This page isn’t for you This page is for the youth group and the yo"
+- kids: refused: "🔒 This page isn’t for you This page is for the youth group and the yo"
+- core: refused: "🔒 This page isn’t for you This page is for the youth group and the yo"
+- areaAdmin: refused: "🔒 This page isn’t for you This page is for the youth group and the yo"
 - master: opens: "Youth Hub ? Youth Worship Youth Tools Service Planner Plan songs, orde"

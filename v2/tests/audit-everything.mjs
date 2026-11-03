@@ -125,7 +125,7 @@ const MAX_TAPS = Number(opt('max-taps') || 40);
    written down by its code keys (tools/control-inventory.mjs) in
    tests/out/controls-reached.json, so the inventory can say N of N. */
 const EVERY = flag('every');
-const REACHED = [], SKIPPED_KEYS = [];
+const REACHED = [], SKIPPED_KEYS = [], SHARED_SHEETS = new Set();
 const REACHED_FILE = path.join(V2, 'tests', 'out', 'controls-reached.json');
 const { KEYS_JS } = await import('../tools/control-inventory.mjs');
 function saveReached() {
@@ -162,7 +162,7 @@ const OFF_MENU_BY_DESIGN = {
   'worshiphubapp.html': { roles: 'all', why: 'sends everyone to the hub app (the old installed Worship Hub)' },
   'CoreTeamApp.html': { roles: ['core', 'master'], why: 'the core teams\' own installed app' },
   'AVteamlandingpage.html': { roles: ['worship', 'areaAdmin', 'core', 'master'], why: 'the AV team\'s installed app: Worship and AV are one team; and those covering them' },
-  'EGBCWorship&AV.html': { roles: ['worship', 'areaAdmin', 'core', 'master'], why: 'the worship team\'s installed app, and those covering it' },
+  'EGBCWorship&AV.html': { roles: 'all', why: 'sends everyone to the hub (the old Worship & AV dashboard)' },
   'sundayplannersonglibrary.html': { roles: ['worship', 'areaAdmin', 'core', 'master'], why: 'opened from the Sunday planner, for the worship team' },
   'music-uploader.html': { roles: ['areaAdmin', 'core', 'master'], why: 'opened from the planners\' Upload Song, for worship leaders and the core teams covering them' },
   'trainingportalhub.html': { roles: ['worship', 'areaAdmin', 'core', 'master'], why: 'Worship Training\'s Practice planners, for the worship team' },
@@ -415,13 +415,15 @@ const MEASURE = `(function(){
 /* The controls on screen, in order, with a signature to remember them by. */
 /* The biggest fixed thing covering much of the screen: a sheet or pop-up. */
 const OVERLAY = `(function(){
-  var iw=innerWidth, ih=innerHeight, best=null, ba=0;
+  var iw=innerWidth, ih=innerHeight, best=null, ba=0, all=[];
   document.querySelectorAll('body *').forEach(function(el){ var s=getComputedStyle(el); if(s.position!=='fixed'||s.display==='none'||s.visibility==='hidden'||+s.opacity===0)return;
     var r=el.getBoundingClientRect(), a=Math.max(0,Math.min(r.right,iw)-Math.max(r.left,0))*Math.max(0,Math.min(r.bottom,ih)-Math.max(r.top,0)); if(a < iw*ih*0.35)return; if(el.id==='egbc-app'||el.querySelector('#egbc-app'))return;
     if(!(el.textContent||'').trim())return;
-    if(!best||a<ba){best=el;ba=a;} });
+    if(!best||a<ba){best=el;ba=a;} all.push((el.id||'')+'.'+String(el.className||el.tagName).slice(0,40)); });
   if(!best)return 'null';
-  return JSON.stringify({sig:(best.id||'')+'.'+String(best.className||best.tagName).slice(0,40)+'|'+best.childElementCount});
+  /* Every layer open, not only the smallest (3 Nov 2026): the calendar
+     opened from inside the Menu is bigger than the Menu, and was missed. */
+  return JSON.stringify({sig:(best.id||'')+'.'+String(best.className||best.tagName).slice(0,40)+'|'+best.childElementCount, all:all.sort().join(',')});
 })()`;
 /* INSIDE A POP-UP (--every, 3 Nov 2026). The reviewer: every button, link,
    form and tab, nothing sampled - and an editor's Save or a sheet's tabs are
@@ -475,6 +477,7 @@ const CONTROLS = `(function(){
     list.push({ i: i, sig: el.tagName + '|' + words + '|' + href + '|' + (el.getAttribute('data-act') || el.getAttribute('data-lact') || ''), words: words, href: href, keys: K(el),
       tel: /^(mailto|tel|sms|webcal|intent|whatsapp|geo):/i.test(href),
       needsSel: el.hasAttribute('data-needs-selection'),
+      plain: el.tagName === 'A' && !el.hasAttribute('onclick') && !el.hasAttribute('data-act') && !el.hasAttribute('data-lact') && !el.hasAttribute('data-mact') && !el.hasAttribute('download') && !/^(#|javascript:)/i.test(href) && !!href,
       chosen: el.getAttribute('aria-pressed') === 'true' || el.getAttribute('aria-selected') === 'true' || !!el.getAttribute('aria-current') || /(^| )(on|active|selected|is-active|current)( |$)/.test(typeof el.className === 'string' ? el.className : '') });
   });
   return JSON.stringify(list);
@@ -662,6 +665,18 @@ async function tapAll(B, url, reopen, ctx) {
     if (next.tel) { notUsed(next, 'opens another app (mail, phone, calendar)'); continue; }
     if (next.chosen) { used(next, 'already chosen'); continue; }      /* the choice already made: tapping it rightly changes nothing */
     if (next.needsSel) { notUsed(next, 'acts on selected text'); continue; }    /* Bold, Italic...: they act on selected text, and there is none */
+    /* A PLAIN LINK (--every, 3 Nov 2026): all it does is open its page, and
+       that page is audited in its own right. So its target is fetched, not
+       pressed - pressing each meant opening the page and its pop-up again,
+       and one page, person and size took twelve minutes. */
+    if (EVERY && next.plain && !/sign ?out|log ?out/i.test(next.words)) {
+      const here = await B.ev('location.href'), to = new URL(next.href, here);
+      if (to.origin !== new URL(here).origin) { notUsed(next, 'a link out of the hub (' + to.host + '): not followed, the test browser blocks outside hosts'); continue; }
+      const st = await fetch(to.origin + to.pathname).then((r) => r.status, () => 0);
+      if (st === 200) used(next, 'link checked: ' + decodeURIComponent(to.pathname.split('/').pop()) + ' opens');
+      else why.push('broken link: "' + (next.words || next.href) + '" goes to ' + to.pathname + ' (' + (st || 'no answer') + ')');
+      continue;
+    }
     if (SKIP_TAP.test(next.words) || (LIVE && SKIP_LIVE.test(next.words))) { skipped.push(next.words || next.href); notUsed(next, 'not tapped: changes things for others (sign out, delete, send...)'); continue; }
     n++;
     const sel = '(document.querySelectorAll("a[href],button,[role=button],[role=tab],[data-act],[data-lact],[data-mact],[data-tab],[onclick],summary")[' + next.i + '])';
@@ -675,6 +690,9 @@ async function tapAll(B, url, reopen, ctx) {
     for (let k = 0, was = await B.ev(where); k < 4; k++) { await sleep(k ? 200 : 30); const now = await B.ev(where); if (now === was) break; was = now; }
     const pt = JSON.parse((await B.ev('(function(){var el=' + sel + ';if(!el)return "null";var r=el.getBoundingClientRect();'
       + 'var x=r.left+Math.min(r.width/2,r.width-2),y=r.top+Math.min(r.height/2,r.height-2),hit=document.elementFromPoint(x,y);'
+      /* A backdrop is tapped beside the panel it sits under, not in its
+         middle (3 Nov 2026): any part of it that shows will do. */
+      + 'if(!(hit&&(hit===el||el.contains(hit)))&&r.width*r.height>innerWidth*innerHeight*0.35){for(var gi=1;gi<8;gi++)for(var gj=1;gj<8;gj++){var gx=Math.max(1,r.left)+(Math.min(r.right,innerWidth)-Math.max(1,r.left))*gi/8,gy=Math.max(1,r.top)+(Math.min(r.bottom,innerHeight)-Math.max(1,r.top))*gj/8,gh=document.elementFromPoint(gx,gy);if(gh===el){x=gx;y=gy;hit=gh;gi=gj=9;}}}'
       + 'var vv=window.visualViewport;return JSON.stringify({x:x,y:y,vx:vv?vv.offsetLeft:0,vy:vv?vv.offsetTop:0,ok:!!hit&&(hit===el||el.contains(hit)||hit.contains(el)),by:hit?(hit.tagName+(hit.id?"#"+hit.id:"")+(typeof hit.className==="string"&&hit.className?"."+hit.className.trim().split(/\\s+/)[0]:"")):"nothing"})})()')) || 'null');
     if (!pt) continue;
     if (!pt.ok) {
@@ -702,8 +720,25 @@ async function tapAll(B, url, reopen, ctx) {
     if (!after) { /* the page went away (a real navigation slipped through): start it again */ await reopen(); continue; }
     const did = B.acts.length || after.acts.length || viewAfter !== viewBefore || after.mut - before.mut > Math.ceil(noise * 1.2) + 2 || after.sx !== before.sx || after.sy !== before.sy
       || after.f !== before.f || after.u !== before.u;
-    if (!did) why.push('dead: "' + (next.words || next.href || 'a control') + '" does nothing');
-    else used(next, 'pressed');
+    /* A "back to the top" in a fixed bar has nothing to do on a page already
+       at the top (the hub's Hub button, 3 Nov 2026): scrolled down, it must
+       move the page. */
+    let didScrolled = false, noScroll = false;
+    if (!did && await B.ev('(function(){for(var p=' + sel + ';p&&p!==document.body;p=p.parentElement){var s=getComputedStyle(p).position;if(s==="fixed"||s==="sticky")return 1}return 0})()')) {
+      await B.ev('window.scrollTo(0,document.documentElement.scrollHeight);1'); await sleep(300);
+      const y0 = await B.ev('scrollY');
+      if (y0 > 0) {
+        const q = JSON.parse((await B.ev('(function(){var el=' + sel + ';if(!el)return "null";var r=el.getBoundingClientRect();return JSON.stringify({x:r.left+r.width/2,y:r.top+r.height/2})})()')) || 'null');
+        if (q) { await B.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: q.x, y: q.y, button: 'left', clickCount: 1 });
+          await B.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: q.x, y: q.y, button: 'left', clickCount: 1 });
+          await sleep(900); didScrolled = (await B.ev('scrollY')) < y0; }
+      } else noScroll = /top/i.test(await B.ev('(function(){var el=' + sel + ';return el?(el.title||"")+" "+(el.getAttribute("aria-label")||"")+" "+(el.getAttribute("onclick")||""):""})()') || '');
+    }
+    /* Its page does not scroll at this size, so a "to the top" has nothing to
+       do: listed as not reached, with that reason, rather than called dead. */
+    if (noScroll) { notUsed(next, 'back to the top, on a page that does not scroll at this size'); }
+    else if (!did && !didScrolled) why.push('dead: "' + (next.words || next.href || 'a control') + '" does nothing');
+    else used(next, didScrolled ? 'pressed, scrolled down' : 'pressed');
     /* A sheet or pop-up came up: it must have a close that can be seen,
        even scrolled to the bottom. Then close it. */
     const overAfter = (await B.ev(OVERLAY)) || 'null';
@@ -712,10 +747,14 @@ async function tapAll(B, url, reopen, ctx) {
       if (!sheet.close) why.push('sheet: "' + (next.words || 'a control') + '" opens a sheet (' + sheet.sig + ') with no visible close after scrolling it');
       /* --every: press and fill what is inside it, each time from the page
          opened afresh and this control pressed again; each pop-up once per
-         page, person and size, one level deep. */
+         page, person and size, two levels deep (the admin settings open from
+         the avatar's pop-up). */
       const sheets = ctx.sheets || (ctx.sheets = new Set());
-      if (EVERY && !ctx.depth && !sheets.has(sheet.sig)) {
-        sheets.add(sheet.sig);
+      /* The shared pop-ups (the Menu, Care: ids starting egbc-) are the same on
+         every page: explored once per person and size, not on each page. */
+      const shared = /^egbc-/.test(sheet.sig) ? ctx.role + '@' + ctx.size + ':' + sheet.sig : '';
+      if (EVERY && (ctx.depth || 0) < 2 && !sheets.has(sheet.sig) && !(shared && SHARED_SHEETS.has(shared))) {
+        sheets.add(sheet.sig); if (shared) SHARED_SHEETS.add(shared);
         const opener = next.sig;
         const reopenSheet = async () => {
           await reopen(); await sleep(300);
@@ -724,7 +763,7 @@ async function tapAll(B, url, reopen, ctx) {
           await sleep(600); await B.ev(MARK_SCOPE);
         };
         if ((await B.ev(MARK_SCOPE)) !== 'null') {
-          const inner = await tapAll(B, url, reopenSheet, Object.assign({}, ctx, { depth: 1, sheets }));
+          const inner = await tapAll(B, url, reopenSheet, Object.assign({}, ctx, { depth: (ctx.depth || 0) + 1, sheets }));
           why.push(...inner.why.map((w) => w.replace(/^(\w+): /, '$1 (in "' + (next.words || 'a pop-up').slice(0, 30) + '"): ')));
           await reopenSheet();
           why.push(...(await fillFields(B, reopenSheet, ctx)).map((w) => w + ' (in "' + (next.words || 'a pop-up').slice(0, 30) + '")'));
