@@ -1497,22 +1497,26 @@ function autoFitTextAreas() {
    else is told so, with a way back, before anything is read. */
 async function youthDoor() {
   const show = () => { const d = document.getElementById('youth-door'); if (d) d.remove(); };
-  /* A young person's phone is an anonymous sign-in, never someone in the
-     address book: it is checked against its own youthAccess record only, so
-     no "who is this?" lookup runs and no users record is made for it. */
+  /* A young person's phone signs in with their code (redeemYouthCode's token,
+     claim youth: true), never as someone in the address book: it is checked
+     against its own youthAccess record only, so no "who is this?" lookup runs
+     and no users record is made for it. Everyone else is asked the Youth
+     page's own question. */
   const u = await new Promise((res) => { const off = firebase.auth(EGBCAuth.app).onAuthStateChanged((x) => { off(); res(x); }); });
   let p = null;
-  if (u && !u.isAnonymous) {
-    p = await EGBCAuth.optional();
-    if (p && p.status === 'active') {
-      await EGBCAuth.loadPerms().catch(() => {});
-      if (EGBCAuth.guardVerdict({ youthGroups: true }) === '') { show(); return true; }
-    }
-  } else if (u) {
+  if (u) {
     try {
       const g = await db.collection('youthAccess').doc(u.uid).get(), d = g.exists ? g.data() : null;
       if (d && d.active && d.expiresAt && d.expiresAt.toDate() > new Date()) { show(); return true; }
     } catch (e) { /* no record of theirs: not a youth phone */ }
+    const youthPhone = u.isAnonymous || !!((await u.getIdTokenResult().catch(() => ({ claims: {} }))).claims || {}).youth;
+    if (!youthPhone) {
+      p = await EGBCAuth.optional();
+      if (p && p.status === 'active') {
+        await EGBCAuth.loadPerms().catch(() => {});
+        if (EGBCAuth.guardVerdict({ youthGroups: true }) === '') { show(); return true; }
+      }
+    }
   }
   show();
   EGBCAuth._blockPage('This page isn’t for you', 'This page is for the youth group and the youth team. ' +
