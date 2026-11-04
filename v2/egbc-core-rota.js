@@ -515,7 +515,10 @@
     });
   }
 
-  global.toggleHideAssigned = function () { hideAssigned = !hideAssigned; renderPlanner(); };
+  /* The button says which it is doing: with nobody assigned, hiding them changes nothing
+     on screen, and it read as dead (the going-live audit, 4 Nov 2026). */
+  global.toggleHideAssigned = function () { hideAssigned = !hideAssigned; renderPlanner();
+    var b = document.querySelector('button[onclick="toggleHideAssigned()"]'); if (b) { b.textContent = hideAssigned ? 'Show Assigned' : 'Hide Assigned'; b.setAttribute('aria-pressed', String(hideAssigned)); } };
   /* Past dates are hidden unless this is on; remembered on this device. */
   global.toggleShowPast = function (btn) { EGBCUKDates.togglePast(btn); renderPlanner(); EGBCUKDates.scrollToNext(document.getElementById('eventList')); };
   global.toggleTermCollapse = function (t) { rotaCollapsedTerms.has(t) ? rotaCollapsedTerms.delete(t) : rotaCollapsedTerms.add(t); renderPlanner(); };

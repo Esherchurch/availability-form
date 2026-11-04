@@ -120,10 +120,12 @@
     /* The church's rota teams (Teams & groups: top-level, not archived, not
        a group without a rota), in the church's own order. */
     ROTA = EGBCAuth.viewAsChoices().filter(function (t) { return EGBCAuth.TEAMS[t].rota !== false; });
-    /* A leader (leader, admin, or a core team covering it) sees only the
-       rota teams they lead. */
-    MINE = master ? null : ROTA.filter(function (t) { return EGBCAuth.isLeaderOf(t); });
-    if (MINE && !MINE.length) { document.getElementById('wrap').innerHTML = '<div class="card"><h1>Rota reports</h1><p>This page is for master admins and the leaders of rota teams.</p></div>'; return; }
+    /* An ADMIN of a rota team (or of a core team covering it) sees only those
+       teams. Admins, as the Menu offers it and Martin's approved table has it:
+       it let in every leader and core team member too, whom the Menu does not
+       offer it to (the going-live audit, 4 Nov 2026; behaviour change). */
+    MINE = master ? null : ROTA.filter(function (t) { return EGBCAuth.isAdminOf(t); });
+    if (MINE && !MINE.length) { document.getElementById('wrap').innerHTML = '<div class="card"><h1>Rota reports</h1><p>This page is for master admins and the admins of rota teams.</p><p><a href="hub.html">Back to the hub</a></p></div>'; return; }
     if (window.EGBCChurch && EGBCChurch.uses && EGBCChurch.uses('rotaReports') === false) { document.getElementById('wrap').innerHTML = '<div class="card"><h1>Rota reports</h1><p>Rota reports are switched off for this church.</p></div>'; return; }
     var now = new Date(), back = new Date(); back.setMonth(back.getMonth() - 3);
     var ahead = new Date(); ahead.setMonth(ahead.getMonth() + 3);

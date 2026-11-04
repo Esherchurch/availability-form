@@ -54,6 +54,11 @@
             label:has(> input[type=checkbox]), label:has(> input[type=radio]) { min-height:44px; display:inline-flex; align-items:center; }
             /* After the line above, and as specific: a button in a flex row keeps its 44px. */
             .flex > button, button { min-width:44px; }
+            /* A box's fixed minimum (the availability box's 340px) is wider than a phone leaves it. */
+            [class*="min-w-["] { min-width:0 !important; }
+            /* Nothing in a service's row is wider than the row: with a full rota a row
+               still ran 8px off the screen (the going-live audit, 4 Nov 2026). */
+            #eventList * { max-width:100%; box-sizing:border-box; }
         }
 
         /* ── Toast ── */
@@ -577,7 +582,10 @@ await allowed;
         window.unassignPerson=(eid,role)=>{ ensureTrainingEvents(); const ev=trainingEvents.find(e=>e.id===eid); if(!ev||!ev.assignments) return; delete ev.assignments[role]; saveTS(); renderPlanner(); };
         window.deleteEvent=(eid)=>{ if(!confirm("Delete this service? (Training only)")) return; ensureTrainingEvents(); trainingEvents=trainingEvents.filter(e=>e.id!==eid); saveTS(); renderPlanner(); showToast("🗑️ Deleted (training only)"); };
         window.archiveTerm=(termLabel)=>{ if(!confirm(`Archive ${termLabel}? (Training only)`)) return; ensureTrainingEvents(); trainingEvents.forEach(ev=>{if(ev.termLabel===termLabel) ev.archived=true;}); saveTS(); renderPlanner(); showToast("📦 Archived (training only)"); };
-        window.toggleHideAssigned=()=>{ hideAssigned=!hideAssigned; renderPlanner(); };
+        /* The button says which it is doing: with nobody assigned, hiding them changed
+           nothing on screen, and it read as dead (the going-live audit, 4 Nov 2026). */
+        window.toggleHideAssigned=()=>{ hideAssigned=!hideAssigned; renderPlanner();
+            const b=document.querySelector('button[onclick="toggleHideAssigned()"]'); if(b){ b.textContent=hideAssigned?'Show Assigned':'Hide Assigned'; b.setAttribute('aria-pressed', String(hideAssigned)); } };
         window.toggleTermCollapse=t=>{ collapsedTerms.has(t)?collapsedTerms.delete(t):collapsedTerms.add(t); renderPlanner(); };
         window.toggleEventExpand=id=>{ expandedEvents.has(id)?expandedEvents.delete(id):expandedEvents.add(id); renderPlanner(); };
         window.toggleBucket=id=>{ openBuckets.has(id)?openBuckets.delete(id):openBuckets.add(id); renderPlanner(); };
@@ -770,7 +778,12 @@ await allowed;
             dr.autoTable({startY:35,head:[['DATE','TIME','SERVICE',...allRoles.map(r=>r.toUpperCase())]],body:te.map(e=>[new Date(e.date).toLocaleDateString('en-GB'),(e.startTime||'')+(e.startTime&&e.endTime?'–':'')+(e.endTime||''),e.type,...allRoles.map(r=>e.assignments?.[r]?.name||"---")]),headStyles:{fillColor:[61,98,99]},styles:{fontSize:7}});
             return dr;
         };
-        window.generatePDF=async(type,memberId)=>{ const d=await getPdfBlob(type,memberId); if(!d) return alert("No dates found."); d.save(`${type}_rota_TRAINING.pdf`); };
+        /* As the real planner: a person first, and a failure said - "Indiv" with nobody
+           chosen did nothing at all (the going-live audit, 4 Nov 2026). */
+        window.generatePDF=async(type,memberId)=>{
+            if((type==='individual'||type==='household'||type==='wall')&&!addressBook.find(m=>m.id===memberId)) return alert("Select your name first.");
+            try{ const d=await getPdfBlob(type,memberId); if(!d) return alert("No dates found."); d.save(`${type}_rota_TRAINING.pdf`); }
+            catch(e){ console.error('Training PDF:',e); alert("The PDF could not be made: "+(e&&e.message||e)); } };
         window.exportToExcel=()=>{ const active=getCachedEvents().filter(e=>!e.archived).sort((a,b)=>new Date(a.date)-new Date(b.date)); const wb=XLSX.utils.book_new(); const data=active.map(e=>({Date:e.date,Type:e.type,...Object.fromEntries(Object.entries(e.assignments||{}).map(([r,p])=>[r,p.name]))})); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(data),"Rota"); XLSX.writeFile(wb,"EGBC_Rota_TRAINING.xlsx"); };
 
         // ── Render ─────────────────────────────────────────────────────────────────
@@ -879,12 +892,13 @@ await allowed;
 
 <!-- Availability email preview modal -->
 <div id="emailPreviewModal" class="t-modal">
-    <div class="t-modal-box">
-        <!-- Sticks to the box's top, so Close is still there after scrolling a long preview (the going-live audit, 3 Nov 2026). -->
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:-2rem -2rem 1rem;padding:1rem 2rem;position:sticky;top:-2rem;background:white;z-index:1;">
+    <div class="t-modal-box" style="display:flex;flex-direction:column;padding:0;overflow:hidden;">
+        <!-- Close is outside the part that scrolls, so it is there however long the preview (the going-live audit, 3-4 Nov 2026). -->
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:1rem 1.5rem;border-bottom:1px solid #e5e7eb;flex-shrink:0;">
             <h2 style="font-size:16px;font-weight:800;color:#3d6263;">📧 Availability Request Email Preview</h2>
             <button onclick="closeEmailPreview()" style="min-height:44px;flex-shrink:0;background:#f0f6f6;border:none;border-radius:9999px;padding:6px 14px;font-weight:800;font-size:11px;color:#3d6263;cursor:pointer;text-transform:uppercase;letter-spacing:0.06em;font-family:'Montserrat',sans-serif;">Close</button>
         </div>
+        <div style="overflow-y:auto;min-height:0;flex:1;padding:1rem 1.5rem 1.5rem;">
         <div style="background:#fef3c7;border:2px dashed #f59e0b;padding:10px 14px;border-radius:10px;margin-bottom:1rem;font-size:11px;font-weight:800;color:#92400e;text-transform:uppercase;letter-spacing:0.06em;font-family:'Montserrat',sans-serif;">⚠️ Training mode — this email is NOT sent. Preview only.</div>
         <div id="ep-note" style="background:#f0f6f6;border-radius:10px;padding:10px 14px;margin-bottom:1rem;font-size:12px;font-weight:700;color:#3d6263;line-height:1.6;white-space:pre-wrap;font-family:'Montserrat',sans-serif;"></div>
         <div class="ep-label">To</div><div id="ep-to" class="ep-field"></div>
@@ -892,6 +906,7 @@ await allowed;
         <div class="ep-label">Subject</div><div id="ep-subject" class="ep-field"></div>
         <div class="ep-label">Body</div><div id="ep-body" class="ep-field" style="white-space:pre-wrap;line-height:1.6;"></div>
         <button onclick="closeEmailPreview()" style="width:100%;background:#3d6263;color:white;border:none;border-radius:9999px;padding:12px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:0.08em;cursor:pointer;margin-top:0.5rem;">Got it</button>
+        </div>
     </div>
 </div>
 

@@ -228,7 +228,13 @@
             .subject-bar, #email-canvas { width: auto; }
             .toolbar, .tool-row, .tgroup { flex-wrap: wrap; }
             .tgroup { border-right: none; padding-right: 0; }
+            /* The toolbar sticks, so it stays one row that scrolls sideways: wrapped, it
+               grew tall enough to cover the page under it ("Pick individual people",
+               the going-live audit, 4 Nov 2026). */
+            #toolbar { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            #toolbar .tgroup { flex-wrap: nowrap; flex-shrink: 0; }
             .tbtn, select.tsel { min-width: 44px; min-height: 44px; }
+            .color-dot { width: 44px; height: 44px; } /* named buttons now, so 44px to tap like the rest */
             body { padding-bottom: 72px; }
             .list-item { min-height: 44px; display: flex; align-items: center; gap: 8px; }
             .userline a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 6px; }
@@ -363,7 +369,7 @@
 </div>
 
 <!-- Toolbar -->
-<div id="toolbar">
+<div id="toolbar" data-am-own><!-- it places itself under the app's header (html[data-egbc-app-mode] #toolbar): not moved again -->
     <div class="tgroup"><span class="brandmark"><i data-lucide="mail" style="width:15px;height:15px;vertical-align:-2px"></i> Email Builder</span></div>
     <div class="tgroup">
         <button data-needs-selection class="tbtn b" onmousedown="event.preventDefault(); document.execCommand('bold');" title="Bold">B</button>
@@ -391,17 +397,17 @@
             <option value="1.6">Normal</option>
             <option value="2">Roomy</option>
         </select>
-        <button class="tbtn" onclick="resetSpacing()" title="Reset uneven / pasted spacing">⤓ Fix spacing</button>
+        <button class="tbtn" id="fixSpacingBtn" onclick="resetSpacing()" title="Reset uneven / pasted spacing">⤓ Fix spacing</button>
     </div>
     <div class="tgroup">
-        <span class="color-dot" style="background:#3d6263;" onmousedown="event.preventDefault(); applyManualStyle('color', '#3d6263');" title="Teal"></span>
-        <span class="color-dot" style="background:#c47b2e;" onmousedown="event.preventDefault(); applyManualStyle('color', '#c47b2e');" title="Amber"></span>
-        <span class="color-dot" style="background:#000000;" onmousedown="event.preventDefault(); applyManualStyle('color', '#000000');" title="Black"></span>
+        <span class="color-dot" data-needs-selection role="button" aria-label="Colour the chosen text teal" style="background:#3d6263;" onmousedown="event.preventDefault(); applyManualStyle('color', '#3d6263');" title="Teal"></span>
+        <span class="color-dot" data-needs-selection role="button" aria-label="Colour the chosen text amber" style="background:#c47b2e;" onmousedown="event.preventDefault(); applyManualStyle('color', '#c47b2e');" title="Amber"></span>
+        <span class="color-dot" data-needs-selection role="button" aria-label="Colour the chosen text black" style="background:#000000;" onmousedown="event.preventDefault(); applyManualStyle('color', '#000000');" title="Black"></span>
     </div>
     <div class="tgroup">
-        <button class="tbtn" onmousedown="event.preventDefault(); document.execCommand('justifyLeft');" title="Align left"><i data-lucide="align-left" style="width:15px;height:15px;vertical-align:-2px"></i></button>
-        <button class="tbtn" onmousedown="event.preventDefault(); document.execCommand('justifyCenter');" title="Align center"><i data-lucide="align-center" style="width:15px;height:15px;vertical-align:-2px"></i></button>
-        <button class="tbtn" onmousedown="event.preventDefault(); document.execCommand('justifyRight');" title="Align right"><i data-lucide="align-right" style="width:15px;height:15px;vertical-align:-2px"></i></button>
+        <button data-needs-selection class="tbtn" aria-label="Align left" onmousedown="event.preventDefault(); document.execCommand('justifyLeft');" title="Align left"><i data-lucide="align-left" style="width:15px;height:15px;vertical-align:-2px"></i></button>
+        <button data-needs-selection class="tbtn" aria-label="Align centre" onmousedown="event.preventDefault(); document.execCommand('justifyCenter');" title="Align center"><i data-lucide="align-center" style="width:15px;height:15px;vertical-align:-2px"></i></button>
+        <button data-needs-selection class="tbtn" aria-label="Align right" onmousedown="event.preventDefault(); document.execCommand('justifyRight');" title="Align right"><i data-lucide="align-right" style="width:15px;height:15px;vertical-align:-2px"></i></button>
     </div>
     <div class="tgroup">
         <select class="tsel" onchange="if(this.value) insertBlock(this.value); this.value=''">
@@ -843,6 +849,14 @@ function resetSpacing() {
     const ed = $('editable-body');
     ed.querySelectorAll('*').forEach(el => { if (el.style) { el.style.lineHeight = ''; el.style.marginTop = ''; el.style.marginBottom = ''; } });
     markDirty();
+    /* Said on the button itself: on a phone the toolbar scrolls sideways and
+       the save line ("Unsaved edits") is off the screen, so nothing showed. */
+    const b = $('fixSpacingBtn'); if (!b) return;
+    /* A second press while it still says so blanks it for a moment first, so
+       that press shows too (as mix-ui.js say() does). */
+    clearTimeout(resetSpacing._t); b.textContent = '';
+    resetSpacing._t = setTimeout(() => { b.textContent = '✓ Spacing fixed';
+        resetSpacing._t = setTimeout(() => { b.textContent = '⤓ Fix spacing'; }, 2000); }, 120);
 }
 
 // Clean pasted content so it can't drag in strange spacing or fonts

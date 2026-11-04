@@ -16,7 +16,7 @@
         people left out; Choir counts as Worship
      6. AN AREA LEADER sees only their own team's slots and people
      7. each report downloads as CSV, the same as the screen
-     8. not a master admin or a rota team leader: turned away
+     8. not a master admin or a rota team admin: turned away, with a way back
      9. the page writes nothing */
 
 import fs from 'node:fs';
@@ -211,8 +211,8 @@ try {
   /* ---------- 8. nobody else ---------- */
   const A = await browser('ann');
   await A.goto(URLB + 'rota-reports.html', { waitUntil: 'networkidle2' });
-  await until(async () => /for master admins and the leaders of rota teams/.test(await text(A)));
-  ok('8. NOT A MASTER ADMIN OR A ROTA TEAM LEADER: turned away', /for master admins and the leaders of rota teams/.test(await text(A)) && !(await A.$('#table')));
+  await until(async () => /for master admins and the admins of rota teams/.test(await text(A)));
+  ok('8. NOT A MASTER ADMIN OR A ROTA TEAM ADMIN: turned away, with a way back', /for master admins and the admins of rota teams/.test(await text(A)) && !(await A.$('#table')) && !!(await A.$('#wrap a[href="hub.html"]')));
 
   /* ---------- 9. writes nothing ---------- */
   ok('9. THE PAGE WROTE NOTHING: the rotas are exactly as they were', J((await db.collection('events').get()).docs.map(d => [d.id, d.data()])) === before);

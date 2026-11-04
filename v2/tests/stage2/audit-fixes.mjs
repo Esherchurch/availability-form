@@ -39,7 +39,11 @@
  *   - the AV, worship and core charters have no password in their source:
  *     a team member who is not its admin is told so, a master admin edits;
  *   - the practice Sunday planner shows a new item and keeps Email Team's
- *     close in reach, as the real planner does.
+ *     close in reach, as the real planner does;
+ *   - the practice rota planner's email preview keeps Close in reach, and
+ *     Hide Assigned says what pressing it again will do (4 Nov 2026);
+ *   - the Email Builder's toolbar scrolls sideways on a phone, its colour
+ *     and align buttons have names, and Fix spacing says it has done it.
  */
 import { serve, browser, person, signIn, put, wipe, sleep } from './harness.mjs';
 import { EGBC_UNDER18 } from '../../functions/under18-teams.js';
@@ -256,6 +260,25 @@ try {
       const got = await tri(p); ok('an AV team member who is not its admin is told only its admins can edit, and stays out of edit mode', /only this team.s admins/i.test(got), got); await p.browserContext().close(); }
     { const p = await fresh(lead, 'AVteamlandingpage.html'); await sleep(6000);
       const got = await tri(p); ok('a master admin gets edit mode', got === 'edit mode', got); await p.browserContext().close(); } }
+
+  console.log('\nThe practice rota planner, on a phone');
+  { const p = await fresh(lead, 'trainingrotaplanner.html', 375, 812); await sleep(7000);
+    const cl = await p.evaluate(() => { const m = document.getElementById('emailPreviewModal'); m.classList.add('show'); const sc = m.querySelector('.t-modal-box > div:last-child'); sc.scrollTop = sc.scrollHeight;
+      const x = [...m.querySelectorAll('button')].find((b) => /close/i.test(b.textContent)); if (!x) return 'no close'; const r = x.getBoundingClientRect(), h = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return r.top >= 0 && (h === x || x.contains(h)) ? 'free' : 'under ' + (h ? h.tagName : 'nothing'); });
+    ok('the email preview keeps Close in reach after scrolling', cl === 'free', cl);
+    const ha = await p.evaluate(() => { const b = document.querySelector('button[onclick="toggleHideAssigned()"]'); if (!b) return 'no button'; b.click(); const one = b.textContent + '/' + b.getAttribute('aria-pressed'); b.click(); return one + ', ' + b.textContent + '/' + b.getAttribute('aria-pressed'); });
+    ok('Hide Assigned becomes Show Assigned, and back', ha === 'Show Assigned/true, Hide Assigned/false', ha);
+    ok('no errors', !p.__errs.length, p.__errs.join(' | ')); await p.browserContext().close(); }
+
+  console.log('\nThe Email Builder, on a phone');
+  { const p = await fresh(lead, 'EmailBuilder2.html', 375, 812); await sleep(7000);
+    const tb = await p.evaluate(() => { const t = document.getElementById('toolbar'); if (!t) return 'no toolbar'; const cs = getComputedStyle(t); return cs.overflowX + ', ' + (document.documentElement.scrollWidth <= innerWidth + 1 ? 'page fits' : 'page runs off'); });
+    ok('the toolbar scrolls sideways and the page fits the screen', tb === 'auto, page fits', tb);
+    const nm = await p.evaluate(() => [...document.querySelectorAll('#toolbar .color-dot, #toolbar button')].filter((b) => !((b.getAttribute('aria-label') || '') + b.textContent).trim()).length);
+    ok('every toolbar button has a name', nm === 0, nm + ' without');
+    const fx = await p.evaluate(async () => { const b = document.getElementById('fixSpacingBtn'); b.click(); await new Promise((r) => setTimeout(r, 400)); const now = b.textContent; await new Promise((r) => setTimeout(r, 2300)); return now + ' then ' + b.textContent; });
+    ok('Fix spacing says it has done it, then goes back', fx === '✓ Spacing fixed then ⤓ Fix spacing', fx);
+    ok('no errors', !p.__errs.length, p.__errs.join(' | ')); await p.browserContext().close(); }
 } catch (e) { ok('the run itself', false, e && e.stack || e); }
 finally { await b.close(); server.close(); }
 console.log('\n' + R.filter(Boolean).length + ' of ' + R.length + ' checks passed');
