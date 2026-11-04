@@ -307,11 +307,14 @@ document.addEventListener('click', async (e) => {
   const row = b.closest('[data-dev]'); if (!row) return;
   const d = DEVICES.find(x => x.id === row.dataset.dev); if (!d) return;
   const rn = row.querySelector('.rn');
-  if (b.dataset.act === 'rename') { rn.hidden = false; rn.querySelector('input').focus(); return; }
-  if (b.dataset.act === 'cancel') { rn.hidden = true; return; }
+  /* Rename and Job are greyed while their box is open (Cancel brings them back): pressed again they did
+     nothing (Stage 3 audit, 4 Nov 2026). */
+  const opener = (act, on) => { const x = row.querySelector('[data-act="' + act + '"]'); if (x) x.disabled = on; };
+  if (b.dataset.act === 'rename') { rn.hidden = false; opener('rename', true); rn.querySelector('input').focus(); return; }
+  if (b.dataset.act === 'cancel') { rn.hidden = true; opener('rename', false); return; }
   const jb = row.querySelector('.jb');
-  if (b.dataset.act === 'job' && jb) { jb.hidden = false; return; }
-  if (b.dataset.act === 'jobcancel' && jb) { jb.hidden = true; return; }
+  if (b.dataset.act === 'job' && jb) { jb.hidden = false; opener('job', true); return; }
+  if (b.dataset.act === 'jobcancel' && jb) { jb.hidden = true; opener('job', false); return; }
   if (b.dataset.act === 'jobsave' && jb) {
     const services = !!jb.querySelector('[data-job=services]').checked;
     const lessonGroups = [].filter.call(jb.querySelectorAll('[data-job=lesson]'), c => c.checked).map(c => c.value);

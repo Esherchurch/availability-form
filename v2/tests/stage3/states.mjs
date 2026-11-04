@@ -28,7 +28,8 @@ const PART = [wait('[data-toggle]'), click('[data-toggle]'), wait('[data-addstep
 const stepForm = (kind) => PART.concat([pick('[data-addstep]', kind), wait('#stAdd'), 'scope']);
 
 /* ---- Present: nobody presenting first (as "Stop" leaves it), then Present pressed ---- */
-const FREE = [wait('#app *'), 'EGBCAuth.db.collection("presentNow").doc("ps_ps_s3").update({presenterUid:"",presenterName:"",blank:false})'];
+/* .catch: a refused reset was an "Uncaught PERMISSION_DENIED" counted against the page (4 Nov 2026) */
+const FREE = [wait('#app *'), 'EGBCAuth.db.collection("presentNow").doc("ps_ps_s3").update({presenterUid:"",presenterName:"",blank:false}).catch(function(){})'];
 const PRESENTING = FREE.concat([wait('[data-start]'), click('[data-start]')]);
 /* the quiz is the second slide: its choices are drawn when the presenter reaches it */
 const QUIZ = PRESENTING.concat([wait('[data-go]'), click('[data-go]')]);
@@ -55,16 +56,19 @@ export default [
   /* ---- Sunday check-in ---- */
   { name: 'check-in: the desk, a family found', url: 'kids-checkin.html', roles: LEADS, steps: [wait('#d-q'), type('#d-q', 'Audit'), wait('[data-fam]')] },
   { name: 'check-in: the desk, a visitor family (consent run out)', url: 'kids-checkin.html', roles: LEADS, steps: [wait('#d-q'), type('#d-q', 'Visitor'), wait('[data-renew]')] },
-  { name: 'check-in: the renewal QR code', url: 'kids-checkin.html', roles: LEADS, steps: [wait('#d-q'), type('#d-q', 'Visitor'), wait('[data-renew]'), click('[data-renew]'), wait('#m-done')] },
+  /* A pop-up open ends with 'scope': its own controls are pressed, not the page under the backdrop
+     ("covered: Check in is under DIV#back", 4 Nov 2026). Each waits for the pop-up first, so scope
+     never falls back to the View-as bar. */
+  { name: 'check-in: the renewal QR code', url: 'kids-checkin.html', roles: LEADS, steps: [wait('#d-q'), type('#d-q', 'Visitor'), wait('[data-renew]'), click('[data-renew]'), wait('#m-done'), 'scope'] },
   { name: 'check-in: the desk, labels to print', url: 'kids-checkin.html', roles: LEADS, steps: [wait('#d-q'), type('#d-q', 'Visitor'), wait('[data-checkin]'), click('[data-checkin]'), wait('#l-print')] },
   { name: 'check-in: checking a child out', url: 'kids-checkin.html', roles: LEADS, steps: [wait('#d-q'), type('#d-q', 'Visitor'), wait('[data-checkin]'), click('[data-checkin]'), wait('[data-out]'), click('[data-out]'), wait('[name="o-who"]'), 'scope'] },
   { name: 'check-in: collected with the code', url: 'kids-checkin.html', roles: LEADS, steps: [wait('#d-q'), type('#d-q', 'Visitor'), wait('[data-checkin]'), click('[data-checkin]'), wait('[data-out]'), click('[data-out]'), wait('[name="o-who"][value="__code"]'), click('[name="o-who"][value="__code"]'), wait('#o-name'), 'scope'] },
   { name: 'check-in: first time here', url: 'kids-checkin.html', roles: LEADS, steps: tab('visitor') },
   { name: 'check-in: groups', url: 'kids-checkin.html', roles: LEADS.concat(['groupLeader']), steps: tab('groups') },
   { name: 'check-in: a child checked in from the group', url: 'kids-checkin.html', roles: LEADS.concat(['groupLeader']), steps: tab('groups').concat([wait('#g-pick'), pick('#g-pick', 'g_s3'), wait('[data-gin]'), click('[data-gin]'), wait('#m-print')]) },
-  { name: 'check-in: a child\'s details', url: 'kids-checkin.html', roles: LEADS.concat(['groupLeader']), steps: tab('groups').concat([wait('#g-pick'), pick('#g-pick', 'g_s3'), wait('[data-more="c_s3"]'), click('[data-more="c_s3"]'), wait('#m-call')]) },
-  { name: 'check-in: calling a parent to the screen', url: 'kids-checkin.html', roles: LEADS.concat(['groupLeader']), steps: tab('groups').concat([wait('#g-pick'), pick('#g-pick', 'g_s3'), wait('[data-more="c_s3"]'), click('[data-more="c_s3"]'), wait('#m-screen'), click('#m-screen'), wait('#m-screen-yes')]) },
-  { name: 'check-in: a call on the screen', url: 'kids-checkin.html', roles: LEADS.concat(['groupLeader']), steps: tab('groups').concat([wait('#g-pick'), pick('#g-pick', 'g_s3'), wait('[data-more="c_s3"]'), click('[data-more="c_s3"]'), wait('#m-screen'), click('#m-screen'), wait('#m-screen-yes'), click('#m-screen-yes'), wait('[data-pdone]')]) },
+  { name: 'check-in: a child\'s details', url: 'kids-checkin.html', roles: LEADS.concat(['groupLeader']), steps: tab('groups').concat([wait('#g-pick'), pick('#g-pick', 'g_s3'), wait('[data-more="c_s3"]'), click('[data-more="c_s3"]'), wait('#m-call'), 'scope']) },
+  { name: 'check-in: calling a parent to the screen', url: 'kids-checkin.html', roles: LEADS.concat(['groupLeader']), steps: tab('groups').concat([wait('#g-pick'), pick('#g-pick', 'g_s3'), wait('[data-more="c_s3"]'), click('[data-more="c_s3"]'), wait('#m-screen'), click('#m-screen'), wait('#m-screen-yes'), 'scope']) },
+  { name: 'check-in: a call on the screen', url: 'kids-checkin.html', roles: LEADS.concat(['groupLeader']), steps: tab('groups').concat([wait('#g-pick'), pick('#g-pick', 'g_s3'), wait('[data-more="c_s3"]'), click('[data-more="c_s3"]'), wait('#m-screen'), click('#m-screen'), wait('#m-screen-yes'), click('#m-screen-yes'), wait('[data-pdone]'), 'scope']) },
   { name: 'check-in: roll-call', url: 'kids-checkin.html', roles: LEADS, steps: tab('roll') },
   { name: 'check-in: registers', url: 'kids-checkin.html', roles: LEADS, steps: tab('register') },
   { name: 'check-in: registers, chosen dates', url: 'kids-checkin.html', roles: LEADS, steps: tab('register').concat([wait('#reg-period'), pick('#reg-period', 'custom'), wait('#reg-from')]) },
@@ -109,7 +113,7 @@ export default [
   { name: 'risks: adding a risk', url: 'safeguarding-risk.html', roles: ['sgLead'], steps: [...tab('risks'), wait('[data-addrisk]'), click('[data-addrisk]'), 'scope'] },
   { name: 'risks: from the starter list', url: 'safeguarding-risk.html', roles: ['sgLead'], steps: [...tab('risks'), wait('[data-starter]'), click('[data-starter]'), 'scope'] },
   { name: 'risks: event assessments', url: 'safeguarding-risk.html', roles: SG, steps: [...tab('events'), ] },
-  { name: 'risks: an event assessment opened', url: 'safeguarding-risk.html', roles: SG, steps: [...tab('events'), wait('[data-sgev]'), click('[data-sgev] button')] },
+  { name: 'risks: an event assessment opened', url: 'safeguarding-risk.html', roles: SG, steps: [...tab('events'), wait('[data-sgev]'), click('[data-sgev] button'), wait('#back .sheet button'), 'scope'] },
   { name: 'risks: an event assessment read', url: 'safeguarding-risk.html', roles: SG, steps: [...tab('events'), wait('[data-viewsga]'), click('[data-viewsga]'), wait('#sgaView .sga'), 'scope'] },
   { name: 'risks: warnings', url: 'safeguarding-risk.html', roles: SG, steps: [...tab('warnings'), ] },
   { name: 'risks: annual review', url: 'safeguarding-risk.html', roles: SG, steps: [...tab('review'), ] },

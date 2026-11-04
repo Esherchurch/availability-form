@@ -55,7 +55,8 @@
   .st.ok{background:var(--ok-bg);color:var(--ok)}.st.wait{background:var(--gold-bg);color:var(--gold)}.st.no{background:var(--danger-bg);color:var(--danger)}
   dl{display:grid;grid-template-columns:130px 1fr;gap:4px 10px;margin:8px 0;font-size:13px}dt{color:var(--muted)}dd{margin:0;overflow-wrap:break-word}
   .two{display:flex;gap:10px;flex-wrap:wrap}.two>div{flex:1;min-width:140px}
-  .ck{display:flex;gap:8px;align-items:center;margin:4px 0;font-size:14px}
+  /* min-height: a tick box's label is what a thumb taps, 30px at least (Stage 3 audit, 4 Nov 2026) */
+  .ck{display:flex;gap:8px;align-items:center;margin:4px 0;font-size:14px;min-height:32px}
   #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;z-index:90;display:none;max-width:90vw}
   /* On a phone (F-150): each label above its value, at full width, so an
      email or a list of names is never squeezed into a thin column, and a
@@ -332,8 +333,12 @@
           '<button class="btn sec" data-gedit="' + esc(g.id) + '">Edit</button></div>';
       }).join('') : '<p class="hint">No groups yet.</p>') +
       '<div style="margin-top:10px"><button class="btn" id="g-new">Add a group</button></div></div><div id="g-form"></div>';
-    document.getElementById('g-new').onclick = function () { groupForm(null, rooms); };
-    el.querySelectorAll('[data-gedit]').forEach(function (b) { b.onclick = function () { groupForm(group(b.dataset.gedit), rooms); }; });
+    /* The button whose form is open cannot be pressed again: pressing it drew the form afresh and threw
+       away what had been typed, and on screen nothing seemed to happen (Stage 3 audit, 4 Nov 2026).
+       Another group's Edit still switches to that group. */
+    var opened = function (b) { el.querySelectorAll('#g-new,[data-gedit]').forEach(function (x) { x.disabled = x === b; }); };
+    document.getElementById('g-new').onclick = function () { opened(this); groupForm(null, rooms); };
+    el.querySelectorAll('[data-gedit]').forEach(function (b) { b.onclick = function () { opened(b); groupForm(group(b.dataset.gedit), rooms); }; });
   }
   function groupForm(g, rooms) {
     g = g || { name: '', years: [], day: 7, start: '10:30', end: '12:00', ratio: 5, roomId: '', active: true, leaderIds: [] };
@@ -358,6 +363,8 @@
       '<label class="ck"><input type="checkbox" id="g-active"' + (g.active !== false ? ' checked' : '') + '> Running</label>' +
       '<div style="margin-top:10px"><button class="btn" id="g-save">Save</button></div></div>';
     drawLeaders();
+    /* On a phone the form is drawn below the list of groups, out of sight. */
+    document.getElementById('g-card').scrollIntoView({ block: 'start', behavior: 'smooth' });
     document.getElementById('g-addlead').onchange = function () { if (this.value && leaders.indexOf(this.value) < 0) leaders.push(this.value); this.value = ''; drawLeaders(); };
     document.getElementById('g-save').onclick = function () {
       var d = { siteId: V.site, name: document.getElementById('g-name').value.trim().slice(0, 80), roomId: document.getElementById('g-room').value,

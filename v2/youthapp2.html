@@ -820,6 +820,10 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
 /* Tabs / pills */
 .kb-tab { border-radius: var(--r-md); }
 .page-pill, .filter-pill, .kb-quick-tag { border-radius: 8px; }
+/* 30px at least to tap on a phone: the board's pills, the quick tags and the planner's ▼ ▶ × were 27-28px
+   (Stage 3 audit, 4 Nov 2026). */
+.page-pill, .filter-pill, .kb-quick-tag { min-height: 32px; display: inline-flex; align-items: center; }
+.collapse-btn, .remove-btn { width: 32px; height: 32px; }
 
 /* Tour */
 .tour-tooltip { border-radius: var(--r-lg); box-shadow: var(--shadow-lg); }
@@ -2526,7 +2530,14 @@ async function submitUpload() {
       document.getElementById('upload-file-slots').innerHTML=`<div class="form-field"><label>PDF File (1 of up to 4)</label><div class="upload-file-area"><div class="upload-file-icon"><i data-lucide="file-text" style="width:26px;height:26px"></i></div><div class="upload-file-text">Tap to select PDF</div><div class="upload-file-name" id="upload-file-name-0"></div><input type="file" id="upload-file-input-0" accept=".pdf" onchange="fileSelected(0,this)"></div></div>`;
       document.getElementById('upload-more-btn').style.display='block'; allSongs=[];
     }, 2000);
-  } catch(e) { status.textContent = 'Upload failed: '+e.message; btn.disabled=false; }
+  } catch(e) {
+    /* The library takes music from the church's admins only (firestore.rules songs, storage songs/): a
+       refusal is said in words, not as "Missing or insufficient permissions" (the Stage 3 audit, 4 Nov 2026). */
+    status.textContent = /permission|unauthori[sz]ed/i.test(String((e && (e.code || e.message)) || ''))
+      ? 'Not uploaded: only the church\u2019s admins can add music to the library. Send the file to a leader.'
+      : 'Upload failed: ' + e.message;
+    btn.disabled=false;
+  }
 }
 
 // ── TOUR ──

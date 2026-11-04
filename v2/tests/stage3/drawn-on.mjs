@@ -137,7 +137,8 @@ export function drawnOn(page, c) {
   if (!around.length) return { drawn: true };
   const named = around.filter((f) => f.name);
   if (!named.length || named.some((f) => reach.has(f.name))) return { drawn: true };
-  const inner = named.sort((a, b) => (a.end - a.start) - (b.end - b.start))[0];
+  /* the outermost: a click handler inside wireReview() is named by wireReview, not 'onclick' (4 Nov 2026) */
+  const inner = named.sort((a, b) => (b.end - b.start) - (a.end - a.start))[0];
   const api = Object.entries(m.exportsOf).map(([g, map]) => g + ': ' + (Object.keys(map).filter((k) => used.has(map[k])).join(', ') || 'nothing')).join('; ');
   return { drawn: false, reason: 'drawn by ' + c.file + ' ' + inner.name + '(), which nothing on ' + page + ' can call (it uses ' + api + ')' };
 }
