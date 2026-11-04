@@ -156,8 +156,18 @@ async function runSteps(B, steps) {
     if (String(st).startsWith('wait:')) {
       const sel = JSON.stringify(String(st).slice(5));
       for (let i = 0; i < 40 && !(await B.ev('!!document.querySelector(' + sel + ')')); i++) await sleep(250);
-    } else { await B.ev('(function(){try{' + st + '}catch(e){}return 1})()'); await sleep(700); }
+    } else { await B.ev('(function(){try{' + st + '}catch(e){}return 1})()'); await settle(B, 200, 1500); }
   }
+}
+/* Until the page holds still: its size read every 250 ms, the same twice running, after at least
+   min ms and at most max. Fixed sleeps (700 ms a step, 4.2 s a page) made a Stage 3 screen take
+   over a minute, since a state's steps run again after every press (4 Nov 2026); data still
+   arriving changes the size, so it is waited for, and a page with a clock waits the full max. */
+const STILL = '(document.body?document.body.innerHTML.length+"|"+document.getElementsByTagName("*").length:"")';
+async function settle(B, min, max) {
+  await sleep(min);
+  let last = await B.ev(STILL), same = 0;
+  for (let t = min; t < max && same < 2; t += 250) { await sleep(250); const now = await B.ev(STILL); same = now === last ? same + 1 : 0; last = now; }
 }
 const REACHED = [], SKIPPED_KEYS = [], SHARED_SHEETS = new Set();
 const REACHED_FILE = path.join(V2, 'tests', 'out', EVENTS ? 'controls-reached-events.json' : 'controls-reached.json');
@@ -313,6 +323,9 @@ async function seedMore() {
   if (!opt('seed')) return;
   const { pathToFileURL } = await import('node:url');
   await (await import(pathToFileURL(path.resolve(opt('seed'))).href)).default({ put, del, roles: ROLES_ALL, dayIso });
+  /* its switches are the ones laid back before each page (4 Nov 2026: the copy was taken before it ran, so the
+     hub it set live was put back to not live before every page, and the quiz on phones was always refused) */
+  await snapSettings();
 }
 async function unseed() { await del('events/audit_sunday'); await del('calEvents/audit_event'); }
 
@@ -520,7 +533,7 @@ const SHEET_CLOSE = `(function(){
 /* --probe (building --states): each state's controls and fields listed, nothing pressed */
 const PROBE = flag('probe');
 /* --state=words: only the states whose name holds the words */
-const ONLY_STATE = opt('state');
+const ONLY_STATE = opt('state') || process.env.AUD_STATE || '';
 const CONTROLS = `(function(){
   function vis(el) { var dt = el.closest('details:not([open])'); if (dt && !(el.closest('summary') && el.closest('summary').parentElement === dt)) return false;
     var r = el.getBoundingClientRect(); if (r.width < 1 || r.height < 1) return false;
@@ -617,15 +630,17 @@ async function browser(port, tag) {
        hash, so a pop-up left open (the app's song picker) stayed and covered all
        after it (3 Nov 2026). Reload it. */
     const same = url.includes('#') && (await B.ev('location.href.split("#")[0]')) === url.split('#')[0];
+    /* The old page is marked, so "complete" is read from the new one (this was a fixed 3 s floor). */
+    await B.ev('window.__audOld=1;1');
     await send('Page.navigate', { url });
     if (same) await send('Page.reload', {});
-    /* Settled: loaded, the guard's splash gone, and a beat for the data. */
-    for (let i = 0; i < 28; i++) {
-      await sleep(500);
-      const st = await B.ev('document.readyState + "|" + !!document.getElementById("egbc-guard-splash")');
-      if (st && st.startsWith('complete|false') && i >= 5) break;
+    /* Settled: the new page loaded, the guard's splash gone, then held still for the data. */
+    for (let i = 0; i < 56; i++) {
+      await sleep(250);
+      const st = await B.ev('(window.__audOld?"old":document.readyState) + "|" + !!document.getElementById("egbc-guard-splash")');
+      if (st && st.startsWith('complete|false') && i >= 1) break;
     }
-    await sleep(1200);
+    await settle(B, 500, 3000);
   };
   B.shot = async (file) => {
     fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -954,6 +969,7 @@ async function auditScreen(B, { role, size, screen, url, inApp, taps, base, shot
   if (PROBE) {
     const c = JSON.parse((await B.ev(CONTROLS)) || '[]'), f = JSON.parse((await B.ev(FIELDS)) || '[]');
     console.log('  PROBE ' + role + ' ' + size + ' ' + screen + '\n    ' + [...new Set(c.concat(f).map((x) => (x.keys || [])[0]))].join(' '));
+    if (flag('probe-why')) console.log('    errors: ' + B.errors.slice(0, 3).join(' | ') + '\n    text: ' + String(await B.ev('[...document.querySelectorAll("[data-qerr],[role=status]")].map(function (e) { return e.textContent; }).filter(Boolean).join(" / ") + " // " + document.body.innerText.replace(/\\s+/g, " ").slice(0, 300)')));
     return {};
   }
   const errs = B.errors.slice();
@@ -1218,7 +1234,7 @@ async function runRole(B, role, size, base, shared) {
   for (const st of STATES) {
     if (!(st.roles === 'all' || [].concat(st.roles || []).includes(role))) continue;
     if (ONLY_PAGES && !ONLY_PAGES.includes(st.url.split('?')[0])) continue;
-    if (ONLY_STATE && !st.name.includes(ONLY_STATE)) continue;
+    if (ONLY_STATE && !ONLY_STATE.split('|').some((w) => st.name.includes(w))) continue;
     if (B.isDead()) { await B.restart(); await B.size(...ALL_SIZES[size]); await signIn(B, base, role); }
     await auditScreen(B, { role, size, screen: st.url.split('?')[0] + ' (state: ' + st.name + ')', url: base + st.url, inApp: false, taps: tapsHere, base, steps: st.steps });
   }
@@ -1309,7 +1325,9 @@ if (flag('live-words')) { process.exit(liveWordsCheck() ? 0 : 1); }
   /* TWO BROWSERS, not one a size: four at once overloaded the emulator and
      every page went "client is offline" halfway through (A-090). One takes
      the size the taps happen at; the other takes the rest, one by one. */
-  const groups = [[TAP_SIZE], SIZES.filter(x => x !== TAP_SIZE)].filter(g => g.length);
+  /* --reseed (Stage 3): one size after the other. The sizes share the records the states press - a plan
+     being presented, a quiz running - and side by side one size's presses changed what the other saw (4 Nov 2026). */
+  const groups = flag('reseed') ? [SIZES] : [[TAP_SIZE], SIZES.filter(x => x !== TAP_SIZE)].filter(g => g.length);
   const workers = groups.map((sizes, i) => (async () => {
     const B = await browser(PORT0 + i, 'w' + i);
     try {

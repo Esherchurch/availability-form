@@ -41,6 +41,19 @@ export function stage3Pages() {
    (`id="v-child-' + i` reads as id:v-child-, a tab's name as tab:). */
 const built = (key) => key.endsWith('*') || /[-_:]$/.test(key);
 const matches = (key, used) => built(key) ? used.some((k) => k.startsWith(key.replace(/\*$/, ''))) : used.includes(key);
+/* The code's words as the page shows them: `&times;` is ×, `\u25b6 Play` is ▶ Play. */
+const shown = (key) => key.replace(/\\u([0-9a-fA-F]{4})/g, (m, h) => String.fromCharCode(parseInt(h, 16)))
+  .replace(/&#x([0-9a-f]+);/gi, (m, h) => String.fromCodePoint(parseInt(h, 16))).replace(/&#(\d+);/g, (m, d) => String.fromCodePoint(+d))
+  .replace(/&times;/g, '\u00d7').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&');
+/* A button whose words go on past markup (`Free Bibles<br>(on the hub)`) is read by the inventory up to the
+   tag, and by the page whole: the page's words start with the inventory's. */
+function usedBy(c, used) {
+  const key = shown(c.key);
+  if (matches(key, used)) return true;
+  if (!key.startsWith('text:')) return false;
+  const line = fs.readFileSync(path.join(V2, c.file), 'utf8').split('\n')[c.at - 1] || '';
+  return line.includes(c.key.slice(5) + '<') && used.some((k) => k.startsWith(key));
+}
 /* A handler attached in script (`x.onclick = function () { name(...)`) is
    the control x, already counted by its own key: say which. */
 function handlerOf(c) {
@@ -66,7 +79,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     if (!d.drawn) { notHere.push(Object.assign({ page: p, reason: d.reason }, c)); continue; }
     const h = handlerOf(c);
     if (h) { handlers.push(Object.assign({ page: p, on: h }, c)); continue; }
-    const mine = (r) => page(r) === p.toLowerCase() && matches(c.key, r.keys);
+    const mine = (r) => page(r) === p.toLowerCase() && usedBy(c, r.keys);
     const by = new Set(pressed.filter(mine).map((r) => r.role + '@' + r.size));
     const sk = skipped.filter(mine);
     const saw = new Set([...by, ...sk.map((r) => r.role + '@' + r.size)].map((k) => k.split('@')[0]));
