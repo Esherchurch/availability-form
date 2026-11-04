@@ -2257,6 +2257,10 @@ async function loadPages() {
   try {
     const snap = await db.collection('hubPages').orderBy('order').get();
     PAGES = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    /* A page saved with no icon was given the page emoji mis-encoded (its UTF-8
+       bytes read as Windows-1252, the going-live audit, 4 Nov 2026): shown as
+       the emoji it was meant to be. */
+    PAGES.forEach(p => { if (p.icon === '\u00f0\u0178\u201c\u201e') p.icon = '📄'; });
   } catch (e) { console.error('Pages load failed', e); PAGES = []; }
 }
 
@@ -3047,7 +3051,7 @@ function renderPagesList(){
       : (isCharterPage(p.url) ? ' · on the landing page'
       : (MOBILE_APPS.includes((p.url||'').toLowerCase()) ? ' · phone app' : ''));
     return `<div class="flex items-center gap-3 flex-wrap bg-[#f0f6f6] rounded-[1rem] px-5 py-3 border border-[#dde7e6] ${p.enabled===false?'opacity-50':''}">
-      <span class="text-lg">${esc(p.icon||'ðŸ“„')}</span>
+      <span class="text-lg">${esc(p.icon||'📄')}</span>
       <div class="flex-grow min-w-0">
         <div class="font-bold text-sm truncate">${esc(p.title)}</div>
         <div class="text-[10px] opacity-50">${esc(p.url)} · ${esc(seen)}${p.adminOnly?' · admin only':''}${esc(why)}${p.enabled===false?' · hidden':''}</div>
@@ -3102,7 +3106,7 @@ async function savePage(){
     title:document.getElementById('pgTitle').value.trim(),
     url:document.getElementById('pgUrl').value.trim(),
     description:document.getElementById('pgDesc').value.trim(),
-    icon:document.getElementById('pgIcon').value.trim()||'ðŸ“„',
+    icon:document.getElementById('pgIcon').value.trim()||'📄',
     team:document.getElementById('pgTeam').value,
     adminOnly:document.getElementById('pgAdminOnly').checked,
     order:parseInt(document.getElementById('pgOrder').value,10)||0,

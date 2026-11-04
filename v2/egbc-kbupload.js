@@ -308,14 +308,16 @@
     'border:1px solid #d1d5db;border-radius:8px;padding:0 10px;font:400 14px Inter,sans-serif;color:#111827;background:#fff}' +
     '.kbu input[type=file]{padding:8px 10px;height:auto}' +
     '.kbu .kbu-row{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}' +
-    '.kbu button{height:36px;padding:0 14px;border-radius:8px;border:1px solid #3d6263;background:#3d6263;' +
+    /* 44px to tap, and the tick box its own size whatever the page styles inputs as (the going-live audit, 4 Nov 2026). */
+    '.kbu button{min-height:44px;padding:0 14px;border-radius:8px;border:1px solid #3d6263;background:#3d6263;' +
     'color:#fff;font:500 13px Inter,sans-serif;cursor:pointer}' +
     '.kbu button[disabled]{opacity:.55;cursor:default}' +
     '.kbu .kbu-note{font-size:12px;color:#6b7280;margin-top:8px;line-height:1.5}' +
     '.kbu .kbu-bar{height:6px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:10px;display:none}' +
     '.kbu .kbu-bar span{display:block;height:100%;background:#3d6263;width:0}' +
-    '.kbu .kbu-tick{display:flex;align-items:center;gap:7px;font-size:13px;color:#374151;margin-top:10px}' +
-    '.kbu .kbu-tick input{width:16px;height:16px}';
+    '.kbu .kbu-tick{display:flex;align-items:center;gap:7px;font-size:13px;color:#374151;margin-top:10px;min-height:44px}' +
+    '.kbu .kbu-tick input{width:18px !important;height:18px !important;flex:none;margin:0}' +
+    '.kbu .kbu-tick label{flex:1;min-height:44px;display:flex;align-items:center;cursor:pointer}';
 
   function mountPanel(opts) {
     var host = typeof opts.container === 'string' ? document.getElementById(opts.container) : opts.container;

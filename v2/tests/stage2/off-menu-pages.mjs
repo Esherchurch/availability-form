@@ -36,17 +36,17 @@ const PAGES = {
   'CoreTeamApp.html': { for: 'the core teams covering worship, and master admins (their installed app; the hub app has a Core space too)', kinds: ['core', 'master'], private: ['rota'] },
   'EGBCWorship&AV.html': { for: 'nobody now: it sends everyone to the hub, which does its jobs (behaviour change, 3 Nov 2026)', kinds: [], private: [] },
   'emailcompilerinstructions.html': { for: 'anyone signed in (words only; linked from Send an email)', kinds: ['everyone', 'worship', 'kids', 'core', 'areaAdmin', 'master'], private: [] },
-  'event-ra.html': { for: 'anyone signed in reaching it from an event (with no event chosen it says how to open one)', kinds: ['everyone', 'worship', 'kids', 'core', 'areaAdmin', 'master'], private: [] },
-  'kids-admin.html': { for: 'the children\'s teams\' leaders, and master admins', kinds: ['kids', 'master'], private: ['child'] },
-  'kids-checkin.html': { for: 'the children\'s teams, and master admins', kinds: ['kids', 'master'], private: ['child'] },
+  'event-ra.html': { for: 'an event’s organisers and leaders, the office, the trustees, the health and safety leads, anyone who administers a team, and master admins (mayAny; with no event chosen it says how to open one)', kinds: ['areaAdmin', 'master'], private: [] },
+  'kids-admin.html': { for: 'the children’s team leads, the safeguarding lead and deputy, each children’s group’s leaders, and master admins (a team member who leads nothing is told to ask a lead)', kinds: ['master'], private: ['child'] },
+  'kids-checkin.html': { for: 'the children’s team leads, the safeguarding lead and deputy, each children’s group’s leaders, the morning’s session leader, and master admins', kinds: ['master'], private: ['child'] },
   'mix-analyser.html': { for: 'master admins on the hub (Martin\'s own mix tools; unchanged as files in the desktop Mix Builder)', kinds: ['master'], private: [] },
   'mix-builder.html': { for: 'master admins on the hub (as above)', kinds: ['master'], private: [] },
   'mix-player.html': { for: 'master admins on the hub (as above)', kinds: ['master'], private: [] },
   'music-uploader.html': { for: 'the worship team\'s leaders (one song at a time; opened from the planners\' "Upload Song"), and the core teams covering it', kinds: ['core', 'areaAdmin', 'master'], private: [] },
-  'rota-reports.html': { for: 'leaders of the teams it reports on, and those covering them', kinds: ['core', 'areaAdmin', 'master'], private: ['rota'] },
+  'rota-reports.html': { for: 'master admins and the admins of rota teams (the Menu and the access matrix; behaviour change, 4 Nov 2026)', kinds: ['areaAdmin', 'master'], private: ['rota'] },
   'rotaplannerinstructions.html': { for: 'anyone signed in (words only; linked from the Rota planner\'s Guide)', kinds: ['everyone', 'worship', 'kids', 'core', 'areaAdmin', 'master'], private: [] },
   'Serviceplannerinstructions.html': { for: 'anyone signed in (words only; linked from the service planners)', kinds: ['everyone', 'worship', 'kids', 'core', 'areaAdmin', 'master'], private: [] },
-  'sg-print.html': { for: 'whoever pressed Print on a safeguarding record (with nothing chosen it prints nothing)', kinds: ['everyone', 'worship', 'kids', 'core', 'areaAdmin', 'master'], private: [] },
+  'sg-print.html': { for: 'the safeguarding lead and deputy, the trustees and master admins, and an event’s organisers and leaders for its own record (with nothing chosen it prints nothing)', kinds: ['master'], private: [] },
   ['song-summary.html?date=' + PLAN_DATE]: { for: 'everyone on that Sunday\'s plan email, and any volunteer on a team (the rules: the plan\'s audience, or volunteer())', kinds: ['worship', 'kids', 'core', 'areaAdmin', 'master'], private: ['plan'] },
   'sundayplannersonglibrary.html': { for: 'the worship team (opened from the Sunday planner)', kinds: ['worship', 'core', 'areaAdmin', 'master'], private: [] },
   'training Sunday planner.html': { for: 'the worship team\'s leaders (practice copy, from Worship Training)', kinds: ['core', 'areaAdmin', 'master'], private: ['rota'] },
@@ -97,16 +97,22 @@ try {
   const P = await seed();
   for (const kind of KINDS) {
     console.log('\n' + kind);
-    const ctx = await b.createBrowserContext();
-    const page = await ctx.newPage();
-    await page.setViewport({ width: 1280, height: 900 });
     const errs = [];
-    page.on('pageerror', (e) => errs.push(String(e.message).slice(0, 160)));
-    if (kind !== 'signed out') await signIn(page, BASE, P[kind]);
+    /* A browser context of its own, signed in: the Retry below starts one afresh. */
+    const open = async () => { const c = await b.createBrowserContext(), pg = await c.newPage(); await pg.setViewport({ width: 1280, height: 900 });
+      pg.on('pageerror', (e) => errs.push(String(e.message).slice(0, 160))); if (kind !== 'signed out') await signIn(pg, BASE, P[kind]); return [c, pg]; };
+    let [ctx, page] = await open();
     for (const [url, spec] of Object.entries(PAGES)) {
       errs.length = 0;
       /* A clean start each time: the last page's open connections to the emulator
          let go first (27 pages back to back starved the next one's sign-in check). */
+      let s;
+      for (let attempt = 0; attempt < 2; attempt++) {
+      /* The emulator speaks HTTP/1.1, so Chrome gives it six connections, and the pages before
+         this one can still hold them with Firestore listening ("the client is offline" - real
+         Firestore is HTTP/2, one connection shared, so a person never meets this). The second
+         try is from a new context, with connections of its own. */
+      if (attempt) { await ctx.close().catch(() => {}); [ctx, page] = await open(); }
       await page.goto('about:blank').catch(() => {}); await sleep(1200);
       await page.goto(BASE + '/' + url, { waitUntil: 'domcontentloaded' }).catch(() => {});
       /* The guard's verdict: refused, let in, or a page with no guard settled (up to 20 seconds). */
@@ -122,7 +128,7 @@ try {
         if (v && w >= 4) break;
       }
       await sleep(1500);
-      const s = await page.evaluate(() => {
+      s = await page.evaluate(() => {
         const body = document.body;
         const text = body ? body.innerText.replace(/\s+/g, ' ') : '';
         const all = body ? (body.textContent || '').replace(/\s+/g, ' ') : '';
@@ -130,6 +136,11 @@ try {
         const back = [...document.querySelectorAll('a[href]')].some((a) => /hub\.html|login\.html|app\.html/.test(a.getAttribute('href')) && a.offsetParent !== null);
         return { where: location.pathname.split('/').pop() + location.hash, blocked, text, all, back };
       }).catch((e) => ({ where: 'error', text: String(e.message), all: '', blocked: false, back: false }));
+      /* The emulator, not the page (4 Nov 2026): the guard's profile read failed ("Something went
+         wrong: Failed to get document because the client is offline") or still timed out after
+         Retry. Once more from a clean start before the row is called not reached. */
+      if (!/Something went wrong|Could not check your access/.test(s.text)) break;
+      }
       const seen = Object.entries(WORDS).filter(([, w]) => s.all.includes(w)).map(([k]) => k);
       const isFor = spec.kinds.includes(kind);
       const state = /login\.html/.test(s.where) ? 'sent to sign in' : s.blocked ? 'refused: "' + s.text.slice(0, 70) + '"' : s.where !== url.split('?')[0].replace(/ /g, '%20') && !url.startsWith(s.where) ? 'sent to ' + s.where : 'opens: "' + s.text.slice(0, 70) + '"';
@@ -140,7 +151,10 @@ try {
       if (s.blocked) ok(url + ' as ' + kind + ': the refusal has a way back', s.back, s.text.slice(0, 200));
       /* Still "Could not check your access" after a Retry: the emulator was too slow for the guard's
          8 seconds. Nothing shows behind it, but whether the page says it isn't for them is not proven. */
-      if (/Could not check your access/.test(s.text)) { NOT_REACHED.push(url + ' as ' + kind + ': the access check timed out on the emulator (nothing private showed)'); continue; }
+      if (/Could not check your access|Something went wrong/.test(s.text)) { NOT_REACHED.push(url + ' as ' + kind + ': the access check ' + (/Something went wrong/.test(s.text) ? 'could not read their profile' : 'timed out') + ' on the emulator, twice (nothing private showed): ' + s.text.slice(0, 160)); continue; }
+      /* Who it is for gets in (4 Nov 2026: this was not checked, so a page refusing the people it
+         is for passed). */
+      if (isFor && kind !== 'signed out') ok(url + ' as ' + kind + ': it opens for them', !s.blocked && !/sent to sign in/.test(state), state);
       if (!isFor && kind !== 'signed out' && !s.blocked && !/sent to/.test(state))
         ok(url + ' as ' + kind + ': a page it isn\'t for says so', /isn.t for|not for you|no access|only for|This page is for|for the people|sent to the people|Ask |need/i.test(s.text), state);
     }

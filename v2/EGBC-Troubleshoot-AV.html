@@ -8,7 +8,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="egbc-auth.js?v=202611030800"></script>
 <script src="egbc-church.js?v=202611031810"></script>
-<script src="egbc-kbupload.js?v=202610062000"></script>
+<script src="egbc-kbupload.js?v=202611040400"></script>
 <script src="egbc-guard.js?v=202611030600" data-job="av" data-role="member"></script>
 <script src="egbc-kbadmin.js?v=202610262000" data-action="kbUpload" data-admin-team="AV Team"></script>
   <meta charset="UTF-8">
@@ -108,12 +108,12 @@
     <!-- Upload and replace, from egbc-kbupload.js - the same panel on
          every knowledge-base page rather than four copies of a form. -->
     <div id="kb-upload-panel" class="mb-6"></div>
-    <div class="bg-white rounded-[14px] border-2 border-[#3d6263] shadow-xl p-8">
+    <div class="bg-white rounded-[14px] border-2 border-[#3d6263] shadow-xl p-5 sm:p-8">
       <div class="flex justify-between items-center mb-6 border-b border-[#d1dfdf] pb-6">
         <h2 class="font-semibold text-sm"><i data-lucide="settings" style="width:18px;height:18px;vertical-align:-2px"></i> Admin — AV Troubleshoot</h2>
-        <button onclick="toggleAdmin()" class="text-[#d1dfdf] hover:text-[#3d6263] font-semibold text-xl"><i data-lucide="x" style="width:15px;height:15px;vertical-align:-2px"></i></button>
+        <button onclick="toggleAdmin()" aria-label="Close admin" class="w-11 h-11 flex-none flex items-center justify-center text-[#9fb3b3] hover:text-[#3d6263] font-semibold text-xl"><i data-lucide="x" style="width:15px;height:15px;vertical-align:-2px"></i></button>
       </div>
-      <div class="flex gap-2 mb-6 bg-[#f0f6f6] p-1.5 rounded-lg w-fit">
+      <div class="flex flex-wrap gap-2 mb-6 bg-[#f0f6f6] p-1.5 rounded-lg w-fit max-w-full">
         <button onclick="showAdminTab('content')" id="atab-content" class="tab-btn active px-6 py-2 rounded-lg font-semibold text-[12px]">Add Content</button>
         <button onclick="showAdminTab('categories')" id="atab-categories" class="tab-btn px-6 py-2 rounded-lg font-semibold text-[12px]">Categories</button>
         <button onclick="showAdminTab('manage')" id="atab-manage" class="tab-btn px-6 py-2 rounded-lg font-semibold text-[12px]">Manage</button>
@@ -122,8 +122,8 @@
       <div id="admin-content" class="admin-tab">
         <!-- BATCH DROP -->
         <div class="flex items-center justify-between gap-4 flex-wrap mb-4 bg-[#f0f6f6] border border-[#d1dfdf] rounded-lg px-5 py-3">
-          <label class="flex items-center gap-3 cursor-pointer">
-            <input type="checkbox" id="autoTranscribe" checked class="w-4 h-4 accent-[#3d6263]">
+          <label class="flex items-center gap-3 cursor-pointer min-h-[44px]">
+            <input type="checkbox" id="autoTranscribe" checked class="!w-4 !h-4 flex-none accent-[#3d6263]">
             <span class="text-[12px] font-semibold opacity-70">Transcribe automatically</span>
           </label>
           <span id="engineStatus" class="text-[12px] font-semibold opacity-40">Speech engine loads on first use</span>
@@ -170,8 +170,8 @@
           <h3 class="font-semibold text-[12px] opacity-60 mb-2">Page Categories</h3>
           <p class="text-[12px] opacity-60 mb-4">Visual sections on this page only — add as many as you like.</p>
           <div class="flex gap-3 mb-6">
-            <input id="newCatName" type="text" placeholder="New category name…" class="flex-grow px-5 py-3 rounded-lg border border-[#d1dfdf] bg-white font-semibold text-sm outline-none" onkeydown="if(event.key==='Enter')addCategory()">
-            <button onclick="addCategory()" class="bg-[#3d6263] text-white px-8 py-3 rounded-lg font-semibold text-[12px] hover:bg-black transition-all">Add</button>
+            <input id="newCatName" type="text" placeholder="New category name…" class="flex-grow min-w-0 px-5 py-3 rounded-lg border border-[#d1dfdf] bg-white font-semibold text-sm outline-none" onkeydown="if(event.key==='Enter')addCategory()">
+            <button onclick="addCategory()" class="flex-none bg-[#3d6263] text-white px-5 sm:px-8 py-3 rounded-lg font-semibold text-[12px] hover:bg-black transition-all">Add</button>
           </div>
           <div id="categoryList" class="space-y-2"></div>
         </div>
@@ -183,7 +183,7 @@
           <div id="manageList" class="space-y-2"></div>
         </div>
         <div id="editModal" class="hidden mt-6 bg-[#f0f6f6] rounded-[1.5rem] p-6 border-2 border-[#3d6263] space-y-3">
-          <div class="flex justify-between items-center mb-2"><h3 class="font-semibold text-[12px]">Edit Item</h3><button onclick="closeEdit()" class="text-[#d1dfdf] hover:text-[#3d6263] font-semibold"><i data-lucide="x" style="width:15px;height:15px;vertical-align:-2px"></i></button></div>
+          <div class="flex justify-between items-center mb-2"><h3 class="font-semibold text-[12px]">Edit Item</h3><button onclick="closeEdit()" aria-label="Close the editor" class="w-11 h-11 flex-none flex items-center justify-center text-[#9fb3b3] hover:text-[#3d6263] font-semibold"><i data-lucide="x" style="width:15px;height:15px;vertical-align:-2px"></i></button></div>
           <input type="hidden" id="editId">
           <input id="editTitle" type="text" placeholder="Title" class="w-full px-5 py-3 rounded-lg border border-[#d1dfdf] bg-white font-semibold text-sm outline-none">
           <select id="editCategory" class="w-full px-5 py-3 rounded-lg border border-[#d1dfdf] bg-white font-semibold text-sm outline-none"><option value="">No category</option></select>
@@ -205,9 +205,11 @@
   </div>
 </div>
 
-<div id="modal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onclick="closeModal(event)">
-  <div class="bg-white rounded-[14px] shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-8 relative" onclick="event.stopPropagation()">
-    <button onclick="closeModal()" class="absolute top-6 right-6 w-10 h-10 bg-[#f0f6f6] rounded-lg flex items-center justify-center font-semibold hover:bg-[#3d6263] hover:text-white transition-all"><i data-lucide="x" style="width:15px;height:15px;vertical-align:-2px"></i></button>
+<div id="modal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+  <!-- The close stays at the top as the box scrolls (sticky, not absolute), and is named; the box needs no click
+       handler, since closeModal(event) closes only on the backdrop itself (the going-live audit, 4 Nov 2026). -->
+  <div class="bg-white rounded-[14px] shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-8 relative">
+    <button onclick="closeModal()" aria-label="Close" class="sticky top-0 float-right z-10 ml-4 w-11 h-11 bg-[#f0f6f6] rounded-lg flex items-center justify-center font-semibold hover:bg-[#3d6263] hover:text-white transition-all"><i data-lucide="x" style="width:15px;height:15px;vertical-align:-2px"></i></button>
     <div id="modalContent"></div>
   </div>
 </div>
@@ -230,6 +232,10 @@ async function loadAssets(){
   try{
     const snap=await db.collection(COLLECTION).where('published','==',true).orderBy('createdAt','desc').get();
     allAssets=snap.docs.map(d=>({id:d.id,...d.data()}));
+    /* The list of categories is kept in each browser (CAT_KEY), so one an admin
+       made elsewhere is added from the items that use it, not left as
+       Uncategorised (the going-live audit, 4 Nov 2026). Not saved here. */
+    allAssets.forEach(a=>{const c=(a.category||'').trim();if(c&&!categories.includes(c))categories.push(c);});updateCatDropdowns();
     console.log('KB: Loaded',allAssets.length,'assets');
   }catch(e){console.log('KB load error:',e.message);allAssets=[];}
   renderContent(allAssets);
@@ -373,7 +379,7 @@ function openCard(id,startAt){
     ${cueList}
     ${a.tags?`<div class="flex flex-wrap gap-2">${a.tags.split(',').map(t=>t.trim()).filter(Boolean).map(t=>`<span class="bg-[#f0f6f6] px-4 py-1.5 rounded-lg text-[12px] font-semibold border border-[#d1dfdf]">${escapeHtml(t)}</span>`).join('')}</div>`:''}`;
 
-  document.getElementById('modal').classList.remove('hidden');
+  document.getElementById('modal').classList.remove('hidden');benchPage(true);
 
   const vid=document.getElementById('kbVideo');
   if(vid&&start){
@@ -389,10 +395,16 @@ function seekTo(seconds){
   vid.scrollIntoView({behavior:'smooth',block:'center'});
 }
 
+/* While a card is open the page behind it is inert, so nothing there can be
+   pressed or reached by Tab through the backdrop (the going-live audit,
+   4 Nov 2026; Help does the same, egbc-help.js bench()). */
+/* A press on the dark backdrop round the card closes it (closeModal checks it was the backdrop). */
+document.getElementById('modal').addEventListener('click', closeModal);
+function benchPage(on){document.querySelectorAll('body > *').forEach(function(el){if(el.id!=='modal')el.inert=on;});}
 function closeModal(e){
   if(!e||e.target===document.getElementById('modal')){
     const vid=document.getElementById('kbVideo');if(vid)vid.pause();
-    document.getElementById('modal').classList.add('hidden');
+    benchPage(false);document.getElementById('modal').classList.add('hidden');
   }
 }
 
@@ -785,13 +797,14 @@ function resetAdminForm(){
 /* ── CATEGORIES ──────────────────────────────────────────────────────── */
 
 function saveCategories(){localStorage.setItem(CAT_KEY,JSON.stringify(categories));updateCatDropdowns();renderCategoryList();renderContent(allAssets,currentQuery);}
-function addCategory(){const i=document.getElementById('newCatName');const n=i.value.trim();if(!n||categories.includes(n))return;categories.push(n);saveCategories();i.value='';}
+/* Says why nothing was added, in the box itself (the going-live audit, 4 Nov 2026: it did nothing). */
+function addCategory(){const i=document.getElementById('newCatName');const n=i.value.trim();if(!n||categories.includes(n)){i.value='';i.placeholder=n?'"'+n+'" is already a category':'Type a category name first';i.focus();return;}categories.push(n);saveCategories();i.value='';i.placeholder='';}
 function renameCategory(idx){const n=prompt('Rename to:',categories[idx]);if(!n||n===categories[idx])return;categories[idx]=n;saveCategories();}
 function deleteCategory(idx){if(!confirm(`Delete "${categories[idx]}"?`))return;categories.splice(idx,1);saveCategories();}
 function renderCategoryList(){
   const l=document.getElementById('categoryList');if(!l)return;
   if(!categories.length){l.innerHTML='<p class="text-sm opacity-50 italic">No categories yet.</p>';return;}
-  l.innerHTML=categories.map((c,i)=>`<div class="flex items-center gap-3 bg-white rounded-lg px-5 py-3 border border-[#d1dfdf]"><span class="flex-grow font-semibold text-sm">${escapeHtml(c)}</span><button onclick="renameCategory(${i})" class="text-[12px] font-semibold opacity-50 hover:opacity-100 px-3 py-1 rounded-lg border border-[#d1dfdf] transition-all">Rename</button><button onclick="deleteCategory(${i})" class="text-[12px] font-semibold text-red-400 hover:text-red-600 px-3 py-1 rounded-lg border border-red-200 transition-all">Delete</button></div>`).join('');
+  l.innerHTML=categories.map((c,i)=>`<div class="flex items-center gap-3 bg-white rounded-lg px-5 py-3 border border-[#d1dfdf]"><span class="flex-grow font-semibold text-sm">${escapeHtml(c)}</span><button onclick="renameCategory(${i})" class="text-[12px] font-semibold opacity-50 hover:opacity-100 px-3 py-1 min-h-[44px] rounded-lg border border-[#d1dfdf] transition-all">Rename</button><button onclick="deleteCategory(${i})" class="text-[12px] font-semibold text-red-400 hover:text-red-600 px-3 py-1 min-h-[44px] rounded-lg border border-red-200 transition-all">Delete</button></div>`).join('');
 }
 function updateCatDropdowns(){
   ['adminCategory','editCategory','batchCategory'].forEach(id=>{const s=document.getElementById(id);if(!s)return;const v=s.value;s.innerHTML='<option value="">No category</option>'+categories.map(c=>`<option value="${escapeHtml(c)}"${c===v?' selected':''}>${escapeHtml(c)}</option>`).join('');});
