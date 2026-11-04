@@ -726,8 +726,8 @@ const VIEWHASH = `(function(){var h=0,n=0,all=document.querySelectorAll('body *'
 const HERE = '(window.EGBCApp&&EGBCApp.state?JSON.stringify(EGBCApp.state()):location.pathname+location.search)';
 async function tapAll(B, url, reopen, ctx) {
   ctx = ctx || {};
-  const used = (next, how) => { if (ctx.page && next.keys && next.keys.length) REACHED.push({ page: ctx.page, role: ctx.role, size: ctx.size, keys: next.keys, how }); };
-  const notUsed = (next, why) => { if (ctx.page && next.keys && next.keys.length) SKIPPED_KEYS.push({ page: ctx.page, role: ctx.role, size: ctx.size, keys: next.keys, words: next.words || next.href, why }); };
+  const used = (next, how) => { if (ctx.page && next.keys && next.keys.length) REACHED.push({ page: ctx.page, role: ctx.role, size: ctx.size, screen: ctx.screen, keys: next.keys, how }); };
+  const notUsed = (next, why) => { if (ctx.page && next.keys && next.keys.length) SKIPPED_KEYS.push({ page: ctx.page, role: ctx.role, size: ctx.size, screen: ctx.screen, keys: next.keys, words: next.words || next.href, why }); };
   const why = [], skipped = [], tapped = new Set();
   /* How busy is the page by itself? A clock or a carousel changes the DOM
      without anybody tapping, so taps must beat that. */
@@ -942,14 +942,14 @@ async function fillFields(B, reopen, ctx) {
     done.add(next.keys.join('|') + '#' + next.i);
     /* a state (--states): the shared chrome's fields were filled on the page's first view */
     if (ctx.state && next.keys.some((k) => /^(id|field):egbc-/.test(k))) continue;
-    if (next.viewAs) { if (next.keys.length) SKIPPED_KEYS.push({ page: ctx.page, role: ctx.role, size: ctx.size, keys: next.keys, words: next.words, why: 'View as: changes who you are for every page after it (its own checks: check-viewas-*)' }); continue; }
+    if (next.viewAs) { if (next.keys.length) SKIPPED_KEYS.push({ page: ctx.page, role: ctx.role, size: ctx.size, screen: ctx.screen, keys: next.keys, words: next.words, why: 'View as: changes who you are for every page after it (its own checks: check-viewas-*)' }); continue; }
     const before = B.errors.length;
     if (process.env.FIELD_DEBUG) console.log('    fill', ctx.page, next.type, next.words, JSON.stringify(next.keys));
     const r = await B.ev(FILL(next.i));
     if (process.env.FIELD_DEBUG) console.log('      ->', r);
     await sleep(350);
-    if (r === 'file') { if (next.keys.length) SKIPPED_KEYS.push({ page: ctx.page, role: ctx.role, size: ctx.size, keys: next.keys, words: next.words, why: 'a file picker: needs a file (the journeys upload real files)' }); continue; }
-    if (r === 'filled' || r === 'one choice') { if (next.keys.length) REACHED.push({ page: ctx.page, role: ctx.role, size: ctx.size, keys: next.keys, how: r === 'filled' ? 'filled' : 'shown (one choice)' }); }
+    if (r === 'file') { if (next.keys.length) SKIPPED_KEYS.push({ page: ctx.page, role: ctx.role, size: ctx.size, screen: ctx.screen, keys: next.keys, words: next.words, why: 'a file picker: needs a file (the journeys upload real files)' }); continue; }
+    if (r === 'filled' || r === 'one choice') { if (next.keys.length) REACHED.push({ page: ctx.page, role: ctx.role, size: ctx.size, screen: ctx.screen, keys: next.keys, how: r === 'filled' ? 'filled' : 'shown (one choice)' }); }
     if (B.errors.length > before) why.push('console: filling "' + next.words + '": ' + B.errors[before]);
     if (ctx.state || ((await B.ev(OVERLAY)) || 'null') !== resting || (await B.ev(HERE)) !== home) await reopen();
   }
@@ -958,9 +958,43 @@ async function fillFields(B, reopen, ctx) {
 
 /* ---------------- the run ---------------- */
 const RESULTS = [];
-function record(r) { RESULTS.push(r); const mark = r.pass ? 'PASS' : 'FAIL'; console.log('  ' + mark + '  ' + r.role + ' ' + r.size + ' ' + r.screen + (r.pass ? '' : '\n          ' + r.why.join('\n          '))); }
+/* SAVED AS IT GOES, AND --resume (Martin, 4 Nov 2026: "a pause loses at most
+   one screen"). Every screen's result goes into the progress file the moment
+   it is recorded, beside the reached controls saveReached() already writes
+   after each screen. --resume reads all three back: a screen that passed,
+   for that person at that size, is not opened again, and its result and its
+   reached controls are kept (loaded, not started empty, so what the first
+   part counted still counts); a screen that failed, or never finished, runs
+   again, and anything it left half-recorded is dropped. */
+const PROGRESS_FILE = REACHED_FILE.replace(/[.]json$/, '-progress.json');
+const screenKey = (role, size, screen) => [role, size, screen].join(' | ');
+const PASSED = new Map();
+if (flag('resume') && fs.existsSync(PROGRESS_FILE)) {
+  JSON.parse(fs.readFileSync(PROGRESS_FILE, 'utf8')).filter((r) => r.pass).forEach((r) => PASSED.set(screenKey(r.role, r.size, r.screen), r));
+  const keep = (x) => x.screen !== undefined && PASSED.has(screenKey(x.role, x.size, x.screen));
+  const read = (f) => fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : [];
+  REACHED.push(...read(REACHED_FILE).filter(keep));
+  SKIPPED_KEYS.push(...read(REACHED_FILE.replace(/[.]json$/, '-skipped.json')).filter(keep));
+  /* Carried forward whatever pages this run is given, so a later part keeps an earlier part's results. */
+  RESULTS.push(...PASSED.values());
+  console.log('--resume: ' + PASSED.size + ' screens passed before and are kept, with their ' + REACHED.length + ' reached controls');
+}
+/** A screen this run need not open again (--resume): its earlier pass, already in RESULTS, stands. */
+function passedBefore(role, size, screen) {
+  const r = PASSED.get(screenKey(role, size, screen));
+  if (!r) return null;
+  console.log('  PASS  ' + role + ' ' + size + ' ' + screen + ' (passed before: kept)');
+  return r.m || {};
+}
+/** The results so far, after every screen (see SAVED AS IT GOES). */
+function saveProgress() {
+  fs.mkdirSync(path.dirname(PROGRESS_FILE), { recursive: true });
+  fs.writeFileSync(PROGRESS_FILE, JSON.stringify(RESULTS));
+}
+function record(r) { RESULTS.push(r); saveProgress(); const mark = r.pass ? 'PASS' : 'FAIL'; console.log('  ' + mark + '  ' + r.role + ' ' + r.size + ' ' + r.screen + (r.pass ? '' : '\n          ' + r.why.join('\n          '))); }
 
 async function auditScreen(B, { role, size, screen, url, inApp, taps, base, shotName, steps }) {
+  const before = passedBefore(role, size, screen); if (before) return before;
   if (!LIVE) await restoreSettings();
   const [w, h] = ALL_SIZES[size];
   await B.size(w, h);
@@ -987,7 +1021,7 @@ async function auditScreen(B, { role, size, screen, url, inApp, taps, base, shot
   await B.shot(path.join(OUT, role, String(size), slug(shotName || screen) + '.png'));
   let skipped = [];
   if (taps) {
-    const ctx = { page: String(screen).replace(/^from the app: /, '').replace(/ \(.*\)$/, '').split('?')[0], role, size, state: !!(steps && steps.length) || / \(state: /.test(String(screen)) };
+    const ctx = { page: String(screen).replace(/^from the app: /, '').replace(/ \(.*\)$/, '').split('?')[0], role, size, screen, state: !!(steps && steps.length) || / \(state: /.test(String(screen)) };
     const back = async () => { await B.go(url); await runSteps(B, steps); };
     const t = await tapAll(B, url, back, ctx);
     why.push(...t.why); skipped = t.skipped;
@@ -1041,6 +1075,7 @@ async function goApp(B, space, tab) {
 }
 
 async function auditAppScreen(B, { role, size, space, tab, taps, base, appPages }) {
+  const before = passedBefore(role, size, 'app: ' + space + ' / ' + tab); if (before) return before;
   const [w, h] = ALL_SIZES[size];
   await B.size(w, h);
   const url = base + 'app.html#' + space + ':' + tab;
@@ -1056,7 +1091,7 @@ async function auditAppScreen(B, { role, size, space, tab, taps, base, appPages 
   if (taps) {
     B.acts.length = 0;
     const back = async () => { await B.go(url); await goApp(B, space, tab); };
-    const ctx = { page: 'app.html', role, size };
+    const ctx = { page: 'app.html', role, size, screen: 'app: ' + space + ' / ' + tab };
     const t = await tapAll(B, url, back, ctx);
     why.push(...t.why); skipped = t.skipped;
     if (EVERY) { await back(); why.push(...await fillFields(B, back, ctx)); saveReached(); }
