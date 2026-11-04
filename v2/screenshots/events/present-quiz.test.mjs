@@ -88,7 +88,9 @@ const QS = [
   { q: 'Who did Nicodemus come to see?', answers: ['Jesus', 'Peter', 'Paul', 'Pilate'], right: 0, seconds: 8 },
   { q: 'What must we be, Jesus said?', answers: ['Born again', 'Rich', 'Tall', 'Quiet'], right: 0, seconds: 20 }
 ];
-await db.collection('planSessions').doc('ps_q').set({ groupId: 'pg_kids', date: '2026-11-15', title: 'Born again?', updatedBy: P.karen.uid,
+/* a Sunday still to come: Present lists only sessions ahead */
+const NEXT_SUNDAY = (() => { const d = new Date(); d.setUTCHours(12, 0, 0, 0); do d.setUTCDate(d.getUTCDate() + 1); while (d.getUTCDay() !== 0); return d.toISOString().slice(0, 10); })();
+await db.collection('planSessions').doc('ps_q').set({ groupId: 'pg_kids', date: NEXT_SUNDAY, title: 'Born again?', updatedBy: P.karen.uid,
   parts: [{ id: 'p1', title: 'Quiz time', show: [{ type: 'text', words: 'Welcome, everyone' }, { type: 'quiz', name: 'Nicodemus at night', questions: QS, title: '3 questions' }] }] });
 
 const errors = [], browsers = [];

@@ -1,28 +1,33 @@
 /* EVERY CONTROL ON THE KIDS CHURCH SUNDAY'S PAGES, N OF N (the going-live
  * test, Stage 3). Reads the list from the code (tools/control-inventory.mjs)
- * and what an events audit pressed or filled
- * (tests/out/controls-reached-events.json, from
- * `tests/audit-everything.mjs --emulators=events --every`), and writes
- * tests/out/controls-stage3.md:
- *   - N of N controls reached, for the Kids, Safeguarding and ChurchShow
- *     parts' pages;
- *   - for each kind of person, at each size, how many of the controls on
- *     the pages they opened they reached;
- *   - every control not reached, with where it is in the code. None is
- *     left out quietly.
+ * and what events audits pressed, filled or saw
+ * (`tests/audit-everything.mjs --emulators=events --every --press-all
+ * --states=...`, its controls-reached-events.json and -skipped.json), and
+ * writes tests/out/controls-stage3.md:
+ *   - not on this page: a control in a script the page loads but never
+ *     draws there, with the proof (tests/stage3/drawn-on.mjs);
+ *   - every other control is done when each kind of person who saw it
+ *     pressed (or filled) it at 375 and at 1440;
+ *   - the table for each kind of person at each size;
+ *   - the rest, listed with why: seen by some but not pressed by all at
+ *     both sizes, seen but not pressable (a phone number, a file picker),
+ *     or not seen by anyone. None is left out quietly.
  *
  *   node tests/stage3/controls-stage3.mjs [--reached=a.json,b.json]   (from v2/; reads files only)
+ *   (each a.json beside its a-skipped.json, as the audit writes them)
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
-import { inventory, report } from '../../tools/control-inventory.mjs';
+import { inventory } from '../../tools/control-inventory.mjs';
+import { drawnOn } from './drawn-on.mjs';
 
 const V2 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const OUT = path.join(V2, 'tests', 'out');
 createRequire(import.meta.url)(path.join(V2, 'egbc-parts.js'));
 const PARTS = ['kids', 'safeguarding', 'churchShow'];
+export const SIZES = ['375', '1440'];
 /** The Stage 3 pages, as the inventory names them. @returns {Set<string>} */
 export function stage3Pages() {
   const want = new Set();
@@ -30,58 +35,69 @@ export function stage3Pages() {
   return want;
 }
 
+/* Which records a control's keys answer for: an exact key, or a key built in
+   script (ending *) that a used key starts with. */
+/* A key built in script: marked *, or cut off where the code adds to it
+   (`id="v-child-' + i` reads as id:v-child-, a tab's name as tab:). */
+const built = (key) => key.endsWith('*') || /[-_:]$/.test(key);
+const matches = (key, used) => built(key) ? used.some((k) => k.startsWith(key.replace(/\*$/, ''))) : used.includes(key);
+/* A handler attached in script (`x.onclick = function () { name(...)`) is
+   the control x, already counted by its own key: say which. */
+function handlerOf(c) {
+  if (!c.key.startsWith('fn:')) return '';
+  const line = (fs.readFileSync(path.join(V2, c.file), 'utf8').split('\n')[c.at - 1] || '');
+  const m = /([^\s;=(]+(?:\([^)]*\))?)\.onclick\s*=/.exec(line);
+  return m && !/onclick=\\?["']/.test(line) ? m[1] : '';
+}
+
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const want = stage3Pages(), inv = inventory();
   const pages = Object.fromEntries(Object.entries(inv.pages).filter(([p]) => want.has(p.toLowerCase())));
-  /* --reached=a.json,b.json: several audit runs together (one per group of people) */
   const files = (process.argv.find((a) => a.startsWith('--reached=')) || '').slice(10).split(',').filter(Boolean);
-  const reached = (files.length ? files : [path.join(OUT, 'controls-reached-events.json')])
-    .flatMap((f) => JSON.parse(fs.readFileSync(f, 'utf8')))
-    .filter((r) => want.has(String(r.page || '').split('?')[0].toLowerCase()));
-  const r = report({ pages, shared: [] }, reached);
-  /* Per person and size: the controls on the pages they used, and how many they reached. */
-  const seen = {};
-  for (const x of reached) {
-    const k = x.role + '@' + x.size, pg = String(x.page).split('?')[0];
-    (seen[k] = seen[k] || new Set()).add(Object.keys(pages).find((p) => p.toLowerCase() === pg.toLowerCase()) || pg);
+  const load = (f) => (fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : []);
+  const runs = files.length ? files : [path.join(OUT, 'controls-reached-events.json')];
+  const page = (r) => String(r.page || '').split('?')[0].toLowerCase();
+  const pressed = runs.flatMap(load).filter((r) => want.has(page(r)));
+  const skipped = runs.flatMap((f) => load(f.replace(/\.json$/, '-skipped.json'))).filter((r) => want.has(page(r)));
+
+  const rows = [], notHere = [], handlers = [];
+  for (const [p, list] of Object.entries(pages)) for (const c of list) {
+    const d = drawnOn(p, c);
+    if (!d.drawn) { notHere.push(Object.assign({ page: p, reason: d.reason }, c)); continue; }
+    const h = handlerOf(c);
+    if (h) { handlers.push(Object.assign({ page: p, on: h }, c)); continue; }
+    const mine = (r) => page(r) === p.toLowerCase() && matches(c.key, r.keys);
+    const by = new Set(pressed.filter(mine).map((r) => r.role + '@' + r.size));
+    const sk = skipped.filter(mine);
+    const saw = new Set([...by, ...sk.map((r) => r.role + '@' + r.size)].map((k) => k.split('@')[0]));
+    const missing = [];
+    for (const role of saw) for (const sz of SIZES) if (!by.has(role + '@' + sz)) missing.push(role + '@' + sz);
+    rows.push(Object.assign({ page: p, by, saw, missing, why: [...new Set(sk.map((r) => r.why))] }, c));
   }
-  /* The audit presses what each screen and pop-up shows; the controls
-     deeper in (a plan's editor, the desk mid check-in) are pressed by the
-     journey tests. A journey counts for a control when its code names it:
-     its id, its data-act or data-tab, the page it links to, or its words. */
-  const JOURNEYS = fs.readdirSync(path.join(V2, 'screenshots', 'events')).filter((f) => /\.(test|check)\.mjs$/.test(f))
-    .map((f) => [f, fs.readFileSync(path.join(V2, 'screenshots', 'events', f), 'utf8')]);
-  const needle = (key) => {
-    const [kind, ...rest] = key.split(':'), v = rest.join(':').replace(/\*$/, '');
-    if (!v) return null;
-    if (kind === 'id') return ['#' + v, "'" + v + "'", '"' + v + '"'];
-    if (kind === 'act') return ['data-act="' + v, "data-act='" + v, '[data-act="' + v];
-    if (kind === 'tab') return ['data-tab="' + v];
-    if (kind === 'href') return [v];
-    if (kind === 'field') return ['name="' + v, '#' + v];
-    if (kind === 'text') return v.length >= 4 ? [v] : null;
-    return null;
-  };
-  const journeyOf = (x) => {
-    const n = needle(x.key);
-    if (!n) return '';
-    const hit = JOURNEYS.find(([, t]) => t.includes(x.page.replace(/\.html$/i, '')) && n.some((s) => t.includes(s)));
-    return hit ? hit[0] : '';
-  };
-  r.rows.forEach((x) => { x.journey = x.by.length ? '' : journeyOf(x); });
-  const byJourney = r.rows.filter((x) => x.journey).length, none = r.rows.filter((x) => !x.by.length && !x.journey);
+  const done = rows.filter((x) => x.saw.size && !x.missing.length);
+  const part = rows.filter((x) => x.saw.size && x.missing.length);
+  const never = rows.filter((x) => !x.saw.size);
+  const people = [...new Set([...pressed, ...skipped].map((r) => r.role))].sort();
   const md = ['# The Kids Church Sunday’s pages: every control, from the code', '',
-    '**' + (r.reached + byJourney) + ' of ' + r.total + ' coded controls reached** on ' + Object.keys(pages).length + ' pages (' + PARTS.join(', ') + '): ' +
-      r.reached + ' pressed by the audit as the people below, ' + byJourney + ' more by a journey test, ' + none.length + ' not reached (listed).', '',
-    '## Each kind of person, at each size (the audit)', '', '| Person @ size | Pages used | Controls on them | Reached |', '|---|---|---|---|'];
-  for (const k of Object.keys(seen).sort()) {
-    const ps = [...seen[k]], rows = r.rows.filter((x) => ps.includes(x.page));
-    md.push('| ' + k + ' | ' + ps.length + ' | ' + rows.length + ' | ' + rows.filter((x) => x.by.includes(k)).length + ' |');
+    '**' + done.length + ' of ' + rows.length + ' controls done**: pressed by every kind of person who saw them, at 375 and at 1440, on ' +
+      Object.keys(pages).length + ' pages (' + PARTS.join(', ') + '). ' + part.length + ' partly, ' + never.length + ' not seen by anyone (listed below). ' +
+      notHere.length + ' more are in scripts these pages load but never draw there, and ' + handlers.length + ' are handlers of controls counted already (both listed, with the proof).', '',
+    '## Each kind of person, at each size', '', '| Person | Size | Saw | Pressed |', '|---|---|---|---|'];
+  for (const role of people) for (const sz of SIZES) {
+    const k = role + '@' + sz, sawHere = rows.filter((x) => x.saw.has(role));
+    md.push('| ' + role + ' | ' + sz + ' | ' + sawHere.length + ' | ' + sawHere.filter((x) => x.by.has(k)).length + ' |');
   }
-  md.push('', '## Reached by a journey test', '', '| Page | Control | Test |', '|---|---|---|');
-  for (const x of r.rows.filter((x) => x.journey)) md.push('| ' + x.page + ' | `' + x.key.replace(/\|/g, '/') + '` | ' + x.journey + ' |');
-  md.push('', '## Not reached', '', '| Page | Control | Kind | Where in the code |', '|---|---|---|---|');
-  for (const x of none) md.push('| ' + x.page + ' | `' + x.key.replace(/\|/g, '/') + '` | ' + x.kind + ' | ' + x.file + ':' + x.at + ' |');
+  const who = (x) => [...x.saw].sort().join(', ');
+  md.push('', '## Done, and who sees each (only some people can see a control when the page shows it to them alone)', '', '| Page | Control | Seen and pressed by |', '|---|---|---|');
+  for (const x of done) md.push('| ' + x.page + ' | `' + x.key.replace(/\|/g, '/') + '` | ' + who(x) + ' |');
+  md.push('', '## Partly: seen, but not pressed by everyone at both sizes', '', '| Page | Control | Seen by | Not pressed | Why |', '|---|---|---|---|---|');
+  for (const x of part) md.push('| ' + x.page + ' | `' + x.key.replace(/\|/g, '/') + '` | ' + who(x) + ' | ' + x.missing.join(', ') + ' | ' + (x.why.join('; ') || 'not reached at that size') + ' |');
+  md.push('', '## Not seen by anyone', '', '| Page | Control | Kind | Where in the code |', '|---|---|---|---|');
+  for (const x of never) md.push('| ' + x.page + ' | `' + x.key.replace(/\|/g, '/') + '` | ' + x.kind + ' | ' + x.file + ':' + x.at + ' |');
+  md.push('', '## Handlers, not controls (attached in script to a control counted by its own key)', '', '| Page | Handler | Attached to |', '|---|---|---|');
+  for (const x of handlers) md.push('| ' + x.page + ' | `' + x.key + '` | `' + x.on.replace(/\|/g, '/') + '` (' + x.file + ':' + x.at + ') |');
+  md.push('', '## Not on this page (the page loads the script but never draws these)', '', '| Page | Control | Why |', '|---|---|---|');
+  for (const x of notHere) md.push('| ' + x.page + ' | `' + x.key.replace(/\|/g, '/') + '` | ' + x.reason + ' |');
   fs.writeFileSync(path.join(OUT, 'controls-stage3.md'), md.join('\n') + '\n');
-  console.log((r.reached + byJourney) + ' of ' + r.total + ' controls reached (' + r.reached + ' by the audit, ' + byJourney + ' by journeys); ' + none.length + ' not reached. tests/out/controls-stage3.md');
+  console.log(done.length + ' of ' + rows.length + ' done; ' + part.length + ' partly; ' + never.length + ' not seen; ' + notHere.length + ' not on their page. tests/out/controls-stage3.md');
 }

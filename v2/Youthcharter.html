@@ -396,7 +396,15 @@
 
 <script>
 const PAGE_ID  = 'youth-charter';
-const ADMIN_PW = 'Surreykt10';
+/* WHO MAY EDIT THIS PAGE: the youth groups' admins and master admins, as
+   the rules decide it (pageContent: isAdmin). There is no password: one
+   written in the page could be read by anybody. */
+function mayEdit() {
+  if (!window.EGBCAuth) return false;
+  if (EGBCAuth.isMaster && EGBCAuth.isMaster()) return true;
+  var groups = (EGBCAuth.youthGroups && EGBCAuth.youthGroups()) || [];
+  return groups.some(function (t) { return EGBCAuth.isAdminOf && EGBCAuth.isAdminOf(t); });
+}
 
 // Shared storage — admin edits are now saved to Firebase so everyone sees them
 // (previously saved to this browser's localStorage only).
@@ -473,7 +481,7 @@ async function saveAll() {
         }, { merge: true });
     } catch (e) {
         console.error('Charter save failed', e);
-        toast('Save failed — check your connection');
+        toast(/permission/i.test(String((e && (e.code || e.message)) || '')) ? 'Not saved: only the youth team\u2019s admins can change this page.' : 'Save failed — check your connection');
     }
 }
 
@@ -490,7 +498,7 @@ async function saveAll() {
     var r = bar.getBoundingClientRect();
     if (e.clientX < r.right - r.width * 0.4) return;
     clicks++; clearTimeout(timer); timer = setTimeout(function(){ clicks = 0; }, 1200);
-    if (clicks >= 3 && !isAdmin) { clicks = 0; unlockAdmin(); }
+    if (clicks >= 3 && !isAdmin) { clicks = 0; if (mayEdit()) unlockAdmin(); else if (typeof toast === 'function') toast('Only the youth team\u2019s admins can change this page.'); }
   });
 })();
 function unlockAdmin(){
@@ -516,7 +524,7 @@ document.getElementById('pw-modal').addEventListener('click', function(e) {
 });
 
 function checkPassword() {
-    if (document.getElementById('pw-input').value === ADMIN_PW) {
+    if (mayEdit()) {
         isAdmin = true;
         closePwModal();
         document.getElementById('admin-locked-controls').style.display   = 'none';
@@ -527,7 +535,7 @@ function checkPassword() {
         renderPhotos();
         toast('Admin mode unlocked');
     } else {
-        document.getElementById('pw-error').textContent = 'Incorrect password.';
+        document.getElementById('pw-error').textContent = 'Only the youth team\u2019s admins can change this page.';
         document.getElementById('pw-input').value = '';
         document.getElementById('pw-input').focus();
     }

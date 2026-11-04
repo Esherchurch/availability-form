@@ -107,7 +107,10 @@ const ROLES_ALL = {
   kidsLead:    { label: 'Kids Church lead', teams: ['Kids Church'], adminFor: ['Kids Church'], masterAdmin: false, stage3: true },
   groupLeader: { label: 'Children’s group leader', teams: ['Kids Church'], adminFor: [], masterAdmin: false, stage3: true },
   sgLead:      { label: 'Safeguarding lead (no team)', teams: [], adminFor: [], masterAdmin: false, stage3: true },
-  parent:      { label: 'Parent (no team)', teams: [], adminFor: [], masterAdmin: false, stage3: true }
+  parent:      { label: 'Parent (no team)', teams: [], adminFor: [], masterAdmin: false, stage3: true },
+  /* A young person's phone: their code's sign-in (claim youth: true) and
+     no users record; --seed gives them their youthAccess. */
+  youth:       { label: 'Young person (access code)', teams: [], adminFor: [], masterAdmin: false, stage3: true, claims: { youth: true }, noUser: true }
 };
 /* Master first: taps are made once a page, by the first role that sees it, so that is the one who sees the most. */
 const ROLES = LIVE ? ['live'] : (opt('roles') ? opt('roles').split(',') : ['master', 'areaAdmin', 'core', 'kids', 'worship', 'everyone']).filter(r => ROLES_ALL[r]);
@@ -132,6 +135,30 @@ const MAX_TAPS = Number(opt('max-taps') || 40);
    written down by its code keys (tools/control-inventory.mjs) in
    tests/out/controls-reached.json, so the inventory can say N of N. */
 const EVERY = flag('every');
+/* --press-all (the going-live test, Stage 3; emulators only): delete, send
+   and the rest are pressed too - confirm() answers No and nothing leaves
+   the machine - so only signing out and View as stay unpressed. */
+const PRESS_ALL = flag('press-all') && !process.argv.includes('--live');
+const SKIP_ALWAYS = /sign ?out|log ?out|back to me|stop viewing/i;
+/* --states=file.mjs (Stage 3): screens deeper than a page's first view. Its
+   default export is [{ name, url, roles: [...] | 'all', steps: [js, 'wait:selector', ...] }];
+   each is opened, its steps run in the page, then audited like any screen,
+   and the steps run again after every press. */
+let STATES = [];
+async function loadStates() {
+  if (!opt('states')) return;
+  const { pathToFileURL } = await import('node:url');
+  STATES = (await import(pathToFileURL(path.resolve(opt('states'))).href)).default;
+}
+async function runSteps(B, steps) {
+  for (const st of steps || []) {
+    if (st === 'scope') { await B.ev(MARK_SCOPE); continue; }
+    if (String(st).startsWith('wait:')) {
+      const sel = JSON.stringify(String(st).slice(5));
+      for (let i = 0; i < 40 && !(await B.ev('!!document.querySelector(' + sel + ')')); i++) await sleep(250);
+    } else { await B.ev('(function(){try{' + st + '}catch(e){}return 1})()'); await sleep(700); }
+  }
+}
 const REACHED = [], SKIPPED_KEYS = [], SHARED_SHEETS = new Set();
 const REACHED_FILE = path.join(V2, 'tests', 'out', EVENTS ? 'controls-reached-events.json' : 'controls-reached.json');
 const { KEYS_JS } = await import('../tools/control-inventory.mjs');
@@ -222,7 +249,9 @@ const req = (port, method, p, body, hdr) => new Promise((res, rej) => {
     s => { let x = ''; s.on('data', c => x += c); s.on('end', () => res({ status: s.statusCode, body: x })); });
   r.on('error', rej); r.end(d);
 });
-const val = (v) => typeof v === 'boolean' ? { booleanValue: v } : typeof v === 'number' ? { integerValue: String(v) }
+/* a Date is a timestamp (a youth code's expiry is read with toDate()); a fraction a double */
+const val = (v) => v instanceof Date ? { timestampValue: v.toISOString() } : v === null ? { nullValue: null } : typeof v === 'boolean' ? { booleanValue: v }
+  : typeof v === 'number' ? (Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v })
   : Array.isArray(v) ? { arrayValue: { values: v.map(val) } } : (v && typeof v === 'object') ? { mapValue: { fields: fields(v) } } : { stringValue: String(v) };
 const fields = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, val(v)]));
 const OWNER = { Authorization: 'Bearer owner' };
@@ -262,7 +291,8 @@ async function seed() {
     let up = JSON.parse((await req(AUTH_PORT, 'POST', '/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-api-key', { email: r.email, password: PW, returnSecureToken: true })).body || '{}');
     if (!up.localId) up = JSON.parse((await req(AUTH_PORT, 'POST', '/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=fake-api-key', { email: r.email, password: PW, returnSecureToken: true })).body || '{}');
     r.uid = up.localId;
-    await req(AUTH_PORT, 'POST', '/identitytoolkit.googleapis.com/v1/projects/egbc-worship-planner/accounts:update', { localId: r.uid, emailVerified: true }, OWNER);
+    await req(AUTH_PORT, 'POST', '/identitytoolkit.googleapis.com/v1/projects/egbc-worship-planner/accounts:update', Object.assign({ localId: r.uid, emailVerified: true }, r.claims ? { customAttributes: JSON.stringify(r.claims) } : {}), OWNER);
+    if (r.noUser) continue;
     await put('addressBook/' + r.member, { name: r.name, email: r.email, markers: r.teams, adminFor: r.adminFor, masterAdmin: r.masterAdmin, archived: false, isMinor: false, churchMember: true });
     await put('users/' + r.uid, { uid: r.uid, email: r.email, name: r.name, memberId: r.member, status: 'active', linkedBy: 'admin',
       teams: r.teams, adminFor: r.adminFor, masterAdmin: r.masterAdmin, churchMember: true });
@@ -487,6 +517,10 @@ const SHEET_CLOSE = `(function(){
   return JSON.stringify({close:close.length, sig:String(best.id||best.className||best.tagName).slice(0,40)});
 })()`;
 
+/* --probe (building --states): each state's controls and fields listed, nothing pressed */
+const PROBE = flag('probe');
+/* --state=words: only the states whose name holds the words */
+const ONLY_STATE = opt('state');
 const CONTROLS = `(function(){
   function vis(el) { var dt = el.closest('details:not([open])'); if (dt && !(el.closest('summary') && el.closest('summary').parentElement === dt)) return false;
     var r = el.getBoundingClientRect(); if (r.width < 1 || r.height < 1) return false;
@@ -505,6 +539,7 @@ const CONTROLS = `(function(){
     list.push({ i: i, sig: el.tagName + '|' + words + '|' + href + '|' + (el.getAttribute('data-act') || el.getAttribute('data-lact') || ''), words: words, href: href, keys: K(el),
       tel: /^(mailto|tel|sms|webcal|intent|whatsapp|geo):/i.test(href),
       needsSel: el.hasAttribute('data-needs-selection'),
+      chrome: !!el.closest('[id^="egbc-"]') || el.hasAttribute('data-tab') || el.getAttribute('role') === 'tab',
       plain: el.tagName === 'A' && !el.hasAttribute('onclick') && !el.hasAttribute('data-act') && !el.hasAttribute('data-lact') && !el.hasAttribute('data-mact') && !el.hasAttribute('download') && !/^(#|javascript:)/i.test(href) && !!href,
       chosen: el.getAttribute('aria-pressed') === 'true' || el.getAttribute('aria-selected') === 'true' || !!el.getAttribute('aria-current') || /(^| )(on|active|selected|is-active|current)( |$)/.test(typeof el.className === 'string' ? el.className : '') });
   });
@@ -692,6 +727,9 @@ async function tapAll(B, url, reopen, ctx) {
     const next = list.find(c => !tapped.has(c.sig));
     if (!next) break;
     tapped.add(next.sig);
+    /* A STATE (--states): the page's first view already pressed the shared
+       chrome and the tabs; here only the state's own controls count. */
+    if (ctx.state && next.chrome) continue;
     /* mailto:, tel:, webcal: and the like open another app: they work by
        definition, and tapping one in a headless browser (webcal: did it)
        stops every later tap reaching the page. */
@@ -710,7 +748,7 @@ async function tapAll(B, url, reopen, ctx) {
       else why.push('broken link: "' + (next.words || next.href) + '" goes to ' + to.pathname + ' (' + (st || 'no answer') + ')');
       continue;
     }
-    if (SKIP_TAP.test(next.words) || (LIVE && SKIP_LIVE.test(next.words))) { skipped.push(next.words || next.href); notUsed(next, 'not tapped: changes things for others (sign out, delete, send...)'); continue; }
+    if ((PRESS_ALL ? SKIP_ALWAYS : SKIP_TAP).test(next.words) || (LIVE && SKIP_LIVE.test(next.words))) { skipped.push(next.words || next.href); notUsed(next, 'not tapped: changes things for others (sign out, delete, send...)'); continue; }
     n++;
     const sel = '(document.querySelectorAll("a[href],button,[role=button],[role=tab],[data-act],[data-lact],[data-mact],[data-tab],[onclick],summary")[' + next.i + '])';
     /* SCROLL, LET IT SETTLE, THEN MEASURE (26 Oct 2026). Pages that build
@@ -831,7 +869,7 @@ async function tapAll(B, url, reopen, ctx) {
     /* Whatever happened, the next tap starts from the page as it rests: a
        sheet that would not close is closed by opening the page again. */
     if (process.env.AUDIT_DEBUG) console.log('    overlay now', await B.ev(OVERLAY), 'resting', resting, 'here', await B.ev(HERE), 'home', home);
-    if (((await B.ev(OVERLAY)) || 'null') !== resting || (await B.ev(HERE)) !== home) await reopen();
+    if (ctx.state || ((await B.ev(OVERLAY)) || 'null') !== resting || (await B.ev(HERE)) !== home) await reopen();
   }
   /* Every tap dead, on a page with several: taps are not reaching the page
      (seen when the emulator is overloaded). Say so, rather than blame every
@@ -887,6 +925,8 @@ async function fillFields(B, reopen, ctx) {
     const next = list.find((f) => !done.has(f.keys.join('|') + '#' + f.i));
     if (!next) break;
     done.add(next.keys.join('|') + '#' + next.i);
+    /* a state (--states): the shared chrome's fields were filled on the page's first view */
+    if (ctx.state && next.keys.some((k) => /^(id|field):egbc-/.test(k))) continue;
     if (next.viewAs) { if (next.keys.length) SKIPPED_KEYS.push({ page: ctx.page, role: ctx.role, size: ctx.size, keys: next.keys, words: next.words, why: 'View as: changes who you are for every page after it (its own checks: check-viewas-*)' }); continue; }
     const before = B.errors.length;
     if (process.env.FIELD_DEBUG) console.log('    fill', ctx.page, next.type, next.words, JSON.stringify(next.keys));
@@ -896,7 +936,7 @@ async function fillFields(B, reopen, ctx) {
     if (r === 'file') { if (next.keys.length) SKIPPED_KEYS.push({ page: ctx.page, role: ctx.role, size: ctx.size, keys: next.keys, words: next.words, why: 'a file picker: needs a file (the journeys upload real files)' }); continue; }
     if (r === 'filled' || r === 'one choice') { if (next.keys.length) REACHED.push({ page: ctx.page, role: ctx.role, size: ctx.size, keys: next.keys, how: r === 'filled' ? 'filled' : 'shown (one choice)' }); }
     if (B.errors.length > before) why.push('console: filling "' + next.words + '": ' + B.errors[before]);
-    if (((await B.ev(OVERLAY)) || 'null') !== resting || (await B.ev(HERE)) !== home) await reopen();
+    if (ctx.state || ((await B.ev(OVERLAY)) || 'null') !== resting || (await B.ev(HERE)) !== home) await reopen();
   }
   return why;
 }
@@ -905,11 +945,17 @@ async function fillFields(B, reopen, ctx) {
 const RESULTS = [];
 function record(r) { RESULTS.push(r); const mark = r.pass ? 'PASS' : 'FAIL'; console.log('  ' + mark + '  ' + r.role + ' ' + r.size + ' ' + r.screen + (r.pass ? '' : '\n          ' + r.why.join('\n          '))); }
 
-async function auditScreen(B, { role, size, screen, url, inApp, taps, base, shotName }) {
+async function auditScreen(B, { role, size, screen, url, inApp, taps, base, shotName, steps }) {
   if (!LIVE) await restoreSettings();
   const [w, h] = ALL_SIZES[size];
   await B.size(w, h);
   await B.go(url);
+  await runSteps(B, steps);
+  if (PROBE) {
+    const c = JSON.parse((await B.ev(CONTROLS)) || '[]'), f = JSON.parse((await B.ev(FIELDS)) || '[]');
+    console.log('  PROBE ' + role + ' ' + size + ' ' + screen + '\n    ' + [...new Set(c.concat(f).map((x) => (x.keys || [])[0]))].join(' '));
+    return {};
+  }
   const errs = B.errors.slice();
   const m = JSON.parse((await B.ev(MEASURE)) || '{}');
   const why = [];
@@ -925,10 +971,11 @@ async function auditScreen(B, { role, size, screen, url, inApp, taps, base, shot
   await B.shot(path.join(OUT, role, String(size), slug(shotName || screen) + '.png'));
   let skipped = [];
   if (taps) {
-    const ctx = { page: String(screen).replace(/^from the app: /, '').replace(/ \(.*\)$/, '').split('?')[0], role, size };
-    const t = await tapAll(B, url, () => B.go(url), ctx);
+    const ctx = { page: String(screen).replace(/^from the app: /, '').replace(/ \(.*\)$/, '').split('?')[0], role, size, state: !!(steps && steps.length) || / \(state: /.test(String(screen)) };
+    const back = async () => { await B.go(url); await runSteps(B, steps); };
+    const t = await tapAll(B, url, back, ctx);
     why.push(...t.why); skipped = t.skipped;
-    if (EVERY) { await B.go(url); why.push(...await fillFields(B, () => B.go(url), ctx)); saveReached(); }
+    if (EVERY) { await back(); why.push(...await fillFields(B, back, ctx)); saveReached(); }
   }
   const pageErrs = (await B.ev('JSON.stringify((window.__aud&&window.__aud.errs)||[])')) || '[]';
   JSON.parse(pageErrs).filter(e => !errs.includes(e)).slice(0, 2).forEach(e => why.push('console: ' + e));
@@ -1105,6 +1152,8 @@ async function findability(B, role, size, base) {
 async function runRole(B, role, size, base, shared) {
   /* --every: taps at every size, for every role, on every screen they see. */
   const tapsHere = !NO_TAPS && (EVERY || String(size) === TAP_SIZE);
+  /* --reseed (Stage 3, with --press-all): the records put back before each person at each size, so what one pressed away is there for the next */
+  if (!LIVE && flag('reseed')) await seedMore();
   await signIn(B, base, role);
   await B.size(...ALL_SIZES[size]);
   if (!NO_SITE && (String(size) === TAP_SIZE || size === '1440')) await findability(B, role, size, base);
@@ -1119,12 +1168,14 @@ async function runRole(B, role, size, base, shared) {
       /* "hub.html?notices=1" is Home with its Notices open: offered if the
          page itself is (22 Oct 2026 - it was counted as a page apart). */
       const should = mine.has(page) || mine.has(page.split('?')[0]);
-      if (!should && String(size) !== TAP_SIZE) continue;      /* access is checked once */
       /* --every: a page in nobody's Menu is pressed, like any other, by the
-         people OFF_MENU_BY_DESIGN says it is for (3 Nov 2026); everyone else
-         has its access checked below. */
+         people OFF_MENU_BY_DESIGN says it is for (3 Nov 2026), at every size
+         (4 Nov: it was only at the tap size, so 1440 was never pressed);
+         everyone else has its access checked below, once. */
       const forThem = OFF_MENU_BY_DESIGN[page.split('?')[0]] || (PRESS_AS[page.split('?')[0]] && { roles: PRESS_AS[page.split('?')[0]] });
-      if (!should && EVERY && forThem && (forThem.roles === 'all' || [].concat(forThem.roles).includes(role))) {
+      const pressIt = !should && EVERY && forThem && (forThem.roles === 'all' || [].concat(forThem.roles).includes(role));
+      if (!should && !pressIt && String(size) !== TAP_SIZE) continue;      /* access is checked once */
+      if (pressIt) {
         await auditScreen(B, { role, size, screen: page + ' (opened from another page)', url: base + page, inApp: false, taps: tapsHere, base });
         continue;
       }
@@ -1162,6 +1213,14 @@ async function runRole(B, role, size, base, shared) {
         console.log('  FAIL  ' + role + ' ' + size + ' ' + page + ' (the line above is overruled)\n          ' + last.why[0]);
       }
     }
+  }
+  /* ---- deeper screens (--states) ---- */
+  for (const st of STATES) {
+    if (!(st.roles === 'all' || [].concat(st.roles || []).includes(role))) continue;
+    if (ONLY_PAGES && !ONLY_PAGES.includes(st.url.split('?')[0])) continue;
+    if (ONLY_STATE && !st.name.includes(ONLY_STATE)) continue;
+    if (B.isDead()) { await B.restart(); await B.size(...ALL_SIZES[size]); await signIn(B, base, role); }
+    await auditScreen(B, { role, size, screen: st.url.split('?')[0] + ' (state: ' + st.name + ')', url: base + st.url, inApp: false, taps: tapsHere, base, steps: st.steps });
   }
   /* ---- the app ---- */
   if (!NO_APP) {
@@ -1244,6 +1303,7 @@ if (flag('live-words')) { process.exit(liveWordsCheck() ? 0 : 1); }
   if (SELF) { await selfTest(base); return; }
   if (LIVE && !(process.env.AUDIT_EMAIL && process.env.AUDIT_PASSWORD)) { console.error('--live needs AUDIT_EMAIL and AUDIT_PASSWORD (a test user).'); process.exit(2); }
   if (!LIVE) { await seed(); await seedMore(); }
+  await loadStates();
   const started = new Date();
   const shared = { tappedPages: new Set(), tappedApp: new Set() };
   /* TWO BROWSERS, not one a size: four at once overloaded the emulator and
