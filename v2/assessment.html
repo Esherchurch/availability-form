@@ -70,7 +70,7 @@
   .dot.red{background:var(--danger)} .dot.amber{background:var(--gold)} .dot.green{background:var(--ok)} .dot.grey{background:#9ca3af}
   table{width:100%;border-collapse:collapse;font-size:13px} td,th{text-align:left;padding:6px 4px;border-top:1px solid var(--line);vertical-align:top}
   .bar{position:sticky;bottom:0;background:var(--canvas);padding:10px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  .check{display:flex;gap:8px;align-items:center;margin:4px 0;font-size:14px} .check input{width:18px;height:18px;accent-color:var(--brand)}
+  .check{display:flex;gap:8px;align-items:center;margin:4px 0;font-size:14px;min-height:32px /* the label takes the tap: 24px was too small on a phone (Stage 3 audit, 5 Nov 2026) */} .check input{width:18px;height:18px;accent-color:var(--brand)}
   .blank{color:var(--danger);font-size:12px}
 </style>
 </head>

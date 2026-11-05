@@ -2573,9 +2573,11 @@ service cloud.firestore {
       // on no team: refused, they saw no leaders, no Checks and no "Sign it
       // off", and the event's bookings never opened (Stage 3, 5 Nov 2026).
       // also the event's organisers and its building's health and safety lead (the numbers they sign
-      // and approve), and no record at all (an event with no leaders yet: nothing to read)
+      // and approve), and no record at all (an event with no leaders yet: nothing to read), and a leader
+      // it names, who may be on no team (a helper): check-in lists the events they lead from it
       allow read: if volunteer() || sgLeadOf(resource.data.get('siteId', ''))
-                  || resource == null || runsEventId(calEventId) || raAnyLead(resource.data.get('siteId', ''));
+                  || resource == null || runsEventId(calEventId) || raAnyLead(resource.data.get('siteId', ''))
+                  || (signedIn() && request.auth.uid in resource.data.get('leaderUids', []));
       allow write: if (isAdmin() || sgLeadOf(request.resource.data.get('siteId', '')))
                    && request.resource.data.keys().hasOnly(['leaders', 'leaderUids', 'siteId', 'ratioAll', 'ratioUnder8',
                                                              'requireChecks', 'dbsYears', 'trainingYears', 'updatedAt', 'updatedBy',
@@ -2678,7 +2680,10 @@ service cloud.firestore {
       // every team admin's: a Kids Church admin was reading everyone's
       // (the reviewing window, 22 Oct 2026). A master admin keeps it - they
       // can already write them, and somebody must name the first lead.
+      // A leader with no checks yet has no record: the lead or deputy is told so (nothing to read),
+      // not refused - refused, the event page left that leader's Checks undrawn (5 Nov 2026).
       allow read: if isMaster() || sgLeadOf(resource.data.get('siteId', ''))
+                  || (resource == null && sgLeadOrDeputy())
                   || (active() && me().get('memberId', '') == memberId);
       allow write: if (isMaster() || sgLeadOf(request.resource.data.get('siteId', '')))
                    && request.resource.data.keys().hasOnly(['name', 'dbsStatus', 'dbsSeen', 'trainingDate', 'siteId', 'updatedAt', 'updatedBy',

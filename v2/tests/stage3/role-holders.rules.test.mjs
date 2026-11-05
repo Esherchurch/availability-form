@@ -35,7 +35,7 @@ const refused = async (p) => { try { await assertFails(p); return true; } catch 
 /* the people: each on no team unless their role is a team by its nature (a trustee, the office, a kids lead) */
 const P = {
   sgLead: { teams: [], adminFor: [] }, sgDeputy: { teams: [], adminFor: [] }, hsLead: { teams: [], adminFor: [] }, fireLead: { teams: [], adminFor: [] },
-  organiser: { teams: [], adminFor: [] }, bookingsAdmin: { teams: [], adminFor: [] }, nobody: { teams: [], adminFor: [] },
+  organiser: { teams: [], adminFor: [] }, helper: { teams: [], adminFor: [] }, bookingsAdmin: { teams: [], adminFor: [] }, nobody: { teams: [], adminFor: [] },
   trustee: { teams: ['Elders'], adminFor: [] }, office: { teams: ['Church office'], adminFor: [] }, kidsLead: { teams: [], adminFor: ['Kids Church'] }
 };
 const A = 'site_a', B = 'site_b';
@@ -58,6 +58,8 @@ await env.withSecurityRulesDisabled(async (c) => {
   await put('calEvents/ev_b', ev(B, []));
   await put('eventLeaders/ev_a', { siteId: A, under18: true, leaders: [{ memberId: 'm_kidsLead', name: 'Kids lead (synthetic)' }], leaderIds: ['m_kidsLead'], leaderUids: ['u_kidsLead'] });
   await put('eventLeaders/ev_b', { siteId: B, under18: true, leaders: [], leaderIds: [], leaderUids: [] });
+  /* an event led by a helper on no team */
+  await put('eventLeaders/ev_h', { siteId: B, under18: true, leaders: [{ memberId: 'm_helper', name: 'helper (synthetic)' }], leaderIds: ['m_helper'], leaderUids: ['u_helper'] });
   await put('eventForms/ev_a', { forms: [{ formId: 'form_k' }] });
   await put('eventForms/ev_b', { forms: [{ formId: 'form_k' }] });
   await put('eventExceptions/ev_a__m_kidsLead', { calEventId: 'ev_a', memberId: 'm_kidsLead', siteId: A, reason: 'Synthetic' });
@@ -82,6 +84,7 @@ try {
     ok('   the children\'s teams (the register and the Menu)', await allowed(getDocs(collection(db, 'kidsSettings'))));
     ok('   the rota, for "From the rota"', await allowed(get(db, 'events/rota_1')));
     ok('   their site\'s plan groups (the risk register)', await allowed(getDocs(query(collection(db, 'planGroups'), where('siteId', '==', A)))));
+    ok('   a leader with no checks yet: nothing to read, not refused', await allowed(get(db, 'leaderChecks/m_nochecks')));
     ok('   but NOT another site\'s event\'s leaders, forms or plan groups', await refused(get(db, 'eventLeaders/ev_b')) && await refused(get(db, 'eventForms/ev_b'))
       && await refused(getDocs(query(collection(db, 'planGroups'), where('siteId', '==', B)))));
   }
@@ -108,6 +111,14 @@ try {
     const db = as('bookingsAdmin');
     ok('A BOOKINGS ADMIN (no team) reads their building\'s bookings and its settings', await allowed(getDocs(query(collection(db, 'bookings'), where('siteId', '==', A)))) && await allowed(get(db, 'bookingSettings/' + A)));
     ok('   but NOT another building\'s bookings', await refused(getDocs(query(collection(db, 'bookings'), where('siteId', '==', B)))));
+    ok('   nor whether a leader has DBS checks (only the lead and deputy are told)', await refused(get(db, 'leaderChecks/m_nochecks')));
+  }
+  /* AN EVENT'S LEADER, on no team (a helper): check-in finds the events they lead */
+  {
+    const db = as('helper');
+    ok("AN EVENT'S LEADER (no team) reads the leaders record that names them, and finds it by a query", await allowed(get(db, 'eventLeaders/ev_h'))
+      && await allowed(getDocs(query(collection(db, 'eventLeaders'), where('leaderUids', 'array-contains', 'u_helper')))));
+    ok("   but NOT another event's leaders", await refused(get(db, 'eventLeaders/ev_a')));
   }
   /* ROLES THAT ARE A TEAM BY THEIR NATURE: a trustee (the trustee team), the office (its team), a kids lead
      (an admin of the children's team) - on no other team, they read what their pages need as before */

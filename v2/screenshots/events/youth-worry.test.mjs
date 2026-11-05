@@ -102,17 +102,6 @@ await env.withSecurityRulesDisabled(async (ctx) => {
 const readDb = async (fn) => { let out; await env.withSecurityRulesDisabled(async (c) => { out = await fn(c.firestore()); }); return out; };
 const all = (name) => readDb((db) => getDocs(collection(db, name)).then((q) => q.docs.map((d) => Object.assign({ id: d.id }, d.data()))));
 const setLeads = (v) => readDb((db) => updateDoc(doc(db, 'bookingSettings', SITE), v));
-/** The outbox's count once nothing has arrived for 3 s (at most 20 s). */
-async function quiet() {
-  let n = (await all('pushOutbox')).length, still = Date.now();
-  for (const end = Date.now() + 20000; Date.now() < end && Date.now() - still < 3000;) {
-    await sleep(500);
-    const m = (await all('pushOutbox')).length;
-    if (m !== n) { n = m; still = Date.now(); }
-  }
-  return n;
-}
-
 const errors = [], BROWSERS = [];
 async function as(who, w, h) {
   const b = await puppeteer.launch({ executablePath: CHROME, headless: 'new', userDataDir: fs.mkdtempSync(path.join(TMP, who + '-')), args: ['--no-first-run'] });
@@ -191,21 +180,26 @@ try {
     ok('6. THE YOUNG PERSON still cannot write a concern themselves' + at, /permission/.test(direct), direct);
 
     /* 7: only one of them set - it is accepted and goes to that one alone */
-    for (const [only, k, tok] of [[{ safeguardingLead: '', safeguardingDeputy: 'm_dee' }, 'dee', 'tok-dee'], [{ safeguardingLead: 'm_lea', safeguardingDeputy: '' }, 'lea', 'tok-lea']]) {
+    for (const [only, k] of [[{ safeguardingLead: '', safeguardingDeputy: 'm_dee' }, 'dee'], [{ safeguardingLead: 'm_lea', safeguardingDeputy: '' }, 'lea']]) {
       const who = k === 'dee' ? 'A DEPUTY BUT NO LEAD' : 'A LEAD BUT NO DEPUTY';
       await setLeads(only);
-      /* The outbox quiet first: a push from the step before can land late
-         (the events window's run, 1440: the lead's), and a care push names
-         no concern, so it can only be told apart by when it came. */
-      const pushed0 = await quiet();
+      /* NEW PHONES FOR THIS PASS. A care push names no concern, and one from
+         an earlier step can land late (the events window's runs: 43/44, then
+         42/44 even after waiting for a quiet outbox). Pushes sent before now
+         went to the old tokens, so only this pass's tokens count. */
+      const pass = '-' + k + w;
+      await readDb((db) => Promise.all(['lea', 'dee'].map((x) => setDoc(doc(db, 'pushTokens', P[x].uid + '_phone'),
+        { uid: P[x].uid, token: 'tok-' + x + pass, platform: 'android', createdAt: new Date(), lastSeen: new Date() }))));
+      const tok = 'tok-' + k + pass, other = 'tok-' + (k === 'dee' ? 'lea' : 'dee') + pass;
       const words = 'Synthetic test ' + w + ': only the ' + (k === 'dee' ? 'deputy' : 'lead') + ' is set.';
       const s = await send(Y, 'me', words);
       const c = (await all('concerns')).find((x) => x.concern === words);
       ok('7. WITH ' + who + ' it is accepted, and written on the building' + at, /^Sent\./.test(s || '') && c && c.siteId === SITE, s + ' | ' + JSON.stringify(c || null));
-      await until(async () => (await all('pushOutbox')).length > pushed0, 20000);
-      await sleep(1500);
-      const t7 = (await all('pushOutbox')).slice(pushed0).flatMap((x) => x.tokens || []);
-      ok('   and only ' + (k === 'dee' ? 'the deputy' : 'the lead') + ' is told' + at, t7.length > 0 && t7.every((t) => t === tok), JSON.stringify(t7));
+      const toks = async () => (await all('pushOutbox')).flatMap((x) => x.tokens || []);
+      await until(async () => (await toks()).includes(tok), 20000);
+      await sleep(3000);
+      const t7 = (await toks()).filter((t) => t.endsWith(pass));
+      ok('   and only ' + (k === 'dee' ? 'the deputy' : 'the lead') + ' is told' + at, t7.includes(tok) && !t7.includes(other), JSON.stringify(t7));
       const R = await as(k, w, h);
       ok('   who reads it on the safeguarding page' + at, (await sgText(R)).includes(words));
     }
@@ -218,6 +212,9 @@ try {
     ok('8. WITH NEITHER A LEAD NOR A DEPUTY nothing is written, the page says so, and Childline and 999 still show' + at,
       (await all('concerns')).length === n0 && /Nobody is set up to receive this/.test(s3 || '') && /0800 1111/.test(help) && /999/.test(help), s3 + ' | ' + help.slice(0, 200));
     await setLeads(LEADS);
+    /* step 7's phones back to the ones step 3 checks at the next size */
+    await readDb((db) => Promise.all(['lea', 'dee'].map((x) => setDoc(doc(db, 'pushTokens', P[x].uid + '_phone'),
+      { uid: P[x].uid, token: 'tok-' + x, platform: 'android', createdAt: new Date(), lastSeen: new Date() }))));
     for (const b of BROWSERS.splice(0)) await b.close().catch(() => {});
   }
 } catch (e) {

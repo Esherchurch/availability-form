@@ -1,6 +1,6 @@
 # The Kids Church Sunday’s pages: every control, from the code
 
-**315 of 411 controls done**: pressed by every kind of person who saw them, at 375 and at 1440, on 14 pages (kids, safeguarding, churchShow). 27 partly, 69 not seen by anyone (listed below). 79 more are in scripts these pages load but never draw there, and 35 are handlers of controls counted already (both listed, with the proof).
+**317 of 385 controls done**: pressed by every kind of person who saw them, at 375 and at 1440, on 14 pages (kids, safeguarding, churchShow). 24 partly, 44 not seen by anyone (listed below). 109 more are in scripts these pages load but never draw there, and 35 are handlers of controls counted already (both listed, with the proof).
 
 ## Each kind of person, at each size
 
@@ -14,10 +14,10 @@
 | groupLeader | 1440 | 95 | 91 |
 | kids | 375 | 22 | 21 |
 | kids | 1440 | 22 | 20 |
-| kidsLead | 375 | 202 | 197 |
-| kidsLead | 1440 | 202 | 190 |
-| master | 375 | 310 | 305 |
-| master | 1440 | 310 | 290 |
+| kidsLead | 375 | 203 | 200 |
+| kidsLead | 1440 | 203 | 191 |
+| master | 375 | 310 | 306 |
+| master | 1440 | 310 | 291 |
 | parent | 375 | 17 | 17 |
 | parent | 1440 | 17 | 16 |
 | sgLead | 375 | 157 | 155 |
@@ -79,6 +79,7 @@
 | present.html | `text:Start: question 1 ▶` | groupLeader, kidsLead, master |
 | present.html | `text:Finish the quiz` | groupLeader, kidsLead, master |
 | present.html | `text:Show the answer on the TV` | groupLeader, kidsLead, master |
+| present.html | `text:Remove` | groupLeader, kidsLead, master |
 | present.html | `text:Keep` | groupLeader, kidsLead, master |
 | present.html | `text:End the quiz and delete everything` | groupLeader, kidsLead, master |
 | present.html | `text:Show the answer now` | groupLeader, kidsLead, master |
@@ -161,7 +162,7 @@
 | kids-checkin.html | `text:We have said hello` | kidsLead, master, sgLead |
 | kids-checkin.html | `text:Send the form again` | kidsLead, master, sgLead |
 | kids-checkin.html | `id:m-phone` | groupLeader, kidsLead, master, sgLead |
-| kids-checkin.html | `id:m-screen` | groupLeader |
+| kids-checkin.html | `id:m-screen` | groupLeader, kidsLead, master |
 | kids-checkin.html | `id:m-screen-yes` | groupLeader |
 | kids-checkin.html | `id:m-screen-no` | groupLeader |
 | kids-checkin.html | `text:Done` | groupLeader, kidsLead, master, sgLead |
@@ -176,6 +177,7 @@
 | youthapp2.html | `id:serviceTypeNotes` | master, youth |
 | youthapp2.html | `id:introBox` | master, youth |
 | youthapp2.html | `fn:addSong` | master, youth |
+| youthapp2.html | `fn:addItem` | master |
 | youthapp2.html | `href:sundayplannersonglibrary.html` | master, youth |
 | youthapp2.html | `id:outroBox` | master, youth |
 | youthapp2.html | `fn:saveSchedule` | master, youth |
@@ -221,8 +223,6 @@
 | Youthcharter.html | `fn:applyHtml` | master |
 | Youthcharter.html | `fn:closeHtmlEditor` | master |
 | Youthcharter.html | `fn:clearContent` | master |
-| Youthcharter.html | `id:pw-input` | master |
-| Youthcharter.html | `fn:closePwModal` | master |
 | Youthcharter.html | `fn:checkPassword` | master |
 | safeguarding.html | `text:✕` | core, everyone, groupLeader, kids, kidsLead, master, parent, sgLead, worship |
 | safeguarding.html | `href:checkin.html` | kidsLead, master |
@@ -271,6 +271,7 @@
 | safeguarding.html | `id:sgaSave` | kidsLead, master |
 | safeguarding.html | `id:sgaReady` | kidsLead, master |
 | safeguarding.html | `href:sg-print.html` | kidsLead, master |
+| safeguarding.html | `id:sgaHostOpen` | kidsLead, master |
 | safeguarding.html | `id:sgaHostAgain` | kidsLead, master |
 | safeguarding.html | `text:Remove` | kidsLead, master |
 | safeguarding.html | `id:sgaHostAdd` | kidsLead, master |
@@ -311,6 +312,7 @@
 | safeguarding-risk.html | `text:Read it` | master, sgLead |
 | safeguarding-risk.html | `text:Close` | master, sgLead |
 | safeguarding-risk.html | `href:event-ra.html` | master, sgLead |
+| safeguarding-risk.html | `id:sgaHostOpen` | master, sgLead |
 | safeguarding-risk.html | `text:Record it` | sgLead |
 | safeguarding-risk.html | `id:rvNote` | sgLead |
 | safeguarding-risk.html | `id:rvGo` | sgLead |
@@ -355,7 +357,6 @@
 | session-planner.html | `id:printTerm` | groupLeader, kids, kidsLead, master | master@1440, kids@1440 | not reached at that size |
 | session-planner.html | `id:stFile` | groupLeader, kidsLead, master | master@375, master@1440, kidsLead@375, kidsLead@1440, groupLeader@375, groupLeader@1440 | a file picker: needs a file (the journeys upload real files) |
 | present.html | `text:×` | core, everyone, groupLeader, kids, kidsLead, master, parent, sgLead, worship | kids@375 | not reached at that size |
-| present.html | `text:Remove` | groupLeader, kidsLead, master | master@375, kidsLead@375 | not reached at that size |
 | kids-admin.html | `text:Add to the register` | kidsLead, master, sgLead | master@1440, kidsLead@1440, sgLead@1440 | not reached at that size |
 | kids-admin.html | `text:&times;` | groupLeader, kidsLead, master, sgLead | groupLeader@375 | not reached at that size |
 | kids-admin.html | `href:places-admin.html` | master | master@1440 | not reached at that size |
@@ -364,9 +365,7 @@
 | kids-checkin.html | `href:places-admin.html` | master | master@1440 | not reached at that size |
 | Youthcharter.html | `fn:logoutAdmin` | master | master@375, master@1440 | not tapped: changes things for others (sign out, delete, send...) |
 | safeguarding.html | `id:sgaStart` | kidsLead, master | master@1440, kidsLead@1440 | not reached at that size |
-| safeguarding.html | `id:sgaHostOpen` | kidsLead, master | kidsLead@375 | not reached at that size |
 | safeguarding.html | `id:sgaHostFile` | kidsLead, master | master@375, master@1440, kidsLead@375, kidsLead@1440 | a file picker: needs a file (the journeys upload real files) |
-| safeguarding-risk.html | `id:sgaHostOpen` | master, sgLead | master@1440 | not reached at that size |
 | safeguarding-risk.html | `text:Work them out now` | master, sgLead | master@1440, sgLead@1440 | not reached at that size |
 | safeguarding-risk.html | `id:rvNa` | sgLead | sgLead@375 | not reached at that size |
 | event-ra.html | `href:safeguarding.html` | kidsLead, master, sgLead | sgLead@1440 | not reached at that size |
@@ -392,10 +391,12 @@
 | kids-admin.html | `id:s-form-go` | button | kids-admin.html:397 |
 | kids-checkin.html | `id:l-print` | button | kids-checkin.html:388 |
 | kids-checkin.html | `id:m-print` | button | kids-checkin.html:541 |
-| youthapp2.html | `fn:addItem` | button | youthapp2.html:1053 |
-| youthapp2.html | `href:youth-access.html` | link | youthapp2.html:1531 |
-| youthapp2.html | `fn:selectSong` | button | youthapp2.html:1683 |
-| Youthcharter.html | `fn:openPwModal` | button | Youthcharter.html:328 |
+| youthapp2.html | `field:worry-who` | field | youthapp2.html:1215 |
+| youthapp2.html | `id:worry-name` | field | youthapp2.html:1218 |
+| youthapp2.html | `id:worry-text` | field | youthapp2.html:1220 |
+| youthapp2.html | `fn:sendWorry` | button | youthapp2.html:1221 |
+| youthapp2.html | `href:youth-access.html` | link | youthapp2.html:1610 |
+| youthapp2.html | `fn:selectSong` | button | youthapp2.html:1762 |
 | Youthcharter.html | `id:photo-file-input` | field | Youthcharter.html:339 |
 | safeguarding.html | `id:clearAgain` | button | safeguarding.html:227 |
 | safeguarding.html | `id:shareMed` | button | safeguarding.html:245 |
@@ -412,42 +413,15 @@
 | safeguarding.html | `text:Use this` | button | egbc-sg-assess.js:127 |
 | safeguarding.html | `id:sgaSign` | button | egbc-sg-assess.js:178 |
 | safeguarding.html | `id:sgaNote` | field | egbc-sg-assess.js:179 |
-| safeguarding.html | `id:sgaAiText` | field | egbc-sg-assess.js:338 |
-| safeguarding.html | `id:sgaAiU8` | field | egbc-sg-assess.js:339 |
-| safeguarding.html | `id:sgaAiGo` | button | egbc-sg-assess.js:341 |
-| safeguarding.html | `id:sgaAiSure` | button | egbc-sg-assess.js:350 |
-| safeguarding.html | `id:sgaWaive` | button | egbc-sg-assess.js:367 |
-| safeguarding.html | `id:sgaNoteIt` | button | egbc-sg-assess.js:391 |
+| safeguarding.html | `id:sgaAiText` | field | egbc-sg-assess.js:340 |
+| safeguarding.html | `id:sgaAiU8` | field | egbc-sg-assess.js:341 |
+| safeguarding.html | `id:sgaAiGo` | button | egbc-sg-assess.js:343 |
+| safeguarding.html | `id:sgaAiSure` | button | egbc-sg-assess.js:352 |
+| safeguarding.html | `id:sgaWaive` | button | egbc-sg-assess.js:369 |
 | safeguarding-risk.html | `id:eMoreTodo` | button | safeguarding-risk.html:257 |
 | safeguarding-risk.html | `href:places-admin.html` | link | safeguarding-risk.html:443 |
-| safeguarding-risk.html | `id:sgaTpl` | field | egbc-sg-assess.js:113 |
-| safeguarding-risk.html | `id:sgaStart` | button | egbc-sg-assess.js:114 |
-| safeguarding-risk.html | `text:Use this` | button | egbc-sg-assess.js:127 |
-| safeguarding-risk.html | `id:sgaQ_` | field | egbc-sg-assess.js:141 |
-| safeguarding-risk.html | `id:sgaAddRisk` | button | egbc-sg-assess.js:176 |
-| safeguarding-risk.html | `id:sgaSave` | button | egbc-sg-assess.js:177 |
-| safeguarding-risk.html | `id:sgaReady` | button | egbc-sg-assess.js:177 |
-| safeguarding-risk.html | `id:sgaSign` | button | egbc-sg-assess.js:178 |
-| safeguarding-risk.html | `id:sgaNote` | field | egbc-sg-assess.js:179 |
-| safeguarding-risk.html | `id:sgaHostAgain` | button | egbc-sg-assess.js:188 |
-| safeguarding-risk.html | `text:Remove` | button | egbc-sg-assess.js:193 |
-| safeguarding-risk.html | `id:sgaHostAdd` | button | egbc-sg-assess.js:197 |
-| safeguarding-risk.html | `id:sgaHostOk` | button | egbc-sg-assess.js:197 |
-| safeguarding-risk.html | `id:sgaHostNext` | button | egbc-sg-assess.js:242 |
-| safeguarding-risk.html | `id:sgaHostName` | field | egbc-sg-assess.js:247 |
-| safeguarding-risk.html | `id:sgaHostFile` | field | egbc-sg-assess.js:248 |
-| safeguarding-risk.html | `id:sgaHostUrls` | field | egbc-sg-assess.js:250 |
-| safeguarding-risk.html | `id:sgaHostText` | field | egbc-sg-assess.js:252 |
-| safeguarding-risk.html | `id:sgaHostGo` | button | egbc-sg-assess.js:253 |
-| safeguarding-risk.html | `id:sgaAiText` | field | egbc-sg-assess.js:338 |
-| safeguarding-risk.html | `id:sgaAiU8` | field | egbc-sg-assess.js:339 |
-| safeguarding-risk.html | `id:sgaAiGo` | button | egbc-sg-assess.js:341 |
-| safeguarding-risk.html | `id:sgaAiSure` | button | egbc-sg-assess.js:350 |
-| safeguarding-risk.html | `id:sgaWhy` | field | egbc-sg-assess.js:366 |
-| safeguarding-risk.html | `id:sgaWaive` | button | egbc-sg-assess.js:367 |
-| safeguarding-risk.html | `text:Add something still to do` | button | egbc-sg-assess.js:384 |
-| safeguarding-risk.html | `id:sgaNoteIt` | button | egbc-sg-assess.js:391 |
-| safeguarding-risk.html | `id:snGo` | button | egbc-sg-dash.js:257 |
+| safeguarding-risk.html | `id:sgaNoteIt` | button | egbc-sg-assess.js:393 |
+| safeguarding-risk.html | `id:snGo` | button | egbc-sg-dash.js:269 |
 | event-ra.html | `id:vFile` | field | event-ra.html:231 |
 | event-ra.html | `id:readAdd` | button | event-ra.html:246 |
 | event-ra.html | `id:draftText` | field | egbc-ra-draft.js:26 |
@@ -476,19 +450,19 @@
 | kids-checkin.html | `fn:addVisitor` | `document.getElementById('v-go')` (kids-checkin.html:440) |
 | kids-checkin.html | `fn:details` | `b` (kids-checkin.html:531) |
 | kids-checkin.html | `fn:clearPage` | `document.getElementById('m-done')` (kids-checkin.html:820) |
-| youthapp2.html | `fn:deleteNote` | `document.getElementById('note-detail-delete-btn')` (youthapp2.html:2183) |
+| youthapp2.html | `fn:deleteNote` | `document.getElementById('note-detail-delete-btn')` (youthapp2.html:2265) |
 | safeguarding.html | `fn:checksModal` | `b` (safeguarding.html:336) |
 | safeguarding.html | `fn:notCleared` | `b` (safeguarding.html:337) |
 | safeguarding.html | `fn:db` | `document.getElementById('fuSave')` (safeguarding.html:346) |
-| safeguarding.html | `fn:concernModal` | `document.getElementById('concernBtn')` (safeguarding.html:618) |
-| safeguarding.html | `fn:q` | `q('#sgaHostAgain')` (egbc-sg-assess.js:257) |
-| safeguarding.html | `fn:ask` | `msg.querySelector('#sgaAiSure')` (egbc-sg-assess.js:351) |
-| safeguarding.html | `fn:save` | `q('#sgaSave')` (egbc-sg-assess.js:481) |
+| safeguarding.html | `fn:concernModal` | `document.getElementById('concernBtn')` (safeguarding.html:621) |
+| safeguarding.html | `fn:q` | `q('#sgaHostAgain')` (egbc-sg-assess.js:259) |
+| safeguarding.html | `fn:ask` | `msg.querySelector('#sgaAiSure')` (egbc-sg-assess.js:353) |
+| safeguarding.html | `fn:save` | `q('#sgaSave')` (egbc-sg-assess.js:483) |
 | safeguarding-risk.html | `fn:edit` | `b` (safeguarding-risk.html:230) |
 | safeguarding-risk.html | `fn:starter` | `b` (safeguarding-risk.html:232) |
-| safeguarding-risk.html | `fn:q` | `q('#sgaHostAgain')` (egbc-sg-assess.js:257) |
-| safeguarding-risk.html | `fn:ask` | `msg.querySelector('#sgaAiSure')` (egbc-sg-assess.js:351) |
-| safeguarding-risk.html | `fn:save` | `q('#sgaSave')` (egbc-sg-assess.js:481) |
+| safeguarding-risk.html | `fn:q` | `q('#sgaHostAgain')` (egbc-sg-assess.js:259) |
+| safeguarding-risk.html | `fn:ask` | `msg.querySelector('#sgaAiSure')` (egbc-sg-assess.js:353) |
+| safeguarding-risk.html | `fn:save` | `q('#sgaSave')` (egbc-sg-assess.js:483) |
 | sg-print.html | `fn:print` | `document.getElementById('printIt')` (sg-print.html:41) |
 | event-ra.html | `fn:collect` | `$('draftGo')` (event-ra.html:356) |
 | event-ra.html | `fn:$` | `$('vFileGo')` (event-ra.html:385) |
@@ -534,6 +508,9 @@
 | kids-checkin.html | `id:subApple` | drawn by egbc-events.js subscribeHtml(), which nothing on kids-checkin.html can call (it uses EGBCEvents: key, fmtDate, fmtDateShort, fmtTime, notForYou, mayHeadcount, asSeen, eventsIRun) |
 | kids-checkin.html | `field:subWho` | drawn by egbc-events.js subscribeHtml(), which nothing on kids-checkin.html can call (it uses EGBCEvents: key, fmtDate, fmtDateShort, fmtTime, notForYou, mayHeadcount, asSeen, eventsIRun) |
 | kids-checkin.html | `text:✕` | drawn by egbc-events.js picOpen(), which nothing on kids-checkin.html can call (it uses EGBCEvents: key, fmtDate, fmtDateShort, fmtTime, notForYou, mayHeadcount, asSeen, eventsIRun) |
+| Youthcharter.html | `fn:openPwModal` | the old password box: its "Admin Edit" button (in #admin-locked-controls) is hidden as the page loads ("if (locked) locked.style.display = 'none'") and nothing shows it again (every other line sets it to none); the box opens only from that button. Editing is entered by the admin gesture instead, where it is reached |
+| Youthcharter.html | `id:pw-input` | the old password box: its "Admin Edit" button (in #admin-locked-controls) is hidden as the page loads ("if (locked) locked.style.display = 'none'") and nothing shows it again (every other line sets it to none); the box opens only from that button. Editing is entered by the admin gesture instead, where it is reached |
+| Youthcharter.html | `fn:closePwModal` | the old password box: its "Admin Edit" button (in #admin-locked-controls) is hidden as the page loads ("if (locked) locked.style.display = 'none'") and nothing shows it again (every other line sets it to none); the box opens only from that button. Editing is entered by the admin gesture instead, where it is reached |
 | safeguarding.html | `id:subCopy` | drawn by egbc-events.js subscribeHtml(), which nothing on safeguarding.html can call (it uses EGBCEvents: key, esc, fmtDate, fmtTime, fmtWhen, mayHeadcount, viewing, asSeen, myUid, eventsIRun, listUpcoming, load) |
 | safeguarding.html | `id:subReset` | drawn by egbc-events.js subscribeHtml(), which nothing on safeguarding.html can call (it uses EGBCEvents: key, esc, fmtDate, fmtTime, fmtWhen, mayHeadcount, viewing, asSeen, myUid, eventsIRun, listUpcoming, load) |
 | safeguarding.html | `id:subPhone` | drawn by egbc-events.js subscribeHtml(), which nothing on safeguarding.html can call (it uses EGBCEvents: key, esc, fmtDate, fmtTime, fmtWhen, mayHeadcount, viewing, asSeen, myUid, eventsIRun, listUpcoming, load) |
@@ -541,6 +518,7 @@
 | safeguarding.html | `id:subEmail` | drawn by egbc-events.js subscribeHtml(), which nothing on safeguarding.html can call (it uses EGBCEvents: key, esc, fmtDate, fmtTime, fmtWhen, mayHeadcount, viewing, asSeen, myUid, eventsIRun, listUpcoming, load) |
 | safeguarding.html | `id:subApple` | drawn by egbc-events.js subscribeHtml(), which nothing on safeguarding.html can call (it uses EGBCEvents: key, esc, fmtDate, fmtTime, fmtWhen, mayHeadcount, viewing, asSeen, myUid, eventsIRun, listUpcoming, load) |
 | safeguarding.html | `field:subWho` | drawn by egbc-events.js subscribeHtml(), which nothing on safeguarding.html can call (it uses EGBCEvents: key, esc, fmtDate, fmtTime, fmtWhen, mayHeadcount, viewing, asSeen, myUid, eventsIRun, listUpcoming, load) |
+| safeguarding.html | `id:sgaNoteIt` | the event page gives the assessment no may.note - mount(..., { may: { edit, sign, waive } }) (safeguarding.html) - and "The trustees have noted it" is drawn only when o.may.note (egbc-sg-assess.js notedBox()); the trustees note it on the risk register, where it is reached |
 | safeguarding-risk.html | `id:subCopy` | drawn by egbc-events.js subscribeHtml(), which nothing on safeguarding-risk.html can call (it uses EGBCEvents: key, fmtWhen, notForYou, mayHeadcount, viewing, eventsIRun) |
 | safeguarding-risk.html | `id:subReset` | drawn by egbc-events.js subscribeHtml(), which nothing on safeguarding-risk.html can call (it uses EGBCEvents: key, fmtWhen, notForYou, mayHeadcount, viewing, eventsIRun) |
 | safeguarding-risk.html | `id:subPhone` | drawn by egbc-events.js subscribeHtml(), which nothing on safeguarding-risk.html can call (it uses EGBCEvents: key, fmtWhen, notForYou, mayHeadcount, viewing, eventsIRun) |
@@ -548,6 +526,32 @@
 | safeguarding-risk.html | `id:subEmail` | drawn by egbc-events.js subscribeHtml(), which nothing on safeguarding-risk.html can call (it uses EGBCEvents: key, fmtWhen, notForYou, mayHeadcount, viewing, eventsIRun) |
 | safeguarding-risk.html | `id:subApple` | drawn by egbc-events.js subscribeHtml(), which nothing on safeguarding-risk.html can call (it uses EGBCEvents: key, fmtWhen, notForYou, mayHeadcount, viewing, eventsIRun) |
 | safeguarding-risk.html | `field:subWho` | drawn by egbc-events.js subscribeHtml(), which nothing on safeguarding-risk.html can call (it uses EGBCEvents: key, fmtWhen, notForYou, mayHeadcount, viewing, eventsIRun) |
+| safeguarding-risk.html | `id:sgaTpl` | the register opens an assessment to read only - mount(..., { may: { edit: false, sign: false, waive: false } }) (safeguarding-risk.html) - and the editor draws this only when o.may.edit (egbc-sg-assess.js draw(): "o.may.edit ?", "var edit = o.may.edit", hostBox(edit), aiBox: "if (!o.may.edit) return ''", todoEdit only in the edit branch) |
+| safeguarding-risk.html | `id:sgaStart` | the register opens an assessment to read only - mount(..., { may: { edit: false, sign: false, waive: false } }) (safeguarding-risk.html) - and the editor draws this only when o.may.edit (egbc-sg-assess.js draw(): "o.may.edit ?", "var edit = o.may.edit", hostBox(edit), aiBox: "if (!o.may.edit) return ''", todoEdit only in the edit branch) |
+| safeguarding-risk.html | `text:Use this` | the register opens an assessment to read only - mount(..., { may: { edit: false, sign: false, waive: false } }) (safeguarding-risk.html) - and the editor draws this only when o.may.edit (egbc-sg-assess.js draw(): "o.may.edit ?", "var edit = o.may.edit", hostBox(edit), aiBox: "if (!o.may.edit) return ''", todoEdit only in the edit branch) |
+| safeguarding-risk.html | `id:sgaQ_` | the register opens an assessment to read only - mount(..., { may: { edit: false, sign: false, waive: false } }) (safeguarding-risk.html) - and the editor draws this only when o.may.edit (egbc-sg-assess.js draw(): "o.may.edit ?", "var edit = o.may.edit", hostBox(edit), aiBox: "if (!o.may.edit) return ''", todoEdit only in the edit branch) |
+| safeguarding-risk.html | `id:sgaAddRisk` | the register opens an assessment to read only - mount(..., { may: { edit: false, sign: false, waive: false } }) (safeguarding-risk.html) - and the editor draws this only when o.may.edit (egbc-sg-assess.js draw(): "o.may.edit ?", "var edit = o.may.edit", hostBox(edit), aiBox: "if (!o.may.edit) return ''", todoEdit only in the edit branch) |
+| safeguarding-risk.html | `id:sgaSave` | the register opens an assessment to read only - mount(..., { may: { edit: false, sign: false, waive: false } }) (safeguarding-risk.html) - and the editor draws this only when o.may.edit (egbc-sg-assess.js draw(): "o.may.edit ?", "var edit = o.may.edit", hostBox(edit), aiBox: "if (!o.may.edit) return ''", todoEdit only in the edit branch) |
+| safeguarding-risk.html | `id:sgaReady` | the register opens an assessment to read only - mount(..., { may: { edit: false, sign: false, waive: false } }) (safeguarding-risk.html) - and the editor draws this only when o.may.edit (egbc-sg-assess.js draw(): "o.may.edit ?", "var edit = o.may.edit", hostBox(edit), aiBox: "if (!o.may.edit) return ''", todoEdit only in the edit branch) |
+| safeguarding-risk.html | `id:sgaSign` | the register opens an assessment with may.sign false (safeguarding-risk.html), and "Sign it off" and its note are drawn only when o.may.sign (egbc-sg-assess.js draw()) |
+| safeguarding-risk.html | `id:sgaNote` | the register opens an assessment with may.sign false (safeguarding-risk.html), and "Sign it off" and its note are drawn only when o.may.sign (egbc-sg-assess.js draw()) |
+| safeguarding-risk.html | `id:sgaHostAgain` | the register opens an assessment to read only - mount(..., { may: { edit: false, sign: false, waive: false } }) (safeguarding-risk.html) - and the editor draws this only when o.may.edit (egbc-sg-assess.js draw(): "o.may.edit ?", "var edit = o.may.edit", hostBox(edit), aiBox: "if (!o.may.edit) return ''", todoEdit only in the edit branch) |
+| safeguarding-risk.html | `text:Remove` | the register opens an assessment to read only - mount(..., { may: { edit: false, sign: false, waive: false } }) (safeguarding-risk.html) - and the editor draws this only when o.may.edit (egbc-sg-assess.js draw(): "o.may.edit ?", "var edit = o.may.edit", hostBox(edit), aiBox: "if (!o.may.edit) return ''", todoEdit only in the edit branch) |
+| safeguarding-risk.html | `id:sgaHostAdd` | the register opens an assessment to read only - mount(..., { may: { edit: false, sign: false, waive: false } }) (safeguarding-risk.html) - and the editor draws this only when o.may.edit (egbc-sg-assess.js draw(): "o.may.edit ?", "var edit = o.may.edit", hostBox(edit), aiBox: "if (!o.may.edit) return ''", todoEdit only in the edit branch) |
+| safeguarding-risk.html | `id:sgaHostOk` | the register opens an assessment to read only - mount(..., { may: { edit: false, sign: false, waive: false } }) (safeguarding-risk.html) - and the editor draws this only when o.may.edit (egbc-sg-assess.js draw(): "o.may.edit ?", "var edit = o.may.edit", hostBox(edit), aiBox: "if (!o.may.edit) return ''", todoEdit only in the edit branch) |
+| safeguarding-risk.html | `id:sgaHostNext` | the register opens an assessment to read only - mount(..., { may: { edit: false, sign: false, waive: false } }) (safeguarding-risk.html) - and the editor draws this only when o.may.edit (egbc-sg-assess.js draw(): "o.may.edit ?", "var edit = o.may.edit", hostBox(edit), aiBox: "if (!o.may.edit) return ''", todoEdit only in the edit branch) |
+| safeguarding-risk.html | `id:sgaHostName` | the register opens an assessment to read only - mount(..., { may: { edit: false, sign: false, waive: false } }) (safeguarding-risk.html) - and the editor draws this only when o.may.edit (egbc-sg-assess.js draw(): "o.may.edit ?", "var edit = o.may.edit", hostBox(edit), aiBox: "if (!o.may.edit) return ''", todoEdit only in the edit branch) |
+| safeguarding-risk.html | `id:sgaHostFile` | the register opens an assessment to read only - mount(..., { may: { edit: false, sign: false, waive: false } }) (safeguarding-risk.html) - and the editor draws this only when o.may.edit (egbc-sg-assess.js draw(): "o.may.edit ?", "var edit = o.may.edit", hostBox(edit), aiBox: "if (!o.may.edit) return ''", todoEdit only in the edit branch) |
+| safeguarding-risk.html | `id:sgaHostUrls` | the register opens an assessment to read only - mount(..., { may: { edit: false, sign: false, waive: false } }) (safeguarding-risk.html) - and the editor draws this only when o.may.edit (egbc-sg-assess.js draw(): "o.may.edit ?", "var edit = o.may.edit", hostBox(edit), aiBox: "if (!o.may.edit) return ''", todoEdit only in the edit branch) |
+| safeguarding-risk.html | `id:sgaHostText` | the register opens an assessment to read only - mount(..., { may: { edit: false, sign: false, waive: false } }) (safeguarding-risk.html) - and the editor draws this only when o.may.edit (egbc-sg-assess.js draw(): "o.may.edit ?", "var edit = o.may.edit", hostBox(edit), aiBox: "if (!o.may.edit) return ''", todoEdit only in the edit branch) |
+| safeguarding-risk.html | `id:sgaHostGo` | the register opens an assessment to read only - mount(..., { may: { edit: false, sign: false, waive: false } }) (safeguarding-risk.html) - and the editor draws this only when o.may.edit (egbc-sg-assess.js draw(): "o.may.edit ?", "var edit = o.may.edit", hostBox(edit), aiBox: "if (!o.may.edit) return ''", todoEdit only in the edit branch) |
+| safeguarding-risk.html | `id:sgaAiText` | the register opens an assessment to read only - mount(..., { may: { edit: false, sign: false, waive: false } }) (safeguarding-risk.html) - and the editor draws this only when o.may.edit (egbc-sg-assess.js draw(): "o.may.edit ?", "var edit = o.may.edit", hostBox(edit), aiBox: "if (!o.may.edit) return ''", todoEdit only in the edit branch) |
+| safeguarding-risk.html | `id:sgaAiU8` | the register opens an assessment to read only - mount(..., { may: { edit: false, sign: false, waive: false } }) (safeguarding-risk.html) - and the editor draws this only when o.may.edit (egbc-sg-assess.js draw(): "o.may.edit ?", "var edit = o.may.edit", hostBox(edit), aiBox: "if (!o.may.edit) return ''", todoEdit only in the edit branch) |
+| safeguarding-risk.html | `id:sgaAiGo` | the register opens an assessment to read only - mount(..., { may: { edit: false, sign: false, waive: false } }) (safeguarding-risk.html) - and the editor draws this only when o.may.edit (egbc-sg-assess.js draw(): "o.may.edit ?", "var edit = o.may.edit", hostBox(edit), aiBox: "if (!o.may.edit) return ''", todoEdit only in the edit branch) |
+| safeguarding-risk.html | `id:sgaAiSure` | the register opens an assessment to read only - mount(..., { may: { edit: false, sign: false, waive: false } }) (safeguarding-risk.html) - and the editor draws this only when o.may.edit (egbc-sg-assess.js draw(): "o.may.edit ?", "var edit = o.may.edit", hostBox(edit), aiBox: "if (!o.may.edit) return ''", todoEdit only in the edit branch) |
+| safeguarding-risk.html | `id:sgaWhy` | the register opens an assessment with may.waive false (safeguarding-risk.html), and waiveBox() returns nothing unless o.may.waive (egbc-sg-assess.js) |
+| safeguarding-risk.html | `id:sgaWaive` | the register opens an assessment with may.waive false (safeguarding-risk.html), and waiveBox() returns nothing unless o.may.waive (egbc-sg-assess.js) |
+| safeguarding-risk.html | `text:Add something still to do` | the register opens an assessment to read only - mount(..., { may: { edit: false, sign: false, waive: false } }) (safeguarding-risk.html) - and the editor draws this only when o.may.edit (egbc-sg-assess.js draw(): "o.may.edit ?", "var edit = o.may.edit", hostBox(edit), aiBox: "if (!o.may.edit) return ''", todoEdit only in the edit branch) |
 | sg-print.html | `id:subCopy` | drawn by egbc-events.js subscribeHtml(), which nothing on sg-print.html can call (it uses EGBCEvents: key, fmtWhen, notForYou, mayHeadcount, viewing, runsEvent, eventsIRun) |
 | sg-print.html | `id:subReset` | drawn by egbc-events.js subscribeHtml(), which nothing on sg-print.html can call (it uses EGBCEvents: key, fmtWhen, notForYou, mayHeadcount, viewing, runsEvent, eventsIRun) |
 | sg-print.html | `id:subPhone` | drawn by egbc-events.js subscribeHtml(), which nothing on sg-print.html can call (it uses EGBCEvents: key, fmtWhen, notForYou, mayHeadcount, viewing, runsEvent, eventsIRun) |

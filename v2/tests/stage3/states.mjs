@@ -58,7 +58,8 @@ const SCREENS = [
   { name: 'register: registration tab', url: 'kids-admin.html', roles: LEADS, steps: tab('registration') },
   /* the register as the safeguarding lead and deputy open it (F-324): its children */
   { name: 'register: the children, for the safeguarding lead', url: 'kids-admin.html', roles: ['sgLead', 'sgDeputy'], steps: [wait('[data-open]')],
-    must: { sgLead: [['[data-open]', 'Synthetic', 'the children']], sgDeputy: [['[data-open]', 'Synthetic', 'the children']] } },
+    /* the child's row (.kid), not its "Open" button, holds the name */
+    must: { sgLead: [['.kid', 'Synthetic', 'the children']], sgDeputy: [['.kid', 'Synthetic', 'the children']] } },
   { name: 'register: groups tab', url: 'kids-admin.html', roles: LEADS, steps: tab('groups') },
   { name: 'register: a new group', url: 'kids-admin.html', roles: LEADS, steps: tab('groups').concat([wait('#g-new'), click('#g-new'), wait('#g-form input')]) },
   { name: 'register: editing a group', url: 'kids-admin.html', roles: LEADS, steps: tab('groups').concat([wait('[data-gedit]'), click('[data-gedit]'), wait('[data-unlead]')]) },
@@ -171,7 +172,8 @@ const SCREENS = [
   { name: 'check-in: the organiser\'s event', url: 'checkin.html?event=ev_s3', roles: ['master', 'organiser'], steps: [wait('#tiles')],
     must: { organiser: [['#tiles', '', 'the event\'s check-in']] } },
   { name: 'bookings: their building', url: 'bookings-admin.html', roles: ['master', 'bookingsAdmin'], steps: [wait('#app *, #main *')],
-    must: { bookingsAdmin: [['option, h2, .card', 'St Hild', 'their building\'s bookings']] } },
+    /* the site picker (#a-site; a closed list's options have no size) or, with one site, its heading */
+    must: { bookingsAdmin: [['#a-site, h2', 'St Hild', 'their building\'s bookings']] } },
   { name: 'event RA: approved', url: 'event-ra.html?event=ev_s3c', roles: ['master', 'kidsLead'], steps: [] },
 
   /* ---- printing ---- */

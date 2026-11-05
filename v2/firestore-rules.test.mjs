@@ -24,6 +24,13 @@ import { doc as fsDoc, getDoc, setDoc, updateDoc, deleteDoc, collection as fsCol
    apart from the differences the church ruleset makes on purpose (listed
    where this is run). Unset, nothing changes. */
 const AS_CHURCH = process.env.AS_CHURCH || '';
+/* A PERSON WRITING THEIR OWN users RECORD: at EGBC the page does it, and
+   the rules check it field by field; in any other church it is the
+   server's alone (hqJoinChurch and churchBookToUsers, functions/church-
+   join.js; tools/rules-build.mjs: "users/{uid} server-written only"), so
+   the same writes must be refused there. These were 10 of the 16 the
+   church run failed (5 Nov 2026): the test expecting EGBC's way. */
+const OWN_USERS = AS_CHURCH ? 'deny' : 'allow';
 /* The database itself (not a reference, which carries its own path). */
 const inChurch = (args) => (AS_CHURCH && args[0] && typeof args[0] === 'object' && !('path' in args[0]))
   ? [args[0], ['churches', AS_CHURCH, ...args.slice(1)].join('/')] : args;
@@ -526,21 +533,21 @@ await check('master rewrites the registry', 'allow', () => updateDoc(doc(as('mar
    refused, the person is signed in and has no access to anything, for ever -
    so these are the checks that stand between the church and a locked door.
    Each one writes exactly what provisionProfile() writes. */
-await check('a first sign-in writes the membership the address book gives', 'allow',
+await check('a first sign-in writes the membership the address book gives', OWN_USERS,
   () => setDoc(doc(asNewcomer('u_newbie', 'newbie@example.invalid'), 'users', 'u_newbie'), {
     uid: 'u_newbie', email: 'newbie@example.invalid', name: 'New Synthetic',
     memberId: 'm_newbie', linkedBy: 'auto', teams: ['Worship Team'],
     adminFor: [], masterAdmin: false, status: 'active' }));
-await check('an admin in the book comes back an admin', 'allow',
+await check('an admin in the book comes back an admin', OWN_USERS,
   () => setDoc(doc(asNewcomer('u_boss', 'boss@example.invalid'), 'users', 'u_boss'), {
     uid: 'u_boss', email: 'boss@example.invalid', name: 'Boss Synthetic',
     memberId: 'm_boss', linkedBy: 'auto', teams: ['Core Team'],
     adminFor: ['Core Team'], masterAdmin: true, status: 'active' }));
-await check('nobody in the book at all still gets a record, as pending', 'allow',
+await check('nobody in the book at all still gets a record, as pending', OWN_USERS,
   () => setDoc(doc(asNewcomer('u_stranger', 'stranger@example.invalid'), 'users', 'u_stranger'), {
     uid: 'u_stranger', email: 'stranger@example.invalid', memberId: null,
     teams: [], status: 'pending' }));
-await check('a shared address waits for an admin to settle it', 'allow',
+await check('a shared address waits for an admin to settle it', OWN_USERS,
   () => setDoc(doc(asNewcomer('u_shared', 'shared@example.invalid'), 'users', 'u_shared'), {
     uid: 'u_shared', email: 'shared@example.invalid', memberId: null, teams: [],
     status: 'ambiguous', candidates: [{ id: 'm_newbie', name: 'New Synthetic', admin: false }] }));
@@ -577,7 +584,7 @@ await check('and not writing somebody else\'s record', 'deny',
 /* Picking up a change an admin made since the last visit. Samy is in the book
    on Worship Team; the stored mirror says the same, and re-writing it from the
    book has to be allowed or refreshFromBook() fails silently every load. */
-await check('a member picks up what the book now says', 'allow',
+await check('a member picks up what the book now says', OWN_USERS,
   () => updateDoc(doc(asNewcomer('u_samy2', 'samy2@example.invalid'), 'users', 'u_samy2'),
     { teams: ['Worship Team'], status: 'active', name: 'Samy Two' }));
 await check('but still cannot add a team to their own record', 'deny',
@@ -2852,12 +2859,12 @@ await check('an admin who is on no team still reads the rota', 'allow', () => ge
    churchMember; a browser still holding the old one writes neither, and
    must not be locked out for it. Both are proved, because only one of them
    was, and the two that broke were the old shape. */
-await check('a new sign-in with the new shape is allowed', 'allow',
+await check('a new sign-in with the new shape is allowed', OWN_USERS,
   () => setDoc(doc(asNewcomer('u_fresh', 'attender2@example.invalid'), 'users', 'u_fresh'), {
     uid: 'u_fresh', email: 'attender2@example.invalid', name: 'Fresh Synthetic',
     memberId: 'm_attender2', teams: [], adminFor: [], masterAdmin: false,
     attender: true, churchMember: false, status: 'active', linkedBy: 'auto' }));
-await check('a CACHED client, writing neither field, is still allowed in', 'allow',
+await check('a CACHED client, writing neither field, is still allowed in', OWN_USERS,
   () => setDoc(doc(asNewcomer('u_cached', 'attender3@example.invalid'), 'users', 'u_cached'), {
     uid: 'u_cached', email: 'attender3@example.invalid', name: 'Cached Synthetic',
     memberId: 'm_attender3', teams: ['Worship Team'], adminFor: [], masterAdmin: false,
@@ -2878,7 +2885,7 @@ await check('nor claim to be an Attender on an archived record', 'deny',
     uid: 'u_gone', email: 'gone@example.invalid', name: 'Gone Synthetic',
     memberId: 'm_gone', teams: ['Worship Team'], adminFor: [], masterAdmin: false,
     attender: true, churchMember: true, status: 'active', linkedBy: 'auto' }));
-await check('an archived person mirrors as pending, not Attender', 'allow',
+await check('an archived person mirrors as pending, not Attender', OWN_USERS,
   () => setDoc(doc(asNewcomer('u_gone', 'gone@example.invalid'), 'users', 'u_gone'), {
     uid: 'u_gone', email: 'gone@example.invalid', name: 'Gone Synthetic',
     memberId: 'm_gone', teams: ['Worship Team'], adminFor: [], masterAdmin: false,
@@ -3653,7 +3660,7 @@ await check('  nor one tab', 'deny',
 /* ...and the heartbeat still goes through, so adding `runs` to the mirror
    has not quietly refused every page load (A-062 was exactly that, found
    in the emulator's log rather than by anything failing). */
-await check('  and the heartbeat still works, claiming none', 'allow',
+await check('  and the heartbeat still works, claiming none', OWN_USERS,
   () => updateDoc(doc(runsReal, 'users', 'u_runs'),
     { runs: [], lastSeen: serverTimestamp() }));
 
@@ -4092,7 +4099,7 @@ await check('nobody can give themselves a family group', 'deny',
 await check('  not even when making their record', 'deny',
   () => setDoc(doc(asNewcomer('u_fam_new', 'fam.new@example.invalid'), 'users', 'u_fam_new'),
     { status: 'pending', teams: [], adminFor: [], masterAdmin: false, familyGroups: ['ReNu'] }));
-await check('  while making the same record without it is fine', 'allow',
+await check('  while making the same record without it is fine', OWN_USERS,
   () => setDoc(doc(asNewcomer('u_fam_new2', 'fam.new2@example.invalid'), 'users', 'u_fam_new2'),
     { status: 'pending', teams: [], adminFor: [], masterAdmin: false }));
 
