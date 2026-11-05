@@ -453,7 +453,7 @@ const MEASURE = `(function(){
      "Care" is not counted. */
   var careAll = 0; document.querySelectorAll('a,button,[role=button]').forEach(function (el) {
     if (!vis(el)) return; var r = el.getBoundingClientRect(); if (r.bottom < 0 || r.top > ih) return;
-    var t = (el.textContent || '').replace(/\s+/g, ' ').trim(), a = (el.getAttribute('aria-label') || '').trim();
+    var t = (el.textContent || '').replace(/\\s+/g, ' ').trim(), a = (el.getAttribute('aria-label') || '').trim();
     if (/^care( (&|and) support)?$/i.test(t) || /^care( (&|and) support)?$/i.test(a)) careAll++; });
   out.careAll = careAll;
   /* Too small to tap on a phone: under 30px across (a checkbox or radio
@@ -463,7 +463,7 @@ const MEASURE = `(function(){
     if (!vis(el) || el.disabled) return;
     var r = el.getBoundingClientRect(), box = r;
     if (el.matches('input[type=checkbox],input[type=radio]')) { var lab = el.closest('label') || (el.id && document.querySelector('label[for="' + el.id + '"]')); if (lab) box = lab.getBoundingClientRect(); }
-    if (Math.min(box.width, box.height) < 30) { seenS++; if (small.length < 3) small.push(((el.getAttribute('aria-label') || el.textContent || el.tagName) + (el.id ? '#' + el.id : el.type ? '[' + el.type + ']' : '')).replace(/\s+/g, ' ').trim().slice(0, 24) + ' ' + Math.round(box.width) + 'x' + Math.round(box.height)); } });
+    if (Math.min(box.width, box.height) < 30) { seenS++; if (small.length < 3) small.push(((el.getAttribute('aria-label') || el.textContent || el.tagName) + (el.id ? '#' + el.id : el.type ? '[' + el.type + ']' : '')).replace(/\\s+/g, ' ').trim().slice(0, 24) + ' ' + Math.round(box.width) + 'x' + Math.round(box.height)); } });
   out.small = seenS; out.smallEg = small;
   out.tabbars = bots.filter(function (x) { return x[2].querySelectorAll('a,button').length >= 3; }).length;
   var bar = document.getElementById('egbc-bar'); out.siteBar = !!(bar && vis(bar));
@@ -515,6 +515,9 @@ const MARK_SCOPE = `(function(){
   el.setAttribute('data-aud-scope','1');
   return (el.id||'')+'.'+String(el.className||el.tagName).slice(0,40);
 })()`;
+/* Written as a template literal, so a regex's backslash is doubled: a single \b here was a backspace
+   in the page, and a close said only in words (Done, Cancel, Close) was never found - 54 Stage 3
+   screens called "no visible close" (4 Nov 2026). tools: see the template scan in the findings. */
 const SHEET_CLOSE = `(function(){
   var iw=innerWidth, ih=innerHeight, best=null, ba=0;
   document.querySelectorAll('body *').forEach(function(el){ var s=getComputedStyle(el); if(s.position!=='fixed'||s.display==='none'||s.visibility==='hidden'||+s.opacity===0)return;
@@ -525,7 +528,7 @@ const SHEET_CLOSE = `(function(){
   best.querySelectorAll('*').forEach(function(x){ if(x.scrollHeight>x.clientHeight+4) x.scrollTop=x.scrollHeight; }); best.scrollTop=best.scrollHeight;
   var close=[].filter.call(best.querySelectorAll('button,a,[role=button],[data-act]'),function(b){
     var w=((b.getAttribute('aria-label')||'')+' '+(b.textContent||'')).trim(); var r=b.getBoundingClientRect();
-    return (/^(\u2715|\u00d7|x|close|done|cancel|back|not now)\b/i.test(w) || /close/i.test((b.getAttribute('aria-label')||'')+' '+(b.getAttribute('title')||'')) || b.getAttribute('data-act')==='close' || /(^|[ _-])close([ _-]|$)/i.test(typeof b.className==='string'?b.className:'')) && r.width>0 && r.top>=0 && r.bottom<=ih;
+    return (/^(\u2715|\u00d7|x|close|done|cancel|back|not now)\\b/i.test(w) || /close/i.test((b.getAttribute('aria-label')||'')+' '+(b.getAttribute('title')||'')) || b.getAttribute('data-act')==='close' || /(^|[ _-])close([ _-]|$)/i.test(typeof b.className==='string'?b.className:'')) && r.width>0 && r.top>=0 && r.bottom<=ih;
   });
   return JSON.stringify({close:close.length, sig:String(best.id||best.className||best.tagName).slice(0,40)});
 })()`;
@@ -723,6 +726,9 @@ const VIEWHASH = `(function(){var h=0,n=0,all=document.querySelectorAll('body *'
     var s=el.tagName+'|'+(typeof el.className==='string'?el.className:'')+'|'+(el.childElementCount?'':(el.textContent||'').slice(0,40))+'|'+(el.value||'')+'|'+(el.checked?1:0)+'|'+(el.getAttribute('aria-expanded')||'');
     for(var j=0;j<s.length;j++)h=(h*31+s.charCodeAt(j))|0;n++;}
   return h+':'+n;})()`;
+/* The whole page, on screen or not, without where things are (4 Nov 2026): "+ Item" adds a row below the
+   fold, one DOM change, so it read as dead. Not used on a page that changes by itself (a clock). */
+const PAGEHASH = VIEWHASH.replace('if(r.width<1||r.height<1||r.bottom<0||r.top>ih||r.right<0||r.left>iw)continue;', 'if(r.width<1||r.height<1)continue;');
 const HERE = '(window.EGBCApp&&EGBCApp.state?JSON.stringify(EGBCApp.state()):location.pathname+location.search)';
 async function tapAll(B, url, reopen, ctx) {
   ctx = ctx || {};
@@ -731,7 +737,9 @@ async function tapAll(B, url, reopen, ctx) {
   const why = [], skipped = [], tapped = new Set();
   /* How busy is the page by itself? A clock or a carousel changes the DOM
      without anybody tapping, so taps must beat that. */
+  const page0 = await B.ev(PAGEHASH);
   await B.ev('window.__aud&&(window.__aud.mut0=window.__aud.mut);1'); await sleep(700);
+  const pageNoisy = (await B.ev(PAGEHASH)) !== page0;
   const resting = (await B.ev(OVERLAY)) || 'null';
   const home = await B.ev(HERE);
   const retried = new Set(), moved = new Set();
@@ -803,7 +811,7 @@ async function tapAll(B, url, reopen, ctx) {
       why.push('covered: "' + (next.words || next.href) + '" is under ' + pt.by); notUsed(next, 'covered by ' + pt.by); continue;
     }
     const overBefore = (await B.ev(OVERLAY)) || 'null';
-    const viewBefore = await B.ev(VIEWHASH);
+    const viewBefore = await B.ev(VIEWHASH), pageBefore = pageNoisy ? '' : await B.ev(PAGEHASH);
     const before = JSON.parse(await B.ev('JSON.stringify({mut:window.__aud.mut,acts:window.__aud.acts.length,sx:scrollX,sy:scrollY,f:(document.activeElement&&/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))?document.activeElement.outerHTML.slice(0,80):"",u:location.href})'));
     B.acts.length = 0; B.tapping = true;
     /* Input events land in the visual viewport: a page a little too wide
@@ -811,15 +819,28 @@ async function tapAll(B, url, reopen, ctx) {
     const tx = pt.x - (pt.vx || 0), ty = pt.y - (pt.vy || 0);
     await B.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: tx, y: ty, button: 'left', clickCount: 1 });
     await B.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: tx, y: ty, button: 'left', clickCount: 1 });
+    const t0 = Date.now();
     await sleep(550);
-    B.tapping = false;
-    const after = JSON.parse((await B.ev('JSON.stringify({mut:window.__aud.mut,acts:window.__aud.acts.slice(' + before.acts + '),sx:scrollX,sy:scrollY,f:(document.activeElement&&/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))?document.activeElement.outerHTML.slice(0,80):"",u:location.href})')) || 'null');
-    const viewAfter = await B.ev(VIEWHASH);
+    let after = JSON.parse((await B.ev('JSON.stringify({mut:window.__aud.mut,acts:window.__aud.acts.slice(' + before.acts + '),sx:scrollX,sy:scrollY,f:(document.activeElement&&/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))?document.activeElement.outerHTML.slice(0,80):"",u:location.href})')) || 'null');
+    let viewAfter = await B.ev(VIEWHASH), pageAfter = pageNoisy ? '' : await B.ev(PAGEHASH);
     if (process.env.AUDIT_DEBUG) console.log("    click", JSON.stringify(pt), await B.ev('JSON.stringify({click: window.__aud.click, reached: window.__aud.reached, prevented: window.__aud.prevented, active: (document.activeElement || {}).tagName, vv: window.visualViewport ? [visualViewport.offsetLeft, visualViewport.offsetTop, visualViewport.scale, visualViewport.width].map(function(n){return Math.round(n*100)/100}) : null, sw: document.documentElement.scrollWidth, sx: scrollX})'));
     if (process.env.AUDIT_DEBUG) console.log("    tap", JSON.stringify(next.words), JSON.stringify(before), JSON.stringify(after), JSON.stringify(B.acts), "noise", noise);
-    if (!after) { /* the page went away (a real navigation slipped through): start it again */ await reopen(); continue; }
-    const did = B.acts.length || after.acts.length || viewAfter !== viewBefore || after.mut - before.mut > Math.ceil(noise * 1.2) + 2 || after.sx !== before.sx || after.sy !== before.sy
+    if (!after) { B.tapping = false; /* the page went away (a real navigation slipped through): start it again */ await reopen(); continue; }
+    /* The page's own changes grow with the time waited, so the bar does too. */
+    const moved = () => B.acts.length || after.acts.length || viewAfter !== viewBefore || pageAfter !== pageBefore
+      || after.mut - before.mut > Math.ceil(noise * 1.2 * Math.max(1, (Date.now() - t0) / 700)) + 2 || after.sx !== before.sx || after.sy !== before.sy
       || after.f !== before.f || after.u !== before.u;
+    let did = moved();
+    /* Nothing yet: up to 4 s more before calling it dead (4 Nov 2026). The first call of each function on
+       a fresh emulator answers after the 550 ms - the quiz, Pair again, Call on their phone were "dead"
+       at 375, which runs first, and fine at 1440. A dead control costs the wait; a live one does not. */
+    for (let k = 0; !did && k < 8; k++) {
+      await sleep(500);
+      const a2 = JSON.parse((await B.ev('JSON.stringify({mut:window.__aud.mut,acts:window.__aud.acts.slice(' + before.acts + '),sx:scrollX,sy:scrollY,f:(document.activeElement&&/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))?document.activeElement.outerHTML.slice(0,80):"",u:location.href})')) || 'null');
+      if (!a2) { did = true; break; }
+      after = a2; viewAfter = await B.ev(VIEWHASH); pageAfter = pageNoisy ? '' : await B.ev(PAGEHASH); did = moved();
+    }
+    B.tapping = false;
     /* A "back to the top" in a fixed bar has nothing to do on a page already
        at the top (the hub's Hub button, 3 Nov 2026): scrolled down, it must
        move the page. */

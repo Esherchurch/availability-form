@@ -1088,6 +1088,40 @@
     });
   }
 
+  /**
+   * The card for a page whose profile read failed (require()).
+   *
+   * A REFUSED READ IS "NOT FOR YOU", NEVER A RAW ERROR (Martin, 5 Nov 2026,
+   * from the events window: a young person with Youth Hub access got
+   * "Something went wrong" and "Missing or insufficient permissions" on
+   * every page that loads a profile, safeguarding.html included). A youth
+   * code's account (functions/youth-redeem.js: claim youth) has no users
+   * record it may read, so every team page refuses it: it gets the plain
+   * card and the way back to the Youth Hub, and no Sign out, because the
+   * Youth Hub has none and signing out would leave them needing a new code.
+   * Any other refused read, in any church, gets the same plain card with
+   * the way back to the hub. Only a failure that is not a refusal (no
+   * connection, say) still says what went wrong, because that is what the
+   * person can act on - and never to a young person.
+   *
+   * @param {firebase.User} user the signed-in account
+   * @param {Error} e what the profile read threw
+   */
+  function refusedCard(user, e) {
+    var refused = !!e && (e.code === 'permission-denied' || /insufficient permissions/i.test(e.message || ''));
+    var notYours = 'This page is for the church’s teams, so your sign-in cannot open it.';
+    user.getIdTokenResult().then(function (t) { return !!(t && t.claims && t.claims.youth); }, function () { return false; }).then(function (youth) {
+      if (youth) {
+        EGBCAuth._blockPage('This page isn’t for you', notYours + ' Everything for you is in the Youth Hub.', null,
+          { href: 'youthapp2.html', label: 'Back to the Youth Hub', noSignOut: true });
+      } else if (refused) {
+        EGBCAuth._blockPage('This page isn’t for you', notYours + ' If you think it should, ask your church office.', null);
+      } else {
+        EGBCAuth._blockPage('Something went wrong', vaEsc((e && e.message) || String(e)), null);
+      }
+    });
+  }
+
   function loadProfile(user) {
     return db.collection('users').doc(user.uid).get().then(function (snap) {
       /* A church's users record is the server's (hqJoinChurch); the page
@@ -1928,7 +1962,7 @@
             resolve(profile);
           }).catch(function (e) {
             console.error('EGBCAuth profile load failed', e);
-            EGBCAuth._blockPage('Something went wrong', e.message, null);
+            refusedCard(user, e);
           });
         });
       });
@@ -2836,7 +2870,9 @@
         '</div>';
     },
 
-    _blockPage: function (title, message, profile) {
+    /* back (optional): { href, label, noSignOut } for a card whose way on is
+       not the hub - the Youth Hub's, for a young person (refusedCard). */
+    _blockPage: function (title, message, profile, back) {
       /* egbc-guard.js hides the body until the check passes, and puts a
          splash on top of it. Both are still in place when we get here, so
          writing the explanation into the body renders it invisible - which
@@ -2890,11 +2926,12 @@
             '<p style="font-size:14px;line-height:1.6;color:#3a4d4c;margin:0 0 28px">' + message + '</p>' +
             (profile ? '<p style="font-size:11px;color:#93a8a6;margin:0 0 20px">Signed in as ' + profile.email + '</p>' : '') +
             '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">' +
-              '<a href="' + HUB_PAGE + '" style="background:#3d6263;color:#fff;padding:12px 28px;border-radius:999px;' +
-              'font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;text-decoration:none">Back to hub</a>' +
+              '<a href="' + ((back && back.href) || HUB_PAGE) + '" style="background:#3d6263;color:#fff;padding:12px 28px;border-radius:999px;' +
+              'font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;text-decoration:none">' + ((back && back.label) || 'Back to hub') + '</a>' +
+              (back && back.noSignOut ? '' :
               '<button onclick="EGBCAuth.signOut()" style="background:#fff;border:1px solid #dde7e6;padding:12px 24px;' +
               'border-radius:999px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;' +
-              'font-family:inherit;color:#3d6263">Sign out</button>' +
+              'font-family:inherit;color:#3d6263">Sign out</button>') +
             '</div>' +
           '</div>' +
         '</div>';

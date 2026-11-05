@@ -11,7 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202611030800"></script>
+<script src="egbc-auth.js?v=202611050100"></script>
 <script src="egbc-church.js?v=202611031810"></script>
 <script src="egbc-guard.js?v=202611030600"></script>
 <script src="egbc-email.js?v=202610212000"></script>
@@ -24,6 +24,8 @@
 <script src="egbc-sg-assess.js?v=202610281600"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  /* A tick box's label is what a thumb taps: 30px at least (Stage 3 audit, 4 Nov 2026: 19px). */
+  label:has(> input[type=checkbox]), label:has(> input[type=radio]) { min-height: 32px; }
   :root{
     --brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;
     --muted:#6b7280;--faint:#9ca3af;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;

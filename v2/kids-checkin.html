@@ -11,7 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202611030800"></script>
+<script src="egbc-auth.js?v=202611050100"></script>
 <script src="egbc-church.js?v=202611031810"></script>
 <script src="egbc-guard.js?v=202611030600"></script>
 <script src="egbc-email.js?v=202610212000"></script>
@@ -55,14 +55,16 @@
   .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}.row .f{min-width:160px;flex:1}
   .kid{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--line)}
   .kid:first-child{border-top:none}.kid .t{flex:1;min-width:180px}.kid .t b{color:var(--ink)}
-  .kid input[type=checkbox]{width:24px;height:24px}
+  .kid input[type=checkbox]{width:30px;height:30px}
   .pill{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;margin:2px 4px 2px 0;background:#f3f4f6}
   .pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.wait{background:var(--gold-bg);color:var(--gold)}.pill.no{background:var(--danger-bg);color:var(--danger)}
   .st{border-radius:8px;padding:10px 12px;font-size:13px;margin:8px 0}
   .st.ok{background:var(--ok-bg);color:var(--ok)}.st.wait{background:var(--gold-bg);color:var(--gold)}.st.no{background:var(--danger-bg);color:var(--danger)}
   dl{display:grid;grid-template-columns:120px 1fr;gap:4px 10px;margin:8px 0;font-size:13px}dt{color:var(--muted)}dd{margin:0;overflow-wrap:anywhere}
   .two{display:flex;gap:10px;flex-wrap:wrap}.two>div{flex:1;min-width:140px}
-  .ck{display:flex;gap:8px;align-items:flex-start;margin:6px 0;font-size:14px}
+  /* 30px at least to tap (Stage 3 audit, 4 Nov 2026): a radio's label, the desk's ticks, a child's name in the
+     roll-call, and "Show on screen (last resort)", which stays small to look at but not to tap. */
+  .ck{display:flex;gap:8px;align-items:flex-start;margin:6px 0;font-size:14px;min-height:32px}
   .ck input{margin-top:3px}
   .count{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
   .count div{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 12px;min-width:110px}
@@ -82,7 +84,7 @@
   table.reg th:first-child,table.reg td:first-child{text-align:left}
   table.reg tr.tot td{font-weight:600;background:var(--tint)}
   .scroll{overflow-x:auto}
-  .rname{background:none;border:none;padding:0;font:600 14px Inter,sans-serif;color:var(--brand);cursor:pointer;text-decoration:underline}
+  .rname{background:none;border:none;padding:0;min-height:32px;font:600 14px Inter,sans-serif;color:var(--brand);cursor:pointer;text-decoration:underline}
   .page-call{font-size:22px;font-weight:700;color:var(--ink)}
   #back{position:fixed;inset:0;background:rgba(17,24,39,.45);display:none;align-items:flex-start;justify-content:center;padding:40px 12px;z-index:80;overflow:auto}
   #modal{background:#fff;border-radius:14px;max-width:480px;width:100%;padding:18px}
@@ -778,7 +780,7 @@
   function lastResort(afterCall) {
     return afterCall
       ? '<p class="hint" style="margin:0 0 6px">No answer yet?</p><button class="btn sec" id="m-screen">Show on screen</button>'
-      : '<button id="m-screen" style="background:none;border:none;padding:0;color:var(--muted,#6b7280);text-decoration:underline;font:500 13px Inter,sans-serif;cursor:pointer">Show on screen (last resort)</button>';
+      : '<button id="m-screen" style="background:none;border:none;padding:0;min-height:32px;color:var(--muted,#6b7280);text-decoration:underline;font:500 13px Inter,sans-serif;cursor:pointer">Show on screen (last resort)</button>';
   }
   function wireCall(c) {
     var said = function (cls, words) {

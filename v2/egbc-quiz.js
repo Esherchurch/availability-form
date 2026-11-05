@@ -217,11 +217,12 @@
       /* phones mode */
       on('[data-qopen]', function (b) { b.disabled = true; call('quizOpen', { runId: q.runId, q: +b.getAttribute('data-qopen') }).catch(err); });
       on('[data-qreveal]', function (b) { b.disabled = true; call('quizReveal', { runId: q.runId }).catch(err); });
-      on('[data-qboard]', function () { call('quizPhase', { runId: q.runId, phase: 'board' }).catch(err); });
+      /* Greyed at once, as Start and End are, while the call goes (Stage 3 audit, 4 Nov 2026). */
+      on('[data-qboard]', function (b) { b.disabled = true; call('quizPhase', { runId: q.runId, phase: 'board' }).catch(err); });
       on('[data-qfinal]', function () { call('quizPhase', { runId: q.runId, phase: 'final' }).catch(err); });
       on('[data-qkick]', function (b) { confirmPid = b.getAttribute('data-qkick'); api.redraw(); });
       on('[data-qkickno]', function () { confirmPid = ''; api.redraw(); });
-      on('[data-qkickyes]', function () { var p = confirmPid; confirmPid = ''; call('quizKick', { runId: q.runId, pid: p }).catch(err); });
+      on('[data-qkickyes]', function (b) { b.disabled = true; var p = confirmPid; confirmPid = ''; call('quizKick', { runId: q.runId, pid: p }).catch(err); });
       on('[data-qend]', function (b) { b.disabled = true; call('quizEnd', { runId: q.runId }).then(function () { return write(null); }, err); });
     }
     return {

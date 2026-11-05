@@ -313,7 +313,7 @@
         stageHtml('pzStage') +
         '<div class="pz-film" data-film>' + items.map(function (it, k) { return '<button data-jump="' + k + '" class="' + (k === i ? 'on' : '') + '" aria-label="Slide ' + (k + 1) + '">' + (it.kind === 'image' ? '<img alt="" src="' + esc(src(k, 'thumb')) + '">' : '<span class="txt">' + esc(String(it.kind === 'quiz' ? 'Quiz: ' + (it.title || '') : (it.html || '')).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60)) + '</span>') + '<span>' + (k + 1) + '</span>' + (hasMedia(k) ? '<span class="vid">\u25b6 video</span>' : '') + '</button>'; }).join('') + '</div>' +
         (items[i] && items[i].kind === 'quiz' ? '' : mediaBarHtml(i, true)) +
-        '<div class="pz-ctl"><button class="pz-btn back" data-backs aria-label="Back">◀</button><button class="pz-btn go" data-go>' + (i + 1 < N ? 'Next slide ▶' : 'That’s the last slide') + '</button></div>' +
+        '<div class="pz-ctl"><button class="pz-btn back" data-backs aria-label="Back"' + (i > 0 ? '' : ' disabled') + '>◀</button><button class="pz-btn go" data-go' + (i + 1 < N ? '' : ' disabled') + '>' + (i + 1 < N ? 'Next slide ▶' : 'That’s the last slide') + '</button></div>' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="pz-btn" data-blank>' + (S.blank ? 'Show the slide again' : 'Blank the screen') + '</button></div></div>' +
         '<div class="pz-side" style="display:flex;flex-direction:column;gap:14px;min-width:0">' + (items[i] && items[i].kind === 'quiz' && quiz ? quiz.panel(i) : '') + '<div class="pz-card pz-next"><p class="pz-lbl">Up next</p>' + (i + 1 < N ? stageHtml('pzNext') : '<p class="pz-cap">The end.</p>') + '</div>' +
         '<div class="pz-card pz-notescard"><p class="pz-lbl">Your notes</p><div class="pz-notes" data-notes>…</div></div>' +
@@ -357,6 +357,8 @@
 
     function wire() {
       var q = function (s) { return el.querySelector(s); };
+      /* On the last slide "That’s the last slide" and on the first ◀ are drawn disabled: pressed, they did
+         nothing (Stage 3 audit, 4 Nov 2026). */
       if (q('[data-go]')) q('[data-go]').onclick = function () { go(S.slide + 1); };
       if (q('[data-backs]')) q('[data-backs]').onclick = function () { go(S.slide - 1); };
       if (q('[data-stop]')) q('[data-stop]').onclick = stop;
