@@ -601,8 +601,10 @@ export async function onHello(deps, id, h) {
    safeguarding settings themselves are a volunteer's to read. Written only
    when the answer changes. */
 export async function refreshCareStatus(db) {
-  /* As the rules' sgLeadSet() asks it: a lead named on the lead site,
-     whether or not they have signed in yet. leadIds are the lead's and
+  /* As the rules' sgLeadSet() asks it: a lead OR a deputy named on the
+     lead site, whether or not they have signed in yet. A church with only
+     a deputy must not have its "I'm worried" forms refused (Martin, 5 Nov
+     2026; the rules agree since 227dc4b3). leadIds are the lead's and
      deputy's address book ids - not private (the 999 line names the lead) -
      so a page can tell its reader is one of them without the safeguarding
      settings, which are a volunteer's to read. */
@@ -619,7 +621,7 @@ export async function refreshCareStatus(db) {
   if (site) {
     const b = await db.collection('bookingSettings').doc(site).get();
     if (b.exists) {
-      leadSet = !!b.data().safeguardingLead;
+      leadSet = !!(b.data().safeguardingLead || b.data().safeguardingDeputy);
       leadIds = ['safeguardingLead', 'safeguardingDeputy'].map((k) => b.data()[k]).filter(Boolean);
     }
   }

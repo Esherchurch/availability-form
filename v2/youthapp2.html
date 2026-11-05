@@ -6,7 +6,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202611050100"></script>
+<script src="egbc-auth.js?v=202611052330"></script>
 <!-- Hidden until youthDoor() knows the page is for this person. -->
 <style id="youth-door">body{visibility:hidden}</style>
 <script src="egbc-manifest.js?v=202611011200"></script>
@@ -450,7 +450,7 @@ body.readonly-mode #add-item-btn { opacity: 0.35; cursor: not-allowed; pointer-e
 .note-reactions { display: flex; gap: 5px; }
 .reaction-btn {
   background: rgba(255,255,255,0.5); border: 1px solid rgba(0,0,0,0.1);
-  border-radius: 8px; padding: 3px 9px; font-size: 12px; cursor: pointer;
+  border-radius: 8px; padding: 3px 9px; font-size: 12px; cursor: pointer; min-height: 32px;
   display: flex; align-items: center; gap: 2px;
   font-family: var(--font); font-weight: 600; color: rgba(0,0,0,0.6);
   position: relative; z-index: 2;

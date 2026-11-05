@@ -1753,7 +1753,7 @@ service cloud.firestore {
     }
     match /socialSettings/{id} {
       allow read: if enewsOffice();
-      allow write: if enewsOffice() && id == 'main'
+      allow write: if id == 'main' && enewsOffice()
         && request.resource.data.keys().hasOnly(['usual', 'sets', 'vod', 'vodDone', 'remind', 'updatedAt', 'updatedBy'])
         && request.resource.data.get('remind', []) is list && request.resource.data.get('remind', []).size() <= 20
         && request.resource.data.updatedBy == request.auth.uid;
@@ -1761,11 +1761,11 @@ service cloud.firestore {
     match /enewsSettings/{id} {
       allow read: if enewsOffice();
       // The welcome emails' switches (enews.html Welcome emails; functions/welcome-mail.js).
-      allow write: if enewsOffice() && id == 'welcomes'
+      allow write: if id == 'welcomes' && enewsOffice()
                    && request.resource.data.keys().hasOnly(['subscriber', 'newcomer', 'updatedAt', 'updatedBy'])
                    && request.resource.data.get('subscriber', false) is bool && request.resource.data.get('newcomer', false) is bool
                    && request.resource.data.updatedBy == request.auth.uid;
-      allow write: if enewsOffice() && id == 'main'
+      allow write: if id == 'main' && enewsOffice()
                    && request.resource.data.keys().hasOnly(['template', 'colours', 'church', 'bible', 'updatedAt', 'updatedBy'])
                    && request.resource.data.template in ['classic', 'green']
                    && request.resource.data.colours is map && request.resource.data.colours.size() <= 20
@@ -3174,7 +3174,7 @@ service cloud.firestore {
       // The Zoom link and passcode: members only, never on a public page.
       match /private/{doc} {
         allow read: if meetingMember();
-        allow write: if meetingRunner() && doc == 'join'
+        allow write: if doc == 'join' && meetingRunner()
                      && request.resource.data.keys().hasOnly(['zoomUrl', 'zoomId', 'passcode', 'updatedAt', 'updatedBy']);
       }
       // PROXIES (Martin, 21 Oct 2026; design-mocks/members-meeting/PROXIES.md):
@@ -3265,6 +3265,10 @@ service cloud.firestore {
              && a.get('leaders', false) is bool;
     }
     match /churchSettings/{id} {
+      // Which document first, then who: asked the other way round, every allow line read the person's
+      // record, and for anyone but a master admin the block passed the emulator's evaluation cap in the
+      // churches' build - an admin could not set the church details, nor the office the bank details
+      // (main's church-mode run, 5 Nov 2026).
       // `details` is the church's name, enquiry address and logo, and it is
       // read by pages nobody has signed in to - the availability form, the
       // login page, the public room-hire pages. It stays open.
@@ -3278,14 +3282,14 @@ service cloud.firestore {
       // THE NOTIFICATIONS MASTER SWITCH (A-081): whether the timers and
       // triggers really send. A master admin only - it is the one setting
       // that starts the church being emailed and buzzed.
-      allow write: if (isMaster() && id == 'notifications'
+      allow write: if (id == 'notifications' && isMaster()
                        && request.resource.data.keys().hasOnly(['live', 'updatedAt', 'updatedBy'])
                        && request.resource.data.live is bool);
       // WHAT THIS CHURCH USES (item 14; the events window's F-230): a
       // master admin's switches, one per part, read by every page through
       // EGBCAuth.uses and by the server (sundaysInWhatsOn). Only the names
       // the hub knows - a new add-on joins this list when it is built.
-      allow write: if (isMaster() && id == 'features'
+      allow write: if (id == 'features' && isMaster()
                        && request.resource.data.keys().hasOnly(['care', 'prayer', 'notifications', 'watch', 'sermons', 'giftAid', 'teamMail', 'rotaReports', 'preachingPlan', 'pictureLibrary', 'publicWhatson', 'sundaysInWhatsOn', 'newHere', 'usualPeople', 'screenPaging', 'maintenance', 'events', 'roomBookings', 'kids', 'smallGroups', 'forms', 'payments', 'safeguarding', 'pinBoards', 'meetings', 'notices', 'churchShow', 'availability', 'sessionPlanner', 'buildingCompliance', 'safeguardingRegister', 'enews', 'cardMaker', 'canva', 'quiz', 'parts', 'updatedAt', 'updatedBy'])
                        // parts: whole parts switched on or off (egbc-parts.js), { <part>: bool }.
                        && request.resource.data.get('parts', {}) is map
@@ -3293,7 +3297,7 @@ service cloud.firestore {
       // THE CHURCH'S SERVICES AND SERVICE ROLES (H-11; egbc-services.js):
       // the kinds of service and meeting, and the roles a service names.
       // The office and master admins keep them; nothing in them is private.
-      allow write: if raOffice() && id == 'services'
+      allow write: if id == 'services' && raOffice()
                        && request.resource.data.keys().hasOnly(['types', 'roles', 'updatedAt', 'updatedBy'])
                        && request.resource.data.types is list && request.resource.data.types.size() <= 200
                        && request.resource.data.roles is list && request.resource.data.roles.size() <= 50
@@ -3306,13 +3310,13 @@ service cloud.firestore {
       // WHO MAY DO WHAT (H-14): the Permissions screen's ticks. Only master
       // admins change permissions (Martin's answer 5). Only the actions the
       // hub knows - a new one joins this list when it is built.
-      allow write: if (isMaster() && id == 'permissions'
+      allow write: if (id == 'permissions' && isMaster()
                        && request.resource.data.keys().hasOnly(['actions', 'updatedAt', 'updatedBy'])
                        && request.resource.data.actions is map
                        && request.resource.data.actions.keys().hasOnly(['kbUpload', 'meetingsAll'])
                        && (!('kbUpload' in request.resource.data.actions) || permAction(request.resource.data.actions.kbUpload))
                        && (!('meetingsAll' in request.resource.data.actions) || permAction(request.resource.data.actions.meetingsAll)));
-      allow write: if (isMaster() && id == 'teamJobs'
+      allow write: if (id == 'teamJobs' && isMaster()
                        && request.resource.data.keys().hasOnly(['office', 'communications', 'trustees', 'leadership', 'finance', 'buildings', 'pastoral',
                             'worship', 'av', 'choir', 'children', 'youth', 'catering', 'welcome', 'prayer', 'updatedAt', 'updatedBy'])
                        && teamJobList(request.resource.data, 'office') && teamJobList(request.resource.data, 'communications')
@@ -3327,12 +3331,12 @@ service cloud.firestore {
       // prayer, "I'm new here") save nothing until rulesLocked is true. A
       // master admin sets it straight after the locked rules deploy
       // (NEXT-BRIEF §26). opensOn is the words the forms show till then.
-      allow write: if (isMaster() && id == 'launch'
+      allow write: if (id == 'launch' && isMaster()
                        && request.resource.data.keys().hasOnly(['rulesLocked', 'opensOn', 'updatedAt', 'updatedBy'])
                        && request.resource.data.rulesLocked is bool
                        && request.resource.data.get('opensOn', '') is string
                        && request.resource.data.get('opensOn', '').size() <= 40);
-      allow write: if (isAdmin() && id == 'details'
+      allow write: if (id == 'details' && isAdmin()
                        && request.resource.data.keys().hasOnly(['name', 'enquiryEmail', 'logoUrl', 'logoPath', 'hubUrl', 'ministerTitle',
                             'address', 'serviceDay', 'memberWord', 'meetingWord', 'shortName', 'updatedAt', 'updatedBy'])
                        // YOUR CHURCH (the setup step, 29 Oct 2026; Comms): its
@@ -3368,7 +3372,7 @@ service cloud.firestore {
                    // Church office), who are the people who would know them.
                    // Deliberately NOT every admin - a children's team admin has
                    // no business changing where the church's money goes.
-                   || (raOffice() && id == 'giving'
+                   || (id == 'giving' && raOffice()
                        && request.resource.data.keys().hasOnly(['accountName', 'sortCode', 'accountNumber',
                             'reference', 'giftAid', 'giftAidUrl', 'note', 'updatedAt', 'updatedBy'])
                        && request.resource.data.accountName is string && request.resource.data.accountName.size() <= 120
@@ -3918,7 +3922,7 @@ service cloud.firestore {
     }
     match /counters/{counterId} {
       allow read: if volunteer();
-      allow create, update: if volunteer() && counterId == 'invoices'
+      allow create, update: if counterId == 'invoices' && volunteer()
                             && request.resource.data.keys().hasOnly(['next'])
                             && request.resource.data.next == (resource == null ? 2 : resource.data.next + 1)
                             && existsAfter(/databases/$(database)/documents/invoices/$('inv_' + string(request.resource.data.next - 1)));
@@ -4882,7 +4886,7 @@ service cloud.firestore {
                   || (resource.data.source == 'members'
                       && ((resource.data.get('audience', 'signedIn') == 'signedIn' && active())
                           || (resource.data.get('audience', '') == 'churchMembers' && (isChurchMember() || sermonAdmin()))));
-      allow create, update: if sermonAdmin() && id == 'mv_' + request.resource.data.videoId
+      allow create, update: if id == 'mv_' + request.resource.data.videoId && sermonAdmin()
                     && request.resource.data.keys().hasOnly(['source', 'videoId', 'url', 'title', 'date', 'audience', 'note', 'hidden', 'addedBy', 'addedAt', 'updatedAt'])
                     && request.resource.data.source == 'members' && watchVideoId(request.resource.data.videoId) && watchYoutube(request.resource.data.url)
                     && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 200
@@ -4900,7 +4904,7 @@ service cloud.firestore {
     match /watchShow/{id} {
       allow read: if active() && id in ['settings', 'live', 'feedStatus'];
       // The church's choices: its channel, and the live card's defaults.
-      allow write: if sermonAdmin() && id == 'settings'
+      allow write: if id == 'settings' && sermonAdmin()
                    && request.resource.data.keys().hasOnly(['channelId', 'untilDay', 'fromTime', 'untilTime', 'after', 'againDays', 'updatedAt', 'updatedBy'])
                    && (request.resource.data.channelId == '' || request.resource.data.channelId.matches('^UC[A-Za-z0-9_-]{22}$'))
                    && request.resource.data.untilDay is int && request.resource.data.untilDay >= 0 && request.resource.data.untilDay <= 6
@@ -4911,7 +4915,7 @@ service cloud.firestore {
                    && request.resource.data.againDays is int && request.resource.data.againDays >= 1 && request.resource.data.againDays <= 31
                    && request.resource.data.updatedBy == request.auth.uid && request.resource.data.updatedAt == request.time;
       // This week's live link, or none (url ''). Watch again ends after the card does.
-      allow write: if sermonAdmin() && id == 'live'
+      allow write: if id == 'live' && sermonAdmin()
                    && request.resource.data.keys().hasOnly(['url', 'videoId', 'title', 'showFrom', 'showUntil', 'after', 'againUntil', 'updatedAt', 'updatedBy'])
                    && (request.resource.data.url == ''
                        || (watchYoutube(request.resource.data.url) && watchVideoId(request.resource.data.videoId)
@@ -4982,7 +4986,7 @@ service cloud.firestore {
     }
     match /prayerSettings/{id} {
       allow read: if active();
-      allow write: if isMaster() && id == 'main'
+      allow write: if id == 'main' && isMaster()
                    && request.resource.data.keys().hasOnly(['prayerTeam', 'updatedAt', 'updatedBy'])
                    && request.resource.data.prayerTeam is string && request.resource.data.prayerTeam.size() <= 60
                    && request.resource.data.updatedBy == request.auth.uid && request.resource.data.updatedAt == request.time;
@@ -5233,7 +5237,7 @@ service cloud.firestore {
     // an admin chooses it.
     match /labelSettings/{id} {
       allow read: if active();
-      allow write: if isAdmin() && id == 'main'
+      allow write: if id == 'main' && isAdmin()
                    && request.resource.data.keys().hasOnly(['format', 'updatedAt', 'updatedBy'])
                    && request.resource.data.format in ['paper', 'brother62x29', 'brother62x100', 'dymo89x36', 'a4x21', 'a4x8']
                    && request.resource.data.updatedBy == request.auth.uid;
@@ -5304,7 +5308,7 @@ service cloud.firestore {
       allow write: if false;
     }
     match /teamMailSettings/{id} {
-      allow read: if isMaster() && id == 'main';
+      allow read: if id == 'main' && isMaster();
       // The Pastor reads it too, so the Preaching plan knows them: member
       // ids only (the Pastor and the office admin).
       allow read: if id == 'main' && active() && me().get('memberId', '') != ''
@@ -5489,7 +5493,7 @@ service cloud.firestore {
     // Anyone signed in reads it (counts and amounts, no names).
     match /raSettings/{id} {
       allow read: if active();
-      allow write: if raOffice() && id == 'church'
+      allow write: if id == 'church' && raOffice()
                    && request.resource.data.keys().hasOnly(['employees', 'screenWork', 'largerTeam', 'publicLiability', 'employersLiability', 'minCover', 'ai', 'targets', 'eventPeople', 'hireRaTypes', 'updatedAt', 'updatedBy'])
                    // the kinds of booking whose hirers must send their own risk assessment (answer 6; H&S step 5)
                    && request.resource.data.get('hireRaTypes', []) is list && request.resource.data.get('hireRaTypes', []).size() <= 500
@@ -5590,7 +5594,7 @@ service cloud.firestore {
     function trDay(v) { return v is string && (v == '' || v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')); }
     match /transportSettings/{id} {
       allow read: if active();
-      allow write: if raOffice() && id == 'main'
+      allow write: if id == 'main' && raOffice()
                    && request.resource.data.keys().hasOnly(['readers', 'midas', 'recheckMonths', 'updatedAt', 'updatedBy'])
                    && request.resource.data.readers is list && request.resource.data.readers.size() <= 20
                    && request.resource.data.midas is bool
@@ -5709,7 +5713,7 @@ service cloud.firestore {
     }
     match /dataSettings/{id} {
       allow read: if active();
-      allow write: if raOffice() && id == 'main'
+      allow write: if id == 'main' && raOffice()
                    && request.resource.data.keys().hasOnly(['leads', 'updatedAt', 'updatedBy'])
                    && request.resource.data.leads is list && request.resource.data.leads.size() <= 10 && request.resource.data.updatedBy == request.auth.uid;
       allow delete: if false;
@@ -5782,7 +5786,7 @@ service cloud.firestore {
     }
     match /loneSettings/{id} {
       allow read: if active();
-      allow write: if raOffice() && id == 'main'
+      allow write: if id == 'main' && raOffice()
                    && request.resource.data.keys().hasOnly(['graceMins', 'escalateMins', 'updatedAt', 'updatedBy'])
                    && request.resource.data.graceMins is int && request.resource.data.graceMins >= 5 && request.resource.data.graceMins <= 120
                    && request.resource.data.escalateMins is int && request.resource.data.escalateMins >= 5 && request.resource.data.escalateMins <= 120

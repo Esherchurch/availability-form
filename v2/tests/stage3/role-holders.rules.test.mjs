@@ -24,7 +24,7 @@ import { doc, getDoc, setDoc, collection, getDocs, query, where } from 'firebase
 
 const V2 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const env = await initializeTestEnvironment({ projectId: 'egbc-worship-planner',
-  firestore: { rules: fs.readFileSync(path.join(V2, 'firestore.build.rules'), 'utf8'), host: '127.0.0.1', port: 8182 } });
+  firestore: { rules: fs.readFileSync(path.join(V2, 'firestore.build.rules'), 'utf8'), host: '127.0.0.1', port: +(process.env.RULES_PORT || 8182) } });
 await env.clearFirestore();
 
 const R = [];

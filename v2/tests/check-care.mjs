@@ -123,6 +123,10 @@ const offMachine = u => {
   await put('sites/' + SITE, { name: 'Synthetic Care Hall' });
   await put('sites/site_care_none', { name: 'Synthetic Empty Hall' });
   await put('bookingSettings/site_care_none', { safeguardingLead: '' });
+  /* A third with only a DEPUTY (Martin, 5 Nov 2026): that counts as set,
+     as the rules' sgLeadSet() and leadSite() both agree. */
+  await put('sites/site_care_deputy', { name: 'Synthetic Deputy Hall' });
+  await put('bookingSettings/site_care_deputy', { safeguardingLead: '', safeguardingDeputy: 'ab_cr_lead' });
   /* The safeguarding settings are shared with other checks: only this
      check's lead site is written, and put back afterwards. */
   const sgBefore = await req(8181, 'GET', DOCS + '/safeguardingSettings/defaults', undefined, OWNER);
@@ -506,6 +510,18 @@ const offMachine = u => {
   await go('hub.html', '#careBtn', 3500);
   ok('  a master admin is warned on the hub: "No safeguarding lead set"',
     /No safeguarding lead set/.test(String(await evl('(document.getElementById("waitingCard")||{}).innerText||""'))));
+  /* Only a deputy: the forms are offered, not refused. */
+  await req(8181, 'PATCH', DOCS + '/safeguardingSettings/defaults?updateMask.fieldPaths=leadSiteId', { fields: fields({ leadSiteId: 'site_care_deputy' }) }, OWNER);
+  ok('  only a deputy set: careRouting/status counts it as set', (await waitStatus(true)) === true);
+  await go('hub.html', '#careBtn', 3500);
+  ok('  and the hub does not warn', !/No safeguarding lead set/.test(String(await evl('(document.getElementById("waitingCard")||{}).innerText||""'))));
+  await signIn(ACCOUNTS.pat);
+  await width(375);
+  await go('worried.html?for=me', '#form', 2000);
+  ok('  and the "I\'m worried" form is offered, not refused',
+    (await evl('!document.getElementById("nobody") && !document.getElementById("form").classList.contains("hidden")')) === true);
+  await signIn(ACCOUNTS.mo);
+  await width(1280);
   await req(8181, 'PATCH', DOCS + '/safeguardingSettings/defaults?updateMask.fieldPaths=leadSiteId', { fields: fields({ leadSiteId: SITE }) }, OWNER);
   ok('  a lead set again: careRouting/status says so', (await waitStatus(true)) === true);
   await go('hub.html', '#careBtn', 3500);

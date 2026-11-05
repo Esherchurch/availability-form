@@ -714,18 +714,18 @@ allow create, update: if enewsOffice()
 }
 match /socialSettings/{id} {
 allow read: if enewsOffice();
-allow write: if enewsOffice() && id == 'main'
+allow write: if id == 'main' && enewsOffice()
 && request.resource.data.keys().hasOnly(['usual', 'sets', 'vod', 'vodDone', 'remind', 'updatedAt', 'updatedBy'])
 && request.resource.data.get('remind', []) is list && request.resource.data.get('remind', []).size() <= 20
 && request.resource.data.updatedBy == request.auth.uid;
 }
 match /enewsSettings/{id} {
 allow read: if enewsOffice();
-allow write: if enewsOffice() && id == 'welcomes'
+allow write: if id == 'welcomes' && enewsOffice()
 && request.resource.data.keys().hasOnly(['subscriber', 'newcomer', 'updatedAt', 'updatedBy'])
 && request.resource.data.get('subscriber', false) is bool && request.resource.data.get('newcomer', false) is bool
 && request.resource.data.updatedBy == request.auth.uid;
-allow write: if enewsOffice() && id == 'main'
+allow write: if id == 'main' && enewsOffice()
 && request.resource.data.keys().hasOnly(['template', 'colours', 'church', 'bible', 'updatedAt', 'updatedBy'])
 && request.resource.data.template in ['classic', 'green']
 && request.resource.data.colours is map && request.resource.data.colours.size() <= 20
@@ -1589,7 +1589,7 @@ allow create, update: if meetingRunner()
 allow delete: if false;
 match /private/{doc} {
 allow read: if meetingMember();
-allow write: if meetingRunner() && doc == 'join'
+allow write: if doc == 'join' && meetingRunner()
 && request.resource.data.keys().hasOnly(['zoomUrl', 'zoomId', 'passcode', 'updatedAt', 'updatedBy']);
 }
 match /proxies/{giverId} {
@@ -1641,25 +1641,25 @@ return a is map && a.keys().hasOnly(['jobs', 'coresOf', 'adminJobs', 'teams', 'l
 }
 match /churchSettings/{id} {
 allow read: if id != 'giving' || active();
-allow write: if (isMaster() && id == 'notifications'
+allow write: if (id == 'notifications' && isMaster()
 && request.resource.data.keys().hasOnly(['live', 'updatedAt', 'updatedBy'])
 && request.resource.data.live is bool);
-allow write: if (isMaster() && id == 'features'
+allow write: if (id == 'features' && isMaster()
 && request.resource.data.keys().hasOnly(['care', 'prayer', 'notifications', 'watch', 'sermons', 'giftAid', 'teamMail', 'rotaReports', 'preachingPlan', 'pictureLibrary', 'publicWhatson', 'sundaysInWhatsOn', 'newHere', 'usualPeople', 'screenPaging', 'maintenance', 'events', 'roomBookings', 'kids', 'smallGroups', 'forms', 'payments', 'safeguarding', 'pinBoards', 'meetings', 'notices', 'churchShow', 'availability', 'sessionPlanner', 'buildingCompliance', 'safeguardingRegister', 'enews', 'cardMaker', 'canva', 'quiz', 'parts', 'updatedAt', 'updatedBy'])
 && request.resource.data.get('parts', {}) is map
 && request.resource.data.get('parts', {}).size() <= 30);
-allow write: if raOffice() && id == 'services'
+allow write: if id == 'services' && raOffice()
 && request.resource.data.keys().hasOnly(['types', 'roles', 'updatedAt', 'updatedBy'])
 && request.resource.data.types is list && request.resource.data.types.size() <= 200
 && request.resource.data.roles is list && request.resource.data.roles.size() <= 50
 && request.resource.data.updatedBy == request.auth.uid;
-allow write: if (isMaster() && id == 'permissions'
+allow write: if (id == 'permissions' && isMaster()
 && request.resource.data.keys().hasOnly(['actions', 'updatedAt', 'updatedBy'])
 && request.resource.data.actions is map
 && request.resource.data.actions.keys().hasOnly(['kbUpload', 'meetingsAll'])
 && (!('kbUpload' in request.resource.data.actions) || permAction(request.resource.data.actions.kbUpload))
 && (!('meetingsAll' in request.resource.data.actions) || permAction(request.resource.data.actions.meetingsAll)));
-allow write: if (isMaster() && id == 'teamJobs'
+allow write: if (id == 'teamJobs' && isMaster()
 && request.resource.data.keys().hasOnly(['office', 'communications', 'trustees', 'leadership', 'finance', 'buildings', 'pastoral',
 'worship', 'av', 'choir', 'children', 'youth', 'catering', 'welcome', 'prayer', 'updatedAt', 'updatedBy'])
 && teamJobList(request.resource.data, 'office') && teamJobList(request.resource.data, 'communications')
@@ -1670,12 +1670,12 @@ allow write: if (isMaster() && id == 'teamJobs'
 && teamJobList(request.resource.data, 'children') && teamJobList(request.resource.data, 'youth')
 && teamJobList(request.resource.data, 'catering') && teamJobList(request.resource.data, 'welcome')
 && teamJobList(request.resource.data, 'prayer'));
-allow write: if (isMaster() && id == 'launch'
+allow write: if (id == 'launch' && isMaster()
 && request.resource.data.keys().hasOnly(['rulesLocked', 'opensOn', 'updatedAt', 'updatedBy'])
 && request.resource.data.rulesLocked is bool
 && request.resource.data.get('opensOn', '') is string
 && request.resource.data.get('opensOn', '').size() <= 40);
-allow write: if (isAdmin() && id == 'details'
+allow write: if (id == 'details' && isAdmin()
 && request.resource.data.keys().hasOnly(['name', 'enquiryEmail', 'logoUrl', 'logoPath', 'hubUrl', 'ministerTitle',
 'address', 'serviceDay', 'memberWord', 'meetingWord', 'shortName', 'updatedAt', 'updatedBy'])
 && request.resource.data.get('address', '') is string && request.resource.data.get('address', '').size() <= 300
@@ -1692,7 +1692,7 @@ allow write: if (isAdmin() && id == 'details'
 && request.resource.data.enquiryEmail is string && request.resource.data.enquiryEmail.size() <= 200
 && (request.resource.data.enquiryEmail == '' || request.resource.data.enquiryEmail.matches('^[^@ ]+@[^@ ]+[.][^@ ]+$'))
 && request.resource.data.get('hubUrl', '') == (resource == null ? '' : resource.data.get('hubUrl', '')))
-|| (raOffice() && id == 'giving'
+|| (id == 'giving' && raOffice()
 && request.resource.data.keys().hasOnly(['accountName', 'sortCode', 'accountNumber',
 'reference', 'giftAid', 'giftAidUrl', 'note', 'updatedAt', 'updatedBy'])
 && request.resource.data.accountName is string && request.resource.data.accountName.size() <= 120
@@ -2080,7 +2080,7 @@ allow delete: if false;
 }
 match /counters/{counterId} {
 allow read: if volunteer();
-allow create, update: if volunteer() && counterId == 'invoices'
+allow create, update: if counterId == 'invoices' && volunteer()
 && request.resource.data.keys().hasOnly(['next'])
 && request.resource.data.next == (resource == null ? 2 : resource.data.next + 1)
 && existsAfter(/databases/$(database)/documents/churches/$(cid)/invoices/$('inv_' + string(request.resource.data.next - 1)));
@@ -2793,7 +2793,7 @@ allow read: if resource.data.source == 'feed'
 || (resource.data.source == 'members'
 && ((resource.data.get('audience', 'signedIn') == 'signedIn' && active())
 || (resource.data.get('audience', '') == 'churchMembers' && (isChurchMember() || sermonAdmin()))));
-allow create, update: if sermonAdmin() && id == 'mv_' + request.resource.data.videoId
+allow create, update: if id == 'mv_' + request.resource.data.videoId && sermonAdmin()
 && request.resource.data.keys().hasOnly(['source', 'videoId', 'url', 'title', 'date', 'audience', 'note', 'hidden', 'addedBy', 'addedAt', 'updatedAt'])
 && request.resource.data.source == 'members' && watchVideoId(request.resource.data.videoId) && watchYoutube(request.resource.data.url)
 && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 200
@@ -2809,7 +2809,7 @@ allow delete: if sermonAdmin() && resource.data.source == 'members';
 }
 match /watchShow/{id} {
 allow read: if active() && id in ['settings', 'live', 'feedStatus'];
-allow write: if sermonAdmin() && id == 'settings'
+allow write: if id == 'settings' && sermonAdmin()
 && request.resource.data.keys().hasOnly(['channelId', 'untilDay', 'fromTime', 'untilTime', 'after', 'againDays', 'updatedAt', 'updatedBy'])
 && (request.resource.data.channelId == '' || request.resource.data.channelId.matches('^UC[A-Za-z0-9_-]{22}$'))
 && request.resource.data.untilDay is int && request.resource.data.untilDay >= 0 && request.resource.data.untilDay <= 6
@@ -2819,7 +2819,7 @@ allow write: if sermonAdmin() && id == 'settings'
 && request.resource.data.after in ['disappear', 'again']
 && request.resource.data.againDays is int && request.resource.data.againDays >= 1 && request.resource.data.againDays <= 31
 && request.resource.data.updatedBy == request.auth.uid && request.resource.data.updatedAt == request.time;
-allow write: if sermonAdmin() && id == 'live'
+allow write: if id == 'live' && sermonAdmin()
 && request.resource.data.keys().hasOnly(['url', 'videoId', 'title', 'showFrom', 'showUntil', 'after', 'againUntil', 'updatedAt', 'updatedBy'])
 && (request.resource.data.url == ''
 || (watchYoutube(request.resource.data.url) && watchVideoId(request.resource.data.videoId)
@@ -2872,7 +2872,7 @@ allow delete: if active() && resource.data.by == request.auth.uid;
 }
 match /prayerSettings/{id} {
 allow read: if active();
-allow write: if isMaster() && id == 'main'
+allow write: if id == 'main' && isMaster()
 && request.resource.data.keys().hasOnly(['prayerTeam', 'updatedAt', 'updatedBy'])
 && request.resource.data.prayerTeam is string && request.resource.data.prayerTeam.size() <= 60
 && request.resource.data.updatedBy == request.auth.uid && request.resource.data.updatedAt == request.time;
@@ -3043,7 +3043,7 @@ allow delete: if runsEventId(resource.data.calEventId);
 }
 match /labelSettings/{id} {
 allow read: if active();
-allow write: if isAdmin() && id == 'main'
+allow write: if id == 'main' && isAdmin()
 && request.resource.data.keys().hasOnly(['format', 'updatedAt', 'updatedBy'])
 && request.resource.data.format in ['paper', 'brother62x29', 'brother62x100', 'dymo89x36', 'a4x21', 'a4x8']
 && request.resource.data.updatedBy == request.auth.uid;
@@ -3091,7 +3091,7 @@ allow read: if isMaster();
 allow write: if false;
 }
 match /teamMailSettings/{id} {
-allow read: if isMaster() && id == 'main';
+allow read: if id == 'main' && isMaster();
 allow read: if id == 'main' && active() && me().get('memberId', '') != ''
 && resource.data.get('pastor', '') == me().get('memberId', '');
 allow write: if false;
@@ -3209,7 +3209,7 @@ function raWhole(d, k, lo) { return !(k in d) || (d[k] is int && d[k] >= lo && d
 function raSmall(m, k, lo, hi) { return !(k in m) || (m[k] is int && m[k] >= lo && m[k] <= hi); }
 match /raSettings/{id} {
 allow read: if active();
-allow write: if raOffice() && id == 'church'
+allow write: if id == 'church' && raOffice()
 && request.resource.data.keys().hasOnly(['employees', 'screenWork', 'largerTeam', 'publicLiability', 'employersLiability', 'minCover', 'ai', 'targets', 'eventPeople', 'hireRaTypes', 'updatedAt', 'updatedBy'])
 && request.resource.data.get('hireRaTypes', []) is list && request.resource.data.get('hireRaTypes', []).size() <= 500
 && raWhole(request.resource.data, 'employees', 0) && raWhole(request.resource.data, 'largerTeam', 1)
@@ -3285,7 +3285,7 @@ return active() && (isMaster() || (exists(s) && me().get('memberId', '-') in get
 function trDay(v) { return v is string && (v == '' || v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')); }
 match /transportSettings/{id} {
 allow read: if active();
-allow write: if raOffice() && id == 'main'
+allow write: if id == 'main' && raOffice()
 && request.resource.data.keys().hasOnly(['readers', 'midas', 'recheckMonths', 'updatedAt', 'updatedBy'])
 && request.resource.data.readers is list && request.resource.data.readers.size() <= 20
 && request.resource.data.midas is bool
@@ -3386,7 +3386,7 @@ allow write: if false;
 }
 match /dataSettings/{id} {
 allow read: if active();
-allow write: if raOffice() && id == 'main'
+allow write: if id == 'main' && raOffice()
 && request.resource.data.keys().hasOnly(['leads', 'updatedAt', 'updatedBy'])
 && request.resource.data.leads is list && request.resource.data.leads.size() <= 10 && request.resource.data.updatedBy == request.auth.uid;
 allow delete: if false;
@@ -3457,7 +3457,7 @@ allow delete: if dataLead() && resource.data.status != 'open';
 }
 match /loneSettings/{id} {
 allow read: if active();
-allow write: if raOffice() && id == 'main'
+allow write: if id == 'main' && raOffice()
 && request.resource.data.keys().hasOnly(['graceMins', 'escalateMins', 'updatedAt', 'updatedBy'])
 && request.resource.data.graceMins is int && request.resource.data.graceMins >= 5 && request.resource.data.graceMins <= 120
 && request.resource.data.escalateMins is int && request.resource.data.escalateMins >= 5 && request.resource.data.escalateMins <= 120
