@@ -241,7 +241,9 @@ const OFF_MENU_BY_DESIGN = {
   'trainingrotaplanner.html': { roles: ['areaAdmin', 'core', 'master'], why: 'a practice copy, for leaders' },
   'mix-builder.html': { roles: ['master'], why: 'Martin\'s own mix tools: master admins on the hub' },
   'mix-player.html': { roles: ['master'], why: 'Martin\'s own mix tools: master admins on the hub' },
-  'mix-analyser.html': { roles: ['master'], why: 'Martin\'s own mix tools: master admins on the hub' }
+  'mix-analyser.html': { roles: ['master'], why: 'Martin\'s own mix tools: master admins on the hub' },
+  /* A young person has no Menu: their code's page (youth-access.html) opens the Hub (5 Nov 2026). */
+  'youthapp2.html': { roles: ['youth', 'master'], why: 'a young person opens it from their code\'s page, youth-access; master admins from the hub' }
 };
 /* OTHER WINDOWS' PAGES IN NOBODY'S MENU, pressed in an --every run by the
    people their own guard lets in (3 Nov 2026). Who may open them is still

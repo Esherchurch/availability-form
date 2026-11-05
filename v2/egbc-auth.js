@@ -658,10 +658,20 @@
     if (PERMS.promise) return PERMS.promise;
     var get = function (c, d) { return db.collection(c).doc(d).get().then(function (s) { return s.exists ? s.data() : null; }, function () { return null; }); };
     var uid = currentUser && currentUser.uid;
+    /* The trustee and prayer team settings only name a team, so they only
+       matter to someone on one. Anybody else (a young person on the Youth
+       Hub, a safeguarding lead on no team) isn't asked: the rules refuse
+       them those reads, and the answer for them is "neither" anyway (the
+       Stage 3 audit, 5 Nov 2026: every Youth Hub screen recorded a refused
+       read). Before the profile is known, ask as before. */
+    var p = currentProfile;
+    var onTeam = !p || (p.status === 'active' && ((p.teams || []).length > 0
+                 || (p.adminFor || []).length > 0 || p.masterAdmin === true));
+    var none = function () { return Promise.resolve(null); };
     PERMS.promise = Promise.all([
       sibling('egbc-team-jobs.js', '202610261800').then(function () { return sibling('egbc-permissions.js', '202610272330'); }),
       get('churchSettings', 'permissions'), get('churchSettings', 'teamJobs'),
-      get('paymentSettings', 'public'), get('safeguardingSettings', 'defaults'), get('prayerSettings', 'main'),
+      get('paymentSettings', 'public'), onTeam ? get('safeguardingSettings', 'defaults') : none(), onTeam ? get('prayerSettings', 'main') : none(),
       /* The Pastor (Team emails): readable by master admins and the Pastor
          only, so for anybody else this is null - which is the answer. */
       get('teamMailSettings', 'main'),
