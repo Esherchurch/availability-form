@@ -219,6 +219,16 @@
           '<div class="row"><button class="btn sec sm" data-opensnap="' + esc(s.id) + '">Open it</button><a class="btn sec sm" data-printsnap="' + esc(s.id) + '" style="display:inline-flex;align-items:center;text-decoration:none" target="_blank" rel="noopener" href="sg-print.html?snapshot=' + encodeURIComponent(s.id) + '">Print / save as PDF</a></div></div>';
       }).join('') : '<div class="card" id="noSnaps"><p style="margin:0">No snapshot yet.' + (ctx.may ? '' : ' The trustees take them.') + '</p></div>');
   }
+  /* Firestore refuses a whole record that holds an undefined anywhere, and throws before it is sent: a
+     master's "Take it" did nothing, with no word on the page (an unrated risk or a dial with no
+     percentage; Stage 3 audit, 5 Nov 2026). An undefined becomes "nothing" (null); the server's time
+     and other sentinels are passed through untouched. */
+  function noUndefined(v) {
+    if (v === undefined) return null;
+    if (Array.isArray(v)) return v.map(noUndefined);
+    if (v && typeof v === 'object' && Object.getPrototypeOf(v) === Object.prototype) { var o = {}; Object.keys(v).forEach(function (k) { o[k] = noUndefined(v[k]); }); return o; }
+    return v;
+  }
   function snapshotFrom(ctx, note) {
     var T = ctx.T, actName = {};
     (ctx.acts || []).forEach(function (a) { actName[a.id] = a.name; });
@@ -231,13 +241,15 @@
     var w = (ctx.W && ctx.W.items) || [], dials = {};
     Object.keys((ctx.D && ctx.D.dials) || {}).forEach(function (k) { var x = ctx.D.dials[k]; dials[k] = { value: x.value, of: x.of, pct: x.pct, rag: x.rag }; });
     var rv = (ctx.D && ctx.D.review) || {};
-    return { siteId: ctx.siteId, banner: ('Safeguarding risk register: ' + ctx.siteName + ', ' + longDate(new Date().toISOString())).slice(0, 200),
+    return noUndefined({ siteId: ctx.siteId, banner: ('Safeguarding risk register: ' + ctx.siteName + ', ' + longDate(new Date().toISOString())).slice(0, 200),
       by: ctx.me.uid, byName: String(ctx.me.name || '').slice(0, 120), at: firebase.firestore.FieldValue.serverTimestamp(), note: String(note || '').slice(0, 300),
       risks: risks, warnings: { red: w.filter(function (x) { return x.level === 'red'; }).length, amber: w.filter(function (x) { return x.level === 'amber'; }).length },
-      dials: dials, review: { done: rv.done || 0, of: rv.of || 0, status: rv.status || '' } };
+      dials: dials, review: { done: rv.done || 0, of: rv.of || 0, status: rv.status || '' } });
   }
   var DIAL_WORDS = { checks: 'Leaders with in-date checks', sessions: 'Sessions with enough leaders', consent: 'Children with current consent', assess: 'Event assessments signed', review: 'The annual review', incidents: 'Incident follow-ups open' };
   var RAG_WORDS = { red: 'High', amber: 'Medium', green: 'Low' };
+  /* a risk not yet rated is kept as nothing (null), and said in words, never "undefined" */
+  function rated(rag, score) { return RAG_WORDS[rag] ? RAG_WORDS[rag] + ' ' + score : 'Not rated'; }
   function snapshotView(s) {
     return '<div id="snapView"><p class="sgd-banner">' + esc(s.banner) + '</p><p class="hint">Taken ' + esc(longDate(s.at)) + ' by ' + esc(s.byName || '') + (s.note ? ': “' + esc(s.note) + '”' : '') + '</p>' +
       '<h3 style="margin-top:14px">Where safeguarding stood</h3><table class="sgd-tbl">' + Object.keys(DIAL_WORDS).filter(function (k) { return (s.dials || {})[k]; }).map(function (k) {
@@ -245,7 +257,7 @@
       }).join('') + '<tr><td>Warnings</td><td class="n">' + ((s.warnings || {}).red || 0) + ' act now, ' + ((s.warnings || {}).amber || 0) + ' soon</td></tr>' +
       '<tr><td>The annual review</td><td class="n">' + ((s.review || {}).done || 0) + ' of ' + ((s.review || {}).of || 0) + ' items</td></tr></table>' +
       '<h3 style="margin-top:14px">The standing risks</h3><div style="overflow-x:auto"><table class="sgd-tbl"><tr><th>Activity</th><th>Risk</th><th>Before</th><th>After</th><th>Review by</th></tr>' +
-      (s.risks || []).map(function (r) { return '<tr' + (r.status === 'closed' ? ' style="opacity:.6"' : '') + '><td>' + esc(r.activity) + '</td><td>' + esc(r.risk) + (r.status === 'closed' ? ' (closed)' : '') + '<div class="hint">' + esc((r.controls || []).join('; ')) + '</div>' + ((r.todo || []).length ? '<div class="hint" data-snaptodo>Still to do: ' + r.todo.map(function (t) { return esc(t.what) + ' (' + esc(t.who || 'nobody named') + ', by ' + esc(t.by || 'no date') + (t.done ? ', done' : '') + ')'; }).join('; ') + '</div>' : '') + '</td><td>' + RAG_WORDS[r.before] + ' ' + r.beforeScore + '</td><td>' + RAG_WORDS[r.after] + ' ' + r.afterScore + '</td><td>' + esc(r.reviewDue) + '</td></tr>'; }).join('') +
+      (s.risks || []).map(function (r) { return '<tr' + (r.status === 'closed' ? ' style="opacity:.6"' : '') + '><td>' + esc(r.activity) + '</td><td>' + esc(r.risk) + (r.status === 'closed' ? ' (closed)' : '') + '<div class="hint">' + esc((r.controls || []).join('; ')) + '</div>' + ((r.todo || []).length ? '<div class="hint" data-snaptodo>Still to do: ' + r.todo.map(function (t) { return esc(t.what) + ' (' + esc(t.who || 'nobody named') + ', by ' + esc(t.by || 'no date') + (t.done ? ', done' : '') + ')'; }).join('; ') + '</div>' : '') + '</td><td>' + rated(r.before, r.beforeScore) + '</td><td>' + rated(r.after, r.afterScore) + '</td><td>' + esc(r.reviewDue) + '</td></tr>'; }).join('') +
       '</table></div></div>';
   }
   function wireSnapshots(root, ctx, list) {
@@ -257,7 +269,8 @@
         '<p class="hint" id="snMsg" role="status"></p><div class="row"><button class="btn" id="snGo">Take it</button><button class="btn sec" data-close>Cancel</button></div>');
       document.getElementById('snGo').onclick = function () {
         var b = this; b.disabled = true;
-        ctx.db().collection('sgSnapshots').add(snapshotFrom(ctx, document.getElementById('snNote').value.trim()))
+        /* a throw before sending is shown too, never a button that does nothing */
+        Promise.resolve().then(function () { return ctx.db().collection('sgSnapshots').add(snapshotFrom(ctx, document.getElementById('snNote').value.trim())); })
           .then(function () { ctx.close(); return ctx.after(); }, function (e) { b.disabled = false; document.getElementById('snMsg').textContent = 'It could not be taken: ' + (e.message || e); });
       };
     };

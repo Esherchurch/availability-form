@@ -46,6 +46,9 @@ const { getStorage } = fnRequire('firebase-admin/storage');
 const BUCKET = 'egbc-worship-planner.firebasestorage.app';
 if (!getApps().length) initializeApp({ projectId: PROJECT, storageBucket: BUCKET });
 const db = getFirestore(), bucket = getStorage().bucket();
+/* The functions emulator names its default bucket <project>.appspot.com, where the live project's is
+   firebasestorage.app (5 Nov 2026: "No such object" on the kept file). Read from whichever holds it. */
+const stored = async (p) => { for (const b of [bucket, getStorage().bucket(PROJECT + '.appspot.com')]) { try { return await b.file(p).download(); } catch (e) { /* the next */ } } throw new Error('Not in either bucket: ' + p); };
 const { londonDay } = await import('../../functions/sg-warnings.js');
 const RQ = fnRequire('./sg-requirements-core.cjs');
 
@@ -190,7 +193,7 @@ try {
   ok('   A PAGE THAT IS ONLY CONTACTS (the reviewing window, 27 Oct: Newday’s night team): asked as "does your group know how to reach them, and when", never the number', /only gives a way to reach someone/.test(J(s1.system)) && /Does your group know how to reach the night team, and when\?/.test(J(s1.system)) && /never with the number, the email or a name itself/.test(J(s1.system)), J(s1.system).slice(0, 200));
   const a1 = await assess();
   ok('   THE QUESTION WITH A PHONE NUMBER IS LEFT OUT (3 of 4), and the leader is told', a1.host.items.length === 3 && !/07700/.test(J(a1.host)) && a1.host.dropped === 1 && /names, phone numbers or emails in it/.test(await text(O, '#sgaHostPersonal')), J(a1.host.items.map((x) => x.q)));
-  const [kept] = await bucket.file(a1.host.file.path).download();
+  const [kept] = await stored(a1.host.file.path);
   ok('   THE FILE IS KEPT, under the event in Storage', a1.host.file.path.indexOf('sgRequirements/' + EID + '/') === 0 && kept.equals(PNG) && a1.host.file.name === 'camp scan.png', a1.host.file.path);
   /* 2. not until checked */
   ok('2. NOT REQUIRED UNTIL CHECKED: not confirmed, no required ids', a1.host.confirmed === false && J(a1.hostIds) === '[]');
@@ -308,8 +311,8 @@ try {
   /* F-295 (Martin, 27 Oct, on the live list: "There isn't any point to this list if it is directly below anyway. Plus it's really hard to read.") */
   const top11 = await O.$eval('#sgaHost', (e) => { const r = document.createRange(); r.setStart(e, 0); r.setEndBefore(e.querySelector('#sgaHostItems')); return r.toString(); });
   ok('F-295: THE QUESTIONS COME FIRST under the heading: no list of pages, no web address and no ".txt" above them', /From A camp \(invented\)’s requirements/.test(top11) && !/https?:|Read \d|\.txt/.test(top11), top11);
-  ok('   WHAT WAS READ IS ONE LINE, the pages folded away and CLOSED: "Read 2 of A camp (invented)’s pages. Show the pages"; no web address on the screen',
-    (await O.$eval('#sgaHostPages', (e) => e.open)) === false && /^Read 2 of A camp \(invented\)’s pages\. Show the pages$/.test(await text(O, '#sgaHostWeb')) && !/https?:\/\//.test(await text(O, '#sgaHost')), await text(O, '#sgaHost'));
+  ok('   WHAT WAS READ IS SHORT, the pages folded away and CLOSED: "Read 2 of A camp (invented)’s pages. Show the pages"; no web address on the screen',
+    (await O.$eval('#sgaHostPages', (e) => e.open)) === false && /^Read 2 of A camp \(invented\)’s pages\.\s+Show the pages$/.test(await text(O, '#sgaHostWeb')) && !/https?:\/\//.test(await text(O, '#sgaHost')), await text(O, '#sgaHost'));
   ok('   EACH QUESTION NAMES ITS PAGE, as a link: the page’s title, never its address', J(await O.$$eval('[data-hostsource] a', (as) => as.map((a) => [a.textContent, a.getAttribute('href')]))) === J([['Safeguarding (invented)', BASE + '/articles/safeguarding'], ['Camping (invented)', BASE + '/articles/camping']]), J(await O.$$eval('[data-hostsource]', (l) => l.map((x) => x.innerHTML))));
   await O.$eval('#sgaHostPages summary', (e) => e.click());
   ok('   "Show the pages" opens the articles by name, as links (not the folder page given)', J(await O.$$eval('#sgaHostPages [data-webpage]', (l) => l.map((x) => x.textContent))) === J(['Safeguarding (invented)', 'Camping (invented)']) && (await O.$$('#sgaHostPages [data-webpage] a[target="_blank"]')).length === 2, await text(O, '#sgaHostPages'));
@@ -321,7 +324,7 @@ try {
   ok('   AT PHONE WIDTH (375): the questions first, and the page still fits with the pages opened', (await O.$eval('#sgaHost', (e) => e.querySelector('#sgaHostItems').compareDocumentPosition(e.querySelector('#sgaHostWeb')) & 4)) === 4
     && (await O.evaluate(() => document.documentElement.scrollWidth)) <= 375, await O.evaluate(() => document.documentElement.scrollWidth));
   if (vp11) await O.setViewport(vp11);
-  const [keptWeb] = await bucket.file(a11.host.file.path).download();
+  const [keptWeb] = await stored(a11.host.file.path);
   ok('   WHAT WAS READ IS KEPT, beside the files, addresses and all (the page shows names; the record keeps everything)', /Tents must be 2 metres apart/.test(keptWeb.toString()) && /== http:\/\/127\.0\.0\.1:5619\/articles\/camping/.test(keptWeb.toString()) && a11.host.web.pages.every((p) => /^http:\/\/127\.0\.0\.1:5619\//.test(p.url)) && a11.host.file.path.indexOf('sgRequirements/' + EID + '/') === 0, a11.host.file.path);
   const n11b = SENT.length;
   const priv = await call(O, 'sgRequirementsFromLinks', { calEventId: EID, urls: ['https://10.0.0.1/requirements', 'https://169.254.169.254/latest/meta-data/'] });
@@ -344,7 +347,7 @@ try {
   ok('12. 5 FOLDERS, 60 ARTICLES: the first read is 40 pages, and the 25 not reached are kept for "Read the next"', first12.ok && a12.host.web.pages.length === 40 && a12.host.web.next.length === 25 && a12.host.web.next[0] === BASE + '/hc/articles/108', J([first12, (a12.host.web || {}).next]));
   await go(O, 'safeguarding.html?event=' + EID, '#sgaHostNext');
   ok('   THE LEADER SEES: "25 more of the host’s pages were not read yet … Each read counts as one use of the AI." and "Read the next 25"', /25 more of the host’s pages were not read yet\./.test(await text(O, '#sgaHostMore')) && /Each read counts as one use of the AI\./.test(await text(O, '#sgaHostMore')) && (await text(O, '#sgaHostNext')) === 'Read the next 25', await text(O, '#sgaHostMore'));
-  ok('   THE PAGES NOT READ: on that one line, folded away and closed; "Show which" names them (a page with only numbers in its address: "Page 108")', (await O.$eval('#sgaHostNotRead', (e) => e.open)) === false && (await O.$$('[data-webnext]')).length === 25 && (await O.$eval('[data-webnext]', (e) => e.textContent)) === 'Page 108', await text(O, '#sgaHostMore'));
+  ok('   THE PAGES NOT READ: folded away under their own toggle, closed; "Show which" names them (a page with only numbers in its address: "Page 108")', (await O.$eval('#sgaHostNotRead', (e) => e.open)) === false && (await O.$$('[data-webnext]')).length === 25 && (await O.$eval('[data-webnext]', (e) => e.textContent)) === 'Page 108', await text(O, '#sgaHostMore'));
   /* the leader has changed one question on the page, not yet confirmed */
   await O.$eval('[data-hostitem] [data-hostq]', (e) => { e.value = 'Has every adult read and signed the camp’s safeguarding policy? (invented)'; });
   QUEUE.push(answer({ host: 'A camp (invented)', personalFound: false, items: [
@@ -362,7 +365,7 @@ try {
   await O.$eval('#sgaHostPages summary', (e) => e.click());
   const names12 = await O.$$eval('#sgaHostPages [data-webpage]', (l) => l.map((x) => x.textContent));
   ok('   THE TITLES WITHOUT THE SITE’S NAME on the end (" : Testcamp"), the 60 articles, not the 5 folders', names12.length === 60 && names12[0] === 'Folder 1 article 1 (invented)' && !names12.some((n) => /Testcamp|^Folder \d \(invented\)$/.test(n)), J(names12.slice(0, 3)));
-  const [kept12] = await bucket.file(b12.host.file.path).download();
+  const [kept12] = await stored(b12.host.file.path);
   ok('   WHAT WAS READ IS KEPT: both reads, in one file', /Rule 1\.1 for groups/.test(kept12.toString()) && /Rule 5\.12 for groups/.test(kept12.toString()), b12.host.file.path);
   const use12b = ((await db.collection('sgAiUse').doc(londonDay()).get()).data() || {}).total || 0;
   ok('   ONE USE OF THE DAY’S AI LIMIT, like any call; logged as "requirements-web-more", never an address', use12b === use12 + 1 && (await logs()).some((l) => l.kind === 'requirements-web-more' && l.outcome === 'extracted' && !/127\.0\.0\.1/.test(J(l))), J([use12, use12b]));

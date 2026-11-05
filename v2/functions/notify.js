@@ -504,7 +504,8 @@ async function teamUids(db, team) {
    first building with a lead named. A master admin's save never writes
    leadSiteId, and a lead set in Places must still count (Martin, 14 Oct
    2026: "my app still says no safeguarding lead set, even though it is"). */
-async function leadSite(db) {
+/* exported for the Youth Hub's "I'm worried" (youth-worry.js), so both choose the same building */
+export async function leadSite(db) {
   const sg = await db.collection('safeguardingSettings').doc('defaults').get();
   const site = sg.exists ? String(sg.data().leadSiteId || '') : '';
   if (site) return site;

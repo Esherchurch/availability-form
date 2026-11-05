@@ -219,14 +219,16 @@
     /* where a question came from: the page's name as the link, or "pasted text" */
     function sourceLink(h, src) { return /^https?:\/\//.test(String(src || '')) ? pageLink(titleOf(h)(src), src) : esc(src); }
     /* the pages read from the web (S6): one line, and the articles (not the addresses given) folded away */
+    /* The lists' toggles are their own line, tall enough to tap: inline, "Show which" wrapped over two lines at 1440 and a
+       tap on its middle fell on the words round it, and "Show the pages" opened with nothing to see (Stage 3 audit, 5 Nov 2026). */
     function webRead(h) {
       if (!h.web) return '';
       var name = titleOf(h), given = (h.web.starts || []), arts = (h.web.pages || []).filter(function (p) { return given.indexOf(p.url) < 0; });
       var failed = (h.web.refused || []).filter(function (r) { return /^https?:\/\//.test(String(r.url)) && !/^(beyond the|not reached in)/.test(r.why || ''); });
       var list = function (rows) { return '<ul style="margin:4px 0;padding-left:18px">' + rows.join('') + '</ul>'; };
       return '<div class="muted" id="sgaHostWeb" style="margin:6px 0"><span id="sgaHostRead">Read ' + arts.length + ' of ' + esc(h.name || 'the host') + '’s page' + (arts.length === 1 ? '' : 's') + (h.web.pasted ? ', and the pasted text' : '') + '.</span>' +
-        (arts.length ? ' <details id="sgaHostPages" style="display:inline"><summary style="cursor:pointer;display:inline">Show the pages</summary>' + list(arts.map(function (p) { return '<li data-webpage>' + pageLink(name(p.url), p.url) + '</li>'; })) + '</details>' : '') +
-        (failed.length ? '<div id="sgaHostFailed">' + (failed.length === 1 ? 'One page' : failed.length + ' pages') + ' couldn’t be read. <details id="sgaHostFailedList" style="display:inline"><summary style="cursor:pointer;display:inline">Show why</summary>' +
+        (arts.length ? ' <details id="sgaHostPages" style="margin:4px 0"><summary style="cursor:pointer;display:inline-flex;align-items:center;min-height:32px">Show the pages</summary>' + list(arts.map(function (p) { return '<li data-webpage>' + pageLink(name(p.url), p.url) + '</li>'; })) + '</details>' : '') +
+        (failed.length ? '<div id="sgaHostFailed">' + (failed.length === 1 ? 'One page' : failed.length + ' pages') + ' couldn’t be read. <details id="sgaHostFailedList" style="margin:4px 0"><summary style="cursor:pointer;display:inline-flex;align-items:center;min-height:32px">Show why</summary>' +
           list(failed.map(function (r) { return '<li data-webrefused>' + pageLink(name(r.url), r.url) + ': ' + esc(r.why) + '</li>'; })) + '</details></div>' : '') + '</div>';
     }
     /* "Read the next" (F-293): the host's pages not reached yet, 40 at a time, adding to the same list to be checked */
@@ -237,7 +239,7 @@
       var name = titleOf(h);
       return '<div id="sgaHostMore" style="margin:6px 0"><div class="muted" style="margin:2px 0">' + left + ' more of the host’s page' + (left === 1 ? ' was' : 's were') + ' not read yet.' +
         (done ? ' Reading them puts this list back to be checked.' : ' Their questions are added to this list, without repeating any already here.') + ' Each read counts as one use of the AI. ' +
-        '<details id="sgaHostNotRead" style="display:inline"><summary style="cursor:pointer;display:inline">Show which</summary><ul style="margin:4px 0;padding-left:18px">' +
+        '<details id="sgaHostNotRead" style="margin:4px 0"><summary style="cursor:pointer;display:inline-flex;align-items:center;min-height:32px">Show which</summary><ul style="margin:4px 0;padding-left:18px">' +
         h.web.next.map(function (u) { return '<li data-webnext>' + pageLink(name(u), u) + '</li>'; }).join('') + '</ul></details></div>' +
         '<button class="b sec" type="button" id="sgaHostNext" data-next="' + n + '">Read the next ' + n + '</button><p class="muted" id="sgaHostNextMsg" role="status"></p></div>';
     }

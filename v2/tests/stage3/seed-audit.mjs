@@ -70,12 +70,16 @@ export default async function seedStage3({ put, roles, dayIso }) {
     roomId: 'room_s3', day: today, groupId: 'g_s3', siteId: SITE, familyId: 'f_s3', childId: 'c_s3', screenNo: '214' };
   await put('checkins/' + ck, kid);
   await put('kidsRoll/' + ck, Object.assign({ updatedAt: iso }, kid));
-  /* an answer waiting to be added to the register, and a request not back */
-  await put('formResponses/resp_s3new', { formId, formVersion: 1, siteId: SITE, requestKey: 'req_s3new_000000000000', calEventId: '', email: 'dee.new@example.invalid', name: 'Dee New (synthetic)',
+  /* an answer waiting to be added to the register, and a request not back. A fresh id each time the
+     records are put back (--reseed): "Add to the register" makes a family naming the answer, which the
+     seed cannot list to remove, so the old answer stayed added and the next person and size had nothing
+     to add (Y3 against X3, 5 Nov 2026). */
+  const fresh = Date.now().toString(36).padStart(12, '0').slice(-12);
+  await put('formResponses/resp_s3new_' + fresh, { formId, formVersion: 1, siteId: SITE, requestKey: 'req_s3new_' + fresh, calEventId: '', email: 'dee.new@example.invalid', name: 'Dee New (synthetic)',
     submittedAt: iso, validUntil: dayIso(365), deleteAfter: dayIso(800), hasSensitive: false,
     answers: { children: [{ name: 'Cal New Synthetic', dob: '2019-09-01', photo: 'Yes', film: 'Yes', firstaid: 'Yes' }], parentName: 'Dee New (synthetic)', parentPhone: '07700 900456',
       emergency: 'Eve New 07700 900457', collectors: 'Dee New (synthetic)', sign: { name: 'Dee New (synthetic)', agreed: true, at: iso } } });
-  await put('formRequests/req_s3new_000000000000', { formId, siteId: SITE, status: 'done', responseId: 'resp_s3new', name: 'Dee New (synthetic)', email: 'dee.new@example.invalid', sentAt: iso, completedAt: iso, calEventId: '' });
+  await put('formRequests/req_s3new_' + fresh, { formId, siteId: SITE, status: 'done', responseId: 'resp_s3new_' + fresh, name: 'Dee New (synthetic)', email: 'dee.new@example.invalid', sentAt: iso, completedAt: iso, calEventId: '' });
   await put('formRequests/req_s3wait_00000000000', { formId, siteId: SITE, status: 'open', name: 'Cara Waiting (synthetic)', email: 'cara.wait@example.invalid', sentAt: iso, calEventId: '', reminders: [] });
   /* the session planner: a part with a step, and a quiz */
   await put('planGroups/pg_s3', { name: 'Little ones (synthetic)', kind: 'children', day: 0, time: '10:30', siteId: SITE, leaderIds: [mid('groupLeader'), mid('kidsLead')], teamName: 'Kids Church', order: 1, archived: false });

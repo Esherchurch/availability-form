@@ -161,6 +161,9 @@ export default [
   { name: 'Youth Hub: board', url: 'youthapp2.html', roles: ['youth', 'master'], steps: HUB.concat(['openSection("board")']) },
   { name: 'Youth Hub: an idea opened', url: 'youthapp2.html', roles: ['youth', 'master'], steps: HUB.concat(['openSection("board")', wait('[onclick*="openNoteDetail"]'), 'openNoteDetail("n_s3")', 'scope']) },
   { name: 'Youth Hub: a new note', url: 'youthapp2.html', roles: ['youth', 'master'], steps: HUB.concat(['openSection("board")', 'openAddNote()', 'scope']) },
+  /* "I'm worried" (Martin, 5 Nov 2026): the form, then with "Someone else" chosen */
+  { name: "Youth Hub: I'm worried", url: 'youthapp2.html', roles: ['youth', 'master'], steps: HUB.concat(['openSection("worry")', wait('#worry-send')]) },
+  { name: "Youth Hub: I'm worried, about someone else", url: 'youthapp2.html', roles: ['youth', 'master'], steps: HUB.concat(['openSection("worry")', wait('#worry-send'), click('input[name="worry-who"][value="someone"]'), wait('#worry-name')]) },
   { name: 'Youth Hub: worship', url: 'youthapp2.html', roles: ['youth', 'master'], steps: HUB.concat(['openSection("worship")']) },
   { name: 'Youth Hub: a play-through card', url: 'youthapp2.html', roles: ['youth', 'master'], steps: HUB.concat(['openSection("worship")', wait('[onclick*="openKbCard"]'), 'openKbCard("kb_s3","playthrough")', wait('#kb-modal.open'), 'scope']) },
   { name: 'Youth Hub: library', url: 'youthapp2.html', roles: ['youth', 'master'], steps: HUB.concat(['openSection("library")']) },
