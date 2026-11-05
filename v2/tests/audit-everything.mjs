@@ -771,11 +771,13 @@ function judgeLayout(m, opts) {
    a tap that opens, expands or changes something does not. (Counting DOM
    changes alone called every tap dead once the emulator was busy: the
    pages' live lists redraw all the time.) */
+/* el.open: a <details> opening counts. Chrome gives a closed one's contents a size, so they were already in the
+   hash and "Show the pages" opening read as dead (the Stage 3 audit, 5 Nov 2026). */
 const VIEWHASH = `(function(){var h=0,n=0,all=document.querySelectorAll('body *'),ih=innerHeight,iw=innerWidth;
   for(var i=0;i<all.length&&n<5000;i++){var el=all[i],r=el.getBoundingClientRect();
     if(r.width<1||r.height<1||r.bottom<0||r.top>ih||r.right<0||r.left>iw)continue;
     var cs=getComputedStyle(el); if(cs.visibility==='hidden'||+cs.opacity===0)continue;
-    var s=el.tagName+'|'+(typeof el.className==='string'?el.className:'')+'|'+(el.childElementCount?'':(el.textContent||'').slice(0,40))+'|'+(el.value||'')+'|'+(el.checked?1:0)+'|'+(el.getAttribute('aria-expanded')||'');
+    var s=el.tagName+'|'+(typeof el.className==='string'?el.className:'')+'|'+(el.childElementCount?'':(el.textContent||'').slice(0,40))+'|'+(el.value||'')+'|'+(el.checked?1:0)+'|'+(el.getAttribute('aria-expanded')||'')+'|'+(el.open?1:0);
     for(var j=0;j<s.length;j++)h=(h*31+s.charCodeAt(j))|0;n++;}
   return h+':'+n;})()`;
 /* The whole page, on screen or not, without where things are (4 Nov 2026): "+ Item" adds a row below the
@@ -876,7 +878,7 @@ async function tapAll(B, url, reopen, ctx) {
     let after = JSON.parse((await B.ev('JSON.stringify({mut:window.__aud.mut,acts:window.__aud.acts.slice(' + before.acts + '),sx:scrollX,sy:scrollY,f:(document.activeElement&&/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))?document.activeElement.outerHTML.slice(0,80):"",u:location.href})')) || 'null');
     let viewAfter = await B.ev(VIEWHASH), pageAfter = pageNoisy ? '' : await B.ev(PAGEHASH);
     if (process.env.AUDIT_DEBUG) console.log("    click", JSON.stringify(pt), await B.ev('JSON.stringify({click: window.__aud.click, reached: window.__aud.reached, prevented: window.__aud.prevented, active: (document.activeElement || {}).tagName, vv: window.visualViewport ? [visualViewport.offsetLeft, visualViewport.offsetTop, visualViewport.scale, visualViewport.width].map(function(n){return Math.round(n*100)/100}) : null, sw: document.documentElement.scrollWidth, sx: scrollX})'));
-    if (process.env.AUDIT_DEBUG) console.log("    tap", JSON.stringify(next.words), JSON.stringify(before), JSON.stringify(after), JSON.stringify(B.acts), "noise", noise);
+    if (process.env.AUDIT_DEBUG) console.log("    tap", JSON.stringify(next.words), JSON.stringify(before), JSON.stringify(after), JSON.stringify(B.acts), "noise", noise, "pageNoisy", pageNoisy, "view", viewBefore === viewAfter ? "same" : "changed", "details", await B.ev('JSON.stringify([].map.call(document.querySelectorAll("details"),function(d){var r=d.getBoundingClientRect();return (d.id||"?")+":"+(d.open?"open":"shut")+"@"+Math.round(r.top)+"/"+Math.round(r.height)}))'), "ih", await B.ev('innerHeight'));
     if (!after) { B.tapping = false; /* the page went away (a real navigation slipped through): start it again */ await reopen(); continue; }
     /* The page's own changes grow with the time waited, so the bar does too. */
     const moved = () => B.acts.length || after.acts.length || viewAfter !== viewBefore || pageAfter !== pageBefore
