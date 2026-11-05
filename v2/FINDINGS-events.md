@@ -13795,3 +13795,35 @@ On my own emulators (firebase.events.json) with the locked rules, made-up childr
 - **Tests brought up to date** with agreed changes: filming consent, the church's own logo and quiz address, "goes live", the church's service kinds, activity leaders reading their risks, the not-for-you card, and dates that had passed.
 - **Behaviour removed:** none beyond F-324's.
 - **Deploy:** nothing. The kidsLead read rule (F-324) goes live with the rules.
+
+### F-326 — Stage 3: every control, pressed by each kind of person at 375 and 1440 (the reviewing window) (the events window, 5 Nov)
+
+On my own emulators with the locked rules, made-up children only. tests/audit-everything.mjs --every --press-all --states=tests/stage3/states.mjs --reseed, in batches Y1–Y4, then Z1 (the screens that failed on timing).
+
+- **Counting:** tests/stage3/controls-stage3.mjs writes tests/out/controls-stage3.md. A control credited to a page from a shared script is proved never drawn there (tests/stage3/drawn-on.mjs, a call graph of the page's scripts), and listed as "not on this page" with the function that draws it.
+- **Waits:** fixed sleeps replaced by settle() (the page holding still); a press is judged against the whole page as well as the screen, and waited for up to 4 s. Same screens, about 10 s each instead of 68–127 s.
+- **Test faults fixed:** `\b` in a template string became a backspace in the page (sheet close missed); pop-up states without scope; a state's own reset write counted against the page; first function calls slower than 550 ms; changes off screen; the seed reused one pending answer across people and sizes.
+- **Product faults fixed:**
+  - small tap targets (Youth Hub pills, ▼ ▶ ×, its email box's Cancel; Kids admin and check-in ticks, names and buttons; safeguarding tick-box labels);
+  - Kids admin's "Add a group" / "Edit" pressed again redrew the form and lost what was typed;
+  - ChurchShow's Rename / Job did nothing with their box open;
+  - Present: ◀ on the first slide and "That's the last slide" did nothing; the end of a long page sat under the bar at 375;
+  - the Youth charter's title box was wider than a phone;
+  - the Youth Hub's music refusal now says in words that only the church's admins add music;
+  - **a master admin's "Take it" (risk register snapshot) did nothing**: an unrated risk or a dial with no figure left an undefined in the record, which Firestore refuses before sending, and the page said nothing. Now kept as nothing (null), shown as "Not rated", and any failure is said on the page (egbc-sg-dash.js);
+  - the planner's Bible "Show it" rests once the passage is shown, until the passage, version or source changes (session-planner.html);
+  - the host's "Show the pages" / "Show which" / "Show why" are their own line and tall enough to tap: inline, one wrapped at 1440 and a tap fell beside it (egbc-sg-assess.js).
+- **Behaviour removed:** none.
+- **Deploy:** nothing.
+
+### F-327 — "I'm worried" in the Youth Hub (Martin, 5 Nov) (the events window, 5 Nov)
+
+Martin: young people must be able to say they're worried; a stopper for youth going live, built for any church.
+
+- **The page (youthapp2.html):** an "I'm worried" card at the top of the home screen for everyone, above the tools. The form asks "Me" or "Someone else" (their name if they want to say), and what is worrying them. Childline 0800 1111 and 999 always show, on the card and the form, as phone links.
+- **The route:** a young person's code cannot write a concern, and the rules are not loosened for it. A new callable, **youthWorry** (functions/youth-worry.js), checks the code is live (or the person is an active adult), and writes the same `concerns` record the safeguarding page writes, on the building whose lead counts (notify.js leadSite, which the rules' sgLeadSet reads too). It then tells the lead and deputy alone that one has come in (notify.js onWorry, kind 'safeguarding': never the office or any fallback, never the sender, never the words). The young person gets back "sent" and nothing else. With no lead set, nothing is written: the page says so and shows Childline and 999. At most 10 a day per person.
+- **Who reads it:** the lead and deputy, on safeguarding.html, with the adults' concerns (rules: sgLeadOf). Nobody else: master admins, the office, volunteers and the young person are refused.
+- **Checked:** screenshots/events/youth-worry.test.mjs 32/32 at 375 and 1440 (a made-up young person sends about themselves and about someone else; only the lead's and deputy's phones are told; the lead and deputy read it; the master admin, office, a volunteer and the young person see none of it and the database refuses them; the young person still cannot write a concern directly; no lead set: nothing written, helplines shown).
+- **Main's files:** functions/index.js (the youthWorry export), functions/notify.js (leadSite exported, no change to it).
+- **Behaviour removed:** none.
+- **Deploy (when the church goes live):** the function youthWorry. **Rules change:** none.

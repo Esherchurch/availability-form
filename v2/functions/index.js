@@ -56,6 +56,7 @@ import {
 import { redeemYouthCode as redeemYouthCodeIn } from './youth-redeem.js';
 import { myFamily as myFamilyIn, onBookChange as onBookChangeIn } from './family.js';
 import { myYouthHub as myYouthHubIn } from './youth-hub.js';
+import { youthWorry as youthWorryIn } from './youth-worry.js';
 /* Which church a call is for: the sign-in's claim, never the page (multi-
    church step 3, FINDINGS-churchhq H-5). No claim is EGBC, as before. */
 import { churchOf, churchFromPath, eachChurch, scopedDb } from './church-scope.js';
@@ -832,6 +833,19 @@ export const youthGrantIndex = onDocumentCreated({ document: 'churches/{cid}/you
 export const myYouthHub = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   return orThrow(await myYouthHubIn(churchOf(request, db).db, { uid: request.auth.uid, now: new Date() }));
+});
+
+/* "I'm worried" from the Youth Hub (Martin, 5 Nov 2026): a young person's code cannot write a
+   concern under the rules, and the rules are not loosened for it, so the server writes it - the same
+   record as the safeguarding page's, for the lead and deputy only - and tells them alone that one has
+   come in. See youth-worry.js. */
+export const youthWorry = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in first.');
+  const ch = churchOf(request, db);
+  const d = request.data || {};
+  const r = await youthWorryIn(ch.db, { uid: request.auth.uid, about: d.about, who: d.who, text: d.text, now: new Date() },
+    { leadSite: Notify.leadSite, notify: async (id, w) => Notify.onWorry(await notifyDeps({ db: ch.db }), id, w) });
+  return orThrow(r.body);
 });
 
 /* The church's two outside feeds, read every hour (F-139, F-164): the

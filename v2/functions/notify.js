@@ -504,12 +504,16 @@ async function teamUids(db, team) {
    first building with a lead named. A master admin's save never writes
    leadSiteId, and a lead set in Places must still count (Martin, 14 Oct
    2026: "my app still says no safeguarding lead set, even though it is"). */
-async function leadSite(db) {
+/* exported for the Youth Hub's "I'm worried" (youth-worry.js), so both choose the same building */
+/* With no lead named anywhere, the first building with a deputy: a church
+   with a deputy but no lead still has someone a concern reaches (Martin,
+   5 Nov 2026). A building with a lead always wins over one with a deputy. */
+export async function leadSite(db) {
   const sg = await db.collection('safeguardingSettings').doc('defaults').get();
   const site = sg.exists ? String(sg.data().leadSiteId || '') : '';
   if (site) return site;
   const all = await db.collection('bookingSettings').get();
-  const hit = all.docs.find((d) => d.data().safeguardingLead);
+  const hit = all.docs.find((d) => d.data().safeguardingLead) || all.docs.find((d) => d.data().safeguardingDeputy);
   return hit ? hit.id : '';
 }
 /* The safeguarding lead and deputy, as uids. */

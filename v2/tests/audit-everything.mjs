@@ -170,6 +170,23 @@ async function settle(B, min, max) {
   for (let t = min; t < max && same < 2; t += 250) { await sleep(250); const now = await B.ev(STILL); same = now === last ? same + 1 : 0; last = now; }
 }
 const REACHED = [], SKIPPED_KEYS = [], SHARED_SHEETS = new Set();
+/* A FILE PICKER IS GIVEN A MADE-UP FILE (5 Nov 2026: "every control"). The one its accept= asks for -
+   a tiny picture, a one-page PDF, or plain words - written once, named as made up. Given straight to a
+   picker on the page, or to the one a button opens (the browser's chooser, intercepted). On the
+   emulators it is uploaded as a person's would be; live, the upload is blocked like any other write. */
+const MADE_UP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'audit-files-'));
+const MADE_UP = {
+  png: ['made-up picture (synthetic).png', Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')],
+  pdf: ['made-up page (synthetic).pdf', Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj 3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n')],
+  txt: ['made-up notes (synthetic).txt', Buffer.from('Made-up words for a test (synthetic). No real person.\n')]
+};
+function madeUpFile(accept) {
+  const a = String(accept || '').toLowerCase();
+  const kind = /image|\.png|\.jpe?g/.test(a) && !/pdf/.test(a) ? 'png' : /pdf/.test(a) ? 'pdf' : /text|\.txt/.test(a) ? 'txt' : a ? 'png' : 'txt';
+  const f = path.join(MADE_UP_DIR, MADE_UP[kind][0]);
+  if (!fs.existsSync(f)) fs.writeFileSync(f, MADE_UP[kind][1]);
+  return f;
+}
 const REACHED_FILE = path.join(V2, 'tests', 'out', EVENTS ? 'controls-reached-events.json' : 'controls-reached.json');
 const { KEYS_JS } = await import('../tools/control-inventory.mjs');
 function saveReached() {
@@ -612,6 +629,13 @@ async function browser(port, tag) {
       B.acts.push('new-tab:' + m.params.targetInfo.url); send('Target.closeTarget', { targetId: m.params.targetInfo.targetId });
     } else if (m.method === 'Page.downloadWillBegin') { B.acts.push('download');
     } else if (m.method === 'Page.fileChooserOpened') { B.acts.push('file-chooser');
+      /* answered with a made-up file, and the picker counted as reached (see madeUpFile) */
+      const node = await send('DOM.resolveNode', { backendNodeId: m.params.backendNodeId });
+      const oid = node && node.object && node.object.objectId;
+      const info = oid ? await send('Runtime.callFunctionOn', { objectId: oid, returnByValue: true, functionDeclaration: 'function(){ var K = ' + KEYS_JS + '; return JSON.stringify({ accept: this.accept || "", keys: K(this) }); }' }) : null;
+      const got = info && info.result && info.result.value ? JSON.parse(info.result.value) : { accept: '', keys: [] };
+      const given = await send('DOM.setFileInputFiles', { files: [madeUpFile(got.accept)], backendNodeId: m.params.backendNodeId });
+      if (B.ctx && !(given && given.error) && got.keys.length) REACHED.push({ page: B.ctx.page, role: B.ctx.role, size: B.ctx.size, screen: B.ctx.screen, keys: got.keys, how: 'given a made-up file (from the button that opens it)' });
     } else if (m.method === 'Page.javascriptDialogOpening') { B.acts.push('dialog'); send('Page.handleJavaScriptDialog', { accept: m.params.type === 'beforeunload' }); }
   };
   await send('Runtime.enable'); await send('Page.enable');
@@ -969,7 +993,18 @@ async function fillFields(B, reopen, ctx) {
     const r = await B.ev(FILL(next.i));
     if (process.env.FIELD_DEBUG) console.log('      ->', r);
     await sleep(350);
-    if (r === 'file') { if (next.keys.length) SKIPPED_KEYS.push({ page: ctx.page, role: ctx.role, size: ctx.size, screen: ctx.screen, keys: next.keys, words: next.words, why: 'a file picker: needs a file (the journeys upload real files)' }); continue; }
+    if (r === 'file') {
+      const sel = "document.querySelectorAll('input:not([type=hidden]),select,textarea')[" + next.i + "]";
+      const el = await B.send('Runtime.evaluate', { expression: sel });
+      const accept = await B.ev('(' + sel + '.accept||"")');
+      const given = el && el.result && el.result.objectId ? await B.send('DOM.setFileInputFiles', { files: [madeUpFile(accept)], objectId: el.result.objectId }) : { error: { message: 'not found' } };
+      await sleep(600);
+      if (given && !given.error) { if (next.keys.length) REACHED.push({ page: ctx.page, role: ctx.role, size: ctx.size, screen: ctx.screen, keys: next.keys, how: 'given a made-up file' }); }
+      else if (next.keys.length) SKIPPED_KEYS.push({ page: ctx.page, role: ctx.role, size: ctx.size, screen: ctx.screen, keys: next.keys, words: next.words, why: 'a file picker the browser would not give a file to: ' + ((given && given.error && given.error.message) || '') });
+      if (B.errors.length > before) why.push('console: given a file, "' + next.words + '": ' + B.errors[before]);
+      await reopen();
+      continue;
+    }
     if (r === 'filled' || r === 'one choice') { if (next.keys.length) REACHED.push({ page: ctx.page, role: ctx.role, size: ctx.size, screen: ctx.screen, keys: next.keys, how: r === 'filled' ? 'filled' : 'shown (one choice)' }); }
     if (B.errors.length > before) why.push('console: filling "' + next.words + '": ' + B.errors[before]);
     if (ctx.state || ((await B.ev(OVERLAY)) || 'null') !== resting || (await B.ev(HERE)) !== home) await reopen();
@@ -1044,9 +1079,13 @@ async function auditScreen(B, { role, size, screen, url, inApp, taps, base, shot
   if (taps) {
     const ctx = { page: String(screen).replace(/^from the app: /, '').replace(/ \(.*\)$/, '').split('?')[0], role, size, screen, state: !!(steps && steps.length) || / \(state: /.test(String(screen)) };
     const back = async () => { await B.go(url); await runSteps(B, steps); };
+    B.ctx = ctx;
+    /* FIELDS FIRST, then the presses (5 Nov 2026). A press can save - "Start the assessment" made the
+       assessment - and the field it replaces (the template to start from) was then never there to fill.
+       Filling saves nothing by itself; the page is opened again before the presses. */
+    if (EVERY) { why.push(...await fillFields(B, back, ctx)); saveReached(); await back(); }
     const t = await tapAll(B, url, back, ctx);
     why.push(...t.why); skipped = t.skipped;
-    if (EVERY) { await back(); why.push(...await fillFields(B, back, ctx)); saveReached(); }
   }
   const pageErrs = (await B.ev('JSON.stringify((window.__aud&&window.__aud.errs)||[])')) || '[]';
   JSON.parse(pageErrs).filter(e => !errs.includes(e)).slice(0, 2).forEach(e => why.push('console: ' + e));

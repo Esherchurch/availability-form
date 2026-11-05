@@ -27,6 +27,34 @@ const W = {};
 vm.runInNewContext(fs.readFileSync(new URL('../../egbc-events-forms.js', import.meta.url), 'utf8'), { window: W });
 const F = W.EGBCForms;
 
+/* THE AI'S STAND-IN (5 Nov 2026: every control, the AI ones too). On the emulators the functions ask
+   sgAiStub/config and raAiStub/config for a local stand-in for Anthropic's API (functions/sg-ai.js,
+   ra-report.js), as the sg-ai and sg-host journeys do. This one answers every call with the same made-up
+   first draft, so the AI boxes are drawn ("ready") and each of their buttons does what it does; nothing
+   leaves the machine and no key is used. Started once, however often the records are put back. */
+import http from 'node:http';
+const STUB_PORT = 5618;
+const DRAFT = { summary: 'A holiday club in the church hall (synthetic).', overall: 'amber',
+  hazards: [{ hazard: 'Children leaving the hall unseen (synthetic)', who: 'Children', likelihood: 3, impact: 4, controls: ['A leader on the door'], likelihoodAfter: 2, impactAfter: 4, owner: 'The club leader', review: 'Each day' }],
+  mustNotGoAhead: [], questions: ['Who is the first aider? (synthetic)'], items: [{ q: 'Is every adult briefed? (synthetic)' }] };
+if (!globalThis.__s3AiStub) {
+  globalThis.__s3AiStub = http.createServer((req, res) => {
+    req.on('data', () => {}); req.on('end', () => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ id: 'msg_stub_s3', type: 'message', role: 'assistant', model: 'claude-sonnet-5-5', content: [{ type: 'text', text: JSON.stringify(DRAFT) }],
+        stop_reason: 'end_turn', stop_sequence: null, usage: { input_tokens: 100, output_tokens: 100 } }));
+    });
+  });
+  await new Promise((r) => globalThis.__s3AiStub.listen(STUB_PORT, '127.0.0.1', r));
+  globalThis.__s3AiStub.unref();
+}
+/* A made-up file in the storage emulator (Present's deck below), as the owner. */
+async function store(name, type, body) {
+  const bucket = 'egbc-worship-planner.firebasestorage.app';
+  await fetch('http://127.0.0.1:9198/upload/storage/v1/b/' + bucket + '/o?uploadType=media&name=' + encodeURIComponent(name),
+    { method: 'POST', headers: { 'Content-Type': type, Authorization: 'Bearer owner' }, body });
+}
+
 /**
  * Seeds the Stage 3 records.
  * @param {{ put: Function, roles: object, dayIso: Function }} o the audit's own writer, its people and its dates
@@ -70,12 +98,16 @@ export default async function seedStage3({ put, roles, dayIso }) {
     roomId: 'room_s3', day: today, groupId: 'g_s3', siteId: SITE, familyId: 'f_s3', childId: 'c_s3', screenNo: '214' };
   await put('checkins/' + ck, kid);
   await put('kidsRoll/' + ck, Object.assign({ updatedAt: iso }, kid));
-  /* an answer waiting to be added to the register, and a request not back */
-  await put('formResponses/resp_s3new', { formId, formVersion: 1, siteId: SITE, requestKey: 'req_s3new_000000000000', calEventId: '', email: 'dee.new@example.invalid', name: 'Dee New (synthetic)',
+  /* an answer waiting to be added to the register, and a request not back. A fresh id each time the
+     records are put back (--reseed): "Add to the register" makes a family naming the answer, which the
+     seed cannot list to remove, so the old answer stayed added and the next person and size had nothing
+     to add (Y3 against X3, 5 Nov 2026). */
+  const fresh = Date.now().toString(36).padStart(12, '0').slice(-12);
+  await put('formResponses/resp_s3new_' + fresh, { formId, formVersion: 1, siteId: SITE, requestKey: 'req_s3new_' + fresh, calEventId: '', email: 'dee.new@example.invalid', name: 'Dee New (synthetic)',
     submittedAt: iso, validUntil: dayIso(365), deleteAfter: dayIso(800), hasSensitive: false,
     answers: { children: [{ name: 'Cal New Synthetic', dob: '2019-09-01', photo: 'Yes', film: 'Yes', firstaid: 'Yes' }], parentName: 'Dee New (synthetic)', parentPhone: '07700 900456',
       emergency: 'Eve New 07700 900457', collectors: 'Dee New (synthetic)', sign: { name: 'Dee New (synthetic)', agreed: true, at: iso } } });
-  await put('formRequests/req_s3new_000000000000', { formId, siteId: SITE, status: 'done', responseId: 'resp_s3new', name: 'Dee New (synthetic)', email: 'dee.new@example.invalid', sentAt: iso, completedAt: iso, calEventId: '' });
+  await put('formRequests/req_s3new_' + fresh, { formId, siteId: SITE, status: 'done', responseId: 'resp_s3new_' + fresh, name: 'Dee New (synthetic)', email: 'dee.new@example.invalid', sentAt: iso, completedAt: iso, calEventId: '' });
   await put('formRequests/req_s3wait_00000000000', { formId, siteId: SITE, status: 'open', name: 'Cara Waiting (synthetic)', email: 'cara.wait@example.invalid', sentAt: iso, calEventId: '', reminders: [] });
   /* the session planner: a part with a step, and a quiz */
   await put('planGroups/pg_s3', { name: 'Little ones (synthetic)', kind: 'children', day: 0, time: '10:30', siteId: SITE, leaderIds: [mid('groupLeader'), mid('kidsLead')], teamName: 'Kids Church', order: 1, archived: false });
@@ -111,7 +143,8 @@ export default async function seedStage3({ put, roles, dayIso }) {
   /* its leaders, and safeguarding assessments: ev_s3 none yet, ev_s3d in draft, ev_s3e signed */
   /* in the shape the page writes (egbc-events-safeguarding.js whoIs): leaders as records, under-18s going */
   for (const id of ['ev_s3', 'ev_s3d', 'ev_s3e']) await put('eventLeaders/' + id, { siteId: SITE, under18: true, leaderIds: [mid('kidsLead')], leaderUids: [uid('kidsLead')],
-    leaders: [{ name: 'Kids lead (synthetic)', role: 'leader' }],
+    /* with their address book id, as whoIs writes them: without it no "Checks" or "Exception" was drawn (5 Nov 2026) */
+    leaders: [{ memberId: mid('kidsLead'), name: 'Kids lead (synthetic)', role: 'leader', uid: uid('kidsLead') }],
     leaderInfo: { [mid('kidsLead')]: { name: 'Kids lead (synthetic)', role: 'leader', uid: uid('kidsLead') } } });
   /* the rota on the holiday club's day, so "From the rota" has someone to offer */
   await put('events/rota_s3', { date: new Date(at).toISOString().slice(0, 10), assignments: { 'Kids leader': [{ id: mid('groupLeader'), name: 'Group leader (synthetic)' }] } });
@@ -149,5 +182,36 @@ export default async function seedStage3({ put, roles, dayIso }) {
   /* the young person's code: in date, theirs alone */
   /* in the youth group whose board is 'youth' (teamFlags/boards), so the board is theirs to read and suggest to */
   await put('teamFlags/boards', { boards: { youth: 'Youth Worship' } });
+  /* a camp, signed off and waiting for the trustees to note it (a camp is a kind they note: egbc-sg-templates.js
+     NOTED_DEFAULT), so a trustee or master admin reading it is offered "The trustees have noted it" */
+  await put('calEvents/ev_s3g', EV('Camp (synthetic)', { sgKind: 'camp' }));
+  await put('sgAssessments/ev_s3g', { calEventId: 'ev_s3g', siteId: SITE, status: 'signed', version: 1, signedVersion: 1, templateId: 'camp', answers: {}, risks: [], flags: {},
+    signedBy: uid('sgLead'), signedByName: 'Safeguarding lead (synthetic)', signedByRole: 'Safeguarding lead', signedAt: iso, updatedAt: iso });
+  await put('sgGate/ev_s3g', { siteId: SITE, open: true, updatedAt: iso });
+  /* a song in the library, so the Youth Hub's planner suggests it ("Here" finds it) */
+  await put('songs/song_s3', { title: 'Here I am to worship (synthetic)', normalized: 'here i am to worship synthetic', lyrics: 'Light of the world (synthetic)', keys: ['E'], createdAt: iso });
+  /* the AI's stand-in, for the safeguarding assessments and the event risk assessments */
+  await put('sgAiStub/config', { url: 'http://127.0.0.1:' + STUB_PORT });
+  await put('raAiStub/config', { url: 'http://127.0.0.1:' + STUB_PORT });
+  /* a family who said "still correct": their answer, with medical details, given for an earlier club; this
+     club's copy not made yet, so the lead is offered "Share with this event's leaders" */
+  await put('eventForms/ev_s3', { forms: [{ formId }] });
+  await put('formResponses/resp_s3med', { formId, formVersion: 1, siteId: SITE, requestKey: 'req_s3med_old', calEventId: 'ev_s3old', email: 'mo.med@example.invalid', name: 'Mo Med (synthetic)',
+    submittedAt: iso, validUntil: dayIso(365), deleteAfter: dayIso(800), hasSensitive: true,
+    answers: { children: [{ name: 'Mel Med Synthetic', dob: '2018-03-01', photo: 'No', film: 'No', firstaid: 'Yes' }], parentName: 'Mo Med (synthetic)', parentPhone: '07700 900321',
+      emergency: 'Max Med 07700 900322', collectors: 'Mo Med (synthetic)', sign: { name: 'Mo Med (synthetic)', agreed: true, at: iso } } });
+  await put('sensitiveResponses/sr_s3med', { responseId: 'resp_s3med', requestKey: 'req_s3med_old', formId, siteId: SITE, calEventId: 'ev_s3old', answers: { medical: 'Made-up: none (synthetic)' }, submittedAt: iso, deleteAfter: dayIso(800) });
+  await put('formRequests/req_s3med_now', { formId, siteId: SITE, calEventId: 'ev_s3', status: 'done', responseId: 'resp_s3med', reuseOf: 'resp_s3med', name: 'Mo Med (synthetic)', email: 'mo.med@example.invalid', sentAt: iso, completedAt: iso, signupKey: 'su_s3med' });
+  /* Present: a one-slide deck with a sound on it, in a session of its own, so the presenter's ▶ Play and ↺ Start
+     again are drawn (a picture and a sound, both made up) */
+  const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+  await put('presentDecks/deck_s3', { status: 'ready', count: 1, ratio: 16 / 9, name: 'Sound deck (synthetic).pptx', context: { type: 'session', groupId: 'pg_s3', sessionId: 'ps_s3m' },
+    media: [{ shown: 0, k: 0, kind: 'audio', src: 'm1.mp3', light: '', rect: [0.1, 0.1, 0.2, 0.2], start: 'click', loop: false, volume: 1 }], createdBy: uid('groupLeader'), updatedAt: iso });
+  await store('present/deck_s3/s1.jpg', 'image/jpeg', PNG);
+  await store('present/deck_s3/t1.jpg', 'image/jpeg', PNG);
+  await store('present/deck_s3/m1.mp3', 'audio/mpeg', Buffer.from('ID3 made-up sound (synthetic)'));
+  await put('planSessions/ps_s3m', { groupId: 'pg_s3', date: dayIso(19), title: 'A sound (synthetic)', updatedBy: uid('groupLeader'),
+    parts: [{ id: 'p1', title: 'Song (synthetic)', kind: 'Worship', show: [{ id: 's1', type: 'pptx', deckId: 'deck_s3' }, { id: 's2', type: 'text', words: 'The end (synthetic)' }] }] });
+  await put('presentNow/ps_ps_s3m', { context: { type: 'session', groupId: 'pg_s3', sessionId: 'ps_s3m' }, slide: 0, presenterUid: '', presenterName: '', blank: false, quiz: null });
   if (roles.youth && roles.youth.uid) await put('youthAccess/' + roles.youth.uid, { active: true, expiresAt: new Date(Date.now() + 30 * 86400000), memberName: 'Yan Youth Synthetic', memberId: 'ab_audit_youth', redeemedAt: now, groups: ['Youth Worship'] });
 }

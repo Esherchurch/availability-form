@@ -932,6 +932,25 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
 .mine-charter-body { padding: 0 14px 14px; font-size: 14px; line-height: 1.6; }
 /* The charter comes from the server as it was written; its headings at the app's weight. */
 .mine-charter-body h1, .mine-charter-body h2, .mine-charter-body h3 { font-size: 15px; font-weight: 600; margin: 14px 0 6px; }
+
+/* "I'm worried" (Martin, 5 Nov 2026): on the home screen for everyone, above the tools; the
+   helplines always show, so it helps even when nobody is set up to receive it. */
+.worry-card { margin: 12px 12px 4px; padding: 14px; background: #fff; border: 2px solid #b91c1c; border-radius: 14px; }
+.worry-card h2 { margin: 0 0 4px; font-size: 16px; font-weight: 600; color: #111827; }
+.worry-card p { margin: 0 0 10px; font-size: 14px; color: #374151; line-height: 1.45; }
+.worry-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 20px; border: none; border-radius: 10px; background: #b91c1c; color: #fff; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer; }
+.worry-btn:disabled { opacity: .6; cursor: default; }
+.worry-help { font-size: 14px; color: #374151; margin: 10px 0 0; line-height: 1.6; }
+.worry-help a { color: #b91c1c; font-weight: 600; display: inline-flex; align-items: center; min-height: 32px; }
+.worry-body { padding: 16px; max-width: 640px; }
+.worry-body label { display: block; font-size: 14px; font-weight: 600; margin: 14px 0 6px; }
+.worry-who { display: flex; gap: 10px; flex-wrap: wrap; }
+.worry-who label { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin: 0; padding: 0 14px; border: 1px solid #d1d5db; border-radius: 10px; font-weight: 500; cursor: pointer; }
+.worry-who input { width: 20px; height: 20px; margin: 0; }
+.worry-body textarea, .worry-body input[type=text] { width: 100%; box-sizing: border-box; font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 10px; }
+.worry-body textarea { min-height: 160px; }
+.worry-said { font-size: 15px; margin: 14px 0 0; line-height: 1.5; }
+.worry-said.bad { color: #b91c1c; }
 </style>
 <script src="egbc-ui.js?v=202610150900"></script>
 <script>
@@ -976,6 +995,13 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
         <div id="yh-name" style="font-size:16px;font-weight:600;color:var(--teal);line-height:1.1;"></div>
         <div id="yh-title" style="font-size:12px;font-weight:600;color:var(--muted);"></div>
       </div>
+    </div>
+
+    <div class="worry-card" id="worry-card">
+      <h2>Worried about something?</h2>
+      <p>About you, or about someone else. It goes only to the church's safeguarding lead and their deputy.</p>
+      <button type="button" class="worry-btn" id="worry-open" onclick="openSection('worry')"><i data-lucide="message-circle-heart" style="width:20px;height:20px"></i>I'm worried</button>
+      <p class="worry-help">Childline, free, any time: <a href="tel:08001111">0800 1111</a><br>In danger right now: <a href="tel:999">call 999</a></p>
     </div>
 
     <div class="tiles-heading" style="margin-top:12px;">Tools</div>
@@ -1179,6 +1205,25 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
   </div>
 
   <!-- NEWS -->
+  <div class="section-screen" id="section-worry">
+    <div class="worry-body">
+      <p class="worry-help" style="margin:0 0 6px">If you are in danger right now, <a href="tel:999">call 999</a>. Childline is free and there any time: <a href="tel:08001111">0800 1111</a>.</p>
+      <div id="worry-form">
+        <p style="font-size:14px;color:#374151;line-height:1.5;margin:10px 0 0">This goes to the church's safeguarding lead and their deputy, and nobody else. Once it is sent you will not see it here again, so say everything you want to now.</p>
+        <label id="worry-who-l">Who is it about?</label>
+        <div class="worry-who" role="radiogroup" aria-labelledby="worry-who-l">
+          <label><input type="radio" name="worry-who" value="me" checked onchange="worryWho()">Me</label>
+          <label><input type="radio" name="worry-who" value="someone" onchange="worryWho()">Someone else</label>
+        </div>
+        <div id="worry-name-box" style="display:none"><label for="worry-name">Their name, if you want to say</label><input type="text" id="worry-name" maxlength="300"></div>
+        <label for="worry-text">What is worrying you?</label>
+        <textarea id="worry-text" maxlength="6000"></textarea>
+        <div style="margin-top:14px"><button type="button" class="worry-btn" id="worry-send" onclick="sendWorry()">Send it</button></div>
+      </div>
+      <p class="worry-said" id="worry-said" role="status"></p>
+    </div>
+  </div>
+
   <div class="section-screen" id="section-mine">
   <div id="mine-body" class="mine-body"></div>
 </div>
@@ -1274,7 +1319,8 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
     </div>
     <div style="margin-top:16px;text-align:center;">
       <div id="modalStatus" style="margin-top:10px;font-size:13px;font-weight:600;min-height:18px;text-align:center;"></div>
-      <button id="modalCancelBtn" style="font-size:12px;font-weight:600;color:#aaa;background:none;border:none;cursor:pointer;text-decoration:underline;">Cancel</button>
+      <!-- tall enough to tap at 375: it was 40x15 (Stage 3 audit, 5 Nov 2026) -->
+      <button id="modalCancelBtn" style="font-size:12px;font-weight:600;color:#aaa;background:none;border:none;cursor:pointer;text-decoration:underline;min-height:32px;padding:0 10px;display:inline-flex;align-items:center;">Cancel</button>
     </div>
   </div>
 </div>
@@ -1390,7 +1436,7 @@ function openSection(name) {
   const titles = {
     planner:'Youth Service Planner', board:'Idea Pin Board',
     worship:'Worship Resources', upload:'Music Uploader',
-    library:'Song Library', news:'Latest News', mine:'My rota and charters'
+    library:'Song Library', news:'Latest News', mine:'My rota and charters', worry:"I'm worried"
   };
   document.getElementById('header-title').textContent = titles[name] || 'Youth Hub';
   document.getElementById('back-btn').classList.add('visible');
@@ -1403,6 +1449,7 @@ function openSection(name) {
   if (name === 'library' && allSongs.length === 0) loadSongs();
   if (name === 'news') renderNewsSection();
   if (name === 'mine') loadMine();
+  if (name === 'worry') resetWorry();
 
   maybeTriggerSectionTour(name);
 }
@@ -1413,6 +1460,38 @@ function openSection(name) {
    charter for a youth group; Worship & AV only for someone on Worship, AV
    or Choir). The charter text is written by the church's admins, the same
    HTML the charter pages show. */
+/* ---- "I'm worried" (Martin, 5 Nov 2026) -------------------------------
+   Sent through youthWorry, which writes it as a safeguarding concern for
+   the lead and deputy only and tells them alone. Nothing comes back but
+   "sent": the page forgets the words once they have gone. */
+function resetWorry() {
+  document.getElementById('worry-form').style.display = '';
+  document.getElementById('worry-said').textContent = '';
+  document.getElementById('worry-said').className = 'worry-said';
+  document.getElementById('worry-send').disabled = false;
+}
+function worryWho() {
+  const someone = document.querySelector('input[name="worry-who"]:checked').value === 'someone';
+  document.getElementById('worry-name-box').style.display = someone ? '' : 'none';
+}
+function sendWorry() {
+  const said = document.getElementById('worry-said'), btn = document.getElementById('worry-send');
+  const text = document.getElementById('worry-text').value.trim();
+  said.className = 'worry-said';
+  if (!text) { said.className = 'worry-said bad'; said.textContent = 'Write down what is worrying you first.'; return; }
+  const about = document.querySelector('input[name="worry-who"]:checked').value;
+  btn.disabled = true; said.textContent = 'Sending…';
+  const call = window.EGBCAuth && EGBCAuth.call ? EGBCAuth.call('youthWorry', { about, who: about === 'someone' ? document.getElementById('worry-name').value.trim() : '', text }) : Promise.reject(new Error('Sign in first.'));
+  call.then(() => {
+    document.getElementById('worry-text').value = ''; document.getElementById('worry-name').value = '';
+    document.getElementById('worry-form').style.display = 'none';
+    said.textContent = 'Sent. Thank you for telling us. The safeguarding lead will read it. If you are in danger right now, call 999, or talk to Childline on 0800 1111.';
+  }).catch(e => {
+    btn.disabled = false; said.className = 'worry-said bad';
+    said.textContent = (e && e.message) ? String(e.message) : 'It could not be sent just now. Please tell a leader you trust, or call Childline on 0800 1111.';
+  });
+}
+
 function loadMine() {
   const box = document.getElementById('mine-body');
   if (!box) return;
@@ -1912,7 +1991,10 @@ async function saveSchedule() {
     if (target) await db.collection('services').doc(target).update(serviceData);
     else await db.collection('services').add(serviceData);
   } catch (e) {
-    alert(onTheYouthTeam()
+    /* Who may save is the rules' canAct: an admin of Youth Worship or the Worship Team (or a master
+       admin). A plain member of the youth team was told to check their internet (Stage 3, 5 Nov 2026). */
+    const mayLead = !!(window.EGBCAuth && EGBCAuth.isAdminOf && (EGBCAuth.isMaster() || EGBCAuth.isAdminOf('Youth Worship') || EGBCAuth.isAdminOf('Worship Team')));
+    alert(mayLead
       ? 'That did not save. Check your internet connection and try again - nothing has been lost from the screen.'
       : 'Only a youth leader can save the plan. Show them what you have put together and they will save it.');
     return;

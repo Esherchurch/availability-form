@@ -486,8 +486,14 @@
     sh.el.querySelectorAll('[data-src]').forEach(function (b) { b.onclick = function () { src = b.getAttribute('data-src'); sh.el.querySelectorAll('[data-src]').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); }); fill(); }; });
     fill();
     var use = function () { var u = sh.q('bpUse'); if (u) u.onclick = function () { if (got) { sh.close(); done(got); } }; };
+    /* Shown: the button rests until the passage, version or source changes, so pressing it again never
+       seems to do nothing (Stage 3 audit, 5 Nov 2026). */
+    var again = function () { sh.q('bpShow').disabled = false; };
+    sh.q('bpRef').addEventListener('input', again); sh.q('bpVer').addEventListener('change', again);
+    sh.el.querySelectorAll('[data-src]').forEach(function (b) { b.addEventListener('click', again); });
     sh.q('bpShow').onclick = function () {
       var ref = sh.q('bpRef').value, out = sh.q('bpOut'), v = sh.q('bpVer');
+      if (B.parse(ref)) this.disabled = true;
       if (!B.parse(ref)) { out.innerHTML = '<p class="said">That passage was not understood. Try, for example, "John 3:16-21" or "Mark 4".</p>'; return; }
       if (src === 'biblegateway') {
         var link = B.gatewayLink(ref, v.value);
@@ -502,7 +508,7 @@
         got = { ref: p.ref, version: p.version, versionId: p.versionId, source: p.source, text: p.text.slice(0, 8000), copyright: p.copyright };
         out.innerHTML = '<div class="verse">' + p.verses.slice(0, 80).map(function (x) { return '<sup>' + x.v + '</sup>' + esc(x.text); }).join(' ') + '</div><p class="said">' + esc(p.copyright) + '</p><button type="button" class="btn" id="bpUse">Import into the plan</button>';
         use();
-      }, function (e) { out.innerHTML = '<p class="said">' + esc(e.message || e) + '</p>'; });
+      }, function (e) { again(); out.innerHTML = '<p class="said">' + esc(e.message || e) + '</p>'; });
     };
   }
 

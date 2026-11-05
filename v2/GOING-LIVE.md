@@ -71,6 +71,9 @@ site still reads and writes the same database without signing in.
     - **Just before deploying, what the rules read about teams:** `node ../tools/sync-team-flags.mjs` from v2/functions (a dry run), then `--apply`. The rules name no team; they read each person's covers and shares and the under-18s and pin-board records, which this fills in for anyone the server hasn't reached yet.
       - **Who:** Martin or the reviewing window.
       - **Check:** a second run says "missing or out of date: 0" and both records "up to date".
+    - **Straight after the rules, the Youth Hub's "I'm worried"** (F-327): deploy `youthWorry` with `--only functions:hub:youthWorry`. It writes a young person's concern for them and tells the safeguarding lead and deputy, whichever are set (a deputy with no lead is enough). It is held until the rules are on because, until then, the live database is open.
+      - **Who:** Martin or the reviewing window.
+      - **Check:** a Youth Hub code sends "I'm worried"; the young person sees "Sent."; the lead or deputy reads it on the safeguarding page; nobody else can.
     - **At the same moment, each event's leaders by member id** (F-287): `node tools/migrate-leader-info.mjs`, check its list, then `--write` (the reviewing window). Not before the rules: the rules live today would refuse later saves of a migrated record.
     - **Check:**
       - signed out, a read of `addressBook` is refused;

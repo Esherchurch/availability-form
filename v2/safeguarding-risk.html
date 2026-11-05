@@ -17,8 +17,8 @@
 <script src="egbc-events-safeguarding.js?v=202610261500"></script>
 <script src="egbc-ra-core.js?v=202610271600"></script>
 <script src="egbc-sg-templates.js?v=202610271600"></script>
-<script src="egbc-sg-assess.js?v=202610281600"></script>
-<script src="egbc-sg-dash.js?v=202611031600"></script>
+<script src="egbc-sg-assess.js?v=202611051200"></script>
+<script src="egbc-sg-dash.js?v=202611051200"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{--brand:#3d6263;--brand-dark:#2a4a4b;--tint:#eef5f4;--ink:#111827;--body:#374151;--muted:#6b7280;--line:#e5e7eb;--line-2:#d1d5db;--canvas:#f6f7f7;
@@ -249,12 +249,12 @@
       '<div class="f"><label for="eWho">Who could be harmed</label><input type="text" id="eWho" maxlength="120" value="' + esc(r.who) + '" style="width:100%"></div>' +
       '<div class="two"><div class="f"><label for="eL">How likely (1–5)</label><select id="eL" style="width:100%">' + opts(r.l) + '</select></div><div class="f"><label for="eI">How bad (1–5)</label><select id="eI" style="width:100%">' + opts(r.i) + '</select></div></div>' +
       '<div class="f"><label>Controls the hub watches</label>' + T.CONTROLS.map(function (c) { return '<label class="ctl" style="font-weight:400"><input type="checkbox" data-lc="' + c.id + '"' + (linked.indexOf(c.id) >= 0 ? ' checked' : '') + '> ' + esc(c.label) + '</label>'; }).join('') + '</div>' +
-      '<div class="f"><label>Other controls, in words</label><div id="eTexts">' + texts.concat(['']).map(ctlLine).join('') + '</div><button class="btn sec sm" id="eMore" type="button">Another</button></div>' +
+      '<div class="f"><label>Other controls, in words</label><div id="eTexts">' + texts.concat(['']).map(ctlLine).join('') + '</div><button class="btn sec sm" id="eMore" type="button">Another control</button></div>' +
       '<div class="two"><div class="f"><label for="eRL">How likely after the controls</label><select id="eRL" style="width:100%">' + opts(r.rl) + '</select></div><div class="f"><label for="eRI">How bad after the controls</label><select id="eRI" style="width:100%">' + opts(r.ri) + '</select></div></div>' +
       '<div class="two"><div class="f"><label for="eOwner">Owner (who looks after it)</label><input type="text" id="eOwner" maxlength="80" value="' + esc(r.ownerName) + '" placeholder="e.g. the Juniors leader" style="width:100%"></div>' +
       '<div class="f"><label for="eDue">Review by</label><input type="date" id="eDue" value="' + esc(r.reviewDue) + '" style="width:100%"></div></div>' +
       '<div class="f"><label>Still to do (up to ' + T.MAX_TODO + '): what, who, and by when</label><div id="eTodos">' + (r.todo || []).concat(r.todo && r.todo.length >= T.MAX_TODO ? [] : [{}]).map(todoLine).join('') + '</div>' +
-        '<button class="btn sec sm" id="eMoreTodo" type="button">Another</button></div>' +
+        '<button class="btn sec sm" id="eMoreTodo" type="button">Another thing to do</button></div>' +
       (r.id ? '<div class="f"><label class="ctl" style="font-weight:400"><input type="checkbox" id="eClosed"' + (r.status === 'closed' ? ' checked' : '') + '> Closed (kept, not deleted)</label></div>' : '') +
       '<p class="hint" id="eMsg" role="status"></p><div class="row"><button class="btn" id="eSave">Save</button><button class="btn sec" data-close>Cancel</button></div>');
     document.getElementById('eMore').onclick = function () { var box = document.getElementById('eTexts'); if (box.children.length < 14) box.insertAdjacentHTML('beforeend', ctlLine('')); };
