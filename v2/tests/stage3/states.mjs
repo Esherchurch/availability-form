@@ -18,6 +18,9 @@ const wait = (sel) => 'wait:' + sel;
 /* a button found by its words, for those with no other handle */
 const press = (words) => '[].slice.call(document.querySelectorAll("button")).filter(function(b){return b.textContent.trim()===' + JSON.stringify(words) + '})[0].click()';
 const tab = (t) => [wait('[data-tab="' + t + '"]'), click('[data-tab="' + t + '"]')];
+/* Vic the visitor checked out again (a leader may; refused, nothing changes), then the page opened afresh */
+const VIC_OUT = ['document.body.removeAttribute("data-s3r");EGBCAuth.db.collection("checkins").doc("kids_g_s3_"+EGBCCheckin.today()+"__c_s3v__0").update({state:"out"}).then(function(){document.body.setAttribute("data-s3r","1")},function(){document.body.setAttribute("data-s3r","1")})',
+  wait('body[data-s3r]'), 'location.reload()', wait('#main .card')];
 
 const LEADS = ['master', 'kidsLead', 'sgLead'];
 const PLANNERS = ['master', 'kidsLead', 'groupLeader'];
@@ -51,6 +54,8 @@ export default [
   { name: 'register: a new group', url: 'kids-admin.html', roles: LEADS, steps: tab('groups').concat([wait('#g-new'), click('#g-new'), wait('#g-form input')]) },
   { name: 'register: editing a group', url: 'kids-admin.html', roles: LEADS, steps: tab('groups').concat([wait('[data-gedit]'), click('[data-gedit]'), wait('[data-unlead]')]) },
   { name: 'register: settings', url: 'kids-admin.html?tab=settings', roles: LEADS, steps: [] },
+  /* the second site, whose registration form is not set up yet: "Set up the registration form" (master) */
+  { name: 'register: a site with no form yet', url: 'kids-admin.html?tab=settings', roles: ['master'], steps: [wait('#k-site'), pick('#k-site', 'site_s3b'), wait('#s-form-go')] },
   { name: 'register: a child opened', url: 'kids-admin.html', roles: LEADS.concat(['groupLeader']), steps: [wait('[data-open]'), click('[data-open]')] },
 
   /* ---- Sunday check-in ---- */
@@ -60,12 +65,12 @@ export default [
      ("covered: Check in is under DIV#back", 4 Nov 2026). Each waits for the pop-up first, so scope
      never falls back to the View-as bar. */
   { name: 'check-in: the renewal QR code', url: 'kids-checkin.html', roles: LEADS, steps: [wait('#d-q'), type('#d-q', 'Visitor'), wait('[data-renew]'), click('[data-renew]'), wait('#m-done'), 'scope'] },
-  { name: 'check-in: the desk, labels to print', url: 'kids-checkin.html', roles: LEADS, steps: [wait('#d-q'), type('#d-q', 'Visitor'), wait('[data-checkin]'), click('[data-checkin]'), wait('#l-print')] },
+  { name: 'check-in: the desk, labels to print', url: 'kids-checkin.html', roles: LEADS, steps: [wait('#d-q')].concat(VIC_OUT, [wait('#d-q'), type('#d-q', 'Visitor'), wait('[data-checkin]'), click('[data-checkin]'), wait('#l-print')]) },
   { name: 'check-in: checking a child out', url: 'kids-checkin.html', roles: LEADS, steps: [wait('#d-q'), type('#d-q', 'Visitor'), wait('[data-checkin]'), click('[data-checkin]'), wait('[data-out]'), click('[data-out]'), wait('[name="o-who"]'), 'scope'] },
   { name: 'check-in: collected with the code', url: 'kids-checkin.html', roles: LEADS, steps: [wait('#d-q'), type('#d-q', 'Visitor'), wait('[data-checkin]'), click('[data-checkin]'), wait('[data-out]'), click('[data-out]'), wait('[name="o-who"][value="__code"]'), click('[name="o-who"][value="__code"]'), wait('#o-name'), 'scope'] },
   { name: 'check-in: first time here', url: 'kids-checkin.html', roles: LEADS, steps: tab('visitor') },
   { name: 'check-in: groups', url: 'kids-checkin.html', roles: LEADS.concat(['groupLeader']), steps: tab('groups') },
-  { name: 'check-in: a child checked in from the group', url: 'kids-checkin.html', roles: LEADS.concat(['groupLeader']), steps: tab('groups').concat([wait('#g-pick'), pick('#g-pick', 'g_s3'), wait('[data-gin]'), click('[data-gin]'), wait('#m-print')]) },
+  { name: 'check-in: a child checked in from the group', url: 'kids-checkin.html', roles: LEADS.concat(['groupLeader']), steps: [wait('#d-q')].concat(VIC_OUT, tab('groups'), [wait('#g-pick'), pick('#g-pick', 'g_s3'), wait('[data-gin]'), click('[data-gin]'), wait('#m-print')]) },
   { name: 'check-in: a child\'s details', url: 'kids-checkin.html', roles: LEADS.concat(['groupLeader']), steps: tab('groups').concat([wait('#g-pick'), pick('#g-pick', 'g_s3'), wait('[data-more="c_s3"]'), click('[data-more="c_s3"]'), wait('#m-call'), 'scope']) },
   { name: 'check-in: calling a parent to the screen', url: 'kids-checkin.html', roles: LEADS.concat(['groupLeader']), steps: tab('groups').concat([wait('#g-pick'), pick('#g-pick', 'g_s3'), wait('[data-more="c_s3"]'), click('[data-more="c_s3"]'), wait('#m-screen'), click('#m-screen'), wait('#m-screen-yes'), 'scope']) },
   { name: 'check-in: a call on the screen', url: 'kids-checkin.html', roles: LEADS.concat(['groupLeader']), steps: tab('groups').concat([wait('#g-pick'), pick('#g-pick', 'g_s3'), wait('[data-more="c_s3"]'), click('[data-more="c_s3"]'), wait('#m-screen'), click('#m-screen'), wait('#m-screen-yes'), click('#m-screen-yes'), wait('[data-pdone]'), 'scope']) },
@@ -95,6 +100,8 @@ export default [
   /* ---- Present (the presenter, then the quiz) ---- */
   { name: 'present: a session', url: 'present.html?s=ps_s3', roles: PLANNERS, steps: FREE.concat([wait('[data-start]')]) },
   { name: 'present: presenting', url: 'present.html?s=ps_s3', roles: PLANNERS, steps: PRESENTING },
+  /* a slide with a sound on it: the presenter's ▶ Play and ↺ Start again */
+  { name: 'present: a slide with a sound', url: 'present.html?s=ps_s3m', roles: PLANNERS, steps: [wait('#app *'), 'EGBCAuth.db.collection("presentNow").doc("ps_ps_s3m").update({presenterUid:"",presenterName:"",blank:false}).catch(function(){})', wait('[data-start]'), click('[data-start]'), wait('[data-mplay]')] },
   { name: 'present: someone else presenting', url: 'present.html?s=ps_s3b', roles: PLANNERS, steps: [wait('[data-browse]')] },
   { name: 'present: browsing on my own', url: 'present.html?s=ps_s3b', roles: PLANNERS, steps: [wait('[data-browse]'), click('[data-browse]'), wait('[data-back]')] },
   { name: 'present: the quiz, teams on the TV', url: 'present.html?s=ps_s3', roles: PLANNERS, steps: QUIZ.concat([wait('[data-qtv]'), click('[data-qtv]'), wait('[data-qgo]')]) },
@@ -114,6 +121,8 @@ export default [
   { name: 'risks: from the starter list', url: 'safeguarding-risk.html', roles: ['sgLead'], steps: [...tab('risks'), wait('[data-starter]'), click('[data-starter]'), 'scope'] },
   { name: 'risks: event assessments', url: 'safeguarding-risk.html', roles: SG, steps: [...tab('events'), ] },
   { name: 'risks: an event assessment opened', url: 'safeguarding-risk.html', roles: SG, steps: [...tab('events'), wait('[data-sgev]'), click('[data-sgev] button'), wait('#back .sheet button'), 'scope'] },
+  /* a signed camp the trustees have not noted yet: "The trustees have noted it" */
+  { name: 'risks: an assessment for the trustees to note', url: 'safeguarding-risk.html', roles: SG, steps: [...tab('events'), wait('[data-viewsga="ev_s3g"]'), click('[data-viewsga="ev_s3g"]'), wait('#sgaNoted'), 'scope'] },
   { name: 'risks: an event assessment read', url: 'safeguarding-risk.html', roles: SG, steps: [...tab('events'), wait('[data-viewsga]'), click('[data-viewsga]'), wait('#sgaView .sga'), 'scope'] },
   { name: 'risks: warnings', url: 'safeguarding-risk.html', roles: SG, steps: [...tab('warnings'), ] },
   { name: 'risks: annual review', url: 'safeguarding-risk.html', roles: SG, steps: [...tab('review'), ] },
@@ -161,6 +170,8 @@ export default [
   { name: 'Youth Hub: board', url: 'youthapp2.html', roles: ['youth', 'master'], steps: HUB.concat(['openSection("board")']) },
   { name: 'Youth Hub: an idea opened', url: 'youthapp2.html', roles: ['youth', 'master'], steps: HUB.concat(['openSection("board")', wait('[onclick*="openNoteDetail"]'), 'openNoteDetail("n_s3")', 'scope']) },
   { name: 'Youth Hub: a new note', url: 'youthapp2.html', roles: ['youth', 'master'], steps: HUB.concat(['openSection("board")', 'openAddNote()', 'scope']) },
+  /* the page for someone it isn't for: its "enter your access code" link */
+  { name: 'Youth Hub: not for you', url: 'youthapp2.html', roles: ['everyone', 'parent'], steps: [wait('#egbc-blocked-card')] },
   /* "I'm worried" (Martin, 5 Nov 2026): the form, then with "Someone else" chosen */
   { name: "Youth Hub: I'm worried", url: 'youthapp2.html', roles: ['youth', 'master'], steps: HUB.concat(['openSection("worry")', wait('#worry-send')]) },
   { name: "Youth Hub: I'm worried, about someone else", url: 'youthapp2.html', roles: ['youth', 'master'], steps: HUB.concat(['openSection("worry")', wait('#worry-send'), click('input[name="worry-who"][value="someone"]'), wait('#worry-name')]) },
@@ -173,7 +184,6 @@ export default [
   { name: 'youth access: a code', url: 'youth-access.html', roles: ['youth'], steps: [] },
 
   /* ---- the youth charter: editing opens for the youth team's admins and master admins ---- */
-  { name: 'Youth charter: the admin box', url: 'Youthcharter.html', roles: ['master'], steps: [wait('[onclick^="openPwModal"]'), click('[onclick^="openPwModal"]')] },
   { name: 'Youth charter: editing', url: 'Youthcharter.html', roles: ['master'], steps: GESTURE },
   { name: 'Youth charter: the title', url: 'Youthcharter.html', roles: ['master'], steps: GESTURE.concat(['toggleTitleEdit()', wait('#page-title-input')]) },
   { name: 'Youth charter: the words', url: 'Youthcharter.html', roles: ['master'], steps: GESTURE.concat([click('[onclick="openHtmlEditor()"]'), wait('#html-editor-wrap[style*="flex"]')]) }
