@@ -139,8 +139,8 @@ allow create, update: if isAdmin() && adminOf(request.resource.data.team);
 allow delete: if isAdmin() && adminOf(resource.data.team);
 }
 match /addressBook/{personId} {
-allow get: if isAdmin() || volunteer() || bookIsMine(personId);
-allow list: if isAdmin() || volunteer();
+allow get: if isAdmin() || volunteer() || bookIsMine(personId) || sgLeadOrDeputy();
+allow list: if isAdmin() || volunteer() || sgLeadOrDeputy();
 allow create, update: if raOffice() || bookLeaderOk();
 allow delete: if false;
 }
@@ -166,7 +166,7 @@ match /formRateLimit/{ipHash} {
 allow read, write: if false;
 }
 match /events/{eventId} {
-allow read: if volunteer() || (active() && hasPerm('meetingsAll')) || churchShowServices() || youthGranted();
+allow read: if volunteer() || (active() && hasPerm('meetingsAll')) || churchShowServices() || youthGranted() || sgLeadOrDeputy();
 allow write: if (isAdmin()
 || onAnyTeam(request.resource.data.get('teams', ['Worship Team']))
 || privateMeetingOk(eventId))
@@ -251,7 +251,8 @@ function sgLeadSet() {
 return exists(/databases/$(database)/documents/churches/$(cid)/safeguardingSettings/defaults)
 && get(/databases/$(database)/documents/churches/$(cid)/safeguardingSettings/defaults).data.get('leadSiteId', '') != ''
 && exists(/databases/$(database)/documents/churches/$(cid)/bookingSettings/$(get(/databases/$(database)/documents/churches/$(cid)/safeguardingSettings/defaults).data.leadSiteId))
-&& get(/databases/$(database)/documents/churches/$(cid)/bookingSettings/$(get(/databases/$(database)/documents/churches/$(cid)/safeguardingSettings/defaults).data.leadSiteId)).data.get('safeguardingLead', '') != '';
+&& (get(/databases/$(database)/documents/churches/$(cid)/bookingSettings/$(get(/databases/$(database)/documents/churches/$(cid)/safeguardingSettings/defaults).data.leadSiteId)).data.get('safeguardingLead', '') != ''
+|| get(/databases/$(database)/documents/churches/$(cid)/bookingSettings/$(get(/databases/$(database)/documents/churches/$(cid)/safeguardingSettings/defaults).data.leadSiteId)).data.get('safeguardingDeputy', '') != '');
 }
 function careKinds(d) {
 return d.keys().hasOnly(['memberIds', 'email'])
@@ -1109,7 +1110,8 @@ allow write: if (isMaster()
 && request.resource.data.get('siteId', '') is string;
 }
 match /eventForms/{calEventId} {
-allow read, write: if isAdmin();
+allow read: if isAdmin() || runsEventId(calEventId) || isEventLeader(calEventId) || sgLeadOfEvent(calEventId);
+allow write: if isAdmin();
 }
 function requestAfter(key) {
 return getAfter(/databases/$(database)/documents/churches/$(cid)/formRequests/$(key)).data;
@@ -1184,7 +1186,8 @@ allow update: if false;
 allow delete: if isMaster();
 }
 match /eventLeaders/{calEventId} {
-allow read: if volunteer();
+allow read: if volunteer() || sgLeadOf(resource.data.get('siteId', ''))
+|| resource == null || runsEventId(calEventId) || raAnyLead(resource.data.get('siteId', ''));
 allow write: if (isAdmin() || sgLeadOf(request.resource.data.get('siteId', '')))
 && request.resource.data.keys().hasOnly(['leaders', 'leaderUids', 'siteId', 'ratioAll', 'ratioUnder8',
 'requireChecks', 'dbsYears', 'trainingYears', 'updatedAt', 'updatedBy',
@@ -1486,14 +1489,15 @@ allow create: if volunteer()
 && request.resource.data.concern is string && request.resource.data.concern.size() > 0
 && request.resource.data.concern.size() <= 6000
 && exists(/databases/$(database)/documents/churches/$(cid)/bookingSettings/$(request.resource.data.siteId))
-&& get(/databases/$(database)/documents/churches/$(cid)/bookingSettings/$(request.resource.data.siteId)).data.get('safeguardingLead', '') != '';
+&& (get(/databases/$(database)/documents/churches/$(cid)/bookingSettings/$(request.resource.data.siteId)).data.get('safeguardingLead', '') != ''
+|| get(/databases/$(database)/documents/churches/$(cid)/bookingSettings/$(request.resource.data.siteId)).data.get('safeguardingDeputy', '') != '');
 allow update: if sgLeadOf(resource.data.siteId)
 && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'leadNotes', 'seenAt']);
 allow delete: if false;
 }
 function wholeYears(v) { return v is int && v >= 1 && v <= 10; }
 match /safeguardingSettings/{id} {
-allow read: if volunteer();
+allow read: if volunteer() || sgLeadOrDeputy();
 allow write: if id == 'defaults'
 && (isAdmin() || sgLeadOf(request.resource.data.get('leadSiteId', '')))
 && request.resource.data.keys().hasOnly(['templates', 'ratioAll', 'ratioUnder8', 'dbsYears', 'trainingYears',
@@ -2157,7 +2161,7 @@ allow create: if request.resource.data.keys().hasOnly(['siteId', 'day', 'n', 'fa
 allow update, delete: if false;
 }
 match /kidsSettings/{siteId} {
-allow read: if volunteer() || kidsLead(siteId);
+allow read: if volunteer() || kidsLead(siteId) || sgLeadOrDeputy();
 allow write: if ((isMaster() || sgLeadOf(siteId))
 && request.resource.data.get('teams', []) is list && request.resource.data.get('teams', []).size() <= 500
 && request.resource.data.get('formId', '') is string
@@ -3152,7 +3156,7 @@ return isMaster() || leadsPlanGroup(gid)
 && planGroup(gid).get('teamName', '-') in teamsCovered());
 }
 match /planGroups/{gid} {
-allow read: if isMaster()
+allow read: if isMaster() || sgLeadOf(resource.data.get('siteId', ''))
 || (active() && (me().get('memberId', '-') in resource.data.get('leaderIds', [])
 || resource.data.get('teamName', '-') in teamsCovered()));
 allow write: if isMaster()

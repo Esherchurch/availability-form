@@ -107,6 +107,14 @@ const ROLES_ALL = {
   kidsLead:    { label: 'Kids Church lead', teams: ['Kids Church'], adminFor: ['Kids Church'], masterAdmin: false, stage3: true },
   groupLeader: { label: 'Children’s group leader', teams: ['Kids Church'], adminFor: [], masterAdmin: false, stage3: true },
   sgLead:      { label: 'Safeguarding lead (no team)', teams: [], adminFor: [], masterAdmin: false, stage3: true },
+  /* PEOPLE WITH A ROLE AND NO TEAM (Martin, 5 Nov 2026: the second time one was shut out, after the F-324
+     register). Each is named in their role by the seed - the site's deputy, its health and safety lead and
+     fire lead, an event's organiser, a bookings admin - and is on no team, as at many churches. */
+  sgDeputy:    { label: 'Safeguarding deputy (no team)', teams: [], adminFor: [], masterAdmin: false, stage3: true },
+  hsLead:      { label: 'Health and safety lead (no team)', teams: [], adminFor: [], masterAdmin: false, stage3: true },
+  fireLead:    { label: 'Fire safety lead (no team)', teams: [], adminFor: [], masterAdmin: false, stage3: true },
+  organiser:   { label: 'Event organiser (no team)', teams: [], adminFor: [], masterAdmin: false, stage3: true },
+  bookingsAdmin: { label: 'Bookings admin (no team)', teams: [], adminFor: [], masterAdmin: false, stage3: true },
   parent:      { label: 'Parent (no team)', teams: [], adminFor: [], masterAdmin: false, stage3: true },
   /* A young person's phone: their code's sign-in (claim youth: true) and
      no users record; --seed gives them their youthAccess. */
@@ -403,6 +411,26 @@ const INSTRUMENT = `(function(){
   }).observe(document, { subtree: true, childList: true, attributes: true, characterData: true }); } catch (e) {}
   ['pushState', 'replaceState'].forEach(function (k) { var o = history[k]; history[k] = function () { A.acts.push('history'); return o.apply(this, arguments); }; });
   window.open = function (u) { A.acts.push('open:' + u); return null; };
+  /* EVERY READ THE RULES REFUSE, even one the page catches and carries on without (5 Nov 2026: the
+     safeguarding lead's event page caught its refused read of the leaders, showed "No leaders named yet",
+     and passed). The Firestore calls are wrapped once the library is there. */
+  A.denied = [];
+  (function wrapReads(n) {
+    var fb = window.firebase, F = fb && fb.firestore;
+    if (!(F && F.DocumentReference && F.Query)) { if (n < 200) setTimeout(function () { wrapReads(n + 1); }, 50); return; }
+    var where = function (x) { try { if (x.path) return x.path; var q = x._delegate && x._delegate._query; return q && q.path ? q.path.canonicalString() + (q.filters && q.filters.length ? ' (a query)' : '') : '?'; } catch (e) { return '?'; } };
+    var note = function (x, how) { return function (e) { if (e && /permission/i.test(e.code || e.message || '')) A.denied.push(how + ' ' + where(x)); }; };
+    [F.DocumentReference.prototype, F.Query.prototype].forEach(function (P) {
+      var g = P.get; P.get = function () { var r = g.apply(this, arguments); r.catch(note(this, 'get')); return r; };
+      var o = P.onSnapshot; P.onSnapshot = function () {
+        var a = [].slice.call(arguments), self = this, i = a.length - 1;
+        if (a[0] && typeof a[0] === 'object' && !(typeof a[0] === 'function') && (a[0].next || a[0].error)) { var obs = a[0], e0 = obs.error; a[0] = Object.assign({}, obs, { error: function (e) { note(self, 'listen')(e); if (e0) e0(e); } }); }
+        else { while (i >= 0 && typeof a[i] !== 'function') i--; var fns = a.filter(function (x) { return typeof x === 'function'; });
+          if (fns.length >= 2) { var k = a.lastIndexOf(fns[1]), e1 = a[k]; a[k] = function (e) { note(self, 'listen')(e); return e1(e); }; } else a.push(function (e) { note(self, 'listen')(e); }); }
+        return o.apply(this, a);
+      };
+    });
+  })(0);
   window.alert = function () { A.acts.push('dialog'); };
   window.confirm = function () { A.acts.push('dialog'); return false; };
   window.prompt = function () { A.acts.push('dialog'); return null; };
@@ -1049,7 +1077,7 @@ function saveProgress() {
 }
 function record(r) { RESULTS.push(r); saveProgress(); const mark = r.pass ? 'PASS' : 'FAIL'; console.log('  ' + mark + '  ' + r.role + ' ' + r.size + ' ' + r.screen + (r.pass ? '' : '\n          ' + r.why.join('\n          '))); }
 
-async function auditScreen(B, { role, size, screen, url, inApp, taps, base, shotName, steps }) {
+async function auditScreen(B, { role, size, screen, url, inApp, taps, base, shotName, steps, must, reads }) {
   const before = passedBefore(role, size, screen); if (before) return before;
   if (!LIVE) await restoreSettings();
   const [w, h] = ALL_SIZES[size];
@@ -1065,6 +1093,19 @@ async function auditScreen(B, { role, size, screen, url, inApp, taps, base, shot
   const errs = B.errors.slice();
   const m = JSON.parse((await B.ev(MEASURE)) || '{}');
   const why = [];
+  /* WHAT THIS PERSON MUST SEE HERE (a state's must: { role: [[selector, words?, what], ...] }): the audit
+     only judges what is drawn, so a thing that should be there and is not (the lead's leaders, Checks,
+     Exception, "Sign it off") passed. Missing, it fails. */
+  for (const [sel, words, what] of ((must || {})[role] || [])) {
+    const ok = await B.ev('(function(){var r=new RegExp(' + JSON.stringify(words || '') + ',"i");return [].some.call(document.querySelectorAll(' + JSON.stringify(sel) + '),function(e){var b=e.getBoundingClientRect();return (b.width>0||b.height>0)&&r.test(e.textContent||e.value||"")})})()');
+    if (!ok) why.push('missing: ' + (what || sel) + ' (' + role + ' must see it here)');
+  }
+  /* AND EVERY READ THE RULES REFUSED THEM on a screen meant for them (reads: 'all' on the state, or the
+     role's name in it), unless the state says that one is meant (reads: { role: [/path/...] }) */
+  /* a state is a screen meant for the people it lists; a page's first view may be one that refuses them */
+  if (steps) { const denied = JSON.parse((await B.ev('JSON.stringify((window.__aud&&window.__aud.denied)||[])')) || '[]');
+    const meant = (reads && reads[role]) || [];
+    [...new Set(denied)].filter((d) => !meant.some((r) => r.test(d))).slice(0, 6).forEach((d) => why.push('refused read: ' + d)); }
   if (errs.length) why.push('console: ' + errs[0] + (errs.length > 1 ? ' (+' + (errs.length - 1) + ' more)' : ''));
   why.push(...judgeLayout(m, { w, inApp }));
   /* Content ending under the bottom bar: scroll to the end and look. */
@@ -1331,7 +1372,7 @@ async function runRole(B, role, size, base, shared) {
     if (ONLY_PAGES && !ONLY_PAGES.includes(st.url.split('?')[0])) continue;
     if (ONLY_STATE && !ONLY_STATE.split('|').some((w) => st.name.includes(w))) continue;
     if (B.isDead()) { await B.restart(); await B.size(...ALL_SIZES[size]); await signIn(B, base, role); }
-    await auditScreen(B, { role, size, screen: st.url.split('?')[0] + ' (state: ' + st.name + ')', url: base + st.url, inApp: false, taps: tapsHere, base, steps: st.steps });
+    await auditScreen(B, { role, size, screen: st.url.split('?')[0] + ' (state: ' + st.name + ')', url: base + st.url, inApp: false, taps: tapsHere, base, steps: st.steps, must: st.must, reads: st.reads });
   }
   /* ---- the app ---- */
   if (!NO_APP) {

@@ -553,16 +553,19 @@
       if (!text) { toast('Write down what the concern is.'); return; }
       var btn = this; btn.disabled = true;
       db().collection('bookingSettings').doc(sid).get().then(function (s) {
-        var lead = s.exists ? s.data().safeguardingLead : '';
-        if (!lead) throw new Error('No safeguarding lead is set for ' + siteName(sid) + '. Please speak to the church office or the ' + EGBCAuth.ministerTitle() + ' today.');
+        /* the lead, or with none the deputy (5 Nov 2026: a deputy-only church was told there was nobody) */
+        var d = s.exists ? s.data() : {}, lead = d.safeguardingLead || d.safeguardingDeputy || '';
+        var told = [d.safeguardingLead, d.safeguardingDeputy].filter(Boolean);
+        if (!lead) throw new Error('No safeguarding lead or deputy is set for ' + siteName(sid) + '. Please speak to the church office or the ' + EGBCAuth.ministerTitle() + ' today.');
         return db().collection('concerns').doc('con_' + E.key(24)).set({
           siteId: sid, calEventId: evId || '', about: document.getElementById('cAbout').value.trim(), concern: text,
           reportedBy: ME.uid, reportedByName: ME.name, createdAt: now(), status: 'new'
-        }).then(function () { return db().collection('addressBook').doc(lead).get(); }).then(function (m) {
-          var email = m.exists ? (m.data().email || '') : '';
+        /* both the lead and the deputy are told, as the Youth Hub's "I'm worried" tells them */
+        }).then(function () { return Promise.all(told.map(function (id) { return db().collection('addressBook').doc(id).get().catch(function () { return null; }); })); }).then(function (ms) {
+          var email = ms.map(function (m) { return m && m.exists ? (m.data().email || '') : ''; }).filter(Boolean);
           /* The email says only that there is something to read. What was
              reported stays in the one place the rules protect. */
-          if (email) return EGBCChurch.send({ to: [email], subject: 'A safeguarding concern has been reported',
+          if (email.length) return EGBCChurch.send({ to: email, subject: 'A safeguarding concern has been reported',
             html: EGBCChurch.wrap('A safeguarding concern has been reported',
               '<p>Someone has reported a safeguarding concern for ' + esc(siteName(sid)) + '. For privacy, this email does not say what it is.</p>' +
               '<p><a href="' + location.origin + location.pathname.replace(/[^/]*$/, '') + 'safeguarding.html">Open Safeguarding to read it</a>.</p>') });
@@ -665,7 +668,11 @@
   function loadChecks() {
     var leaders = (LEAD && LEAD.leaders) || [];
     /* Exceptions at this event (§24), for the office and the safeguarding lead. */
-    var ex = (MASTER || ISLEAD || ADMIN) ? db().collection('eventExceptions').where('calEventId', '==', EVID).get()
+    /* The lead or deputy asks for their own site's: the rules can prove that (sgLeadOf), and refused the
+       whole event's to a lead on no team (5 Nov 2026). A master admin or team admin may ask for all. */
+    var exq = db().collection('eventExceptions').where('calEventId', '==', EVID);
+    if (!MASTER && !ADMIN) exq = exq.where('siteId', '==', SITE);
+    var ex = (MASTER || ISLEAD || ADMIN) ? exq.get()
       .then(function (q) { EXC = {}; q.docs.forEach(function (d) { EXC[d.data().memberId] = d.data(); }); }).catch(function () { EXC = {}; }) : null;
     return Promise.all([ex].concat(leaders.map(function (l) {
       if (!l.memberId) return null;

@@ -61,6 +61,8 @@ async function store(name, type, body) {
  */
 export default async function seedStage3({ put, roles, dayIso }) {
   const SITE = 'site_s3', SITE2 = 'site_s3b', mid = (k) => roles[k].member, uid = (k) => roles[k].uid || '';
+  /* a role holder on no team, when the run includes them (--roles): their address book id, or nothing */
+  const opt = (k) => (roles[k] && roles[k].uid && roles[k].member) || '';
   const now = new Date(), iso = now.toISOString(), today = dayIso(0);
   await put('churchSettings/details', { name: "St Aidan's with St Hild, Testbury (synthetic)", shortName: "St Aidan's (synthetic)", enquiryEmail: 'office@example.invalid', serviceDay: 'Sunday', mainSiteId: SITE });
   /* the hub is "live" here, so the quiz on phones and the rest that waits for it are drawn */
@@ -69,7 +71,8 @@ export default async function seedStage3({ put, roles, dayIso }) {
   await put('sites/' + SITE, { name: 'St Hild (synthetic)', address: 'Invented Street, Testbury', active: true, order: 1, churchShowConnected: true });
   await put('sites/' + SITE2, { name: 'St Aidan (synthetic)', address: 'Made-up Lane, Testbury', active: true, order: 2 });
   await put('rooms/room_s3', { siteId: SITE, name: 'Hild Room (synthetic)', kind: 'room', active: true, order: 1, capacity: 30 });
-  for (const s of [SITE, SITE2]) await put('bookingSettings/' + s, { bookingsAdmins: [], safeguardingLead: mid('sgLead'), safeguardingDeputy: '' });
+  /* the lead, the deputy and a bookings admin of each site, each on no team (5 Nov 2026) */
+  for (const s of [SITE, SITE2]) await put('bookingSettings/' + s, { bookingsAdmins: [opt('bookingsAdmin')].filter(Boolean), safeguardingLead: mid('sgLead'), safeguardingDeputy: opt('sgDeputy') });
   await put('careRouting/status', { leadSet: true, leadIds: [mid('sgLead')] });
   await put('safeguardingSettings/defaults', { leadSiteId: SITE, trusteeTeam: 'Elders' });
   /* the registration form, from the real template, as kids-admin makes it */
@@ -127,12 +130,14 @@ export default async function seedStage3({ put, roles, dayIso }) {
   const EV = (title, extra) => Object.assign({ title, description: 'Synthetic.', category: 'children', visibility: 'members', status: 'confirmed', audience: ['members'],
     startLocal: new Date(at).toISOString().slice(0, 16), endLocal: new Date(at + 3 * 3600000).toISOString().slice(0, 16), startUtc: at, endUtc: at + 3 * 3600000, allDay: false,
     location: { kind: 'room', siteId: SITE, roomIds: ['room_s3'] }, under18: true, signupOn: false, createdBy: uid('kidsLead'),
-    teamMemberIds: [mid('kidsLead')], teamUids: [uid('kidsLead')] }, extra || {});
+    /* the event's team: the kids lead, and an organiser on no team when the run has one */
+    teamMemberIds: [mid('kidsLead'), opt('organiser')].filter(Boolean), teamUids: [uid('kidsLead'), opt('organiser') ? uid('organiser') : ''].filter(Boolean) }, extra || {});
   /* a holiday club is a kind the safeguarding lead signs off (egbc-sg-templates.js SG_KINDS; 'daytrip' is
      not one, so no assessment was drawn); ev_s3f is a trip, away from the church, so event-ra asks about the venue */
   for (const id of ['ev_s3', 'ev_s3b', 'ev_s3c', 'ev_s3d', 'ev_s3e']) await put('calEvents/' + id, EV('Holiday club ' + id.slice(-1) + ' (synthetic)', { sgKind: 'holidayclub' }));
   await put('calEvents/ev_s3f', EV('Trip to the farm (synthetic)', { sgKind: 'trip' }));
-  await put('raSiteRoles/' + SITE, { hsLead: mid('master'), hsDeputy: '' });
+  /* the health and safety lead and the fire safety lead, on no team when the run has them */
+  await put('raSiteRoles/' + SITE, { hsLead: opt('hsLead') || mid('master'), hsDeputy: '', fireLead: opt('fireLead') });
   /* in the shape event-ra.html writes (its blank()): ev_s3 a draft the AI has made a suggestion for ("Use it"),
      ev_s3b signed by the organiser, ev_s3c approved */
   const RA = (id, extra) => Object.assign({ calEventId: id, siteId: SITE, approverSiteId: SITE, title: 'Holiday club (synthetic)', kind: 'general', flags: {}, care: { support: '' },
