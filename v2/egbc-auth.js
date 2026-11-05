@@ -663,15 +663,19 @@
        Hub, a safeguarding lead on no team) isn't asked: the rules refuse
        them those reads, and the answer for them is "neither" anyway (the
        Stage 3 audit, 5 Nov 2026: every Youth Hub screen recorded a refused
-       read). Before the profile is known, ask as before. */
+       read). The page shell asks before the profile is known: then a
+       young person's code sign-in says so itself (claim youth), and
+       someone signed out isn't asked either; anyone else is asked as before. */
     var p = currentProfile;
-    var onTeam = !p || (p.status === 'active' && ((p.teams || []).length > 0
-                 || (p.adminFor || []).length > 0 || p.masterAdmin === true));
-    var none = function () { return Promise.resolve(null); };
+    var onTeam = p ? Promise.resolve(p.status === 'active' && ((p.teams || []).length > 0
+                 || (p.adminFor || []).length > 0 || p.masterAdmin === true))
+      : !currentUser ? Promise.resolve(false)
+      : currentUser.getIdTokenResult().then(function (t) { return !(t && t.claims && t.claims.youth); }, function () { return true; });
+    var ifOnTeam = function (c, d) { return onTeam.then(function (yes) { return yes ? get(c, d) : null; }); };
     PERMS.promise = Promise.all([
       sibling('egbc-team-jobs.js', '202610261800').then(function () { return sibling('egbc-permissions.js', '202610272330'); }),
       get('churchSettings', 'permissions'), get('churchSettings', 'teamJobs'),
-      get('paymentSettings', 'public'), onTeam ? get('safeguardingSettings', 'defaults') : none(), onTeam ? get('prayerSettings', 'main') : none(),
+      get('paymentSettings', 'public'), ifOnTeam('safeguardingSettings', 'defaults'), ifOnTeam('prayerSettings', 'main'),
       /* The Pastor (Team emails): readable by master admins and the Pastor
          only, so for anybody else this is null - which is the answer. */
       get('teamMailSettings', 'main'),
