@@ -22,6 +22,7 @@ import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { inventory } from '../../tools/control-inventory.mjs';
 import { drawnOn } from './drawn-on.mjs';
+import { neverOn } from './never-drawn.mjs';
 
 const V2 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const OUT = path.join(V2, 'tests', 'out');
@@ -77,6 +78,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   for (const [p, list] of Object.entries(pages)) for (const c of list) {
     const d = drawnOn(p, c);
     if (!d.drawn) { notHere.push(Object.assign({ page: p, reason: d.reason }, c)); continue; }
+    /* drawn by a function the page calls, but never with the options it gives (never-drawn.mjs, checked against the code) */
+    const nv = neverOn(p, c);
+    if (nv) { notHere.push(Object.assign({ page: p, reason: nv }, c)); continue; }
     const h = handlerOf(c);
     if (h) { handlers.push(Object.assign({ page: p, on: h }, c)); continue; }
     const mine = (r) => page(r) === p.toLowerCase() && usedBy(c, r.keys);

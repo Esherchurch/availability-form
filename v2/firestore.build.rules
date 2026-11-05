@@ -1201,7 +1201,8 @@ allow delete: if isMaster();
 }
 match /eventLeaders/{calEventId} {
 allow read: if volunteer() || sgLeadOf(resource.data.get('siteId', ''))
-|| resource == null || runsEventId(calEventId) || raAnyLead(resource.data.get('siteId', ''));
+|| resource == null || runsEventId(calEventId) || raAnyLead(resource.data.get('siteId', ''))
+|| (signedIn() && request.auth.uid in resource.data.get('leaderUids', []));
 allow write: if (isAdmin() || sgLeadOf(request.resource.data.get('siteId', '')))
 && request.resource.data.keys().hasOnly(['leaders', 'leaderUids', 'siteId', 'ratioAll', 'ratioUnder8',
 'requireChecks', 'dbsYears', 'trainingYears', 'updatedAt', 'updatedBy',
@@ -1259,6 +1260,7 @@ allow list: if isEventLeader(resource.data.calEventId) || sgLeadOfEvent(resource
 }
 match /leaderChecks/{memberId} {
 allow read: if isMaster() || sgLeadOf(resource.data.get('siteId', ''))
+|| (resource == null && sgLeadOrDeputy())
 || (active() && me().get('memberId', '') == memberId);
 allow write: if (isMaster() || sgLeadOf(request.resource.data.get('siteId', '')))
 && request.resource.data.keys().hasOnly(['name', 'dbsStatus', 'dbsSeen', 'trainingDate', 'siteId', 'updatedAt', 'updatedBy',

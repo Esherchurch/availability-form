@@ -1098,7 +1098,8 @@ async function auditScreen(B, { role, size, screen, url, inApp, taps, base, shot
      Exception, "Sign it off") passed. Missing, it fails. */
   for (const [sel, words, what] of ((must || {})[role] || [])) {
     const ok = await B.ev('(function(){var r=new RegExp(' + JSON.stringify(words || '') + ',"i");return [].some.call(document.querySelectorAll(' + JSON.stringify(sel) + '),function(e){var b=e.getBoundingClientRect();return (b.width>0||b.height>0)&&r.test(e.textContent||e.value||"")})})()');
-    if (!ok) why.push('missing: ' + (what || sel) + ' (' + role + ' must see it here)');
+    /* with what the page said instead, so a lockout and a wrong check can be told apart */
+    if (!ok) why.push('missing: ' + (what || sel) + ' (' + role + ' must see it here; the page says: "' + String(await B.ev('document.body.innerText.replace(/\\s+/g, " ").slice(0, 200)')) + '")');
   }
   /* AND EVERY READ THE RULES REFUSED THEM on a screen meant for them (reads: 'all' on the state, or the
      role's name in it), unless the state says that one is meant (reads: { role: [/path/...] }) */

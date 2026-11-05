@@ -158,8 +158,16 @@
       var uid = E.myUid() || '-';   /* view as: nobody's leader */
       return Promise.all(soon.map(function (e) { return SG.leadersOf(e.id); })).then(function (ls) {
         return soon.filter(function (e, i) { return E.runsEvent(e) || (ls[i] && (ls[i].leaderUids || []).indexOf(uid) >= 0); });
+      }).then(function (mine) {
+        /* Nothing this week, for someone who neither administers, runs an event (its team) nor leads one
+           at all: the page isn't theirs, so say so, not "Nothing in the next week" - a safeguarding or
+           health and safety lead on no team was shown an empty list (the Stage 3 audit, 5 Nov 2026). */
+        if (mine.length || ADMIN || (EGBCAuth.isOnEventTeam && EGBCAuth.isOnEventTeam())) return mine;
+        return db().collection('eventLeaders').where('leaderUids', 'array-contains', uid).limit(1).get()
+          .then(function (q) { return q.empty ? null : mine; }, function () { return null; });
       });
     }).then(function (soon) {
+      if (!soon) return E.notForYou('the people who run or lead an event (its team and its leaders), and the admins');
       document.getElementById('wrap').innerHTML =
         '<h1>Check-in</h1><p class="sub">Choose the event you are checking people in to.' + (ADMIN ? '' : ' These are the events you lead.') + '</p>' +
         (ADMIN ? '<div class="bar"><a class="btn sec" href="checkin.html?view=rollcall">' + ico('siren', 15) + 'Roll-call: who is in now</a></div>' : '') +
