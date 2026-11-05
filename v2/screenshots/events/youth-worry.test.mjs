@@ -102,6 +102,16 @@ await env.withSecurityRulesDisabled(async (ctx) => {
 const readDb = async (fn) => { let out; await env.withSecurityRulesDisabled(async (c) => { out = await fn(c.firestore()); }); return out; };
 const all = (name) => readDb((db) => getDocs(collection(db, name)).then((q) => q.docs.map((d) => Object.assign({ id: d.id }, d.data()))));
 const setLeads = (v) => readDb((db) => updateDoc(doc(db, 'bookingSettings', SITE), v));
+/** The outbox's count once nothing has arrived for 3 s (at most 20 s). */
+async function quiet() {
+  let n = (await all('pushOutbox')).length, still = Date.now();
+  for (const end = Date.now() + 20000; Date.now() < end && Date.now() - still < 3000;) {
+    await sleep(500);
+    const m = (await all('pushOutbox')).length;
+    if (m !== n) { n = m; still = Date.now(); }
+  }
+  return n;
+}
 
 const errors = [], BROWSERS = [];
 async function as(who, w, h) {
@@ -184,7 +194,10 @@ try {
     for (const [only, k, tok] of [[{ safeguardingLead: '', safeguardingDeputy: 'm_dee' }, 'dee', 'tok-dee'], [{ safeguardingLead: 'm_lea', safeguardingDeputy: '' }, 'lea', 'tok-lea']]) {
       const who = k === 'dee' ? 'A DEPUTY BUT NO LEAD' : 'A LEAD BUT NO DEPUTY';
       await setLeads(only);
-      const pushed0 = (await all('pushOutbox')).length;
+      /* The outbox quiet first: a push from the step before can land late
+         (the events window's run, 1440: the lead's), and a care push names
+         no concern, so it can only be told apart by when it came. */
+      const pushed0 = await quiet();
       const words = 'Synthetic test ' + w + ': only the ' + (k === 'dee' ? 'deputy' : 'lead') + ' is set.';
       const s = await send(Y, 'me', words);
       const c = (await all('concerns')).find((x) => x.concern === words);

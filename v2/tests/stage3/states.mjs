@@ -24,7 +24,13 @@ const VIC_OUT = ['document.body.removeAttribute("data-s3r");EGBCAuth.db.collecti
 
 const LEADS = ['master', 'kidsLead', 'sgLead'];
 const PLANNERS = ['master', 'kidsLead', 'groupLeader'];
-const SG = ['master', 'sgLead'];
+const SG = ['master', 'sgLead', 'sgDeputy'];
+/* WHAT EACH ROLE HOLDER MUST SEE ON THEIR KEY PAGES (Martin, 5 Nov 2026): the audit judges only what is
+   drawn, so a lead shown "No leaders named yet" passed. [selector, words, what] - missing, the screen fails;
+   and a read the rules refuse them on these screens fails it too. */
+const LEAD_EVENT = [['.row .who .n', 'Kids lead', 'the event\'s leaders'], ['.recCheck', 'Checks', '"Checks" by a leader'],
+  ['.exFor', 'Exception', '"Exception" by a leader not cleared'], ['#sgaSign', 'Sign it off', '"Sign it off" on the assessment']];
+const LEAD_HOME = [['.card h2', 'Concerns reported to you', 'the concerns reported to them'], ['#riskRegLink', 'risk register', 'the risk register']];
 
 /* ---- the planner: the part opened, then a kind of step chosen ---- */
 const PART = [wait('[data-toggle]'), click('[data-toggle]'), wait('[data-addstep]')];
@@ -47,9 +53,12 @@ const GESTURE = [wait('#admin-bar'), 'var b=document.getElementById("admin-bar")
 /* ---- the Youth Hub, with its first-visit tour already seen ---- */
 const HUB = ['localStorage.setItem("egbc_youth_hub_toured_home","1")'];
 
-export default [
+const SCREENS = [
   /* ---- the children's register ---- */
   { name: 'register: registration tab', url: 'kids-admin.html', roles: LEADS, steps: tab('registration') },
+  /* the register as the safeguarding lead and deputy open it (F-324): its children */
+  { name: 'register: the children, for the safeguarding lead', url: 'kids-admin.html', roles: ['sgLead', 'sgDeputy'], steps: [wait('[data-open]')],
+    must: { sgLead: [['[data-open]', 'Synthetic', 'the children']], sgDeputy: [['[data-open]', 'Synthetic', 'the children']] } },
   { name: 'register: groups tab', url: 'kids-admin.html', roles: LEADS, steps: tab('groups') },
   { name: 'register: a new group', url: 'kids-admin.html', roles: LEADS, steps: tab('groups').concat([wait('#g-new'), click('#g-new'), wait('#g-form input')]) },
   { name: 'register: editing a group', url: 'kids-admin.html', roles: LEADS, steps: tab('groups').concat([wait('[data-gedit]'), click('[data-gedit]'), wait('[data-unlead]')]) },
@@ -133,7 +142,9 @@ export default [
 
   /* ---- safeguarding for an event ---- */
   { name: 'safeguarding: the holiday club', url: 'safeguarding.html?event=ev_s3', roles: SG.concat(['kidsLead']), steps: [wait('#sgAssessCard')] },
-  { name: 'safeguarding: a draft assessment', url: 'safeguarding.html?event=ev_s3d', roles: SG.concat(['kidsLead']), steps: [wait('#sgaSave')] },
+  { name: 'safeguarding: a draft assessment', url: 'safeguarding.html?event=ev_s3d', roles: SG.concat(['kidsLead']), steps: [wait('#sgaSave')], must: { sgLead: LEAD_EVENT, sgDeputy: LEAD_EVENT } },
+  /* the lead and deputy's own page: what was reported to them, and their register */
+  { name: 'safeguarding: the lead\'s page', url: 'safeguarding.html', roles: ['sgLead', 'sgDeputy'], steps: [wait('#concernBtn')], must: { sgLead: LEAD_HOME, sgDeputy: LEAD_HOME } },
   { name: 'safeguarding: a signed assessment', url: 'safeguarding.html?event=ev_s3e', roles: SG.concat(['kidsLead']), steps: [wait('#sgaSigned')] },
   { name: 'safeguarding: a leader\'s checks', url: 'safeguarding.html?event=ev_s3', roles: SG, steps: [wait('.recCheck'), click('.recCheck'), wait('#cDbs'), 'scope'] },
   { name: 'safeguarding: adding a leader', url: 'safeguarding.html?event=ev_s3', roles: SG.concat(['kidsLead']), steps: [wait('#addLeader'), click('#addLeader'), wait('#lq'), type('#lq', 'lead'), wait('.pick'), 'scope'] },
@@ -145,11 +156,22 @@ export default [
   { name: 'safeguarding: report a concern (anyone)', url: 'safeguarding.html', roles: 'all', steps: [] },
 
   /* ---- event risk assessment ---- */
-  { name: 'event RA: a draft', url: 'event-ra.html?event=ev_s3', roles: ['master', 'kidsLead'], steps: [] },
+  { name: 'event RA: a draft', url: 'event-ra.html?event=ev_s3', roles: ['master', 'kidsLead', 'organiser'], steps: [],
+    /* the organiser on no team signs it: told what is left, or offered the button */
+    must: { organiser: [['#signBlocked, #signGo', '', 'the organiser\'s sign-off']] } },
   { name: 'event RA: a trip (the venue)', url: 'event-ra.html?event=ev_s3f', roles: ['master', 'kidsLead'], steps: [wait('#vName')] },
   { name: 'event RA: ready to sign', url: 'event-ra.html?event=ev_s3f', roles: ['master', 'kidsLead'], steps: [wait('#saveGo'), tick('input[name="care"][value="no"]'),
     'document.querySelectorAll("input[id^=q_]").forEach(function(e){e.value="N/A: a synthetic test event";e.dispatchEvent(new Event("input",{bubbles:true}))})', click('#saveGo'), wait('#signGo')] },
-  { name: 'event RA: signed, to approve', url: 'event-ra.html?event=ev_s3b', roles: ['master', 'kidsLead'], steps: [] },
+  { name: 'event RA: signed, to approve', url: 'event-ra.html?event=ev_s3b', roles: ['master', 'kidsLead', 'hsLead'], steps: [],
+    must: { hsLead: [['#approveGo', 'Approve', 'the approval they give']] } },
+  { name: 'building RA: health and safety', url: 'assessment.html?site=site_s3&kind=hs', roles: ['master', 'hsLead'], steps: [wait('#signCard')],
+    must: { hsLead: [['#signCard', 'Sign-off', 'the sign-off they give']] } },
+  { name: 'building RA: fire', url: 'assessment.html?site=site_s3&kind=fire', roles: ['master', 'fireLead', 'hsLead'], steps: [wait('#signCard')],
+    must: { fireLead: [['#signCard', 'Sign-off', 'the sign-off they give']] } },
+  { name: 'check-in: the organiser\'s event', url: 'checkin.html?event=ev_s3', roles: ['master', 'organiser'], steps: [wait('#tiles')],
+    must: { organiser: [['#tiles', '', 'the event\'s check-in']] } },
+  { name: 'bookings: their building', url: 'bookings-admin.html', roles: ['master', 'bookingsAdmin'], steps: [wait('#app *, #main *')],
+    must: { bookingsAdmin: [['option, h2, .card', 'St Hild', 'their building\'s bookings']] } },
   { name: 'event RA: approved', url: 'event-ra.html?event=ev_s3c', roles: ['master', 'kidsLead'], steps: [] },
 
   /* ---- printing ---- */
@@ -188,3 +210,22 @@ export default [
   { name: 'Youth charter: the title', url: 'Youthcharter.html', roles: ['master'], steps: GESTURE.concat(['toggleTitleEdit()', wait('#page-title-input')]) },
   { name: 'Youth charter: the words', url: 'Youthcharter.html', roles: ['master'], steps: GESTURE.concat([click('[onclick="openHtmlEditor()"]'), wait('#html-editor-wrap[style*="flex"]')]) }
 ];
+
+/* READS REFUSED BY DESIGN, so not counted against a screen (each says why; the sweep of 5 Nov 2026):
+     teamMailSettings/main  the Pastor's settings: master admins and the Pastor only; null is the answer
+                            (egbc-auth.js, loadPerms)
+     kidsSettings           the list of children's teams, for kids leads and the safeguarding lead and
+                            deputy; anyone else's answer is "none" (egbc-auth.js loadKidsTeams)
+     safeguardingSettings   for anyone else, only the trustee team's name, which is theirs only if they are
+                            on it (egbc-auth.js loadPerms) - the lead and deputy read it
+     formRequests, sensitiveResponses (a query)  asked first for the whole event, then by site and by form
+                            (egbc-events-safeguarding.js listForEvent): the first is a master admin's
+     addressBook/<someone>  the building's leads' names, "where the address book can be read (the office);
+                            otherwise their roles only" (assessment.html) */
+const NOT_LEADS = ['hsLead', 'fireLead', 'organiser', 'bookingsAdmin'];
+const MEANT_ALL = [/^get teamMailSettings\/main$/, /^get (formRequests|sensitiveResponses) \(a query\)$/];
+const MEANT = {};
+for (const r of ['master', 'kidsLead', 'groupLeader', 'sgLead', 'sgDeputy', 'parent', 'youth', 'kids', 'worship', 'core', 'everyone'].concat(NOT_LEADS)) MEANT[r] = MEANT_ALL.slice();
+for (const r of NOT_LEADS.concat(['parent', 'youth', 'groupLeader'])) MEANT[r].push(/^get kidsSettings$/, /^get safeguardingSettings\/defaults$/);
+for (const r of ['hsLead', 'fireLead']) MEANT[r].push(/^get addressBook\/[\w-]+$/);
+export default SCREENS.map((st) => Object.assign({}, st, { reads: Object.assign({}, MEANT, st.reads || {}) }));

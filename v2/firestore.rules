@@ -357,7 +357,9 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow read: if signedIn() && (request.auth.uid == uid || volunteer());
+      // ...and the safeguarding lead and deputy, who may be on no team: they name an event's leaders
+      // from the hub's people (5 Nov 2026: a role holder on no team was refused it on their own pages).
+      allow read: if signedIn() && (request.auth.uid == uid || volunteer() || sgLeadOrDeputy());
 
       allow create: if signedIn()
                     && request.auth.uid == uid
@@ -484,7 +486,9 @@ service cloud.firestore {
     match /addressBook/{personId} {
       // Their own record, so a dashboard can greet them by name. bookIsMine
       // checks the verified address on the record, so it cannot be claimed.
-      allow get: if isAdmin() || volunteer() || bookIsMine(personId);
+      // ...and the safeguarding lead and deputy (on no team): the register names its groups' leaders and
+      // the collectors from the address book (5 Nov 2026: a role holder on no team was refused it on their own pages).
+      allow get: if isAdmin() || volunteer() || bookIsMine(personId) || sgLeadOrDeputy();
       // A LIST IS EVALUATED AGAINST EACH DOCUMENT IT RETURNS, which is what
       // makes the last clause possible and what the first version of this rule
       // got wrong. It said `isAdmin() || volunteer()` and nothing else - and
@@ -525,7 +529,7 @@ service cloud.firestore {
       //
       // Once the page knows the id, `allow get` above lets it read that one
       // record - its own.
-      allow list: if isAdmin() || volunteer();
+      allow list: if isAdmin() || volunteer() || sgLeadOrDeputy();
       // WHO MAY CHANGE A RECORD (Martin, 16 Oct 2026): the church office and
       // master admins, anyone; a team leader, the people on their teams -
       // adding or taking away only their own teams' ticks, and never the
@@ -590,7 +594,9 @@ service cloud.firestore {
       // MEETINGS (27 Oct 2026): whoever the Permissions screen lets see
       // every meeting ("meetingsAll") reads the rota too, though on no team
       // - a small group leader, say. Never anybody by default.
-      allow read: if volunteer() || (active() && hasPerm('meetingsAll')) || churchShowServices() || youthGranted();
+      // THE SAFEGUARDING LEAD AND DEPUTY (5 Nov 2026), on no team: "From the rota" names an under-18
+      // event's leaders from who is serving that day (safeguarding.html).
+      allow read: if volunteer() || (active() && hasPerm('meetingsAll')) || churchShowServices() || youthGranted() || sgLeadOrDeputy();
       // SAFEGUARDING IS A SEPARATE GATE, and it applies to admins too. The
       // line above says who may touch the rota; safeguardingOk() says who
       // may be put on it. A master admin is not exempt - the exception
@@ -761,7 +767,10 @@ service cloud.firestore {
       return exists(/databases/$(database)/documents/safeguardingSettings/defaults)
              && get(/databases/$(database)/documents/safeguardingSettings/defaults).data.get('leadSiteId', '') != ''
              && exists(/databases/$(database)/documents/bookingSettings/$(get(/databases/$(database)/documents/safeguardingSettings/defaults).data.leadSiteId))
-             && get(/databases/$(database)/documents/bookingSettings/$(get(/databases/$(database)/documents/safeguardingSettings/defaults).data.leadSiteId)).data.get('safeguardingLead', '') != '';
+             && (get(/databases/$(database)/documents/bookingSettings/$(get(/databases/$(database)/documents/safeguardingSettings/defaults).data.leadSiteId)).data.get('safeguardingLead', '') != ''
+                 // or a deputy only: they read what is sent (sgLeadOf), as the Youth Hub's "I'm worried"
+                 // reaches them (55d26a8a); an adult's concern was refused there (5 Nov 2026)
+                 || get(/databases/$(database)/documents/bookingSettings/$(get(/databases/$(database)/documents/safeguardingSettings/defaults).data.leadSiteId)).data.get('safeguardingDeputy', '') != '');
     }
     function careKinds(d) {
       return d.keys().hasOnly(['memberIds', 'email'])
@@ -2435,7 +2444,11 @@ service cloud.firestore {
     }
 
     match /eventForms/{calEventId} {
-      allow read, write: if isAdmin();
+      // Which forms an event asks for (no answers in it): also read by those who run the event, its
+      // leaders and its site's safeguarding lead or deputy, to find the answers they may see. Refused,
+      // the lead's event page showed no child's consent or medical flag (5 Nov 2026: a role holder on no team was refused it on their own pages).
+      allow read: if isAdmin() || runsEventId(calEventId) || isEventLeader(calEventId) || sgLeadOfEvent(calEventId);
+      allow write: if isAdmin();
     }
 
     function requestAfter(key) {
@@ -2556,7 +2569,13 @@ service cloud.firestore {
     //                  by whom and when.
 
     match /eventLeaders/{calEventId} {
-      allow read: if volunteer();
+      // ...and the safeguarding lead or deputy of the event's site, who may be
+      // on no team: refused, they saw no leaders, no Checks and no "Sign it
+      // off", and the event's bookings never opened (Stage 3, 5 Nov 2026).
+      // also the event's organisers and its building's health and safety lead (the numbers they sign
+      // and approve), and no record at all (an event with no leaders yet: nothing to read)
+      allow read: if volunteer() || sgLeadOf(resource.data.get('siteId', ''))
+                  || resource == null || runsEventId(calEventId) || raAnyLead(resource.data.get('siteId', ''));
       allow write: if (isAdmin() || sgLeadOf(request.resource.data.get('siteId', '')))
                    && request.resource.data.keys().hasOnly(['leaders', 'leaderUids', 'siteId', 'ratioAll', 'ratioUnder8',
                                                              'requireChecks', 'dbsYears', 'trainingYears', 'updatedAt', 'updatedBy',
@@ -2989,7 +3008,9 @@ service cloud.firestore {
                     && request.resource.data.concern.size() <= 6000
                     // Never into a site with nobody to read it.
                     && exists(/databases/$(database)/documents/bookingSettings/$(request.resource.data.siteId))
-                    && get(/databases/$(database)/documents/bookingSettings/$(request.resource.data.siteId)).data.get('safeguardingLead', '') != '';
+                    // a lead or, with none, a deputy to read it (5 Nov 2026: a deputy-only church refused it)
+                    && (get(/databases/$(database)/documents/bookingSettings/$(request.resource.data.siteId)).data.get('safeguardingLead', '') != ''
+                        || get(/databases/$(database)/documents/bookingSettings/$(request.resource.data.siteId)).data.get('safeguardingDeputy', '') != '');
       allow update: if sgLeadOf(resource.data.siteId)
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'leadNotes', 'seenAt']);
       allow delete: if false;
@@ -3003,7 +3024,9 @@ service cloud.firestore {
     // an admin says which site they lead (leadSiteId) and the rule checks it.
     function wholeYears(v) { return v is int && v >= 1 && v <= 10; }
     match /safeguardingSettings/{id} {
-      allow read: if volunteer();
+      // ...and the safeguarding lead and deputy, whose settings these are: on no team, their checklist
+      // lost the church's own questions and their pages the ratios (5 Nov 2026: a role holder on no team was refused it on their own pages).
+      allow read: if volunteer() || sgLeadOrDeputy();
       allow write: if id == 'defaults'
                    && (isAdmin() || sgLeadOf(request.resource.data.get('leadSiteId', '')))
                    /* leadName and leadPhone (NEXT-BRIEF §24): the "I'm
@@ -4016,7 +4039,9 @@ service cloud.firestore {
     }
 
     match /kidsSettings/{siteId} {
-      allow read: if volunteer() || kidsLead(siteId);
+      // sgLeadOrDeputy: the whole list (a query cannot prove kidsLead for each site), as the register
+      // and the Menu read it, for a lead or deputy on no team (5 Nov 2026: a role holder on no team was refused it on their own pages).
+      allow read: if volunteer() || kidsLead(siteId) || sgLeadOrDeputy();
       // Who the leads are is set by a master admin or the safeguarding lead.
       allow write: if ((isMaster() || sgLeadOf(siteId))
                    && request.resource.data.get('teams', []) is list && request.resource.data.get('teams', []).size() <= 500
@@ -5376,7 +5401,9 @@ service cloud.firestore {
                  && planGroup(gid).get('teamName', '-') in teamsCovered());
     }
     match /planGroups/{gid} {
-      allow read: if isMaster()
+      // sgLeadOf: the lead or deputy of its site, adding the children's and youth groups to the
+      // safeguarding risk register (5 Nov 2026: a role holder on no team was refused it on their own pages)
+      allow read: if isMaster() || sgLeadOf(resource.data.get('siteId', ''))
                   || (active() && (me().get('memberId', '-') in resource.data.get('leaderIds', [])
                                    || resource.data.get('teamName', '-') in teamsCovered()));
       allow write: if isMaster()
