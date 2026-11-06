@@ -390,6 +390,10 @@ const FIXTURES = {
   windowok: FIX_HEAD + '<h1>The page</h1><button onclick="this.textContent=\'x\'">Behind one</button><button onclick="this.textContent=\'y\'">Behind two</button><div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:110;overflow:auto;padding:24px"><div style="background:#fff;padding:16px"><h2>The window</h2><button onclick="this.textContent=this.textContent===\'Tap\'?\'Done\':\'Tap\'">Tap</button></div></div></body></html>',
   /* The same window with a button covered INSIDE it: still covered. */
   windowcovered: FIX_HEAD + '<h1>The page</h1><div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:110;overflow:auto;padding:24px"><div style="background:#fff;padding:16px"><h2>The window</h2><div style="position:relative"><button onclick="this.textContent=\'x\'">Under, in the window</button><div style="position:absolute;inset:0;background:rgba(0,0,0,.01)"></div></div></div></div></body></html>',
+  /* A window that is absolute, not fixed, over the main area with a dim backdrop (the training portal's): passes. */
+  windowabs: FIX_HEAD + '<div style="position:relative;min-height:600px"><h1>The page</h1><button onclick="this.textContent=\'x\'">Behind one</button><div style="position:absolute;inset:0;background:rgba(20,32,31,.5);display:flex;align-items:center;justify-content:center"><div style="background:#fff;padding:16px"><h2>The window</h2><button onclick="this.textContent=this.textContent===\'Tap\'?\'Done\':\'Tap\'">Tap</button></div></div></div></body></html>',
+  /* The same place with a near-clear absolute cover, also judged as a state: not a window, still covered. */
+  windowclear: FIX_HEAD + '<div style="position:relative;min-height:600px"><h1>The page</h1><button onclick="this.textContent=\'x\'">Under a faint cover</button><div style="position:absolute;inset:0;background:rgba(0,0,0,.01)"></div></div></body></html>',
   /* A bottom bar with an open window over it, the window longer than the screen: its end is not "hidden". Passes. */
   barok: FIX_HEAD + '<h1>A bar under a window</h1><div style="height:1500px">The page</div><div style="position:fixed;left:0;right:0;bottom:0;height:56px;background:#eee;z-index:40">Bottom bar</div><div style="position:fixed;inset:0;z-index:110;background:rgba(0,0,0,.4);overflow:auto;padding:24px"><div style="background:#fff;padding:16px"><h2>The window</h2><p style="height:1400px">A long window</p><button onclick="this.textContent=this.textContent===\'Tap\'?\'Done\':\'Tap\'">Tap</button></div></div></body></html>',
   /* A page that ends under a real bottom bar, nothing over it: still hidden. */
@@ -630,10 +634,29 @@ const CONTROLS = `(function(){
 })()`;
 
 /* ---------------- one browser ---------------- */
+/* MEMORY, WATCHED FROM OUTSIDE THE PRESSES (6 Nov 2026: the press loop's
+   check every 10 presses never fired while a state's fields were filled, and
+   the machine went under 1 GB). Free memory is read every 5 s. The press loop
+   and each state read MEM and start a fresh browser under 1.5 GB; under
+   0.9 GB the run closes its browsers and stops - its finished screens are
+   saved, so --resume carries on. Never in --self-test. */
+const CHROMES = new Set();
+let MEM = os.freemem();
+setInterval(() => {
+  MEM = os.freemem();
+  if (MEM < 0.9 * 2 ** 30 && !flag('self-test')) {
+    console.log('STOPPED: only ' + (MEM / 2 ** 30).toFixed(2) + ' GB free. Finished screens are saved; carry on with --resume.');
+    CHROMES.forEach((c) => { try { c.kill(); } catch (e) {} });
+    process.exit(3);
+  }
+}, 5000).unref();
+const memLow = () => MEM < 1.5 * 2 ** 30;
+
 async function browser(port, tag) {
   const dir = path.join(os.tmpdir(), 'cdp-audit-' + tag + '-' + process.pid);
   const chrome = spawn(CHROME, ['--headless=new', '--remote-debugging-port=' + port, '--user-data-dir=' + dir,
     '--disable-features=BackForwardCache', '--mute-audio', 'about:blank'], { stdio: 'ignore' });
+  CHROMES.add(chrome); chrome.on('exit', () => CHROMES.delete(chrome));
   const getJSON = p => new Promise((res, rej) => http.get({ host: '127.0.0.1', port, path: p }, r => { let d = ''; r.on('data', c => d += c); r.on('end', () => { try { res(JSON.parse(d)); } catch (e) { rej(e); } }); }).on('error', rej));
   let list; for (let i = 0; i < 60; i++) { try { list = await getJSON('/json/list'); if (list.find(x => x.type === 'page')) break; } catch { /* starting */ } await sleep(500); }
   const page = list.find(x => x.type === 'page');
@@ -828,7 +851,7 @@ async function tapAll(B, url, reopen, ctx) {
        keeps what it leaks. Every 10 presses: under 1.5 GB free, a fresh
        browser, signed in again, the screen opened again; still under 1 GB,
        the run stops, its finished screens saved, for --resume. */
-    if (guard && guard % 10 === 0 && !SELF && ctx.base && ctx.role && os.freemem() < 1.5 * 2 ** 30) {
+    if (guard && !SELF && ctx.base && ctx.role && memLow()) {   /* before every press (MEM, read every 5 s) */
       console.log('          (only ' + (os.freemem() / 2 ** 30).toFixed(1) + ' GB free: a fresh browser)');
       await B.restart(); await B.size(...ALL_SIZES[ctx.size]); await signIn(B, ctx.base, ctx.role); await reopen();
       if (os.freemem() < 2 ** 30) { console.log('STOPPED: under 1 GB free even with a fresh browser. Finished screens are saved; carry on with --resume.'); process.exit(3); }
@@ -884,8 +907,13 @@ async function tapAll(B, url, reopen, ctx) {
          "covered" (the training portal's edit mode redraws its menu with every
          fold shut, after a fold's rows were listed open; 6 Nov 2026). */
       + 'var clipped=false;for(var an=el.parentElement;an&&an!==document.body;an=an.parentElement){var cs=getComputedStyle(an);if(cs.overflow!=="visible"||cs.overflowY!=="visible"){var ar=an.getBoundingClientRect();if(x<=ar.left||x>=ar.right||y<=ar.top||y>=ar.bottom){clipped=true;break;}}}'
-      /* Behind a fixed layer (an open window or its backdrop) that does not hold it. */
-      + 'var fx=null;for(var hn=hit;hn&&hn!==document.body;hn=hn.parentElement){if(getComputedStyle(hn).position==="fixed"){fx=hn;break;}}var behind=!!fx&&!fx.contains(el);'
+      /* Behind a window layer that does not hold it: a fixed one, or an absolute
+         one over a third of the screen with a visible dim backdrop (the training
+         portal's windows cover only its main area, 6 Nov 2026). A near-clear
+         cover is not a window, and still reads as covered. */
+      + 'var fx=null;for(var hn=hit;hn&&hn!==document.body;hn=hn.parentElement){var hs=getComputedStyle(hn);if(hs.position==="fixed"){fx=hn;break;}'
+      + 'if(hs.position==="absolute"){var hr=hn.getBoundingClientRect(),bm=/rgba?\\(([^)]+)\\)/.exec(hs.backgroundColor),bp=bm?bm[1].split(","):[],al=bp.length>3?+bp[3]:(bp.length?1:0);'
+      + 'if(hr.width*hr.height>=innerWidth*innerHeight*0.35&&al>=0.1){fx=hn;break;}}}var behind=!!fx&&!fx.contains(el);'
       + 'var vv=window.visualViewport;return JSON.stringify({clipped:clipped,behind:behind,x:x,y:y,vx:vv?vv.offsetLeft:0,vy:vv?vv.offsetTop:0,ok:!!hit&&(hit===el||el.contains(hit)||hit.contains(el)),shell:!!(hit&&hit.closest&&hit.closest("[id^=egbc-you],[id^=egbc-nav]")),by:hit?(hit.tagName+(hit.id?"#"+hit.id:"")+(typeof hit.className==="string"&&hit.className?"."+hit.className.trim().split(/\\s+/)[0]:"")):"nothing"})})()')) || 'null');
     if (!pt) continue;
     /* Clipped away in a shut fold: never pressed, whatever the point test
@@ -910,8 +938,10 @@ async function tapAll(B, url, reopen, ctx) {
          is the first view's, pressed there. A control behind the window the
          state opened, with that window still the one open, is not this
          state's to press (the hub's states, 6 Nov 2026). One covered inside
-         the window still fails. */
-      if (ctx.state && pt.behind && resting !== 'null' && ((await B.ev(OVERLAY)) || 'null') === resting) { notUsed(next, 'behind the window this state opens'); continue; }
+         the window still fails. A state's screen is opened afresh before every
+         press, so a window over it is the state's own - including one the
+         OVERLAY check cannot see (an absolute one: resting 'null'). */
+      if (ctx.state && pt.behind) { notUsed(next, 'behind the window this state opens'); continue; }   /* no match on the recorded window: it can be read before the window has opened (the hub's notice) */
       why.push('covered: "' + (next.words || next.href) + '" is under ' + pt.by); notUsed(next, 'covered by ' + pt.by); continue;
     }
     const overBefore = (await B.ev(OVERLAY)) || 'null';
@@ -1436,7 +1466,7 @@ async function runRole(B, role, size, base, shared) {
     if (!(st.roles === 'all' || [].concat(st.roles || []).includes(role))) continue;
     if (ONLY_PAGES && !ONLY_PAGES.includes(st.url.split('?')[0])) continue;
     if (ONLY_STATE && !ONLY_STATE.split('|').some((w) => st.name.includes(w))) continue;
-    if (B.isDead()) { await B.restart(); await B.size(...ALL_SIZES[size]); await signIn(B, base, role); }
+    if (B.isDead() || memLow()) { if (memLow()) console.log("          (only " + (MEM / 2 ** 30).toFixed(1) + " GB free: a fresh browser before the next state)"); await B.restart(); await B.size(...ALL_SIZES[size]); await signIn(B, base, role); }
     await auditScreen(B, { role, size, screen: st.url.split('?')[0] + ' (state: ' + st.name + ')', url: base + st.url, inApp: false, taps: tapsHere, base, steps: st.steps, must: st.must, reads: st.reads });
   }
   /* ---- the app ---- */
@@ -1470,7 +1500,7 @@ async function selfTest(base) {
   const liveOk = liveWordsCheck();
   const B = await browser(PORT0, 'self');
   const expect = { clean: null, console: 'console', overflow: 'overflow', bars: 'bars', chrome: 'chrome', dead: 'dead', covered: 'covered', sheet: 'sheet', hidden: 'hidden', insideapp: 'chrome', small: 'small',
-    foldok: null, foldcovered: 'covered', windowok: null, windowcovered: 'covered', barok: null, hiddenbottom: 'hidden' };
+    foldok: null, foldcovered: 'covered', windowok: null, windowcovered: 'covered', windowabs: null, windowclear: 'covered', barok: null, hiddenbottom: 'hidden' };
   let bad = 0;
   try {
     for (const [name, rule] of Object.entries(expect)) {
@@ -1481,6 +1511,11 @@ async function selfTest(base) {
       const good = rule ? rules.includes(rule) : r.pass;
       if (!good) bad++;
       console.log('  ' + (good ? 'PASS' : 'FAIL') + '  the ' + name + ' page ' + (rule ? 'is caught by "' + rule + '"' : 'passes') + (good ? '' : '   got: ' + (r.why.join(' | ') || 'a pass')));
+      /* A page that did not behave: what the audit pressed and what it set aside, and why. */
+      if (!good) {
+        REACHED.filter((x) => x.screen === name).forEach((x) => console.log('          pressed: ' + JSON.stringify(x.keys).slice(0, 80) + ' (' + x.how + ')'));
+        SKIPPED_KEYS.filter((x) => x.screen === name).forEach((x) => console.log('          set aside: ' + (x.words || JSON.stringify(x.keys).slice(0, 60)) + ' - ' + x.why));
+      }
     }
     /* The access rule, both ways, judged as the run judges it. */
     const acc = (should, refused) => should ? !refused : !!refused;

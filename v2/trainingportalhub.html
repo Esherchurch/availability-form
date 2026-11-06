@@ -167,7 +167,7 @@
 
         /* ── RICH TEXT EDITOR ── */
         .rte-toolbar { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 10px; background: var(--surface-2); border: 1px solid var(--hairline-strong); border-bottom: none; border-radius: var(--r-md) var(--r-md) 0 0; margin-top: 10px; }
-        .rte-btn { padding: 5px 9px; background: var(--surface); border: 1px solid var(--hairline-strong); border-radius: var(--r-sm); cursor: pointer; font-size: 12px; font-weight: 700; color: var(--brand-teal); transition: all 0.15s; line-height: 1.4; }
+        .rte-btn { min-width: 32px; min-height: 32px; /* 23-29px at 375 (the states audit, 6 Nov 2026) */ padding: 5px 9px; background: var(--surface); border: 1px solid var(--hairline-strong); border-radius: var(--r-sm); cursor: pointer; font-size: 12px; font-weight: 700; color: var(--brand-teal); transition: all 0.15s; line-height: 1.4; }
         .rte-btn:hover { background: var(--brand-teal); color: white; border-color: var(--brand-teal); }
         .rte-btn.separator { background: none; border: none; border-left: 1px solid var(--hairline-strong); padding: 0 2px; cursor: default; color: transparent; border-radius: 0; }
         .rte-select { padding: 5px 7px; border: 1px solid var(--hairline-strong); border-radius: var(--r-sm); font-size: 12px; color: var(--brand-teal); background: var(--surface); cursor: pointer; outline: none; }
@@ -318,25 +318,25 @@
                                 <option value="5">X-Large</option>
                             </select>
                             <span class="rte-btn separator">|</span>
-                            <button class="rte-btn" onclick="execCmd('bold')"><b>B</b></button>
-                            <button class="rte-btn" onclick="execCmd('italic')"><i>I</i></button>
-                            <button class="rte-btn" onclick="execCmd('underline')"><u>U</u></button>
+                            <button class="rte-btn" data-needs-selection onclick="execCmd('bold')"><b>B</b></button>
+                            <button class="rte-btn" data-needs-selection onclick="execCmd('italic')"><i>I</i></button>
+                            <button class="rte-btn" data-needs-selection onclick="execCmd('underline')"><u>U</u></button>
                             <span class="rte-btn separator">|</span>
-                            <button class="rte-btn" onclick="execCmd('justifyLeft')">⬅</button>
-                            <button class="rte-btn" onclick="execCmd('justifyCenter')">☰</button>
-                            <button class="rte-btn" onclick="execCmd('justifyRight')">➡</button>
+                            <button class="rte-btn" data-needs-selection onclick="execCmd('justifyLeft')">⬅</button>
+                            <button class="rte-btn" data-needs-selection onclick="execCmd('justifyCenter')">☰</button>
+                            <button class="rte-btn" data-needs-selection onclick="execCmd('justifyRight')">➡</button>
                             <span class="rte-btn separator">|</span>
-                            <button class="rte-btn" onclick="execCmd('insertUnorderedList')">• List</button>
-                            <button class="rte-btn" onclick="execCmd('insertOrderedList')">1. List</button>
+                            <button class="rte-btn" data-needs-selection onclick="execCmd('insertUnorderedList')">• List</button>
+                            <button class="rte-btn" data-needs-selection onclick="execCmd('insertOrderedList')">1. List</button>
                             <span class="rte-btn separator">|</span>
                             <button class="rte-btn" onclick="insertLink()">🔗</button>
                             <button class="rte-btn" onclick="insertImageUrl()">🖼</button>
                             <span class="rte-btn separator">|</span>
                             <input type="color" id="rte-color" style="width:28px;height:28px;padding:1px;border:1px solid var(--border);border-radius:4px;cursor:pointer;" onchange="execCmd('foreColor',this.value)">
                             <span class="rte-btn separator">|</span>
-                            <button class="rte-btn" onclick="execCmd('undo')">↩</button>
-                            <button class="rte-btn" onclick="execCmd('redo')">↪</button>
-                            <button class="rte-btn" onclick="execCmd('removeFormat')" style="font-size:10px;">Clear</button>
+                            <button class="rte-btn" data-needs-selection onclick="execCmd('undo')">↩</button>
+                            <button class="rte-btn" data-needs-selection onclick="execCmd('redo')">↪</button>
+                            <button class="rte-btn" data-needs-selection onclick="execCmd('removeFormat')" style="font-size:10px;">Clear</button>
                         </div>
                         <div id="rte-area" class="rte-area" contenteditable="true"></div>
                         <div id="img-resize-bar">
