@@ -157,8 +157,10 @@ export default async function seedStage3({ put, roles, dayIso }) {
      but not yet checked, with more of its pages to read (the host's controls) */
   await put('sgAssessments/ev_s3d', { calEventId: 'ev_s3d', siteId: SITE, status: 'draft', version: 1, templateId: 'holidayclub', answers: {}, flags: {}, updatedAt: iso,
     risks: [{ id: 'rk_s3', risk: 'Deep water nearby (synthetic)', who: 'Children', l: 5, i: 5, rl: 4, ri: 5, controls: [], todo: [] }],
-    host: { name: 'Hilltop Farm (synthetic)', confirmed: false, file: { name: 'requirements (synthetic).pdf', path: '' }, items: [{ id: 'h1', q: 'Is every adult briefed on the farm rules? (synthetic)' }],
+    host: { name: 'Hilltop Farm (synthetic)', confirmed: false, file: { name: 'requirements (synthetic).txt', type: 'text/plain', path: 'sgRequirements/ev_s3d/1-requirements (synthetic).txt' }, items: [{ id: 'h1', q: 'Is every adult briefed on the farm rules? (synthetic)' }],
       web: { starts: ['https://farm.example.invalid/help'], pages: [{ url: 'https://farm.example.invalid/help/a', title: 'Rules (synthetic)' }], next: ['https://farm.example.invalid/help/b'] } } });
+  /* the host's file itself, as sgRequirementsFromFile stores it, so "the original file" opens */
+  await store('sgRequirements/ev_s3d/1-requirements (synthetic).txt', 'text/plain', 'Every adult is briefed on the farm rules. (synthetic)');
   await put('sgAssessments/ev_s3e', { calEventId: 'ev_s3e', siteId: SITE, status: 'signed', version: 1, templateId: 'holidayclub', answers: {}, risks: [], flags: {},
     signedBy: uid('sgLead'), signedByName: 'Safeguarding lead (synthetic)', signedByRole: 'Safeguarding lead', signedAt: iso, updatedAt: iso });
   /* a concern and an incident at the holiday club (general words only) */
@@ -212,6 +214,8 @@ export default async function seedStage3({ put, roles, dayIso }) {
   const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
   await put('presentDecks/deck_s3', { status: 'ready', count: 1, ratio: 16 / 9, name: 'Sound deck (synthetic).pptx', context: { type: 'session', groupId: 'pg_s3', sessionId: 'ps_s3m' },
     media: [{ shown: 0, k: 0, kind: 'audio', src: 'm1.mp3', light: '', rect: [0.1, 0.1, 0.2, 0.2], start: 'click', loop: false, volume: 1 }], createdBy: uid('groupLeader'), updatedAt: iso });
+  /* a ready deck always has its notes (converter/convert.mjs writes them as it finishes), read by presenters only */
+  await put('presentNotes/deck_s3', { notes: ['A made-up note'], context: { type: 'session', groupId: 'pg_s3', sessionId: 'ps_s3m' } });
   await store('present/deck_s3/s1.jpg', 'image/jpeg', PNG);
   await store('present/deck_s3/t1.jpg', 'image/jpeg', PNG);
   await store('present/deck_s3/m1.mp3', 'audio/mpeg', Buffer.from('ID3 made-up sound (synthetic)'));

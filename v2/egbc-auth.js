@@ -1941,8 +1941,21 @@
             mountViewAsBar();
             resolve(profile);
           }).catch(function (e) {
-            console.error('EGBCAuth profile load failed', e);
-            EGBCAuth._blockPage('Something went wrong', e.message, null);
+            /* A young person signs in with a code (the youth claim) and the
+               rules give them no sign-in record of their own, so on a page for
+               leaders the profile cannot load. That is not "something went
+               wrong": say whose page it is and point them at their Hub (the
+               full Stage 3 run, 6 Nov 2026). */
+            user.getIdTokenResult().then(function (t) { return !!(t && t.claims && t.claims.youth); }, function () { return false; }).then(function (youth) {
+              if (youth) {
+                EGBCAuth._blockPage('This page is for leaders',
+                  'This part of the app is for the church\'s leaders and teams. ' +
+                  '<a href="youthapp2.html" style="color:#5f7a4a;font-weight:800">Open the Youth Hub</a>', null);
+                return;
+              }
+              console.error('EGBCAuth profile load failed', e);
+              EGBCAuth._blockPage('Something went wrong', e.message, null);
+            });
           });
         });
       });
