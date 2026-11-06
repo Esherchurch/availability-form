@@ -161,7 +161,12 @@ try {
     await sleep(1500);
     const toks = (await all('pushOutbox')).slice(pushedBefore).flatMap((x) => x.tokens || []);
     ok('3. THE LEAD AND THE DEPUTY are told on their phones' + at, toks.includes('tok-lea') && toks.includes('tok-dee'), JSON.stringify(toks));
-    ok('   and nobody else: not the office, the master admin, the volunteer or the sender' + at, toks.every((t) => t === 'tok-lea' || t === 'tok-dee'), JSON.stringify(toks));
+    /* Judged by whose phone, not by the exact token: a push from the
+       previous size's step 7 (tok-dee-dee375) can land late, after the
+       tokens are put back (the events window's run at 0f7afacb: 43/44).
+       It still went to the deputy, so it is no leak. Anyone else's
+       token is 'tok-' + their own key, which this never matches. */
+    ok('   and nobody else: not the office, the master admin, the volunteer or the sender' + at, toks.every((t) => /^tok-(lea|dee)(-|$)/.test(t)), JSON.stringify(toks));
     ok('   told which kind only, never the words' + at, !JSON.stringify(pushes).includes('worried about something') && !JSON.stringify(pushes).includes('Sam'), JSON.stringify(pushes).slice(0, 300));
 
     for (const k of ['lea', 'dee']) {
