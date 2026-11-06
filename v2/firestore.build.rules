@@ -133,8 +133,9 @@ allow update: if signedIn() && request.auth.uid == uid
 allow update: if isMaster();
 allow update: if isAdmin()
 && request.resource.data.diff(resource.data).affectedKeys()
-.hasOnly(['teams', 'status', 'name', 'lastSeen', 'memberId', 'linkedBy'])
-&& me().get('adminFor', []).hasAny(request.resource.data.get('teams', []));
+.hasOnly(['teams', 'status', 'name', 'lastSeen', 'memberId', 'linkedBy', 'roles'])
+&& me().get('adminFor', []).hasAny(request.resource.data.get('teams', []))
+&& request.resource.data.get('roles', {}).diff(resource.data.get('roles', {})).affectedKeys().hasOnly(me().get('adminFor', []));
 allow delete: if isAdmin();
 }
 match /calendarKeys/{uid} {
@@ -169,6 +170,7 @@ return isAdmin()
 && now.toSet().difference(was.toSet()).hasOnly(mine)
 && was.toSet().difference(now.toSet()).hasOnly(mine)
 && request.resource.data.get('adminFor', []) == (resource == null ? [] : resource.data.get('adminFor', []))
+&& request.resource.data.get('roles', {}).diff(resource == null ? {} : resource.data.get('roles', {})).affectedKeys().hasOnly(mine)
 && request.resource.data.get('masterAdmin', false) == (resource == null ? false : resource.data.get('masterAdmin', false))
 && request.resource.data.get('isMinor', false) == (resource == null ? false : resource.data.get('isMinor', false))
 && request.resource.data.get('under18', false) == (resource == null ? false : resource.data.get('under18', false))));

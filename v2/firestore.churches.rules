@@ -155,6 +155,7 @@ return isAdmin()
 && now.toSet().difference(was.toSet()).hasOnly(mine)
 && was.toSet().difference(now.toSet()).hasOnly(mine)
 && request.resource.data.get('adminFor', []) == (resource == null ? [] : resource.data.get('adminFor', []))
+&& request.resource.data.get('roles', {}).diff(resource == null ? {} : resource.data.get('roles', {})).affectedKeys().hasOnly(mine)
 && request.resource.data.get('masterAdmin', false) == (resource == null ? false : resource.data.get('masterAdmin', false))
 && request.resource.data.get('isMinor', false) == (resource == null ? false : resource.data.get('isMinor', false))
 && request.resource.data.get('under18', false) == (resource == null ? false : resource.data.get('under18', false))));

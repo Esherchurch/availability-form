@@ -395,14 +395,18 @@ service cloud.firestore {
                     && claimsNothing(request.resource.data);
 
       // Admins may change teams, roles and status.
-      // Master admins may change anything. A team admin may change teams and
-      // status, but only for areas they administer - and never adminFor or
-      // masterAdmin, so admin rights cannot be self-granted or handed on.
+      // Master admins may change anything. A team admin may change teams,
+      // status and a person's role on a team, but only for areas they
+      // administer - and never adminFor or masterAdmin, so admin rights cannot
+      // be self-granted or handed on. Roles: the People tab offers a team admin
+      // Member / Leader / Admin, which was refused here (6 Nov 2026); only the
+      // keys for their own teams may change.
       allow update: if isMaster();
       allow update: if isAdmin()
                     && request.resource.data.diff(resource.data).affectedKeys()
-                         .hasOnly(['teams', 'status', 'name', 'lastSeen', 'memberId', 'linkedBy'])
-                    && me().get('adminFor', []).hasAny(request.resource.data.get('teams', []));
+                         .hasOnly(['teams', 'status', 'name', 'lastSeen', 'memberId', 'linkedBy', 'roles'])
+                    && me().get('adminFor', []).hasAny(request.resource.data.get('teams', []))
+                    && request.resource.data.get('roles', {}).diff(resource.data.get('roles', {})).affectedKeys().hasOnly(me().get('adminFor', []));
 
       allow delete: if isAdmin();
     }
@@ -553,6 +557,10 @@ service cloud.firestore {
                  && now.toSet().difference(was.toSet()).hasOnly(mine)
                  && was.toSet().difference(now.toSet()).hasOnly(mine)
                  && request.resource.data.get('adminFor', []) == (resource == null ? [] : resource.data.get('adminFor', []))
+                 // A person's role on a team (Member, Leader, Admin) only for the teams this admin runs: in a
+                 // church, churchBookToUsers copies roles onto users, where a leader may book rooms (leadsOrCore).
+                 // Before, roles were not checked, so a team admin could make anyone a leader of any team (6 Nov 2026).
+                 && request.resource.data.get('roles', {}).diff(resource == null ? {} : resource.data.get('roles', {})).affectedKeys().hasOnly(mine)
                  && request.resource.data.get('masterAdmin', false) == (resource == null ? false : resource.data.get('masterAdmin', false))
                  && request.resource.data.get('isMinor', false) == (resource == null ? false : resource.data.get('isMinor', false))
                  // Under 18 (never emailed): the office's to set, like Under 16.
