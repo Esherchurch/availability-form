@@ -11,7 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202611060000"></script>
+<script src="egbc-auth.js?v=202611061100"></script>
 <script src="egbc-church.js?v=202611031810"></script>
 <script src="egbc-guard.js?v=202611030600"></script>
 <script src="egbc-email.js?v=202610212000"></script>
@@ -346,7 +346,7 @@
     var box = document.getElementById('g-form');
     function drawLeaders() {
       document.getElementById('g-leaders').innerHTML = leaders.length ? leaders.map(function (m) {
-        return '<span class="pill ok" data-leader="' + esc(m) + '">' + esc((person(m) || {}).name || m) + ' <button class="btn sec" style="height:20px;padding:0 6px" data-unlead="' + esc(m) + '">&times;</button></span>'; }).join('') : '<span class="hint">None yet.</span>';
+        return '<span class="pill ok" data-leader="' + esc(m) + '">' + esc((person(m) || {}).name || m) + ' <button class="btn sec" style="height:32px;min-width:32px;padding:0 8px" aria-label="Remove" data-unlead="' + esc(m) + '">&times;</button></span>'; }).join('') : '<span class="hint">None yet.</span>';
       box.querySelectorAll('[data-unlead]').forEach(function (b) { b.onclick = function () { leaders = leaders.filter(function (x) { return x !== b.dataset.unlead; }); drawLeaders(); }; });
     }
     box.innerHTML = '<div class="card" id="g-card"><h2>' + (g.id ? esc(g.name) : 'A new group') + '</h2>' +

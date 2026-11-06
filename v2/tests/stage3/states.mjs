@@ -223,11 +223,20 @@ const SCREENS = [
      formRequests, sensitiveResponses (a query)  asked first for the whole event, then by site and by form
                             (egbc-events-safeguarding.js listForEvent): the first is a master admin's
      addressBook/<someone>  the building's leads' names, "where the address book can be read (the office);
-                            otherwise their roles only" (assessment.html) */
+                            otherwise their roles only" (assessment.html)
+   (the full run of 6 Nov 2026:)
+     kidsMornings/<site>_<today>  today's morning before anyone opens it: there is no record, so the rules
+                            can only refuse it (a missing record has no site to check); check-in reads the
+                            refusal as "no morning open" (kids-checkin.html begin). An open morning is read
+                            as before: the rules suite holds who may read it.
+     eventLeaders/<event>   safeguarding.html's home asks for each upcoming event's leaders to find the
+                            ones you lead; refused, you lead none of them (a named leader may read it:
+                            leaderUids), which is the answer (egbc-events-safeguarding.js leadersOf) */
 const NOT_LEADS = ['hsLead', 'fireLead', 'organiser', 'bookingsAdmin'];
-const MEANT_ALL = [/^get teamMailSettings\/main$/, /^get (formRequests|sensitiveResponses) \(a query\)$/];
+const MEANT_ALL = [/^get teamMailSettings\/main$/, /^get (formRequests|sensitiveResponses) \(a query\)$/, /^get kidsMornings\/[\w-]+_\d{4}-\d\d-\d\d$/];
 const MEANT = {};
 for (const r of ['master', 'kidsLead', 'groupLeader', 'sgLead', 'sgDeputy', 'parent', 'youth', 'kids', 'worship', 'core', 'everyone'].concat(NOT_LEADS)) MEANT[r] = MEANT_ALL.slice();
-for (const r of NOT_LEADS.concat(['parent', 'youth', 'groupLeader'])) MEANT[r].push(/^get kidsSettings$/, /^get safeguardingSettings\/defaults$/);
+for (const r of NOT_LEADS.concat(['parent', 'youth', 'groupLeader', 'everyone', 'worship', 'core'])) MEANT[r].push(/^get kidsSettings$/, /^get safeguardingSettings\/defaults$/);
+for (const r of ['everyone', 'parent', 'youth', 'bookingsAdmin']) MEANT[r].push(/^get eventLeaders\/[\w-]+$/);
 for (const r of ['hsLead', 'fireLead']) MEANT[r].push(/^get addressBook\/[\w-]+$/);
 export default SCREENS.map((st) => Object.assign({}, st, { reads: Object.assign({}, MEANT, st.reads || {}) }));

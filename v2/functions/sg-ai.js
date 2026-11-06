@@ -351,10 +351,11 @@ export const sgRequirementsFile = onCall({ region: REGION }, async (req) => {
   const calEventId = String((req.data || {}).calEventId || '');
   if (!calEventId || calEventId.includes('/')) throw new HttpsError('invalid-argument', 'Which event?');
   const a = (await D.collection('sgAssessments').doc(calEventId).get()).data();
-  if (!a || !a.host || !a.host.file) throw new HttpsError('not-found', 'No file has been added.');
+  /* no path (or the file gone from Storage) is "no file", not an internal error (the full Stage 3 run, 6 Nov 2026) */
+  if (!a || !a.host || !a.host.file || !a.host.file.path) throw new HttpsError('not-found', 'No file has been added.');
   const w = await whoFor(D, req.auth.uid, calEventId);
   if (!w.ok && !(await maySee(D, req.auth.uid, a.siteId))) throw new HttpsError('permission-denied', 'This is for those who can see the assessment.');
-  const [buf] = await B.file(a.host.file.path).download();
+  const [buf] = await B.file(a.host.file.path).download().catch(() => { throw new HttpsError('not-found', 'The file is no longer there; add it again.'); });
   return { name: a.host.file.name, type: a.host.file.type, data: buf.toString('base64') };
 });
 

@@ -1992,6 +1992,10 @@
             mountViewAsBar();
             resolve(profile);
           }).catch(function (e) {
+            /* A young person (the youth claim, no sign-in record of their own)
+               or anyone else whose profile read is refused gets a plain card,
+               never the raw error: refusedCard (Martin, 5 Nov 2026; the
+               events window's full Stage 3 run, 6 Nov 2026, found the same). */
             console.error('EGBCAuth profile load failed', e);
             refusedCard(user, e);
           });

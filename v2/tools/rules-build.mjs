@@ -19,6 +19,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { shorten, LOOKUPS } from './rules-lookups.mjs';
 
 const V2 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const SOURCE = 'firestore.rules';
@@ -26,6 +27,12 @@ export const BUILT = 'firestore.build.rules';
 /* The working limit: 256 KB is Firebase's, the compiled ruleset may be a
    little bigger or smaller, so we keep a margin (the reviewing window). */
 export const LIMIT = 230 * 1024;
+/* AND A WARNING LINE 2% UNDER IT (the reviewing window, 6 Nov 2026): the
+   church rules were at 230,053 of 235,520 bytes, so a fix could stop
+   fitting. The build and the check fail once any ruleset passes this line,
+   so room is made deliberately (shared functions, never a weaker rule)
+   before a fix is squeezed in. */
+export const WARN = Math.floor(LIMIT * 0.98);
 const HEADER = '// GENERATED from firestore.rules by tools/rules-build.mjs - do not edit; edit firestore.rules and run the build.\n';
 
 /* The rules with comments out and whitespace squeezed; strings untouched. */
@@ -51,7 +58,10 @@ export function strip(src) {
   return out.trim() + '\n';
 }
 
-export function build(src) { return HEADER + strip(src); }
+/* The ten most repeated lookups are written once each, as functions
+   (tools/rules-lookups.mjs; 6 Nov 2026). { lookups: false } builds without
+   them, for the check that both give the same rules. */
+export function build(src, o = {}) { return HEADER + (o.lookups === false ? strip(src) : shorten(strip(src))); }
 
 /* The collections firestore.rules opens at the top (four spaces in), less
    Church HQ's directory: every one of these is also a church's, under
@@ -128,8 +138,8 @@ const LEFT_OUT = [
 ];
 const DIRECTORY = [/^match \/hqChurches\//, /^match \/hqMemberships\//, /^match \/hqSlugs\//];
 
-export function buildChurch(src) {
-  const docs = blockBody(strip(src), 'match /databases/{database}/documents');
+export function buildChurch(src, o = {}) {
+  const docs = blockBody(o.lookups === false ? strip(src) : shorten(strip(src)), 'match /databases/{database}/documents');
   const all = items(docs);
   const heads = all.map(headOf);
   for (const need of ['function signedIn()', 'function me()', 'match /users/{uid}', 'match /{document=**}']) {
@@ -142,6 +152,8 @@ export function buildChurch(src) {
   if (!kept.some((it) => it.trim() === PERM_EGBC)) throw new Error('firestore.rules no longer has permKey(): the church build needs looking at');
   const moved = kept.map((it) => it.trim() === PERM_EGBC ? 'function permKey() { return cid; }' : it).map((it) => it.split('/databases/$(database)/documents/').join('/databases/$(database)/documents/churches/$(cid)/'));
   const directory = all.filter((it) => DIRECTORY.some((re) => re.test(headOf(it))));
+  /* The shared lookups live inside the church block, so the directory, outside it, can't call them. */
+  if (directory.some((it) => LOOKUPS.some((L) => new RegExp('(^|[^A-Za-z0-9_])' + L.name + '\\(').test(it)))) throw new Error('the directory uses a shared lookup: the church build needs looking at');
   return CHURCH_HEADER + [
     "rules_version = '2';",
     'service cloud.firestore {',
@@ -244,7 +256,7 @@ if (isMain) {
     const have = fs.existsSync(path.join(V2, BUILT)) ? fs.readFileSync(path.join(V2, BUILT), 'utf8').replace(/\r\n/g, '\n') : '';
     const fresh = have === want;
     console.log((fresh ? 'up to date' : 'OUT OF DATE: run node tools/rules-build.mjs') + '; ' + bytes + ' bytes of ' + LIMIT);
-    process.exit(fresh && bytes <= LIMIT ? 0 : 1);
+    process.exit(fresh && bytes <= WARN ? 0 : 1);
   }
   fs.writeFileSync(path.join(V2, BUILT), want);
   console.log('wrote ' + BUILT + ': ' + bytes + ' bytes (source ' + Buffer.byteLength(src) + '; limit ' + LIMIT + ')');
@@ -255,4 +267,7 @@ if (isMain) {
   fs.writeFileSync(path.join(V2, STORAGE_CHURCH_BUILT), stChurch);
   console.log('wrote ' + STORAGE_CHURCH_BUILT + ': ' + Buffer.byteLength(stChurch) + ' bytes');
   if (bytes > LIMIT || Buffer.byteLength(church) > LIMIT || Buffer.byteLength(stChurch) > LIMIT) { console.log('OVER THE LIMIT'); process.exit(1); }
+  const most = Math.max(bytes, Buffer.byteLength(church), Buffer.byteLength(stChurch));
+  if (most > WARN) { console.log('WITHIN 2% OF THE LIMIT: ' + most + ' bytes, the line is ' + WARN + ' - make room before adding more (tools/rules-build.mjs WARN)'); process.exit(1); }
+  console.log('room before the 2% line: ' + (WARN - most) + ' bytes');
 }

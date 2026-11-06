@@ -251,8 +251,19 @@
   EGBCAuth.require().then(function () {
     EGBCAppEvents.mountAll(EGBCApp);
     EGBCApp.start();
-    if (Q.get('space')) EGBCApp.go(Q.get('space'), Q.get('tab') || '');
-    window.__harnessReady = true;
+    /* A space that comes from a job (Maintenance: the buildings job) is known
+       only once the jobs have loaded, after require(); until then go() does
+       nothing and the app later opens the space on its first tab. So ask
+       again until the space and tab asked for are open, or 10 seconds pass
+       (someone who may not open it never will: close-room's attender). */
+    var space = Q.get('space'), tab = Q.get('tab') || '';
+    (function open(n) {
+      if (!space) { window.__harnessReady = true; return; }
+      EGBCApp.go(space, tab);
+      var s = EGBCApp.state();
+      if ((s.space !== space || (tab && s.tab !== tab)) && n < 40) { setTimeout(function () { open(n + 1); }, 250); return; }
+      window.__harnessReady = true;
+    })(0);
   });
 })();
 </script>

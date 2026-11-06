@@ -19,6 +19,16 @@ match /churches/{cid} {
 function signedIn() { return request.auth != null && cid in request.auth.token.churches; }
 allow read: if signedIn();
 allow write: if false;
+function sgDefaults() { return get(/databases/$(database)/documents/churches/$(cid)/safeguardingSettings/defaults); }
+function sgDefaultsHas() { return exists(/databases/$(database)/documents/churches/$(cid)/safeguardingSettings/defaults); }
+function calEvDoc(id) { return get(/databases/$(database)/documents/churches/$(cid)/calEvents/$(id)); }
+function calEvHas(id) { return exists(/databases/$(database)/documents/churches/$(cid)/calEvents/$(id)); }
+function siteHas(id) { return exists(/databases/$(database)/documents/churches/$(cid)/sites/$(id)); }
+function bookSetDoc(id) { return get(/databases/$(database)/documents/churches/$(cid)/bookingSettings/$(id)); }
+function bookSetHas(id) { return exists(/databases/$(database)/documents/churches/$(cid)/bookingSettings/$(id)); }
+function sgAssessDoc(id) { return get(/databases/$(database)/documents/churches/$(cid)/sgAssessments/$(id)); }
+function meetingDoc(id) { return get(/databases/$(database)/documents/churches/$(cid)/meetings/$(id)); }
+function kidsGroupDoc(id) { return get(/databases/$(database)/documents/churches/$(cid)/kidsGroups/$(id)); }
 function myRecord() {
 return get(/databases/$(database)/documents/churches/$(cid)/users/$(request.auth.uid));
 }
@@ -155,6 +165,7 @@ return isAdmin()
 && now.toSet().difference(was.toSet()).hasOnly(mine)
 && was.toSet().difference(now.toSet()).hasOnly(mine)
 && request.resource.data.get('adminFor', []) == (resource == null ? [] : resource.data.get('adminFor', []))
+&& request.resource.data.get('roles', {}).diff(resource == null ? {} : resource.data.get('roles', {})).affectedKeys().hasOnly(mine)
 && request.resource.data.get('masterAdmin', false) == (resource == null ? false : resource.data.get('masterAdmin', false))
 && request.resource.data.get('isMinor', false) == (resource == null ? false : resource.data.get('isMinor', false))
 && request.resource.data.get('under18', false) == (resource == null ? false : resource.data.get('under18', false))));
@@ -189,7 +200,7 @@ return volunteer()
 && (resource == null
 ? getAfter(/databases/$(database)/documents/churches/$(cid)/meetings/$(id)).data.get('organiserUid', '') == request.auth.uid
 : (resource.data.get('teams', ['-']).size() == 0
-&& get(/databases/$(database)/documents/churches/$(cid)/meetings/$(id)).data.get('organiserUid', '') == request.auth.uid));
+&& meetingDoc(id).data.get('organiserUid', '') == request.auth.uid));
 }
 function meetingInvited(d) {
 return active() && (isMaster() || (hasPerm('meetingsAll') && d.get('teams', []).size() > 0)
@@ -213,11 +224,11 @@ allow create, update: if (isAdmin() || onAnyTeam(request.resource.data.get('team
 && (resource == null || request.resource.data.get('organiserUid', '') == resource.data.get('organiserUid', ''));
 allow delete: if isAdmin() || (resource != null && resource.data.get('organiserUid', '') == request.auth.uid);
 match /quickVotes/{vid} {
-allow read: if meetingInvited(get(/databases/$(database)/documents/churches/$(cid)/meetings/$(meetingId)).data);
+allow read: if meetingInvited(meetingDoc(meetingId).data);
 allow write: if false;
 match /ballots/{uid} {
 allow get: if request.auth != null && request.auth.uid == uid;
-allow read: if meetingInvited(get(/databases/$(database)/documents/churches/$(cid)/meetings/$(meetingId)).data)
+allow read: if meetingInvited(meetingDoc(meetingId).data)
 && get(/databases/$(database)/documents/churches/$(cid)/meetings/$(meetingId)/quickVotes/$(vid)).data.secret == false
 && get(/databases/$(database)/documents/churches/$(cid)/meetings/$(meetingId)/quickVotes/$(vid)).data.status == 'closed';
 allow write: if false;
@@ -238,8 +249,8 @@ allow read: if isMaster();
 allow write: if false;
 }
 function sgLeadOrDeputy() {
-return exists(/databases/$(database)/documents/churches/$(cid)/safeguardingSettings/defaults)
-&& sgLeadOf(get(/databases/$(database)/documents/churches/$(cid)/safeguardingSettings/defaults).data.get('leadSiteId', ''));
+return sgDefaultsHas()
+&& sgLeadOf(sgDefaults().data.get('leadSiteId', ''));
 }
 function onPastoral() { return raOnJob('pastoral', ['Pastoral']); }
 function careNamed(kind) {
@@ -248,11 +259,11 @@ return active() && exists(/databases/$(database)/documents/churches/$(cid)/careR
 .get(kind, {}).get('memberIds', []);
 }
 function sgLeadSet() {
-return exists(/databases/$(database)/documents/churches/$(cid)/safeguardingSettings/defaults)
-&& get(/databases/$(database)/documents/churches/$(cid)/safeguardingSettings/defaults).data.get('leadSiteId', '') != ''
-&& exists(/databases/$(database)/documents/churches/$(cid)/bookingSettings/$(get(/databases/$(database)/documents/churches/$(cid)/safeguardingSettings/defaults).data.leadSiteId))
-&& (get(/databases/$(database)/documents/churches/$(cid)/bookingSettings/$(get(/databases/$(database)/documents/churches/$(cid)/safeguardingSettings/defaults).data.leadSiteId)).data.get('safeguardingLead', '') != ''
-|| get(/databases/$(database)/documents/churches/$(cid)/bookingSettings/$(get(/databases/$(database)/documents/churches/$(cid)/safeguardingSettings/defaults).data.leadSiteId)).data.get('safeguardingDeputy', '') != '');
+return sgDefaultsHas()
+&& sgDefaults().data.get('leadSiteId', '') != ''
+&& bookSetHas(sgDefaults().data.leadSiteId)
+&& (bookSetDoc(sgDefaults().data.leadSiteId).data.get('safeguardingLead', '') != ''
+|| bookSetDoc(sgDefaults().data.leadSiteId).data.get('safeguardingDeputy', '') != '');
 }
 function careKinds(d) {
 return d.keys().hasOnly(['memberIds', 'email'])
@@ -366,8 +377,8 @@ return !eventIsUnder18()
 && (slotEmptied() || rotaCleared(personInSlot())))));
 }
 function sgLeadChurchwide() {
-return exists(/databases/$(database)/documents/churches/$(cid)/safeguardingSettings/defaults)
-&& sgLeadOf(get(/databases/$(database)/documents/churches/$(cid)/safeguardingSettings/defaults).data.get('leadSiteId', ''));
+return sgDefaultsHas()
+&& sgLeadOf(sgDefaults().data.get('leadSiteId', ''));
 }
 match /rotaExceptions/{memberId} {
 allow read: if volunteer();
@@ -805,8 +816,8 @@ return active()
 }
 function eventTeamOf(calEventId) {
 return calEventId is string && calEventId != ''
-&& exists(/databases/$(database)/documents/churches/$(cid)/calEvents/$(calEventId))
-&& onEventTeam(get(/databases/$(database)/documents/churches/$(cid)/calEvents/$(calEventId)).data);
+&& calEvHas(calEventId)
+&& onEventTeam(calEvDoc(calEventId).data);
 }
 function runsThisEvent(ev) {
 return isMaster() || onEventTeam(ev)
@@ -815,8 +826,8 @@ return isMaster() || onEventTeam(ev)
 function runsEventId(calEventId) {
 return isMaster()
 || (calEventId is string && calEventId != ''
-&& exists(/databases/$(database)/documents/churches/$(cid)/calEvents/$(calEventId))
-&& runsThisEvent(get(/databases/$(database)/documents/churches/$(cid)/calEvents/$(calEventId)).data));
+&& calEvHas(calEventId)
+&& runsThisEvent(calEvDoc(calEventId).data));
 }
 function audienceAgrees() {
 let d = request.resource.data;
@@ -937,10 +948,10 @@ allow get, list: if isChurchMember() && resource.data.get('audience', []).hasAny
 }
 function canSignUpTo(calEventId) {
 return calEventId is string && calEventId != ''
-&& exists(/databases/$(database)/documents/churches/$(cid)/calEvents/$(calEventId))
-&& audienceOk(get(/databases/$(database)/documents/churches/$(cid)/calEvents/$(calEventId)).data.get('audience', []))
-&& (signupsOpen(get(/databases/$(database)/documents/churches/$(cid)/calEvents/$(calEventId)).data) || runsEventId(calEventId))
-&& (!sgNeedsSignoff(calEventId, get(/databases/$(database)/documents/churches/$(cid)/calEvents/$(calEventId)).data) || sgSignedOff(calEventId));
+&& calEvHas(calEventId)
+&& audienceOk(calEvDoc(calEventId).data.get('audience', []))
+&& (signupsOpen(calEvDoc(calEventId).data) || runsEventId(calEventId))
+&& (!sgNeedsSignoff(calEventId, calEvDoc(calEventId).data) || sgSignedOff(calEventId));
 }
 function signupsOpen(ev) {
 return ev.get('signupOn', false) == true && ev.get('status', 'confirmed') != 'cancelled';
@@ -1083,9 +1094,9 @@ allow delete: if isAdmin();
 function sgLeadOf(siteId) {
 return active() && siteId is string && siteId != ''
 && me().get('memberId', '') != ''
-&& exists(/databases/$(database)/documents/churches/$(cid)/bookingSettings/$(siteId))
-&& (get(/databases/$(database)/documents/churches/$(cid)/bookingSettings/$(siteId)).data.get('safeguardingLead', '') == me().get('memberId', '')
-|| get(/databases/$(database)/documents/churches/$(cid)/bookingSettings/$(siteId)).data.get('safeguardingDeputy', '') == me().get('memberId', ''));
+&& bookSetHas(siteId)
+&& (bookSetDoc(siteId).data.get('safeguardingLead', '') == me().get('memberId', '')
+|| bookSetDoc(siteId).data.get('safeguardingDeputy', '') == me().get('memberId', ''));
 }
 function formTeam(formId) {
 return formId is string && formId != '' && exists(/databases/$(database)/documents/churches/$(cid)/forms/$(formId))
@@ -1196,7 +1207,7 @@ allow write: if (isAdmin() || sgLeadOf(request.resource.data.get('siteId', '')))
 && request.resource.data.leaderUids is list
 && leadersShapeOk(request.resource.data)
 && request.resource.data.get('siteId', '')
-== get(/databases/$(database)/documents/churches/$(cid)/calEvents/$(calEventId)).data.get('location', {}).get('siteId', '')
+== calEvDoc(calEventId).data.get('location', {}).get('siteId', '')
 && under18EventOk(calEventId);
 }
 function eventCleared(calEventId, memberId) {
@@ -1239,7 +1250,7 @@ allow create, update: if (isMaster() || sgLeadOf(request.resource.data.get('site
 allow delete: if isMaster() || sgLeadOf(resource.data.get('siteId', ''));
 }
 function sgLeadOfEvent(calEventId) {
-return sgLeadOf(get(/databases/$(database)/documents/churches/$(cid)/calEvents/$(calEventId)).data.get('location', {}).get('siteId', ''));
+return sgLeadOf(calEvDoc(calEventId).data.get('location', {}).get('siteId', ''));
 }
 match /signups/{manageKey} {
 allow list: if isEventLeader(resource.data.calEventId) || sgLeadOfEvent(resource.data.calEventId);
@@ -1258,8 +1269,8 @@ allow write: if (isMaster() || sgLeadOf(request.resource.data.get('siteId', ''))
 && request.resource.data.get('trainingDate', '') is string && request.resource.data.get('trainingDate', '').size() <= 10;
 }
 function sgTrusteeTeam() {
-return exists(/databases/$(database)/documents/churches/$(cid)/safeguardingSettings/defaults)
-? get(/databases/$(database)/documents/churches/$(cid)/safeguardingSettings/defaults).data.get('trusteeTeam', 'Elders') : 'Elders';
+return sgDefaultsHas()
+? sgDefaults().data.get('trusteeTeam', 'Elders') : 'Elders';
 }
 function trusteeTeams() { return raJobTeams('trustees', [sgTrusteeTeam()]); }
 function onTrustees() { return active() && myTeams().hasAny(trusteeTeams()); }
@@ -1310,7 +1321,7 @@ allow create, update: if sgLeadOf(request.resource.data.get('siteId', ''))
 allow delete: if false;
 }
 function sgEventSite(calEventId) {
-return get(/databases/$(database)/documents/churches/$(cid)/calEvents/$(calEventId)).data.get('location', {}).get('siteId', '');
+return calEvDoc(calEventId).data.get('location', {}).get('siteId', '');
 }
 function sgNeedsSignoff(calEventId, ev) {
 return ev.get('sgKind', '') in ['trip', 'overnight', 'holidayclub', 'offsite', 'camp']
@@ -1319,8 +1330,8 @@ return ev.get('sgKind', '') in ['trip', 'overnight', 'holidayclub', 'offsite', '
 }
 function sgSignedOff(calEventId) {
 return exists(/databases/$(database)/documents/churches/$(cid)/sgAssessments/$(calEventId))
-&& (get(/databases/$(database)/documents/churches/$(cid)/sgAssessments/$(calEventId)).data.get('status', '') == 'signed'
-|| get(/databases/$(database)/documents/churches/$(cid)/sgAssessments/$(calEventId)).data.get('waived', false) == true);
+&& (sgAssessDoc(calEventId).data.get('status', '') == 'signed'
+|| sgAssessDoc(calEventId).data.get('waived', false) == true);
 }
 function sgChecklist(kind, flags) {
 return ['insurance', 'incharge', 'leaders', 'mixedLeaders', 'consent', 'paedFirstAid', 'medical', 'emergency', 'contacts', 'headcount', 'transport', 'venue', 'behaviour', 'accessibility', 'visitors', 'photos', 'weather', 'incidents']
@@ -1330,8 +1341,8 @@ return ['insurance', 'incharge', 'leaders', 'mixedLeaders', 'consent', 'paedFirs
 : kind == 'camp' ? ['tents', 'tentFire', 'cooking', 'campFood', 'tentCheck', 'medicalOfficer', 'adultForms', 'campRules', 'vehicles', 'leavingSite', 'setUp', 'sleeping', 'nightRota', 'fire', 'privacy'] : [])
 .concat(flags.get('abroad', false) == true ? ['travelAdvice', 'passports', 'travelInsurance', 'health', 'localEmergency', 'money', 'localHelpers'] : [])
 .concat(flags.get('adventurous', false) == true ? ['instructor', 'lifeguard', 'equipment'] : [])
-.concat(exists(/databases/$(database)/documents/churches/$(cid)/safeguardingSettings/defaults)
-? get(/databases/$(database)/documents/churches/$(cid)/safeguardingSettings/defaults).data.get('register', {}).get('checklistIds', []) : []);
+.concat(sgDefaultsHas()
+? sgDefaults().data.get('register', {}).get('checklistIds', []) : []);
 }
 function sgChecklistDone(kind, d) {
 let a = d.get('answers', {});
@@ -1381,14 +1392,14 @@ allow create, update: if (isMaster() || onTrustees())
 && request.resource.data.by == request.auth.uid && request.resource.data.at == request.time
 && sgText(request.resource.data.get('byName', ''), 80)
 && exists(/databases/$(database)/documents/churches/$(cid)/sgAssessments/$(calEventId))
-&& get(/databases/$(database)/documents/churches/$(cid)/sgAssessments/$(calEventId)).data.get('status', '') == 'signed'
-&& request.resource.data.version == get(/databases/$(database)/documents/churches/$(cid)/sgAssessments/$(calEventId)).data.get('signedVersion', -1)
-&& request.resource.data.siteId == get(/databases/$(database)/documents/churches/$(cid)/sgAssessments/$(calEventId)).data.siteId;
+&& sgAssessDoc(calEventId).data.get('status', '') == 'signed'
+&& request.resource.data.version == sgAssessDoc(calEventId).data.get('signedVersion', -1)
+&& request.resource.data.siteId == sgAssessDoc(calEventId).data.siteId;
 allow delete: if false;
 }
 match /sgPolicyReads/{calEventId} {
 allow read: if resource == null ? active() : (sgRegSees(resource.data.get('siteId', '')) || runsEventId(calEventId) || isEventLeader(calEventId));
-allow create, update: if exists(/databases/$(database)/documents/churches/$(cid)/calEvents/$(calEventId))
+allow create, update: if calEvHas(calEventId)
 && request.resource.data.keys().hasOnly(['siteId', 'reads', 'updatedAt', 'updatedBy'])
 && request.resource.data.siteId == sgEventSite(calEventId)
 && sgAssessWrites(calEventId, request.resource.data.siteId)
@@ -1398,9 +1409,9 @@ allow delete: if false;
 }
 match /sgAssessments/{calEventId} {
 allow read: if resource == null ? active() : (sgRegSees(resource.data.get('siteId', '')) || runsEventId(calEventId) || isEventLeader(calEventId));
-allow create, update: if exists(/databases/$(database)/documents/churches/$(cid)/calEvents/$(calEventId))
+allow create, update: if calEvHas(calEventId)
 && sgAssessOk(calEventId, request.resource.data, resource == null ? null : resource.data,
-get(/databases/$(database)/documents/churches/$(cid)/calEvents/$(calEventId)).data, sgLeadOf(request.resource.data.get('siteId', '')));
+calEvDoc(calEventId).data, sgLeadOf(request.resource.data.get('siteId', '')));
 allow delete: if false;
 }
 match /sgWarnings/{siteId} {
@@ -1413,8 +1424,8 @@ allow write: if false;
 }
 function sgTrustee() { return onTrustees(); }
 function sgLeadSite() {
-return exists(/databases/$(database)/documents/churches/$(cid)/safeguardingSettings/defaults)
-? get(/databases/$(database)/documents/churches/$(cid)/safeguardingSettings/defaults).data.get('leadSiteId', '') : '';
+return sgDefaultsHas()
+? sgDefaults().data.get('leadSiteId', '') : '';
 }
 match /sgReviews/{id} {
 allow read: if resource == null ? active()
@@ -1454,7 +1465,7 @@ match /sgGate/{calEventId} {
 allow read: if true;
 allow create, update: if request.resource.data.keys().hasOnly(['needed', 'open', 'updatedAt'])
 && request.resource.data.needed is bool && request.resource.data.open is bool
-&& exists(/databases/$(database)/documents/churches/$(cid)/calEvents/$(calEventId))
+&& calEvHas(calEventId)
 && sgAssessWrites(calEventId, sgEventSite(calEventId))
 && (request.resource.data.open == false
 || (existsAfter(/databases/$(database)/documents/churches/$(cid)/sgAssessments/$(calEventId))
@@ -1468,7 +1479,7 @@ return d.keys().hasOnly(['calEventId', 'siteId', 'happenedAt', 'people', 'what',
 'parentInformed', 'informedBy', 'informedAt', 'followUp', 'reportedBy', 'reportedByName', 'createdAt', 'activityId'])
 && d.calEventId is string && d.calEventId != ''
 && d.what is string && d.what.size() > 0 && d.what.size() <= 4000
-&& d.siteId == get(/databases/$(database)/documents/churches/$(cid)/calEvents/$(d.calEventId)).data.get('location', {}).get('siteId', '');
+&& d.siteId == calEvDoc(d.calEventId).data.get('location', {}).get('siteId', '');
 }
 match /incidents/{incidentId} {
 allow read: if isMaster() || sgLeadOf(resource.data.siteId) || isEventLeader(resource.data.calEventId);
@@ -1490,9 +1501,9 @@ allow create: if volunteer()
 && request.resource.data.status == 'new'
 && request.resource.data.concern is string && request.resource.data.concern.size() > 0
 && request.resource.data.concern.size() <= 6000
-&& exists(/databases/$(database)/documents/churches/$(cid)/bookingSettings/$(request.resource.data.siteId))
-&& (get(/databases/$(database)/documents/churches/$(cid)/bookingSettings/$(request.resource.data.siteId)).data.get('safeguardingLead', '') != ''
-|| get(/databases/$(database)/documents/churches/$(cid)/bookingSettings/$(request.resource.data.siteId)).data.get('safeguardingDeputy', '') != '');
+&& bookSetHas(request.resource.data.siteId)
+&& (bookSetDoc(request.resource.data.siteId).data.get('safeguardingLead', '') != ''
+|| bookSetDoc(request.resource.data.siteId).data.get('safeguardingDeputy', '') != '');
 allow update: if sgLeadOf(resource.data.siteId)
 && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'leadNotes', 'seenAt']);
 allow delete: if false;
@@ -1781,8 +1792,8 @@ return roomData(roomId).get('rotaWeek', {}).get(string(isoDow(day)), null);
 }
 function bookingsAdminOf(siteId) {
 return active() && siteId is string && siteId != ''
-&& exists(/databases/$(database)/documents/churches/$(cid)/bookingSettings/$(siteId))
-&& me().get('memberId', '-') in get(/databases/$(database)/documents/churches/$(cid)/bookingSettings/$(siteId)).data.get('bookingsAdmins', []);
+&& bookSetHas(siteId)
+&& me().get('memberId', '-') in bookSetDoc(siteId).data.get('bookingsAdmins', []);
 }
 function theOffice(siteId) {
 return signedIn() && officeFor(myRecord(), siteId);
@@ -1791,8 +1802,8 @@ function officeFor(u, siteId) {
 return u != null && u.data.status == 'active'
 && (u.data.get('masterAdmin', false) == true || u.data.get('adminFor', []).size() > 0
 || (siteId is string && siteId != ''
-&& exists(/databases/$(database)/documents/churches/$(cid)/bookingSettings/$(siteId))
-&& u.data.get('memberId', '-') in get(/databases/$(database)/documents/churches/$(cid)/bookingSettings/$(siteId)).data.get('bookingsAdmins', [])));
+&& bookSetHas(siteId)
+&& u.data.get('memberId', '-') in bookSetDoc(siteId).data.get('bookingsAdmins', [])));
 }
 function memberInstant(roomId) {
 let mode = roomData(roomId).get('memberBookings', 'site');
@@ -2136,7 +2147,7 @@ return active() && siteId is string && siteId != ''
 function kidsGroupLeader(groupId) {
 return active() && groupId is string && groupId != ''
 && exists(/databases/$(database)/documents/churches/$(cid)/kidsGroups/$(groupId))
-&& me().get('memberId', '-') in get(/databases/$(database)/documents/churches/$(cid)/kidsGroups/$(groupId)).data.get('leaderIds', []);
+&& me().get('memberId', '-') in kidsGroupDoc(groupId).data.get('leaderIds', []);
 }
 function kidsFormOf(siteId, formId) {
 return siteId is string && siteId != '' && formId is string && formId != ''
@@ -2147,7 +2158,7 @@ return siteId is string && siteId != '' && formId is string && formId != ''
 function kidsScreenNoReader(d) {
 return kidsLead(d.siteId) || kidsSessionLeaderNow(d.siteId)
 || (kidsGroupLeader(d.get('groupId', ''))
-&& get(/databases/$(database)/documents/churches/$(cid)/kidsGroups/$(d.get('groupId', ''))).data.get('siteId', '') == d.siteId);
+&& kidsGroupDoc(d.get('groupId', '')).data.get('siteId', '') == d.siteId);
 }
 match /kidsScreenNos/{id} {
 allow get: if resource == null || kidsScreenNoReader(resource.data);
@@ -2159,7 +2170,7 @@ allow create: if request.resource.data.keys().hasOnly(['siteId', 'day', 'n', 'fa
 && id == request.resource.data.siteId + '_' + request.resource.data.day + '_' + request.resource.data.n
 && (kidsLead(request.resource.data.siteId) || kidsSessionLeaderNow(request.resource.data.siteId)
 || (kidsGroupLeader(request.resource.data.get('groupId', ''))
-&& get(/databases/$(database)/documents/churches/$(cid)/kidsGroups/$(request.resource.data.get('groupId', ''))).data.get('siteId', '') == request.resource.data.siteId));
+&& kidsGroupDoc(request.resource.data.get('groupId', '')).data.get('siteId', '') == request.resource.data.siteId));
 allow update, delete: if false;
 }
 match /kidsSettings/{siteId} {
@@ -2304,7 +2315,7 @@ return d.keys().hasOnly(['siteId', 'day', 'memberId', 'name', 'groupId', 'state'
 function mayLeadThere(d) {
 return kidsLead(d.siteId) || kidsMorningLeader(d.siteId)
 || (d.get('groupId', '') != '' && kidsGroupLeader(d.groupId)
-&& get(/databases/$(database)/documents/churches/$(cid)/kidsGroups/$(d.groupId)).data.get('siteId', '') == d.siteId);
+&& kidsGroupDoc(d.groupId).data.get('siteId', '') == d.siteId);
 }
 match /kidsLeaderIns/{id} {
 allow read: if kidsLead(resource.data.siteId)
@@ -2353,7 +2364,7 @@ return d.keys().hasOnly(['siteId', 'code', 'room', 'message', 'createdBy', 'crea
 && d.code == pageCk(pageId).screenNo
 && screenPagingOn(pageCk(pageId).siteId)
 && d.room is string && d.room.size() <= 80
-&& d.message == 'Screen number ' + d.code + ': please come to ' + get(/databases/$(database)/documents/churches/$(cid)/kidsGroups/$(pageCk(pageId).groupId)).data.name
+&& d.message == 'Screen number ' + d.code + ': please come to ' + kidsGroupDoc(pageCk(pageId).groupId).data.name
 && d.createdBy == request.auth.uid
 && d.createdAt == request.time
 && d.clearedAt == null;
@@ -2405,8 +2416,8 @@ let t = request.time;
 return string(t.year() - n) + '-' + (t.month() < 10 ? '0' : '') + string(t.month()) + '-' + (t.day() < 10 ? '0' : '') + string(t.day());
 }
 function sgYears(field) {
-return exists(/databases/$(database)/documents/churches/$(cid)/safeguardingSettings/defaults)
-? get(/databases/$(database)/documents/churches/$(cid)/safeguardingSettings/defaults).data.get(field, 3) : 3;
+return sgDefaultsHas()
+? sgDefaults().data.get(field, 3) : 3;
 }
 function checksInDate(memberId) {
 return exists(/databases/$(database)/documents/churches/$(cid)/leaderChecks/$(memberId))
@@ -3107,7 +3118,7 @@ return active() && (fireNamed('all')
 function fireRollShape(id) {
 let d = request.resource.data;
 return d.keys().hasOnly(['siteId', 'people', 'memberIds', 'stewards', 'updatedBy', 'updatedByName', 'updatedAt'])
-&& (id == 'all' ? d.siteId == '' : (d.siteId == id && exists(/databases/$(database)/documents/churches/$(cid)/sites/$(id))))
+&& (id == 'all' ? d.siteId == '' : (d.siteId == id && siteHas(id)))
 && d.people is list && d.people.size() <= 500
 && d.memberIds is list && d.memberIds.size() == d.people.size()
 && d.stewards is list && d.stewards.size() <= d.people.size()
@@ -3226,7 +3237,7 @@ allow delete: if false;
 match /raSiteRoles/{siteId} {
 allow read: if active();
 allow write: if raOffice()
-&& exists(/databases/$(database)/documents/churches/$(cid)/sites/$(siteId))
+&& siteHas(siteId)
 && request.resource.data.keys().hasOnly(['siteId', 'hsLead', 'hsDeputy', 'fireLead', 'updatedAt', 'updatedBy'])
 && request.resource.data.siteId == siteId
 && request.resource.data.get('hsLead', '') is string && request.resource.data.get('hsLead', '').size() <= 128
@@ -3253,7 +3264,7 @@ allow create: if active()
 && request.resource.data.uid == request.auth.uid && request.resource.data.memberId == me().get('memberId', '')
 && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 120
 && request.resource.data.phone is string && request.resource.data.phone.size() <= 40
-&& request.resource.data.siteId is string && exists(/databases/$(database)/documents/churches/$(cid)/sites/$(request.resource.data.siteId))
+&& request.resource.data.siteId is string && siteHas(request.resource.data.siteId)
 && request.resource.data.siteName is string && request.resource.data.siteName.size() <= 120
 && request.resource.data.status == 'in' && request.resource.data.inAt == request.time
 && loneTimeOk(request.resource.data.expectOut);
@@ -3272,7 +3283,7 @@ allow delete: if false;
 }
 match /loneContacts/{siteId} {
 allow read: if active();
-allow write: if raOffice() && exists(/databases/$(database)/documents/churches/$(cid)/sites/$(siteId))
+allow write: if raOffice() && siteHas(siteId)
 && request.resource.data.keys().hasOnly(['contacts', 'updatedAt', 'updatedBy'])
 && request.resource.data.contacts is list && request.resource.data.contacts.size() <= 10
 && request.resource.data.updatedBy == request.auth.uid;
@@ -3522,7 +3533,7 @@ return d.keys().hasOnly(['siteId', 'kind', 'version', 'status', 'assessor', 'ass
 }
 function raAssessWrite(id, d, before) {
 return raAssessShape(d) && id == d.siteId + '__' + d.kind
-&& exists(/databases/$(database)/documents/churches/$(cid)/sites/$(d.siteId))
+&& siteHas(d.siteId)
 && (before == null || (before.siteId == d.siteId && before.kind == d.kind))
 && (
 (d.status == 'draft' && (raOffice() || raAnyLead(d.siteId))
@@ -3571,9 +3582,9 @@ return cmpSees() || runsEventId(calEventId) || isEventLeader(calEventId) || raAn
 function raEventShape(d, calEventId) {
 return d.keys().hasOnly(['calEventId', 'siteId', 'approverSiteId', 'title', 'kind', 'flags', 'care', 'people', 'marked', 'venue', 'sections', 'hazards', 'actions', 'answers', 'ai', 'suggested', 'transport',
 'version', 'status', 'source', 'signedBy', 'signedByName', 'signedAt', 'signedVersion', 'approvedBy', 'approvedByName', 'approvedAt', 'updatedBy', 'updatedAt'])
-&& d.calEventId == calEventId && exists(/databases/$(database)/documents/churches/$(cid)/calEvents/$(calEventId))
+&& d.calEventId == calEventId && calEvHas(calEventId)
 && d.kind in ['general', 'concert', 'fair', 'wedding', 'baptism', 'funeral', 'hire', 'daytrip', 'residential', 'adventurous']
-&& raStr(d.get('siteId', ''), 128) && d.approverSiteId is string && exists(/databases/$(database)/documents/churches/$(cid)/sites/$(d.approverSiteId))
+&& raStr(d.get('siteId', ''), 128) && d.approverSiteId is string && siteHas(d.approverSiteId)
 && raStr(d.get('title', ''), 200)
 && d.get('flags', {}) is map && d.get('flags', {}).keys().hasOnly(['flames', 'food', 'alcohol', 'outdoor', 'equipment', 'music'])
 && d.get('care', {}) is map && d.get('care', {}).keys().hasOnly(['support']) && d.get('care', {}).get('support', '') in ['', 'yes', 'no']
@@ -3673,7 +3684,7 @@ function cmpCheckShape(siteId) {
 let d = request.resource.data;
 return d.keys().hasOnly(['siteId', 'templateId', 'templateVersion', 'area', 'title', 'every', 'kind', 'basis', 'legal', 'baseEvery', 'lengthenReason',
 'note', 'state', 'offReason', 'responsibleIds', 'custom', 'edited', 'createdAt', 'updatedAt'])
-&& d.siteId == siteId && exists(/databases/$(database)/documents/churches/$(cid)/sites/$(siteId))
+&& d.siteId == siteId && siteHas(siteId)
 && d.templateId is string && d.title is string && d.title.size() > 0 && d.title.size() <= 140
 && cmpEveryOk(d.every)
 && d.state in ['on', 'off', 'removed']
@@ -3700,7 +3711,7 @@ allow write: if false;
 match /buildingProfiles/{siteId} {
 allow read: if cmpSees() || raAnyLead(siteId);
 allow create, update: if cmpAdmin() && request.resource.data.siteId == siteId
-&& exists(/databases/$(database)/documents/churches/$(cid)/sites/$(siteId));
+&& siteHas(siteId);
 allow delete: if false;
 }
 match /buildingChecks/{id} {
@@ -3785,7 +3796,7 @@ allow create: if cmpAdmin()
 && request.resource.data.nextReview is string && request.resource.data.nextReview.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
 && request.resource.data.assessor is string && request.resource.data.assessor.size() > 0 && request.resource.data.assessor.size() <= 120
 && request.resource.data.by == request.auth.uid
-&& exists(/databases/$(database)/documents/churches/$(cid)/sites/$(request.resource.data.siteId));
+&& siteHas(request.resource.data.siteId);
 allow update, delete: if false;
 }
 match /hazards/{id} {
@@ -3814,7 +3825,7 @@ allow read: if active();
 allow create, update: if cmpAdmin()
 && request.resource.data.keys().hasOnly(['siteId', 'identify', 'refuges', 'helpers', 'equipment', 'reviewDue', 'updatedBy', 'updatedByName', 'updatedAt'])
 && request.resource.data.siteId == siteId
-&& exists(/databases/$(database)/documents/churches/$(cid)/sites/$(siteId));
+&& siteHas(siteId);
 allow delete: if false;
 }
 function peepShape(mid) {
