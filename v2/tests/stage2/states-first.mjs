@@ -87,12 +87,16 @@ export default kbStates.concat([
   ...['Planner.html', 'trainingrotaplanner.html'].flatMap((url) => {
     const nm = url === 'Planner.html' ? 'rota planner' : 'practice rota planner', R = ['master', 'areaAdmin'];
     const row = [wait('[onclick^="toggleEventExpand"]'), click('[onclick^="toggleEventExpand"]')];
+    /* The practice planner keeps its rows in the tab's session storage, and these
+       steps add rows: a fresh session before each opening, or every press adds
+       another term of practices (6 Nov 2026: gigabytes in a minute). */
+    const fresh = url === 'trainingrotaplanner.html';
     return [
-      { name: nm + ': an event opened', url, roles: R, steps: row },
-      { name: nm + ': adding practices', url, roles: R, steps: [wait('[onclick^="toggleEventExpand"]'), url === 'Planner.html' ? 'addPractices()' : 'addThursdayPractices()'] },
-      { name: nm + ': gathering availability', url, roles: R, steps: [wait('[onclick^="toggleEventExpand"]'), 'gatherTermAvailability()'] },
-      { name: nm + ': a new service', url, roles: R, steps: [wait('[onclick^="toggleEventExpand"]'), 'addSingleLine()'] },
-      { name: nm + ': sending the rotas', url, roles: R, steps: [wait('[onclick^="toggleEventExpand"]'), 'prepareDistributionPackage()'] }
+      { name: nm + ': an event opened', url, roles: R, steps: row, fresh },
+      { name: nm + ': adding practices', url, roles: R, steps: [wait('[onclick^="toggleEventExpand"]'), url === 'Planner.html' ? 'addPractices()' : 'addThursdayPractices()'], fresh },
+      { name: nm + ': gathering availability', url, roles: R, steps: [wait('[onclick^="toggleEventExpand"]'), 'gatherTermAvailability()'], fresh },
+      { name: nm + ': a new service', url, roles: R, steps: [wait('[onclick^="toggleEventExpand"]'), 'addSingleLine()'], fresh },
+      { name: nm + ': sending the rotas', url, roles: R, steps: [wait('[onclick^="toggleEventExpand"]'), 'prepareDistributionPackage()'], fresh }
     ];
   }),
   /* ---- the Email Builder ---- */

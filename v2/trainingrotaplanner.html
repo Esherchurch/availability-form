@@ -601,7 +601,7 @@ await allowed;
             let curr=new Date(`${y}-${term==='Spring'?'01':term==='Summer'?'05':'09'}-01`);
             let end=new Date(`${y}-${term==='Spring'?'04':term==='Summer'?'08':'12'}-31`);
             while(curr.getDay()!==0) curr.setDate(curr.getDate()+1);
-            while(curr<=end){ const ds=curr.toISOString().split('T')[0]; trainingEvents.push({id:'tr-'+Math.random().toString(36).substr(2,9),date:ds,termLabel:getTermLabel(ds),type:"Sunday Morning Worship",description:"",teams:["Worship Team","AV Team"],startTime:"08:00",endTime:"11:30",roles:[...MANDATORY_SUNDAY_ROLES],assignments:{},archived:false}); curr.setDate(curr.getDate()+7); }
+            while(curr<=end){ const ds=curr.toISOString().split('T')[0]; /* pressed twice: not twice over */ if(!trainingEvents.some(e=>e.date===ds&&e.type==="Sunday Morning Worship"&&!e.archived)) trainingEvents.push({id:'tr-'+Math.random().toString(36).substr(2,9),date:ds,termLabel:getTermLabel(ds),type:"Sunday Morning Worship",description:"",teams:["Worship Team","AV Team"],startTime:"08:00",endTime:"11:30",roles:[...MANDATORY_SUNDAY_ROLES],assignments:{},archived:false}); curr.setDate(curr.getDate()+7); }
             saveTS(); renderPlanner(); showToast("📅 Term populated (training only)");
         };
 
@@ -612,7 +612,7 @@ await allowed;
             let curr=new Date(`${y}-${term==='Spring'?'01':term==='Summer'?'05':'09'}-01`);
             let end=new Date(`${y}-${term==='Spring'?'04':term==='Summer'?'08':'12'}-31`);
             while(curr.getDay()!==4) curr.setDate(curr.getDate()+1);
-            while(curr<=end){ const ds=curr.toISOString().split('T')[0]; trainingEvents.push({id:'tr-'+Math.random().toString(36).substr(2,9),date:ds,termLabel:getTermLabel(ds),type:"Sunday Team Practice",description:"Thursday Rehearsal",teams:["Worship Team"],startTime:"19:30",endTime:"21:30",roles:["Worship Leader","Keyboard","Guitar","Drums","Bass"],assignments:{},archived:false}); curr.setDate(curr.getDate()+7); }
+            while(curr<=end){ const ds=curr.toISOString().split('T')[0]; /* pressed twice: not twice over */ if(!trainingEvents.some(e=>e.date===ds&&e.type==="Sunday Team Practice"&&!e.archived)) trainingEvents.push({id:'tr-'+Math.random().toString(36).substr(2,9),date:ds,termLabel:getTermLabel(ds),type:"Sunday Team Practice",description:"Thursday Rehearsal",teams:["Worship Team"],startTime:"19:30",endTime:"21:30",roles:["Worship Leader","Keyboard","Guitar","Drums","Bass"],assignments:{},archived:false}); curr.setDate(curr.getDate()+7); }
             saveTS(); renderPlanner(); showToast("🎸 Practices added (training only)");
         };
 

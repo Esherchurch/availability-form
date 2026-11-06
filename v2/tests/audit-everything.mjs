@@ -1164,11 +1164,19 @@ function saveProgress() {
 }
 function record(r) { RESULTS.push(r); saveProgress(); const mark = r.pass ? 'PASS' : 'FAIL'; console.log('  ' + mark + '  ' + r.role + ' ' + r.size + ' ' + r.screen + (r.pass ? '' : '\n          ' + r.why.join('\n          '))); }
 
-async function auditScreen(B, { role, size, screen, url, inApp, taps, base, shotName, steps, must, reads }) {
+async function auditScreen(B, { role, size, screen, url, inApp, taps, base, shotName, steps, must, reads, fresh }) {
   const before = passedBefore(role, size, screen); if (before) return before;
   if (!LIVE) await restoreSettings();
   const [w, h] = ALL_SIZES[size];
   await B.size(w, h);
+  /* A STATE THAT ADDS ROWS (fresh: true): its steps run again before every
+     press, and a page that keeps its rows in the tab's session storage (the
+     practice rota planner) gained a term of practices each time - hundreds of
+     rows, more to press each time, gigabytes in a minute (6 Nov 2026). The
+     session is cleared before each opening, so every press starts the same.
+     Sign-in is not kept there. */
+  const clearSession = async () => { if (fresh) await B.ev('(function(){try{sessionStorage.clear()}catch(e){}return 1})()'); };
+  await clearSession();
   await B.go(url);
   await runSteps(B, steps);
   if (PROBE) {
@@ -1207,7 +1215,7 @@ async function auditScreen(B, { role, size, screen, url, inApp, taps, base, shot
   let skipped = [];
   if (taps) {
     const ctx = { page: String(screen).replace(/^from the app: /, '').replace(/ \(.*\)$/, '').split('?')[0], role, size, screen, state: !!(steps && steps.length) || / \(state: /.test(String(screen)), base };
-    const back = async () => { await B.go(url); await runSteps(B, steps); };
+    const back = async () => { await clearSession(); await B.go(url); await runSteps(B, steps); };
     B.ctx = ctx;
     /* FIELDS FIRST, then the presses (5 Nov 2026). A press can save - "Start the assessment" made the
        assessment - and the field it replaces (the template to start from) was then never there to fill.
@@ -1467,7 +1475,7 @@ async function runRole(B, role, size, base, shared) {
     if (ONLY_PAGES && !ONLY_PAGES.includes(st.url.split('?')[0])) continue;
     if (ONLY_STATE && !ONLY_STATE.split('|').some((w) => st.name.includes(w))) continue;
     if (B.isDead() || memLow()) { if (memLow()) console.log("          (only " + (MEM / 2 ** 30).toFixed(1) + " GB free: a fresh browser before the next state)"); await B.restart(); await B.size(...ALL_SIZES[size]); await signIn(B, base, role); }
-    await auditScreen(B, { role, size, screen: st.url.split('?')[0] + ' (state: ' + st.name + ')', url: base + st.url, inApp: false, taps: tapsHere, base, steps: st.steps, must: st.must, reads: st.reads });
+    await auditScreen(B, { role, size, screen: st.url.split('?')[0] + ' (state: ' + st.name + ')', url: base + st.url, inApp: false, taps: tapsHere, base, steps: st.steps, must: st.must, reads: st.reads, fresh: st.fresh });
   }
   /* ---- the app ---- */
   if (!NO_APP) {
