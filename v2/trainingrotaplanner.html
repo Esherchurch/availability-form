@@ -449,9 +449,11 @@ await allowed;
                 <div class="row"><div class="col"><label>Closing Message</label>
                     <textarea id="s-closing" rows="2">If you have any questions or need to make changes, please do not hesitate to get in touch.</textarea>
                 </div></div>
-                <label>Preview</label>
+                <!-- The preview follows every keystroke (senderRefreshPreview on input), so its
+                     Refresh button redrew the same email and read as doing nothing (the states
+                     audit, 6 Nov 2026): gone, and the label says so. -->
+                <label>Preview <span style="font-weight:400;opacity:.7">(updates as you type)</span></label>
                 <div class="preview-box"><iframe id="s-preview" title="Preview"></iframe></div>
-                <div style="margin-top:10px"><button class="s-btn btn-grey" onclick="senderRefreshPreview()">Refresh Preview</button></div>
             </div>
             <div class="card">
                 <h2>Send</h2>

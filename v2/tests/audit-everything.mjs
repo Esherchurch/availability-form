@@ -735,7 +735,7 @@ async function browser(port, tag) {
     for (let tries = 0; tries < 3; tries++) {
       const n = ++B.restarts;
       let fresh = null;
-      try { fresh = await browser(port + 40 + n % 40, tag + 'r' + n); } catch (e) { fresh = null; }
+      try { fresh = await browser(port + 600 + n % 40, tag + 'r' + n);   /* 9710-9751 from 9110: clear of every emulator port (port + 40 could reach 9189, the spare Storage) */ } catch (e) { fresh = null; }
       const alive = fresh && await Promise.race([fresh.ev('1+1'), sleep(15000).then(() => null)]) === 2;
       if (alive) { Object.assign(B, fresh); B.restarts = n; B.dead = false; return; }
       if (fresh) fresh.close();
@@ -821,6 +821,17 @@ async function tapAll(B, url, reopen, ctx) {
   const noise = (await B.ev('window.__aud?window.__aud.mut-window.__aud.mut0:0')) || 0;
   let n = 0;
   for (let guard = 0; guard < MAX_TAPS * 2 && n < MAX_TAPS; guard++) {
+    /* MEMORY (the events window, 6 Nov 2026: two of this audit's Chromes grew to
+       5.0 and 3.9 GB in one long state, the machine down to 0.1 GB). A state
+       reloads its page after every press in one long-lived tab, and the tab
+       keeps what it leaks. Every 10 presses: under 1.5 GB free, a fresh
+       browser, signed in again, the screen opened again; still under 1 GB,
+       the run stops, its finished screens saved, for --resume. */
+    if (guard && guard % 10 === 0 && !SELF && ctx.base && ctx.role && os.freemem() < 1.5 * 2 ** 30) {
+      console.log('          (only ' + (os.freemem() / 2 ** 30).toFixed(1) + ' GB free: a fresh browser)');
+      await B.restart(); await B.size(...ALL_SIZES[ctx.size]); await signIn(B, ctx.base, ctx.role); await reopen();
+      if (os.freemem() < 2 ** 30) { console.log('STOPPED: under 1 GB free even with a fresh browser. Finished screens are saved; carry on with --resume.'); process.exit(3); }
+    }
     const list = JSON.parse((await B.ev(CONTROLS)) || '[]');
     const next = list.find(c => !tapped.has(c.sig));
     if (!next) break;
@@ -919,10 +930,12 @@ async function tapAll(B, url, reopen, ctx) {
     if (process.env.AUDIT_DEBUG) console.log("    tap", JSON.stringify(next.words), JSON.stringify(before), JSON.stringify(after), JSON.stringify(B.acts), "noise", noise, "pageNoisy", pageNoisy, "view", viewBefore === viewAfter ? "same" : "changed", "details", await B.ev('JSON.stringify([].map.call(document.querySelectorAll("details"),function(d){var r=d.getBoundingClientRect();return (d.id||"?")+":"+(d.open?"open":"shut")+"@"+Math.round(r.top)+"/"+Math.round(r.height)}))'), "ih", await B.ev('innerHeight'));
     if (!after) { B.tapping = false; /* the page went away (a real navigation slipped through): start it again */ await reopen(); continue; }
     /* The page's own changes grow with the time waited, so the bar does too. */
-    const moved = () => B.acts.length || after.acts.length || viewAfter !== viewBefore || pageAfter !== pageBefore
+    /* not "moved": that is the Set above of controls redrawn as pressed, which this name hid (a crash,
+       "Cannot access 'moved' before initialization", the full run of 6 Nov 2026) */
+    const didChange = () => B.acts.length || after.acts.length || viewAfter !== viewBefore || pageAfter !== pageBefore
       || after.mut - before.mut > Math.ceil(noise * 1.2 * Math.max(1, (Date.now() - t0) / 700)) + 2 || after.sx !== before.sx || after.sy !== before.sy
       || after.f !== before.f || after.u !== before.u;
-    let did = moved();
+    let did = didChange();
     /* Nothing yet: up to 4 s more before calling it dead (4 Nov 2026). The first call of each function on
        a fresh emulator answers after the 550 ms - the quiz, Pair again, Call on their phone were "dead"
        at 375, which runs first, and fine at 1440. A dead control costs the wait; a live one does not. */
@@ -930,7 +943,7 @@ async function tapAll(B, url, reopen, ctx) {
       await sleep(500);
       const a2 = JSON.parse((await B.ev('JSON.stringify({mut:window.__aud.mut,acts:window.__aud.acts.slice(' + before.acts + '),sx:scrollX,sy:scrollY,f:(document.activeElement&&/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))?document.activeElement.outerHTML.slice(0,80):"",u:location.href})')) || 'null');
       if (!a2) { did = true; break; }
-      after = a2; viewAfter = await B.ev(VIEWHASH); pageAfter = pageNoisy ? '' : await B.ev(PAGEHASH); did = moved();
+      after = a2; viewAfter = await B.ev(VIEWHASH); pageAfter = pageNoisy ? '' : await B.ev(PAGEHASH); did = didChange();
     }
     B.tapping = false;
     /* A "back to the top" in a fixed bar has nothing to do on a page already
@@ -1159,7 +1172,7 @@ async function auditScreen(B, { role, size, screen, url, inApp, taps, base, shot
   await B.shot(path.join(OUT, role, String(size), slug(shotName || screen) + '.png'));
   let skipped = [];
   if (taps) {
-    const ctx = { page: String(screen).replace(/^from the app: /, '').replace(/ \(.*\)$/, '').split('?')[0], role, size, screen, state: !!(steps && steps.length) || / \(state: /.test(String(screen)) };
+    const ctx = { page: String(screen).replace(/^from the app: /, '').replace(/ \(.*\)$/, '').split('?')[0], role, size, screen, state: !!(steps && steps.length) || / \(state: /.test(String(screen)), base };
     const back = async () => { await B.go(url); await runSteps(B, steps); };
     B.ctx = ctx;
     /* FIELDS FIRST, then the presses (5 Nov 2026). A press can save - "Start the assessment" made the
