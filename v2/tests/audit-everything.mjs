@@ -883,10 +883,12 @@ async function tapAll(B, url, reopen, ctx) {
     if (process.env.AUDIT_DEBUG) console.log("    tap", JSON.stringify(next.words), JSON.stringify(before), JSON.stringify(after), JSON.stringify(B.acts), "noise", noise, "pageNoisy", pageNoisy, "view", viewBefore === viewAfter ? "same" : "changed", "details", await B.ev('JSON.stringify([].map.call(document.querySelectorAll("details"),function(d){var r=d.getBoundingClientRect();return (d.id||"?")+":"+(d.open?"open":"shut")+"@"+Math.round(r.top)+"/"+Math.round(r.height)}))'), "ih", await B.ev('innerHeight'));
     if (!after) { B.tapping = false; /* the page went away (a real navigation slipped through): start it again */ await reopen(); continue; }
     /* The page's own changes grow with the time waited, so the bar does too. */
-    const moved = () => B.acts.length || after.acts.length || viewAfter !== viewBefore || pageAfter !== pageBefore
+    /* not "moved": that is the Set above of controls redrawn as pressed, which this name hid (a crash,
+       "Cannot access 'moved' before initialization", the full run of 6 Nov 2026) */
+    const didChange = () => B.acts.length || after.acts.length || viewAfter !== viewBefore || pageAfter !== pageBefore
       || after.mut - before.mut > Math.ceil(noise * 1.2 * Math.max(1, (Date.now() - t0) / 700)) + 2 || after.sx !== before.sx || after.sy !== before.sy
       || after.f !== before.f || after.u !== before.u;
-    let did = moved();
+    let did = didChange();
     /* Nothing yet: up to 4 s more before calling it dead (4 Nov 2026). The first call of each function on
        a fresh emulator answers after the 550 ms - the quiz, Pair again, Call on their phone were "dead"
        at 375, which runs first, and fine at 1440. A dead control costs the wait; a live one does not. */
@@ -894,7 +896,7 @@ async function tapAll(B, url, reopen, ctx) {
       await sleep(500);
       const a2 = JSON.parse((await B.ev('JSON.stringify({mut:window.__aud.mut,acts:window.__aud.acts.slice(' + before.acts + '),sx:scrollX,sy:scrollY,f:(document.activeElement&&/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))?document.activeElement.outerHTML.slice(0,80):"",u:location.href})')) || 'null');
       if (!a2) { did = true; break; }
-      after = a2; viewAfter = await B.ev(VIEWHASH); pageAfter = pageNoisy ? '' : await B.ev(PAGEHASH); did = moved();
+      after = a2; viewAfter = await B.ev(VIEWHASH); pageAfter = pageNoisy ? '' : await B.ev(PAGEHASH); did = didChange();
     }
     B.tapping = false;
     /* A "back to the top" in a fixed bar has nothing to do on a page already
