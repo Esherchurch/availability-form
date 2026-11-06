@@ -1121,10 +1121,15 @@
    * @param {firebase.User} user the signed-in account
    * @param {Error} e what the profile read threw
    */
+  /** Does this sign-in carry the youth claim (a Youth Hub code, youth-redeem.js)? Never rejects. */
+  function youthClaim(user) {
+    return user.getIdTokenResult().then(function (t) { return !!(t && t.claims && t.claims.youth); }, function () { return false; });
+  }
+
   function refusedCard(user, e) {
     var refused = !!e && (e.code === 'permission-denied' || /insufficient permissions/i.test(e.message || ''));
     var notYours = 'This page is for the church’s teams, so your sign-in cannot open it.';
-    user.getIdTokenResult().then(function (t) { return !!(t && t.claims && t.claims.youth); }, function () { return false; }).then(function (youth) {
+    youthClaim(user).then(function (youth) {
       if (youth) {
         EGBCAuth._blockPage('This page isn’t for you', notYours + ' Everything for you is in the Youth Hub.', null,
           { href: 'youthapp2.html', label: 'Back to the Youth Hub', noSignOut: true });
@@ -1921,7 +1926,16 @@
              would put two round trips in front of every page. It never
              rejects - the built-in table is a complete answer - so it
              cannot stop anybody getting in. */
-          Promise.all([loadProfile(user), loadTeams()]).then(function (both) {
+          /* A YOUNG PERSON (a Youth Hub code: the youth claim) is stopped
+             here, before the profile: they have no record of their own, and
+             loading one would write a 'pending' users record for a code
+             and show "We do not recognise that address" with Sign out (the
+             youth refused-card check, 6 Nov 2026). refusedCard shows them
+             the Youth Hub's way back. The Youth Hub itself uses optional(). */
+          youthClaim(user).then(function (youth) {
+            if (youth) { var stop = new Error('A Youth Hub sign-in on a team page.'); stop.code = 'permission-denied'; throw stop; }
+            return Promise.all([loadProfile(user), loadTeams()]);
+          }).then(function (both) {
             var profile = both[0];
             /* After the profile, because it needs the member id - and the
                Running things tabs are decided before the page draws. */
@@ -2011,8 +2025,15 @@
         auth.onAuthStateChanged(function (user) {
           if (!user) { resolve(null); return; }
           currentUser = user;
-          loadProfile(user).then(function (p) {
-            currentProfile = p; mountViewAsBar(); resolve(p);
+          /* A Youth Hub code (the youth claim) has no profile, and loading
+             one would write a 'pending' users record for it (the youth
+             refused-card check, 6 Nov 2026: the shell's bar and the Youth
+             Hub both ask here). No profile is the answer. */
+          youthClaim(user).then(function (youth) {
+            if (youth) { resolve(null); return; }
+            return loadProfile(user).then(function (p) {
+              currentProfile = p; mountViewAsBar(); resolve(p);
+            });
           }).catch(function () { resolve(null); });
         });
       });
