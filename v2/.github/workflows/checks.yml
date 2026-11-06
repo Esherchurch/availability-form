@@ -99,3 +99,18 @@ jobs:
         run: node tools/enews-draft-build.mjs --check && node tools/plan-store-build.mjs --check && node tests/check-team-jobs.mjs && node tools/data-map-build.mjs --check
       - name: Functions tests on the emulator
         run: npm run test:functions
+
+  # NOT report-only, unlike the jobs above: nothing that worked may be removed,
+  # renamed or sent somewhere new without Martin's OK (CLAUDE.md section 0). The
+  # baseline is tests/baseline-controls.json; approved changes are listed, in
+  # backticks, in APPROVED-CHANGES.md. The pre-push hook runs the same check.
+  no-removals:
+    name: Nothing removed without Martin's OK
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: ${{ env.V2 }} } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Every page, button and link in the baseline is still there
+        run: node tests/check-no-removals.mjs

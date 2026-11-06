@@ -15,6 +15,7 @@ is proving something throws wraps it in `expectThrow()`.
 | The drawn page obeys DESIGN.md, on every screen and not just the first | `node tests/check-style-every-screen.mjs` (add a page name to do one page) |
 | Every v2 page against the original it replaced, side by side | `node tests/compare-with-original.mjs` (add a page name for one; `--shots` also saves screenshots) |
 | No start-up handler is attached after a top-level await | `node tests/check-late-handlers.mjs` |
+| Nothing removed, renamed or sent somewhere new without Martin's OK (CLAUDE.md section 0; baseline `tests/baseline-controls.json`, approvals `APPROVED-CHANGES.md`) | `node tests/check-no-removals.mjs` |
 | The news board on the dashboard can still be managed | `node tests/check-news-dashboard.mjs` |
 | The news board can still be managed on the hub | `node tests/check-news-features.mjs` |
 | A Kids Church role stored under its old name survives a save | `node tests/check-old-kids-roles.mjs` |
