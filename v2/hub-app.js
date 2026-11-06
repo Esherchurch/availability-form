@@ -2275,8 +2275,10 @@ function isCharterPage(url) {
   const u = (url || '').toLowerCase();
   if (!u) return false;
   /* Most charters have no standalone page; these are the ones that do. */
-  if (Object.values(CHARTER_FILE).some(f => f.toLowerCase() === u)) return true;
-  /* AVteamlandingpage is the AV charter page. It is not in CHARTER_FILE,
+  /* The list moved to egbc-charters.js on 28 Oct (541443cf) and this kept the old
+     name, so the Pages list threw "CHARTER_FILE is not defined" (6 Nov 2026). */
+  if ((window.EGBCCharters && EGBCCharters.files ? EGBCCharters.files() : []).some(f => f.toLowerCase() === u)) return true;
+  /* AVteamlandingpage is the AV charter page. It is not in the charter files,
      because AV point at the shared Worship & AV charter - which left it as
      the one charter that still showed as a tile, leading to a page with no
      text on it. */

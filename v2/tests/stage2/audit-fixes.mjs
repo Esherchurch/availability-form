@@ -32,7 +32,8 @@
  *   - the training copies' banner keeps Exit Training on a phone's screen,
  *     and the training planner's email preview keeps its Close in reach;
  *   - the mix builder's messages show on a phone, and again on a second press;
- *   - the first-visit tours' "Don't show this again" is 44px to tap;
+ *   - the first-visit tours' "Don't show this again" is 44px to tap (a label in
+ *     youthapp2; in CoreTeamApp the words that tick it, as they always were);
  *   - the birthday invite maker's tick boxes are 44px, and its email invite
  *     keeps its close and buttons in reach;
  *   - the safeguarding risk register tells a master admin of a church with
@@ -214,7 +215,7 @@ try {
   console.log('\nThe first-visit tours, on a phone');
   for (const pg of ['CoreTeamApp.html', 'youthapp2.html']) {
     const p = await fresh(lead, pg, 375, 812); await sleep(7000);
-    const got = await p.evaluate(() => { startTour(true); const l = document.querySelector('label[for="tour-dont-show"]'); if (!l) return 'no label'; const h = Math.round(l.getBoundingClientRect().height); l.click(); return h + 'px, ticked ' + document.getElementById('tour-dont-show').checked; });
+    const got = await p.evaluate(() => { startTour(true); const l = document.querySelector('label[for="tour-dont-show"]') || [...document.querySelectorAll('span[onclick]')].find((x) => /tour-dont-show/.test(x.getAttribute('onclick'))); if (!l) return 'no label and no words that tick it'; const h = Math.round(l.getBoundingClientRect().height); l.click(); return h + 'px, ticked ' + document.getElementById('tour-dont-show').checked; });
     ok(pg + ': "Don\'t show this again" is 44px to tap, and ticks the box', /^(4[4-9]|[5-9]\d)px, ticked true$/.test(got), got);
     const skip = await p.evaluate(() => { const r = document.querySelector('.tour-skip').getBoundingClientRect(); return Math.round(Math.min(r.width, r.height)); });
     ok(pg + ': the tour\'s Skip is big enough to tap', skip >= 30, skip + 'px');

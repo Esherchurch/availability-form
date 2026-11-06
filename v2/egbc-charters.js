@@ -37,5 +37,8 @@
     return FILE[id] ? { id: id, url: FILE[id] } : { id: id };
   }
 
-  global.EGBCCharters = { forTeam: forTeam };
+  /** The standalone charter pages, for the hub's Pages list ("on the landing page"). @returns {string[]} */
+  function files() { return Object.keys(FILE).map(function (k) { return FILE[k]; }); }
+
+  global.EGBCCharters = { forTeam: forTeam, files: files };
 })(window);
