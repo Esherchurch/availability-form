@@ -378,7 +378,21 @@ const FIXTURES = {
   sheet: FIX_HEAD + '<h1>Sheet</h1><button onclick="document.getElementById(\'s\').style.display=\'block\'">Open</button><div id="s" style="display:none;position:fixed;left:0;right:0;bottom:0;top:30%;background:#fff;border-top:1px solid #000;overflow:auto;z-index:50"><div style="height:1500px">Long sheet with no way out</div></div></body></html>',
   small: FIX_HEAD + '<h1>Small</h1><button onclick="this.textContent=this.textContent===\'x\'?\'y\':\'x\'" style="min-height:0;padding:0;width:16px;height:16px;font-size:10px">x</button></body></html>',
   insideapp: FIX_HEAD + '<div id="egbc-bar" style="height:48px;background:#eee">The website header</div><h1>Opened from the app</h1></body></html>',
-  hidden: FIX_HEAD + '<div style="position:fixed;top:0;left:0;right:0;height:60px;background:#eee;z-index:5">Bar</div><h1 style="margin-top:10px">Hidden under the bar</h1><p>Text</p></body></html>'
+  hidden: FIX_HEAD + '<div style="position:fixed;top:0;left:0;right:0;height:60px;background:#eee;z-index:5">Bar</div><h1 style="margin-top:10px">Hidden under the bar</h1><p>Text</p></body></html>',
+  /* THE THREE JUDGING CHANGES OF 6 NOV 2026, each both ways (Martin: "prove
+     the change still catches a real fault"). */
+  /* A button clipped away in a shut fold is not on screen: passes. */
+  foldok: FIX_HEAD + '<h1>A shut fold</h1><button onclick="this.textContent=this.textContent===\'Tap\'?\'Done\':\'Tap\'">Tap</button><div style="max-height:0;overflow:hidden"><button onclick="this.textContent=\'x\'">In a shut fold</button></div></body></html>',
+  /* A button in an OPEN fold with something over it is still covered. */
+  foldcovered: FIX_HEAD + '<h1>An open fold</h1><div style="overflow:hidden;position:relative"><button onclick="this.textContent=\'x\'">Under, in an open fold</button><div style="position:absolute;inset:0;background:rgba(0,0,0,.01)"></div></div></body></html>',
+  /* A state that is an open window: the page's buttons behind it are not its to press. Passes. */
+  windowok: FIX_HEAD + '<h1>The page</h1><button onclick="this.textContent=\'x\'">Behind one</button><button onclick="this.textContent=\'y\'">Behind two</button><div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:110;overflow:auto;padding:24px"><div style="background:#fff;padding:16px"><h2>The window</h2><button onclick="this.textContent=this.textContent===\'Tap\'?\'Done\':\'Tap\'">Tap</button></div></div></body></html>',
+  /* The same window with a button covered INSIDE it: still covered. */
+  windowcovered: FIX_HEAD + '<h1>The page</h1><div style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:110;overflow:auto;padding:24px"><div style="background:#fff;padding:16px"><h2>The window</h2><div style="position:relative"><button onclick="this.textContent=\'x\'">Under, in the window</button><div style="position:absolute;inset:0;background:rgba(0,0,0,.01)"></div></div></div></div></body></html>',
+  /* A bottom bar with an open window over it, the window longer than the screen: its end is not "hidden". Passes. */
+  barok: FIX_HEAD + '<h1>A bar under a window</h1><div style="height:1500px">The page</div><div style="position:fixed;left:0;right:0;bottom:0;height:56px;background:#eee;z-index:40">Bottom bar</div><div style="position:fixed;inset:0;z-index:110;background:rgba(0,0,0,.4);overflow:auto;padding:24px"><div style="background:#fff;padding:16px"><h2>The window</h2><p style="height:1400px">A long window</p><button onclick="this.textContent=this.textContent===\'Tap\'?\'Done\':\'Tap\'">Tap</button></div></div></body></html>',
+  /* A page that ends under a real bottom bar, nothing over it: still hidden. */
+  hiddenbottom: FIX_HEAD + '<h1>Ends under the bar</h1><div style="height:1200px"></div><p>The end of the page</p><div style="position:fixed;left:0;right:0;bottom:0;height:80px;background:#eee">Bottom bar</div></body></html>'
 };
 
 function startServer(port) {
@@ -1435,12 +1449,14 @@ async function selfTest(base) {
   console.log('Self-test: every rule fails on a page broken that way, and a clean page passes\n');
   const liveOk = liveWordsCheck();
   const B = await browser(PORT0, 'self');
-  const expect = { clean: null, console: 'console', overflow: 'overflow', bars: 'bars', chrome: 'chrome', dead: 'dead', covered: 'covered', sheet: 'sheet', hidden: 'hidden', insideapp: 'chrome', small: 'small' };
+  const expect = { clean: null, console: 'console', overflow: 'overflow', bars: 'bars', chrome: 'chrome', dead: 'dead', covered: 'covered', sheet: 'sheet', hidden: 'hidden', insideapp: 'chrome', small: 'small',
+    foldok: null, foldcovered: 'covered', windowok: null, windowcovered: 'covered', barok: null, hiddenbottom: 'hidden' };
   let bad = 0;
   try {
     for (const [name, rule] of Object.entries(expect)) {
       RESULTS.length = 0;
-      await auditScreen(B, { role: 'self', size: '375', screen: name, url: base + '__audit/' + name + '.html', inApp: name === 'insideapp', taps: true, base });
+      /* The window pages are judged as a state (a step that does nothing), as the hub's are. */
+      await auditScreen(B, { role: 'self', size: '375', screen: name, url: base + '__audit/' + name + '.html', inApp: name === 'insideapp', taps: true, base, steps: /^window/.test(name) ? ['1'] : undefined });
       const r = RESULTS[0], rules = r.why.map(w => w.split(':')[0]);
       const good = rule ? rules.includes(rule) : r.pass;
       if (!good) bad++;
