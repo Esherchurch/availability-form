@@ -1228,7 +1228,9 @@ const APP_CHROME = `JSON.stringify((function(){
     tabs: [].filter.call(document.querySelectorAll('nav.tabs'),vis).length, care: care, siteBar: vis(document.getElementById('egbc-bar')) };
 })())`;
 async function backToApp(B, { role, size, from }) {
-  const has = await B.ev('(function(){var a=document.querySelector("#egbc-am-top a.am-back");if(!a)return 0;a.click();return 1})()');
+  /* --resume: kept, not pressed again (as findability and every screen). */
+  if (passedBefore(role, size, 'back to the app from ' + from)) return;
+  const has =await B.ev('(function(){var a=document.querySelector("#egbc-am-top a.am-back");if(!a)return 0;a.click();return 1})()');
   const why = [];
   if (!has) why.push('chrome: no "Back to the app" arrow on ' + from);
   else {
@@ -1285,6 +1287,9 @@ const FIND = `JSON.stringify((function(){
   return { depth: depth, direct: direct, buttons: buttons };
 })())`;
 async function findability(B, role, size, base) {
+  /* --resume: a pass kept from an earlier part is not opened again (the
+     proof, 6 Nov 2026: this screen alone was re-run and recorded twice). */
+  if (passedBefore(role, size, 'findability (taps from Home)')) return;
   await B.size(...ALL_SIZES[size]);
   await B.go(base + 'hub.html');
   await sleep(1500);
@@ -1337,6 +1342,8 @@ async function runRole(B, role, size, base, shared) {
         continue;
       }
       if (!should) {
+        /* --resume: a refusal already proved is kept, not opened again. */
+        if (passedBefore(role, size, page + ' (not in their Menu)')) continue;
         await B.size(...ALL_SIZES[size]);
         await B.go(base + page);
         const m = JSON.parse((await B.ev(MEASURE)) || '{}');
