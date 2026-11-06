@@ -19,6 +19,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build, buildChurch, buildStorageChurch, tokens, SOURCE, BUILT, CHURCH_BUILT, STORAGE_SOURCE, STORAGE_CHURCH_BUILT, LIMIT, WARN } from '../tools/rules-build.mjs';
+import { LOOKUPS, defOf, expand, CHURCH_DOCS } from '../tools/rules-lookups.mjs';
 
 const V2 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (f) => fs.readFileSync(path.join(V2, f), 'utf8');
@@ -31,16 +32,29 @@ const have = fs.existsSync(path.join(V2, BUILT)) ? read(BUILT).replace(/\r\n/g, 
 ok('firestore.build.rules is built from firestore.rules as it is now', have === want, 'run: node tools/rules-build.mjs');
 const bytes = Buffer.byteLength(want);
 ok('the built ruleset is under ' + Math.round(LIMIT / 1024) + ' KB (' + bytes + ' bytes; the source is ' + Buffer.byteLength(src) + ')', bytes <= LIMIT, bytes + ' bytes');
-ok('and they are the same rules: the same tokens, in the same order', tokens(src) === tokens(want.replace(/^\/\/[^\n]*\n/, '')));
+/* THE SHARED LOOKUPS (tools/rules-lookups.mjs; 6 Nov 2026): the built rules
+   write the ten most repeated lookups once each, as functions. Written out
+   again, they must give back exactly the rules firestore.rules says. */
+const body = (t) => t.replace(/^\/\/[^\n]*\n/, '');
+ok('and they are the same rules: the same tokens, in the same order, once the shared lookups are written out again',
+  tokens(src) === tokens(expand(body(want))));
+for (const L of LOOKUPS) {
+  const def = defOf(L), n = want.split(def).length - 1;
+  const calls = (want.match(new RegExp('(^|[^A-Za-z0-9_])' + L.name + '\\(', 'g')) || []).length - n;
+  ok('  ' + L.name + ' is exactly its lookup, defined once (' + calls + ' uses): ' + def.replace(/^function [^{]*\{ return /, '').replace(/; \}$/, ''), n === 1 && calls >= 1,
+    n + ' definitions, ' + calls + ' uses');
+}
 /* A comment marker inside quotes is part of a rule, not a comment. */
 const sample = "match /x/{id} { allow read: if resource.data.url.matches('^https?://[a-z]+'); } // gone\n/* gone too */";
-ok('  a // inside quotes is kept; real comments go', build(sample).includes("'^https?://[a-z]+'") && !/gone/.test(build(sample)));
+ok('  a // inside quotes is kept; real comments go', build(sample, { lookups: false }).includes("'^https?://[a-z]+'") && !/gone/.test(build(sample, { lookups: false })));
 /* The church ruleset (step 4 part 1): built by the same script, a file of
    its own (never in the same ruleset as EGBC's, H-7). */
 const church = buildChurch(src);
 const haveChurch = fs.existsSync(path.join(V2, CHURCH_BUILT)) ? read(CHURCH_BUILT).replace(/\r\n/g, '\n') : '';
 ok('firestore.churches.rules is built from firestore.rules as it is now', haveChurch === church, 'run: node tools/rules-build.mjs');
 ok('and is under ' + Math.round(LIMIT / 1024) + ' KB (' + Buffer.byteLength(church) + ' bytes)', Buffer.byteLength(church) <= LIMIT);
+ok('and its shared lookups, written out again, give the same rules as building it without them',
+  tokens(expand(body(church), CHURCH_DOCS)) === tokens(body(buildChurch(src, { lookups: false }))));
 const st = Buffer.byteLength(read('storage.rules'));
 ok('storage.rules is under ' + Math.round(LIMIT / 1024) + ' KB (' + st + ' bytes)', st <= LIMIT);
 /* The church Storage ruleset (batch B): built the same way, every rule behind the gate. */

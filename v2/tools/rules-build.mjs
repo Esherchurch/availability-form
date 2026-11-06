@@ -19,6 +19,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { shorten, LOOKUPS } from './rules-lookups.mjs';
 
 const V2 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const SOURCE = 'firestore.rules';
@@ -57,7 +58,10 @@ export function strip(src) {
   return out.trim() + '\n';
 }
 
-export function build(src) { return HEADER + strip(src); }
+/* The ten most repeated lookups are written once each, as functions
+   (tools/rules-lookups.mjs; 6 Nov 2026). { lookups: false } builds without
+   them, for the check that both give the same rules. */
+export function build(src, o = {}) { return HEADER + (o.lookups === false ? strip(src) : shorten(strip(src))); }
 
 /* The collections firestore.rules opens at the top (four spaces in), less
    Church HQ's directory: every one of these is also a church's, under
@@ -134,8 +138,8 @@ const LEFT_OUT = [
 ];
 const DIRECTORY = [/^match \/hqChurches\//, /^match \/hqMemberships\//, /^match \/hqSlugs\//];
 
-export function buildChurch(src) {
-  const docs = blockBody(strip(src), 'match /databases/{database}/documents');
+export function buildChurch(src, o = {}) {
+  const docs = blockBody(o.lookups === false ? strip(src) : shorten(strip(src)), 'match /databases/{database}/documents');
   const all = items(docs);
   const heads = all.map(headOf);
   for (const need of ['function signedIn()', 'function me()', 'match /users/{uid}', 'match /{document=**}']) {
@@ -148,6 +152,8 @@ export function buildChurch(src) {
   if (!kept.some((it) => it.trim() === PERM_EGBC)) throw new Error('firestore.rules no longer has permKey(): the church build needs looking at');
   const moved = kept.map((it) => it.trim() === PERM_EGBC ? 'function permKey() { return cid; }' : it).map((it) => it.split('/databases/$(database)/documents/').join('/databases/$(database)/documents/churches/$(cid)/'));
   const directory = all.filter((it) => DIRECTORY.some((re) => re.test(headOf(it))));
+  /* The shared lookups live inside the church block, so the directory, outside it, can't call them. */
+  if (directory.some((it) => LOOKUPS.some((L) => new RegExp('(^|[^A-Za-z0-9_])' + L.name + '\\(').test(it)))) throw new Error('the directory uses a shared lookup: the church build needs looking at');
   return CHURCH_HEADER + [
     "rules_version = '2';",
     'service cloud.firestore {',
