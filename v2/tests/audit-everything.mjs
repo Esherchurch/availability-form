@@ -542,7 +542,12 @@ const MEASURE = `(function(){
   /* content under the bars: the first and last things on the page */
   var items = []; document.querySelectorAll('h1,h2,h3,p,li,label,td,button,a,input,select,textarea,img').forEach(function (el) { if (vis(el) && !inBar(el)) items.push(el); });
   out.firstTop = items.length ? Math.round(Math.min.apply(null, items.map(function (el) { return el.getBoundingClientRect().top + scrollY; }))) : null;
-  out.lastBottom = items.length ? Math.round(Math.max.apply(null, items.map(function (el) { return el.getBoundingClientRect().bottom + scrollY; }))) : null;
+  /* An item's bottom as it can be seen: clipped to any box it scrolls inside.
+     A window that scrolls on its own holds its lower part below its own edge on
+     purpose; counting that as the page's end read the portal's editor as
+     "hidden under the bottom bar" (6 Nov 2026). */
+  function seenBottom(el) { var b = el.getBoundingClientRect().bottom; for (var p = el.parentElement; p && p !== document.body; p = p.parentElement) { var o = getComputedStyle(p).overflowY; if (o !== 'visible') b = Math.min(b, p.getBoundingClientRect().bottom); } return b; }
+  out.lastBottom = items.length ? Math.round(Math.max.apply(null, items.map(function (el) { return seenBottom(el) + scrollY; }))) : null;
   out.docH = document.documentElement.scrollHeight;
   return JSON.stringify(out);
 })()`;
@@ -1009,7 +1014,12 @@ async function tapAll(B, url, reopen, ctx) {
        its own full-screen start is not a pop-up of this one. Start again. */
     if ((await B.ev('location.pathname')) !== new URL(before.u).pathname) { await reopen(); continue; }
     const overAfter = (await B.ev(OVERLAY)) || 'null';
-    const sheet = overAfter !== 'null' && overAfter !== overBefore ? JSON.parse((await B.ev(SHEET_CLOSE.replace('__SKIP__', JSON.stringify(overBefore === 'null' ? [] : String(JSON.parse(overBefore).all || '').split(','))))) || 'null') : null;
+    /* A sheet OPENED only when a layer is there that was not before: a press
+       that closes one (the invitation's "Close ×") leaves fewer, and the
+       panel open all along is not a new sheet (6 Nov 2026). */
+    const layersBefore = overBefore === 'null' ? [] : String(JSON.parse(overBefore).all || '').split(',');
+    const opened = overAfter !== 'null' && overAfter !== overBefore && String(JSON.parse(overAfter).all || '').split(',').some((l) => l && !layersBefore.includes(l));
+    const sheet = opened ? JSON.parse((await B.ev(SHEET_CLOSE.replace('__SKIP__', JSON.stringify(layersBefore)))) || 'null') : null;
     if (sheet) {
       if (!sheet.close) why.push('sheet: "' + (next.words || 'a control') + '" opens a sheet (' + sheet.sig + ') with no visible close after scrolling it');
       /* --every: press and fill what is inside it, each time from the page
