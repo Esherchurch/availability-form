@@ -10,13 +10,15 @@
  *     256 KB source and 250 KB compiled limits);
  *   - the built rules are not the same rules: the same tokens, in order;
  *   - storage.rules is over the same limit;
+ *   - any of the four rulesets is within 2% of that limit (WARN), so room
+ *     is made before a fix stops fitting (the reviewing window, 6 Nov 2026);
  *   - any emulator config, or firebase.json, points at anything but the
  *     built file - every rules test runs against what will deploy.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { build, buildChurch, buildStorageChurch, tokens, SOURCE, BUILT, CHURCH_BUILT, STORAGE_SOURCE, STORAGE_CHURCH_BUILT, LIMIT } from '../tools/rules-build.mjs';
+import { build, buildChurch, buildStorageChurch, tokens, SOURCE, BUILT, CHURCH_BUILT, STORAGE_SOURCE, STORAGE_CHURCH_BUILT, LIMIT, WARN } from '../tools/rules-build.mjs';
 
 const V2 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (f) => fs.readFileSync(path.join(V2, f), 'utf8');
@@ -45,6 +47,11 @@ ok('storage.rules is under ' + Math.round(LIMIT / 1024) + ' KB (' + st + ' bytes
 const stChurch = buildStorageChurch(read(STORAGE_SOURCE));
 const haveSt = fs.existsSync(path.join(V2, STORAGE_CHURCH_BUILT)) ? read(STORAGE_CHURCH_BUILT).replace(/\r\n/g, '\n') : '';
 ok('storage.churches.rules is built from storage.rules as it is now', haveSt === stChurch, 'run: node tools/rules-build.mjs');
+/* The 2% line: every ruleset that deploys stays at least 2% under the limit. */
+for (const [name, n] of [['firestore.build.rules', bytes], ['firestore.churches.rules', Buffer.byteLength(church)], ['storage.rules', st], ['storage.churches.rules', Buffer.byteLength(stChurch)]]) {
+  ok(name + ' is more than 2% under the limit (' + n + ' bytes; the line is ' + WARN + ', ' + (WARN - n) + ' to spare)', n <= WARN,
+    'make room first: shared functions or duplication removed, never a rule weakened');
+}
 const allows = (stChurch.match(/allow [^:]+: if /g) || []).length, gated = (stChurch.match(/allow [^:]+: if stGate\(\) && \(/g) || []).length;
 ok('  every allow in it is behind the church gate (' + gated + ' of ' + allows + ')', allows > 0 && gated === allows - 1, gated + ' of ' + allows + ' (the one left is the catch-all)');
 

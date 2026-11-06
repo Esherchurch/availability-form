@@ -26,6 +26,12 @@ export const BUILT = 'firestore.build.rules';
 /* The working limit: 256 KB is Firebase's, the compiled ruleset may be a
    little bigger or smaller, so we keep a margin (the reviewing window). */
 export const LIMIT = 230 * 1024;
+/* AND A WARNING LINE 2% UNDER IT (the reviewing window, 6 Nov 2026): the
+   church rules were at 230,053 of 235,520 bytes, so a fix could stop
+   fitting. The build and the check fail once any ruleset passes this line,
+   so room is made deliberately (shared functions, never a weaker rule)
+   before a fix is squeezed in. */
+export const WARN = Math.floor(LIMIT * 0.98);
 const HEADER = '// GENERATED from firestore.rules by tools/rules-build.mjs - do not edit; edit firestore.rules and run the build.\n';
 
 /* The rules with comments out and whitespace squeezed; strings untouched. */
@@ -244,7 +250,7 @@ if (isMain) {
     const have = fs.existsSync(path.join(V2, BUILT)) ? fs.readFileSync(path.join(V2, BUILT), 'utf8').replace(/\r\n/g, '\n') : '';
     const fresh = have === want;
     console.log((fresh ? 'up to date' : 'OUT OF DATE: run node tools/rules-build.mjs') + '; ' + bytes + ' bytes of ' + LIMIT);
-    process.exit(fresh && bytes <= LIMIT ? 0 : 1);
+    process.exit(fresh && bytes <= WARN ? 0 : 1);
   }
   fs.writeFileSync(path.join(V2, BUILT), want);
   console.log('wrote ' + BUILT + ': ' + bytes + ' bytes (source ' + Buffer.byteLength(src) + '; limit ' + LIMIT + ')');
@@ -255,4 +261,7 @@ if (isMain) {
   fs.writeFileSync(path.join(V2, STORAGE_CHURCH_BUILT), stChurch);
   console.log('wrote ' + STORAGE_CHURCH_BUILT + ': ' + Buffer.byteLength(stChurch) + ' bytes');
   if (bytes > LIMIT || Buffer.byteLength(church) > LIMIT || Buffer.byteLength(stChurch) > LIMIT) { console.log('OVER THE LIMIT'); process.exit(1); }
+  const most = Math.max(bytes, Buffer.byteLength(church), Buffer.byteLength(stChurch));
+  if (most > WARN) { console.log('WITHIN 2% OF THE LIMIT: ' + most + ' bytes, the line is ' + WARN + ' - make room before adding more (tools/rules-build.mjs WARN)'); process.exit(1); }
+  console.log('room before the 2% line: ' + (WARN - most) + ' bytes');
 }
