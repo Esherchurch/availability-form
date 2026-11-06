@@ -347,7 +347,7 @@
         <div id="gifFrameList"><span style="font-size:12px; color:#aaa; align-self:center;">No frames yet — add images below</span></div>
         <div style="display:flex; gap:8px; margin-bottom:16px;">
             <button class="btn-ghost" onclick="addGifFrames()">+ Add images</button>
-            <button class="btn-ghost" style="color:var(--danger); border-color:#f0c0b8;" onclick="clearGifFrames()">Clear all</button>
+            <button class="btn-ghost" id="gifClearAll" style="color:var(--danger); border-color:#f0c0b8;" onclick="clearGifFrames()" disabled>Clear all</button>
         </div>
         <div class="gif-row"><span class="gif-label">Delay (ms)</span>
             <input id="gifDelay" type="number" value="500" min="100" max="5000" step="100" class="gif-input">
@@ -938,7 +938,7 @@ function renderPeople() {
             <input type="checkbox" data-id="${escapeHtml(m.id)}" ${pickedIds.has(m.id) ? 'checked' : ''} ${has ? '' : 'disabled'}>
             <span class="pr-name">${escapeHtml(m.name || 'Unnamed')}</span>
             <span class="pr-email">${has ? escapeHtml(email) : 'no email on file'}</span>
-            ${mayEmailAnyone() ? `<button type="button" class="btn-ghost" style="width:auto;padding:4px 10px;font-size:12px" data-household="${escapeHtml(m.id)}">Household</button>` : ''}
+            ${mayEmailAnyone() ? `<button type="button" class="btn-ghost" style="width:auto;padding:4px 10px;font-size:12px;min-height:32px" data-household="${escapeHtml(m.id)}">Household</button>` : ''}
         </label>`;
     }).join('') : '<div class="draft-empty">No matches.</div>';
 }
@@ -1296,8 +1296,11 @@ function addGifFrames() {
     };
     input.click();
 }
+/* "Clear all" only when there is something to clear (the states audit, 6 Nov 2026: it did nothing with no frames). */
+function gifClearState() { const b = $("gifClearAll"); if (b) b.disabled = !gifFrames.length; }
 function renderGifFrames() {
     const list = $('gifFrameList');
+    gifClearState();
     if (gifFrames.length === 0) { list.innerHTML = '<span style="font-size:12px;color:#aaa;align-self:center;">No frames yet — add images below</span>'; return; }
     list.innerHTML = gifFrames.map((f, i) => `<img src="${f.dataUrl}" title="Click to remove" onclick="removeGifFrame(${i})">`).join('');
 }

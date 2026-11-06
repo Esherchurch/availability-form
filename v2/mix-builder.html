@@ -323,6 +323,9 @@ if (/^https?:$/.test(location.protocol)) {
   .rep-scroll{max-height:240px; overflow:auto}
 
   @media (max-width:700px){
+    /* A finger's size on a phone (the states audit, 6 Nov 2026: the pin, Find the file,
+       up/down and Swap were 17-24px tall); a computer keeps the compact row. */
+    .trk-tools button, .pin, .ghost.tiny{ min-height:32px; min-width:32px; }
     .wrap{padding:20px 12px 80px}
     .tl-name,.tl-bpm{display:none}
   }

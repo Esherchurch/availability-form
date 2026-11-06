@@ -1315,6 +1315,7 @@ Anytown</textarea></div>
       state.photoAdj={brightness:100,contrast:100,saturate:100,grayscale:0};
       state.photoShape=''; state.photoFrame='none';
       syncPhotoControls(); applyPhotoAdjust();
+      toast('Photo settings are back to the start');   /* said, so a press with nothing changed is not silent */
     }
     // Re-render the photo through a canvas with the adjustments baked in (so print/export match).
     let _adjT;
@@ -1374,7 +1375,7 @@ Anytown</textarea></div>
       document.getElementById('el-mx').value = e.x || 0;
       document.getElementById('el-my').value = e.y || 0;
     }
-    function resetTextPos(){ state.text={x:null,y:50,w:null,scale:1}; state.elem=freshElem(); syncTextSliders(); syncElemControls(); render(); }
+    function resetTextPos(){ state.text={x:null,y:50,w:null,scale:1}; state.elem=freshElem(); syncTextSliders(); syncElemControls(); render(); toast('All the text is back where it started'); }
     ['txt-x','txt-y','txt-w','txt-s'].forEach(id=>document.getElementById(id).addEventListener('input', ()=>{
       state.text.x=+document.getElementById('txt-x').value;
       state.text.y=+document.getElementById('txt-y').value;
@@ -1403,7 +1404,11 @@ Anytown</textarea></div>
       const file=event.target.files[0]; if(!file) return;
       const reader=new FileReader();
       reader.onload=e=>{
-        const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+        /* Not a spreadsheet (a picture, say): say so, rather than an error only the
+           console sees (the states audit, 6 Nov 2026). */
+        let wb;
+        try { wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'}); }
+        catch(err){ document.getElementById('excel-upload').value=''; toast('That file is not a spreadsheet. Choose your guest list as .xlsx or .xls.'); return; }
         const ws=wb.Sheets[wb.SheetNames[0]];
         const rows=XLSX.utils.sheet_to_json(ws);
         const guests=rows.map(r=>({

@@ -494,7 +494,7 @@ const MEASURE = `(function(){
   function clipped(el) { for (var p = el.parentElement; p && p !== document.body; p = p.parentElement) { var o = getComputedStyle(p).overflowX; if (o !== "visible" && p.getBoundingClientRect().right <= iw + 1) return true; } return false; }
   var sw = document.documentElement.scrollWidth; out.overflow = sw > iw + 1 ? sw : 0;
   if (out.overflow) { var widest = null, wv = iw; document.querySelectorAll('body *').forEach(function (el) { var r = el.getBoundingClientRect(); if (r.right > wv + 1 && vis(el) && !clipped(el)) { wv = r.right; widest = el; } });
-    out.widest = widest ? (widest.tagName.toLowerCase() + (widest.id ? '#' + widest.id : '') + (widest.className && typeof widest.className === 'string' ? '.' + widest.className.trim().split(/\\s+/).slice(0, 2).join('.') : '') + ' ' + Math.round(wv) + 'px') : ''; }
+    out.widest = widest ? (widest.tagName.toLowerCase() + (widest.id ? '#' + widest.id : '') + (widest.className && typeof widest.className === 'string' ? '.' + widest.className.trim().split(/\\s+/).slice(0, 4).join('.') : '') + ' "' + (widest.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 30) + '" ' + Math.round(wv) + 'px') : '';   /* four classes and its first words, so the row can be found (6 Nov 2026) */ }
   /* fixed and sticky bars, top and bottom */
   var tops = [], bots = [];
   document.querySelectorAll('body *').forEach(function (el) {
@@ -589,12 +589,19 @@ const MARK_SCOPE = `(function(){
 /* Written as a template literal, so a regex's backslash is doubled: a single \b here was a backspace
    in the page, and a close said only in words (Done, Cancel, Close) was never found - 54 Stage 3
    screens called "no visible close" (4 Nov 2026). tools: see the template scan in the findings. */
+/* The layer that OPENED, not merely the smallest: __SKIP__ is the layers open
+   before the press (OVERLAY's all), passed in, and they are passed over while
+   a new one is there (6 Nov 2026: the invitation page's fixed settings panel,
+   open all along, was taken for the sheet its Email button opens). */
 const SHEET_CLOSE = `(function(){
-  var iw=innerWidth, ih=innerHeight, best=null, ba=0;
+  var iw=innerWidth, ih=innerHeight, best=null, ba=0, any=null, aa=0, skip=__SKIP__;
   document.querySelectorAll('body *').forEach(function(el){ var s=getComputedStyle(el); if(s.position!=='fixed'||s.display==='none'||s.visibility==='hidden'||+s.opacity===0)return;
     var r=el.getBoundingClientRect(), a=Math.max(0,Math.min(r.right,iw)-Math.max(r.left,0))*Math.max(0,Math.min(r.bottom,ih)-Math.max(r.top,0)); if(a < iw*ih*0.35 && !(r.left < iw && r.right > 0 && Math.min(r.bottom,ih)-Math.max(r.top,0) >= ih*0.6 && el.querySelectorAll("a[href],button").length >= 3))return; if(el.hasAttribute("data-am-own")||el.hasAttribute("data-page-view"))return; if(el.id==='egbc-app'||el.querySelector('#egbc-app'))return;
     if(!(el.textContent||'').trim())return;
+    if(!any||a<aa){any=el;aa=a;}
+    if(skip.indexOf((el.id||'')+'.'+String(el.className||el.tagName).slice(0,40))!==-1)return;
     if(!best||a<ba){best=el;ba=a;} });
+  best=best||any;
   if(!best)return 'null';
   best.querySelectorAll('*').forEach(function(x){ if(x.scrollHeight>x.clientHeight+4) x.scrollTop=x.scrollHeight; }); best.scrollTop=best.scrollHeight;
   var close=[].filter.call(best.querySelectorAll('button,a,[role=button],[data-act]'),function(b){
@@ -1002,7 +1009,7 @@ async function tapAll(B, url, reopen, ctx) {
        its own full-screen start is not a pop-up of this one. Start again. */
     if ((await B.ev('location.pathname')) !== new URL(before.u).pathname) { await reopen(); continue; }
     const overAfter = (await B.ev(OVERLAY)) || 'null';
-    const sheet = overAfter !== 'null' && overAfter !== overBefore ? JSON.parse((await B.ev(SHEET_CLOSE)) || 'null') : null;
+    const sheet = overAfter !== 'null' && overAfter !== overBefore ? JSON.parse((await B.ev(SHEET_CLOSE.replace('__SKIP__', JSON.stringify(overBefore === 'null' ? [] : String(JSON.parse(overBefore).all || '').split(','))))) || 'null') : null;
     if (sheet) {
       if (!sheet.close) why.push('sheet: "' + (next.words || 'a control') + '" opens a sheet (' + sheet.sig + ') with no visible close after scrolling it');
       /* --every: press and fill what is inside it, each time from the page
