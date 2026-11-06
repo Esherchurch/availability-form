@@ -198,6 +198,7 @@ function madeUpFile(accept) {
 const REACHED_FILE = path.join(V2, 'tests', 'out', EVENTS ? 'controls-reached-events.json' : 'controls-reached.json');
 const { KEYS_JS } = await import('../tools/control-inventory.mjs');
 function saveReached() {
+  if (SELF) return;   /* never from --self-test (see saveProgress) */
   fs.mkdirSync(path.dirname(REACHED_FILE), { recursive: true });
   fs.writeFileSync(REACHED_FILE, JSON.stringify(REACHED));
   fs.writeFileSync(REACHED_FILE.replace(/\.json$/, '-skipped.json'), JSON.stringify(SKIPPED_KEYS));
@@ -1125,6 +1126,9 @@ function passedBefore(role, size, screen) {
 }
 /** The results so far, after every screen (see SAVED AS IT GOES). */
 function saveProgress() {
+  /* Never from --self-test: its made-up pages overwrote a real run's progress
+     (6 Nov 2026: 103 screens lost to one self-test record). */
+  if (SELF) return;
   fs.mkdirSync(path.dirname(PROGRESS_FILE), { recursive: true });
   fs.writeFileSync(PROGRESS_FILE, JSON.stringify(RESULTS));
 }
