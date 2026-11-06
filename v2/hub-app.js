@@ -3447,6 +3447,44 @@ function renderAdminPeople(){
   loadPeople();
 }
 
+/* SHARED PAGES: pages filed under one team that are for everyone on any team -
+   the live rota, the training portal. They need the `everyone` flag to reach
+   people on other teams. Taken out with the hub's old imports on 28 Oct
+   (acb20999), with its button left behind and doing nothing; put back
+   (Martin, 6 Nov 2026: "worked until 28 Oct, so it's lost behaviour"), for any
+   church: the list is the Menu's own pages marked anyTeam (for anyone on a
+   team, the rota among them), plus the training portal, which is the whole
+   church's by design. Page names, never a church's own data. */
+const SHARED_ALWAYS = ['trainingportalhub.html'];
+/** @returns {string[]} the file names (lower case) whose hub entries should be seen by everyone */
+function sharedPageUrls() {
+  const fromMenu = (window.EGBCMenu && EGBCMenu.allPages ? EGBCMenu.allPages() : [])
+    .filter(n => n && n.url && n.anyTeam).map(n => String(n.url).toLowerCase());
+  return [...new Set(fromMenu.concat(SHARED_ALWAYS))];
+}
+
+/**
+ * Opens the shared pages' hub entries to everyone signed in (everyone: true),
+ * in one go, after saying which. Master admins only, as before; the rules'
+ * hubPages write decides in the end.
+ */
+async function markSharedPages() {
+  if (!EGBCAuth.isMaster()) { alert('Only a master admin can do this.'); return; }
+  const shared = sharedPageUrls();
+  const hits = PAGES.filter(p => shared.includes(String(p.url || '').toLowerCase().split('?')[0]) && !p.everyone);
+  if (!hits.length) { alert('Nothing to change - the shared pages are already open to everyone.'); return; }
+  if (!confirm(`Open these to everyone, whatever team they are on?\n\n${hits.map(h => '• ' + h.title).join('\n')}`)) return;
+  try {
+    const batch = db.batch();
+    hits.forEach(h => batch.update(db.collection('hubPages').doc(h.id), { everyone: true }));
+    await batch.commit();
+    await loadPages();
+    renderTools();
+    renderAdminPages();
+    alert(`${hits.length} now open to everyone.`);
+  } catch (e) { alert('Could not update: ' + e.message); }
+}
+
 function renderAdminPages(){
   const el=document.getElementById('tab-pages');
   if(!el.dataset.built){
@@ -3459,6 +3497,7 @@ function renderAdminPages(){
         </p>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn" id="btnCheckLinks" onclick="checkRegistryLinks()">Check every link</button>
+          <button class="btn" onclick="markSharedPages()">Open shared pages to everyone</button>
           <button class="btn" id="btnAddPage" onclick="newPage()">+ Add</button>
         </div>
       </div>

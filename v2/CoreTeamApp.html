@@ -779,12 +779,13 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
   <div class="modal-sheet">
     <div class="modal-handle"></div>
     <div class="modal-title">Email the team</div>
-    <p style="font-size:12px;font-weight:600;color:var(--teal);opacity:0.6;margin-bottom:14px;">The full worship plan will be copied to your clipboard and your email app will open.</p>
+    <p style="font-size:12px;font-weight:600;color:var(--teal);opacity:0.6;margin-bottom:14px;">The hub sends the plan, as the planner's Email Team does. Nobody's address is shown, and under-18s are not emailed - they are named instead.</p>
     <div style="display:flex;flex-direction:column;gap:10px;">
-      <!-- A mail link, built as it is pressed: it opens the person's mail app,
-           as a mailto: link does (the states audit, 6 Nov 2026: a button that
-           set location to mailto: read as doing nothing). -->
-      <a class="btn btn-primary btn-full" href="mailto:" style="text-decoration:none" onclick="return emailWholeTeam(this)">Email Whole Team</a>
+      <!-- THROUGH THE HUB, NEVER A MAIL LINK (Martin, 6 Nov 2026: every email the
+           hub offers goes through hubSend and the church's own sending). Both
+           buttons hand the send to the planner's spEmail: the same route,
+           template and under-18 handling as its Email Team. -->
+      <button class="btn btn-primary btn-full" onclick="emailWholeTeam()">Email Whole Team</button>
       <div style="border-top:1px solid var(--border);padding-top:10px;">
         <div class="form-label" style="margin-bottom:8px;">Or email one person:</div>
         <select class="form-select" id="email-one-person" style="margin-bottom:8px;">
@@ -870,14 +871,9 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
     <div class="modal-title">Mailing list</div>
     <div class="form-field" style="margin-bottom:14px;">
       <label class="form-label">Select Teams</label>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;" id="team-chips">
-        <div class="team-chip" data-team="Worship Team" onclick="toggleMailTeam(this)">Worship</div>
-        <div class="team-chip" data-team="AV Team" onclick="toggleMailTeam(this)">AV</div>
-        <div class="team-chip" data-team="Youth Worship" onclick="toggleMailTeam(this)">Youth</div>
-        <div class="team-chip" data-team="Core Team" onclick="toggleMailTeam(this)">Core</div>
-        <div class="team-chip" data-team="Choir" onclick="toggleMailTeam(this)">Choir</div>
-        <div class="team-chip" data-team="Everyone" onclick="toggleMailTeam(this)">Everyone</div>
-      </div>
+      <!-- The church's own teams (mailTeams), drawn as the sheet opens, then Everyone. At EGBC:
+           Worship, AV, Youth, Core and Choir, as they always were. -->
+      <div style="display:flex;flex-wrap:wrap;gap:8px;" id="team-chips"></div>
     </div>
     <div id="recipient-count" style="font-size:12px;font-weight:600;color:var(--teal);opacity:0.6;margin-bottom:14px;text-align:center;"></div>
     <div style="display:flex;gap:8px;">
@@ -1080,9 +1076,9 @@ function populateLeaderDropdown(selectValue) {
   if (!sel) return;
   // Preserve whatever is already selected unless a new value is passed in
   const val = selectValue !== undefined ? selectValue : sel.value;
-  const leaders = allMembers.filter(m =>
-    m.markers && (m.markers.includes('Worship Team') || m.markers.includes('Core Team'))
-  );
+  /* The worship job's teams and the core teams over them: the church's own (Martin, 6 Nov 2026). */
+  const lead = worshipAndCoreTeams();
+  const leaders = allMembers.filter(m => (m.markers || []).some(t => lead.includes(t)));
   sel.innerHTML = '<option value="">Select leader...</option>' +
     leaders.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
   if (val) sel.value = val;
@@ -1808,11 +1804,14 @@ async function saveServiceMeta() {
 }
 
 // ── EMAIL TEAM ─────────────────────────────────────────────────────────────
+/* The people "Email This Person" can pick: by name only. Their addresses stay
+   here, never on screen (the hub's rule: no one's address is shown). */
+let EMAIL_PICK = [];
 async function emailTeam() {
-  // Populate person dropdown
   const sel = $('email-one-person');
-  sel.innerHTML = '<option value="">— Pick a person —</option>' +
-    allMembers.filter(m=>m.email).map(m=>`<option value="${m.email}">${m.name} (${m.email})</option>`).join('');
+  EMAIL_PICK = allMembers.filter(m => m.email).sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+  sel.innerHTML = '<option value="">— Pick a person —</option>';
+  EMAIL_PICK.forEach((m, i) => { const o = document.createElement('option'); o.value = String(i); o.textContent = m.name || '(no name)'; sel.appendChild(o); });
   openModal('modal-email-team');
 }
 
@@ -1857,37 +1856,31 @@ function buildServicePlanText() {
 }
 
 /**
- * Opens the person's mail app addressed (Bcc) to this service's rota and the
- * core team. Called from the Email Whole Team link: it sets the link's mailto:
- * address and lets it open, or says why not and keeps the window open.
- * @param {HTMLAnchorElement} link the Email Whole Team link
- * @returns {boolean} true to let the link open the mail app
+ * The core team's addresses: everyone on a team the church has set up as a core
+ * team over the worship team (Teams & groups, "core team for"). The church's own
+ * teams, never a name in the code (Martin, 6 Nov 2026) - at EGBC that is its
+ * Core Team, as it always was.
+ * @returns {string[]}
  */
-function emailWholeTeam(link) {
-  // Get all team emails from rota + core team
-  const rotaNames = Object.values(currentService._rotaAssignments||{}).map(a=>a?.name).filter(Boolean);
-  const emails = [...new Set(
-    allMembers
-      .filter(m => rotaNames.includes(m.name) || (m.markers||[]).includes('Core Team'))
-      .map(m=>m.email).filter(Boolean)
-  )];
-
-  /* Nobody with an address: say so, rather than opening an empty email. */
-  if (!emails.length) { toast('Nobody on this service has an email address on file yet.'); return false; }
-  const subject = encodeURIComponent(`Worship Plan — ${fmtShortDate(currentService.date)}`);
-  link.href = `mailto:?bcc=${emails.join(';')}&subject=${subject}`;
-  setTimeout(() => closeModal('modal-email-team'), 0);
-  return true;
+function coreTeamEmails() {
+  const worship = EGBCAuth.teamsForJob ? EGBCAuth.teamsForJob('worship') : [];
+  const cores = Object.keys(EGBCAuth.TEAMS || {}).filter(t => EGBCAuth.isCoreTeam(t) && (EGBCAuth.TEAMS[t].coreFor || []).some(c => worship.includes(c)));
+  return [...new Set(allMembers.filter(m => m.email && (m.markers || []).some(t => cores.includes(t))).map(m => m.email))];
 }
 
-function emailOnePerson() {
-  const email = $('email-one-person').value;
-  if (!email) { toast('Please select a person'); return; }
-  const plan = buildServicePlanText();
-  try { navigator.clipboard.writeText(plan); } catch(e) {}
+/* Email Whole Team: the planner's Email Team (hubSend, its template, under-18s
+   left out and named), to the service's team and the core team. */
+function emailWholeTeam() {
   closeModal('modal-email-team');
-  const subject = encodeURIComponent(`Worship Plan — ${fmtShortDate(currentService.date)}`);
-  window.location.href = `mailto:${email}?subject=${subject}`;
+  EGBCCorePlanner && window.spEmail ? window.spEmail({ also: coreTeamEmails() }) : toast('The planner is not open yet - choose the service first.');
+}
+
+/* Email This Person: the same plan, the same way, to one person picked by name. */
+function emailOnePerson() {
+  const pick = EMAIL_PICK[Number($('email-one-person').value)];
+  if ($('email-one-person').value === '' || !pick) { toast('Please select a person'); return; }
+  closeModal('modal-email-team');
+  window.spEmail ? window.spEmail({ to: [pick.email] }) : toast('The planner is not open yet - choose the service first.');
 }
 
 
@@ -2129,27 +2122,72 @@ function updateRecipientCount() {
   $('recipient-count').textContent = count ? `${count} recipient${count !== 1 ? 's' : ''} selected` : 'No recipients selected';
 }
 
-function openMailingSheet() {
+/* ── THE CHURCH'S OWN TEAMS, NEVER NAMES IN THE CODE (Martin, 6 Nov 2026) ──
+   Read from the team jobs (Teams & groups). At EGBC they are its Worship
+   Team, AV Team, Youth Worship, Core Team and Choir, as they always were. */
+const escH = (v) => String(v == null ? '' : v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const jobTeams = (job) => (EGBCAuth.teamsForJob ? EGBCAuth.teamsForJob(job) : []);
+const teamLabel = (t) => ((EGBCAuth.TEAMS || {})[t] || {}).label || t;
+/** The core teams over the worship job's teams. @returns {string[]} */
+function coreTeamsOverWorship() {
+  const worship = jobTeams('worship');
+  return Object.keys(EGBCAuth.TEAMS || {}).filter((t) => EGBCAuth.isCoreTeam(t) && (EGBCAuth.TEAMS[t].coreFor || []).some((c) => worship.includes(c)));
+}
+/** The worship job's teams and the core teams over them (the leader picker). @returns {string[]} */
+function worshipAndCoreTeams() { return [...new Set(jobTeams('worship').concat(coreTeamsOverWorship()))]; }
+/** The mailing sheet's teams, in the order they always were: worship, AV, youth, core, choir. @returns {string[]} */
+function mailTeams() { return [...new Set(jobTeams('worship').concat(jobTeams('av'), jobTeams('youth'), coreTeamsOverWorship(), jobTeams('choir')))]; }
+/** "Worship & AV Team", as this church names those teams. @returns {string} */
+function teamWords() {
+  const w = [...new Set(jobTeams('worship').concat(jobTeams('av')))].map(teamLabel).join(' & ');
+  return w ? w + ' Team' : 'Team';
+}
+
+async function openMailingSheet() {
+  if (EGBCAuth.loadPerms) await EGBCAuth.loadPerms().catch(() => {});
+  const box = $('team-chips');
+  box.innerHTML = '';
+  /* One core team over worship is "Core", as the chip always said; several are each by name. */
+  const cores = coreTeamsOverWorship();
+  mailTeams().concat(['Everyone']).forEach((t) => {
+    const c = document.createElement('div');
+    c.className = 'team-chip'; c.dataset.team = t; c.textContent = t === 'Everyone' ? 'Everyone' : (cores.length === 1 && cores[0] === t) ? 'Core' : teamLabel(t);
+    c.onclick = () => toggleMailTeam(c);
+    box.appendChild(c);
+  });
   updateRecipientCount();
   openModal('modal-mailing');
 }
 
-function launchEmail() {
-  const selected = Array.from(document.querySelectorAll('.team-chip.selected')).map(c => c.dataset.team);
-  let emails = [];
-  if (selected.includes('Everyone')) {
-    emails = allMembers.map(m => m.email).filter(Boolean);
-  } else {
-    emails = [...new Set(
-      allMembers.filter(m => m.markers?.some(r => selected.includes(r))).map(m => m.email).filter(Boolean)
-    )];
+/**
+ * Sends the update through the hub (hubSend, source compiler: the Email
+ * Builder's route), one copy to each person, so nobody sees another's address.
+ * Under-18-only addresses are left out and named, as everywhere else. Never a
+ * mail link (Martin, 6 Nov 2026: every email the hub offers goes this way).
+ */
+async function launchEmail() {
+  const selected = Array.from(document.querySelectorAll('#team-chips .team-chip.selected')).map(c => c.dataset.team);
+  const people = selected.includes('Everyone') ? allMembers.slice()
+    : allMembers.filter(m => (m.markers || []).some(r => selected.includes(r)));
+  const withEmail = people.filter(m => m.email);
+  const youngNames = [...new Set(withEmail.filter(m => EGBCAuth.under18Only(m.email, allMembers)).map(m => m.name))];
+  const to = [...new Set(withEmail.filter(m => !EGBCAuth.under18Only(m.email, allMembers)).map(m => m.email))];
+  if (!to.length) { toast(youngNames.length ? 'Not emailed (under 18): ' + youngNames.join(', ') : 'No recipients selected'); return; }
+  const html = buildUpdateHtml();
+  const subject = teamWords() + ' Update';
+  const replyTo = (await EGBCAuth.teamAddress('worship').catch(() => '')) || undefined;
+  toast('Sending…');
+  let sent = 0, failed = 0;
+  for (const addr of to) {
+    const r = await EGBCAuth.sendEmail({ source: 'compiler', to: [addr], subject, html, replyTo });
+    if (r && r.ok) sent++; else failed++;
   }
-  if (!emails.length) { toast('No recipients selected'); return; }
-  window.location.href = `mailto:?bcc=${emails.join(';')}&subject=Worship %26 AV Team Update`;
   closeModal('modal-mailing');
+  toast('Sent to ' + sent + ' of ' + to.length + (failed ? ' (' + failed + ' did not go)' : '') + (youngNames.length ? '. Not emailed (under 18): ' + youngNames.join(', ') : ''));
 }
 
-async function compileEmail() {
+/** The update as an email: the editor's words under the team's own header. Copy HTML and the mailing sheet both use it. */
+function buildUpdateHtml() {
   const clone = $('editable-body').cloneNode(true);
   clone.querySelectorAll('img').forEach(img => img.classList.remove('selected-img'));
   clone.querySelectorAll('table, td').forEach(el => el.style.border = 'none');
@@ -2160,7 +2198,7 @@ async function compileEmail() {
         <img src="" data-team-logo="worship" alt="" width="160" style="display:block;">
       </td>
       <td align="right" style="padding:32px 40px;font-family:Segoe UI,sans-serif;font-size:16px;color:#3d6263;font-weight:600;">
-        Worship &amp; AV Team
+        ${escH(teamWords())}
       </td>
     </tr>
   </table>`;
@@ -2181,7 +2219,11 @@ async function compileEmail() {
       }
     <\/script>
 </body></html>`;
+  return finalHtml;
+}
 
+async function compileEmail() {
+  const finalHtml = buildUpdateHtml();
   try {
     await navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([finalHtml], { type:'text/html' }) })]);
     toast('Email copied');
@@ -2363,13 +2405,12 @@ function maybeTriggerTour(section) {
     <button type="button" class="tour-x" onclick="endTour()" aria-label="Close the tour">&times;</button>
     <div class="tour-tooltip-title" id="tour-title" style="padding-right:40px"></div>
     <div class="tour-tooltip-text"  id="tour-text"></div>
-    <!-- The whole row is the label, 44px tall: the box alone was 16px and the
-         words 16px high, too small to tap on a phone (the going-live audit,
-         3 Nov 2026). As youthapp2's tour does, the browser does the wiring. -->
-    <label for="tour-dont-show" style="display:flex;align-items:center;gap:8px;min-height:44px;font-size:13px;opacity:0.75;margin-bottom:10px;cursor:pointer;">
-      <input type="checkbox" id="tour-dont-show" style="width:18px;height:18px;accent-color:#9bc34a;cursor:pointer;flex-shrink:0;">
-      <span>Don't show this again</span>
-    </label>
+    <!-- Its own "Don't show this again" again (put back 6 Nov 2026), in a row 44px tall: the words tick
+         the box, as they always did. A div, not a label, so one tap ticks it once. -->
+    <div style="display:flex;align-items:center;gap:8px;min-height:44px;font-size:13px;opacity:0.75;margin-bottom:10px;">
+      <input type="checkbox" id="tour-dont-show" style="width:18px;height:18px;accent-color:#9bc34a;cursor:pointer;flex-shrink:0;" onclick="event.stopPropagation()">
+      <span style="cursor:pointer;display:inline-flex;align-items:center;min-height:44px;" onclick="document.getElementById('tour-dont-show').checked=!document.getElementById('tour-dont-show').checked">Don't show this again</span>
+    </div>
     <div class="tour-btn-row">
       <button class="tour-skip" onclick="endTour()">Skip</button>
       <span class="tour-step-count" id="tour-count"></span>

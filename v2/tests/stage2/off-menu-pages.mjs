@@ -34,7 +34,7 @@ const PAGES = {
   'AVteamlandingpage.html': { for: 'the AV team and the worship team (Worship and AV are one team), those covering them, master admins (its installed app)', kinds: ['worship', 'core', 'areaAdmin', 'master'], private: [] },
   'birthday.html': { for: 'the core teams covering worship, and master admins (Calla Design: invitations)', kinds: ['core', 'master'], private: [] },
   'CoreTeamApp.html': { for: 'the core teams covering worship, and master admins (their installed app; the hub app has a Core space too)', kinds: ['core', 'master'], private: ['rota'] },
-  'EGBCWorship&AV.html': { for: 'nobody now: it sends everyone to the hub, which does its jobs (behaviour change, 3 Nov 2026)', kinds: [], private: [] },
+  'EGBCWorship&AV.html': { for: 'the worship team and those covering it (its installed app)', kinds: ['worship', 'core', 'areaAdmin', 'master'], private: ['rota'] },
   'emailcompilerinstructions.html': { for: 'anyone signed in (words only; linked from Send an email)', kinds: ['everyone', 'worship', 'kids', 'core', 'areaAdmin', 'master'], private: [] },
   'event-ra.html': { for: 'an event’s organisers and leaders, the office, the trustees, the health and safety leads, anyone who administers a team, and master admins (mayAny; with no event chosen it says how to open one)', kinds: ['areaAdmin', 'master'], private: [] },
   'kids-admin.html': { for: 'the children’s team leads, the safeguarding lead and deputy, each children’s group’s leaders, and master admins (a team member who leads nothing is told to ask a lead)', kinds: ['master'], private: ['child'] },
@@ -44,7 +44,7 @@ const PAGES = {
   'mix-player.html': { for: 'master admins on the hub (as above)', kinds: ['master'], private: [] },
   'music-uploader.html': { for: 'the worship team\'s leaders (one song at a time; opened from the planners\' "Upload Song"), and the core teams covering it', kinds: ['core', 'areaAdmin', 'master'], private: [] },
   'rota-reports.html': { for: 'master admins and the admins of rota teams (the Menu and the access matrix; behaviour change, 4 Nov 2026)', kinds: ['areaAdmin', 'master'], private: ['rota'] },
-  'rotaplannerinstructions.html': { for: 'anyone signed in (words only; linked from the Rota planner\'s Guide)', kinds: ['everyone', 'worship', 'kids', 'core', 'areaAdmin', 'master'], private: [] },
+  'rotaplannerinstructions.html': { for: 'anyone signed in (words only; linked from the Rota planner\'s "?")', kinds: ['everyone', 'worship', 'kids', 'core', 'areaAdmin', 'master'], private: [] },
   'Serviceplannerinstructions.html': { for: 'anyone signed in (words only; linked from the service planners)', kinds: ['everyone', 'worship', 'kids', 'core', 'areaAdmin', 'master'], private: [] },
   'sg-print.html': { for: 'the safeguarding lead and deputy, the trustees and master admins, and an event’s organisers and leaders for its own record (with nothing chosen it prints nothing)', kinds: ['master'], private: [] },
   ['song-summary.html?date=' + PLAN_DATE]: { for: 'everyone on that Sunday\'s plan email, and any volunteer on a team (the rules: the plan\'s audience, or volunteer())', kinds: ['worship', 'kids', 'core', 'areaAdmin', 'master'], private: ['plan'] },
@@ -55,7 +55,7 @@ const PAGES = {
   'trainingportalhub.html': { for: 'the worship team (Worship Training\'s "Practice planners")', kinds: ['worship', 'core', 'areaAdmin', 'master'], private: [] },
   'trainingrotaplanner.html': { for: 'leaders of the worship, children\'s and youth teams (practice copy)', kinds: ['core', 'areaAdmin', 'master'], private: ['rota'] },
   'uploaderinstructions.html': { for: 'anyone signed in (words only; linked from the Music Uploader)', kinds: ['everyone', 'worship', 'kids', 'core', 'areaAdmin', 'master'], private: [] },
-  'worshiphubapp.html': { for: 'nobody now: it sends everyone to the hub app\'s worship Rota (behaviour change)', kinds: [], private: [] },
+  'worshiphubapp.html': { for: 'the worship team and those covering it (the installed Worship Hub app)', kinds: ['worship', 'core', 'areaAdmin', 'master'], private: ['rota'] },
   'youth-access.html': { for: 'a young person with a code (no account needed)', kinds: KINDS, private: [] },
   'youthapp2.html': { for: 'the youth teams and young people with a code', kinds: ['master'], private: [] }
 };

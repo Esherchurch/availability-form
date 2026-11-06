@@ -1,0 +1,25 @@
+#!/bin/sh
+# Refuse a push to main that removes, renames or sends somewhere new any page,
+# button or link Martin has not approved (CLAUDE.md section 0). It judges the
+# commit being pushed, read from git, not the files on disk, so a clone with
+# other work in progress is not refused for that work.
+# Set up once per clone (the same folder as commit-msg):
+#   git config core.hooksPath v2/tools/git-hooks
+# An approved change: the reviewing window adds its line, in backticks, to
+# v2/APPROVED-CHANGES.md. Never bypass this with --no-verify.
+zero=0000000000000000000000000000000000000000
+status=0
+while read local_ref local_sha remote_ref remote_sha; do
+  [ "$remote_ref" = "refs/heads/main" ] || continue
+  [ "$local_sha" = "$zero" ] && continue
+  echo "Checking that nothing is removed (tests/check-no-removals.mjs) ..." >&2
+  if ! node v2/tests/check-no-removals.mjs --commit="$local_sha" >&2; then
+    status=1
+  fi
+done
+if [ "$status" != 0 ]; then
+  echo "" >&2
+  echo "REFUSED: this push to main removes, renames or redirects something Martin has" >&2
+  echo "not approved. Put it back, or ask him first (CLAUDE.md section 0)." >&2
+fi
+exit $status

@@ -1,0 +1,16 @@
+# Approved changes
+
+- The team charters (AVteamlandingpage, Coreteamcharter, Worshipteamcharter): the password in the page source replaced by admin sign-in (master admins and the admins of the page's own teams). Martin, 6 Nov 2026.
+- In a church on the hub, a team admin cannot link anyone to an administrator's record. Martin, 6 Nov 2026.
+- The Youth Hub closed to signed-out people, and sg-print closed to everyone signed in. Martin, 6 Nov 2026.
+- Rota reports narrowed to master admins and the admins of rota teams (and of core teams covering them); rota team leaders who are not admins, and core team members who are not admins, no longer open it. Martin, 6 Nov 2026.
+- Populate term and Add Thursday practices (the practice rota planner) skip dates that already have that event. Martin, 6 Nov 2026.
+- The practice rota planner's Sunday arrow opens and shuts a Sunday. Martin, 6 Nov 2026.
+- Buttons greyed only when there is nothing for them to act on (the editor's Undo, Redo and Remove link; the GIF maker's Clear all with no frames; Append with no earlier notes). Martin, 6 Nov 2026.
+- Performance notes: the song list's close button. Martin, 6 Nov 2026.
+- The invitation page's reset buttons say what they did. Martin, 6 Nov 2026.
+- Help and the hub's notices panel block the page behind them while open. Martin, 6 Nov 2026.
+- The Youth Hub's youth-service test by the youth job's teams, not by a description saying "youth". Martin, 6 Nov 2026.
+- The rota email's "Open your rota" button. Martin, 6 Nov 2026.
+- With no hub address, rotas are not sent, and the sender is told why. Martin, 6 Nov 2026.
+- Approved for after testing, not built yet: the Worship & AV dashboard's logos come from each church's own team logos. Martin, 6 Nov 2026.

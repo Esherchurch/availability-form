@@ -2217,13 +2217,17 @@ ${body}
         <div id="eventList"></div>
     </div>
 
-    <!-- The full guide, above the help button (they shared a corner, and this one could not be tapped). -->
+    <!-- The full guide: the "?" it always was, with the same link. It shared a corner with the
+         help button (24px up, 40px tall), which covered it; it sits just above it now, nothing else
+         changed (Martin, 6 Nov 2026: put back as "?", moved only enough not to be covered). -->
+    <style>/* In the app's view Help sits above the app's tab bar (egbc-help.js), so the "?" sits above Help there too. */
+      html[data-egbc-app-mode] a.fixed[href="rotaplannerinstructions.html"]{bottom:calc(var(--am-bottom,64px) + 64px) !important}</style>
     <a href="rotaplannerinstructions.html"
        target="_blank" rel="noopener noreferrer"
        title="How to use the planner"
-       style="font-family: Inter, system-ui, sans-serif; bottom: 76px; min-height: 44px;"
-       class="fixed right-6 px-4 rounded-full bg-white border-2 border-[#3d6263] text-[#3d6263] flex items-center justify-center font-semibold text-sm shadow-lg hover:bg-[#3d6263] hover:text-white transition-all z-50">
-        Guide
+       style="font-family: Inter, system-ui, sans-serif; bottom: 72px;"
+       class="fixed right-6 w-9 h-9 rounded-full bg-white border-2 border-[#3d6263] text-[#3d6263] flex items-center justify-center font-semibold text-sm shadow-lg hover:bg-[#3d6263] hover:text-white transition-all z-50">
+        ?
     </a>
 <!-- ================================================================
      THE ROTA PLANNER ON A PHONE (Martin approved the mock, 16 Oct 2026:

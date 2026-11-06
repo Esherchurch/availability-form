@@ -2,6 +2,16 @@
 
 Martin (the owner) is dyslexic and writes no code. Reports to him: plain words, short sentences.
 
+## 0. Testing now: test and repair only (Martin, 6 Nov 2026)
+
+The going-live test is under way. Until Martin says testing is over, this section overrides sections 2 and 5.
+- A repair makes something work the way it was meant to. That is the only kind of change allowed.
+- Never remove, redirect, rename, hide or grey out a page, button, link or feature, and never change what one does, without Martin's OK first. Ask the reviewing window and wait.
+- No workarounds. If something crashes or does nothing, fix the fault itself. Never send people elsewhere or remove it instead.
+- Never send someone to a different kind of screen from the one they opened. A laptop page stays a laptop page, and an app screen stays an app screen.
+- Every report ends with two sections: "Changes that aren't repairs" and "Suggestions for Martin". Write "none" in either if there are none.
+- Approved changes are listed in v2/APPROVED-CHANGES.md. Only the reviewing window adds to it, from Martin's own words.
+
 ## 1. v2 only. Never touch the original site.
 
 - The repo root (everything outside `v2/`) is the **original EGBC site**, live on GitHub Pages and used by the church every week. **Never edit, add or delete any file outside `v2/`**, and never open the live original site (esherchurch.github.io/availability-form/ outside /v2/).
@@ -14,7 +24,8 @@ Martin (the owner) is dyslexic and writes no code. Reports to him: plain words, 
 
 ## 2. Build v2 to be better, not a copy
 
-- v2 must **not lose** anything the original site does. But Martin wants improvements, not a copy (23 Oct 2026: constant comparing "will be stopping it suggesting actual improvements").
+- v2 must **not lose** anything the original site does.
+- Suggest improvements freely, under "Suggestions for Martin" at the end of a report. Never build one until Martin has said yes; the reviewing window will tell you. This applies always, not only during testing.
 - Look at an original page only when you first port it, or when you are about to remove or change a behaviour people rely on. Then read the root file **in git** (`git show HEAD:<file>`), briefly, and say so in your report.
 - Otherwise design for v2 and the people using it, and suggest improvements.
 

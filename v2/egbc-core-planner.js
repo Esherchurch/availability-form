@@ -1176,7 +1176,18 @@
     loader(false);
   }
 
-  async function spEmail() {
+  /**
+   * Sends this service's plan through the hub (hubSend, source servicePlan),
+   * to the service's team - or, with opts.to, to those addresses only (the Core
+   * Team app's "Email This Person", Martin 6 Nov 2026: every email the hub
+   * offers goes this way, never a mail link). Under-18-only addresses are left
+   * out and named either way, and no address is ever shown.
+   * opts.also adds addresses to the team's (the Core Team app's Whole Team: the
+   * core team as well, as it always had).
+   * @param {{to?: string[], also?: string[]}} [opts]
+   */
+  async function spEmail(opts) {
+    opts = (opts && (Array.isArray(opts.to) || Array.isArray(opts.also))) ? opts : {};
     var date = document.getElementById('spDate').value || 'TBC';
     if (date !== 'TBC' && spPlanShownFor !== date) { toast("This page is still showing another Sunday, or no service is chosen. Choose the service for this date, then try again. If none is listed, add it on the Rota Planner first."); return; }
     /* SENDING SAVES THE SCHEDULE FIRST, so a plan that has gone to the
@@ -1252,7 +1263,8 @@
     if (!spAddressBook.length) {
       try { var s = await db().collection('addressBook').get(); s.forEach(function (d2) { var r = d2.data(); if (r.email) spAddressBook.push(r); }); } catch (e) {}
     }
-    var spRecipients = [...new Set(spAddressBook.filter(function (p) { return rosterNames.includes(p.name && p.name.trim()) && p.email; }).map(function (p) { return p.email; }))];
+    var spRecipients = opts.to ? [...new Set(opts.to.filter(Boolean))]
+      : [...new Set(spAddressBook.filter(function (p) { return rosterNames.includes(p.name && p.name.trim()) && p.email; }).map(function (p) { return p.email; }).concat((opts.also || []).filter(Boolean)))];
     /* The hub never emails under-18s, and refuses a whole message with one
        in it: they are left out and named when it goes. */
     var spYoung = [...new Set(spAddressBook.filter(function (p) { return p.email && spRecipients.includes(p.email) && EGBCAuth.under18Only(p.email, spAddressBook); }).map(function (p) { return p.name; }))];
@@ -1272,7 +1284,7 @@
         if (result.ok) toast('Plan sent to ' + spRecipients.length + ' people' + (spYoung.length ? '. Not emailed (under 18): ' + spYoung.join(', ') : ''));
         else toast('Could not send: ' + (result.error || 'unknown error'));
       } catch (e) { toast('Could not send: no connection'); }
-    } else { toast('No recipients found'); }
+    } else { toast(spYoung.length ? 'Not emailed (under 18): ' + spYoung.join(', ') : 'No recipients found'); }
   }
 
   /* ---- mounting ------------------------------------------------------ */

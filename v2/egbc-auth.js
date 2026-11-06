@@ -1132,7 +1132,9 @@
     youthClaim(user).then(function (youth) {
       if (youth) {
         EGBCAuth._blockPage('This page isn’t for you', notYours + ' Everything for you is in the Youth Hub.', null,
-          { href: 'youthapp2.html', label: 'Back to the Youth Hub', noSignOut: true });
+          /* "Open the Youth Hub", as the card has always said it (Martin, 6 Nov 2026),
+             written out whole so the no-removals guard sees the link and where it goes. */
+          { html: '<a href="youthapp2.html" style="background:#3d6263;color:#fff;padding:12px 28px;border-radius:999px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;text-decoration:none">Open the Youth Hub</a>', noSignOut: true });
       } else if (refused) {
         EGBCAuth._blockPage('This page isn’t for you', notYours + ' If you think it should, ask your church office.', null);
       } else {
@@ -2931,6 +2933,7 @@
     /* back (optional): { href, label, noSignOut } for a card whose way on is
        not the hub - the Youth Hub's, for a young person (refusedCard). */
     _blockPage: function (title, message, profile, back) {
+      var BACK_STYLE = 'background:#3d6263;color:#fff;padding:12px 28px;border-radius:999px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;text-decoration:none';
       /* egbc-guard.js hides the body until the check passes, and puts a
          splash on top of it. Both are still in place when we get here, so
          writing the explanation into the body renders it invisible - which
@@ -2984,8 +2987,13 @@
             '<p style="font-size:14px;line-height:1.6;color:#3a4d4c;margin:0 0 28px">' + message + '</p>' +
             (profile ? '<p style="font-size:11px;color:#93a8a6;margin:0 0 20px">Signed in as ' + profile.email + '</p>' : '') +
             '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">' +
-              '<a href="' + ((back && back.href) || HUB_PAGE) + '" style="background:#3d6263;color:#fff;padding:12px 28px;border-radius:999px;' +
-              'font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;text-decoration:none">' + ((back && back.label) || 'Back to hub') + '</a>' +
+              /* The usual way back written out as it always was, so the no-removals
+                 guard (tests/check-no-removals.mjs) sees it; a card with its own
+                 way on (back) gives its own words. */
+              (back
+                ? (back.html || '<a href="' + back.href + '" style="' + BACK_STYLE + '">' + back.label + '</a>')
+                : '<a href="' + HUB_PAGE + '" style="background:#3d6263;color:#fff;padding:12px 28px;border-radius:999px;' +
+                  'font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;text-decoration:none">Back to hub</a>') +
               (back && back.noSignOut ? '' :
               '<button onclick="EGBCAuth.signOut()" style="background:#fff;border:1px solid #dde7e6;padding:12px 24px;' +
               'border-radius:999px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;cursor:pointer;' +

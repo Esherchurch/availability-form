@@ -191,8 +191,8 @@
   </div>
 </div>
 
-<div id="modal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-  <!-- The close stays at the top as the box scrolls (sticky, not absolute), and is named; the box needs no click
+<div id="modal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onclick="closeModal(event)">
+  <!-- The close stays at the top as the box scrolls (sticky, not absolute), and is named. Tapping outside the card closes it, as it always did (put back 6 Nov 2026); the box needs no click
        handler, since closeModal(event) closes only on the backdrop itself (the going-live audit, 4 Nov 2026). -->
   <div class="bg-white rounded-[14px] shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-8 relative">
     <button onclick="closeModal()" aria-label="Close" class="sticky top-0 float-right z-10 ml-4 w-11 h-11 bg-[#f0f6f6] rounded-lg flex items-center justify-center font-semibold hover:bg-[#3d6263] hover:text-white transition-all"><i data-lucide="x" style="width:15px;height:15px;vertical-align:-2px"></i></button>

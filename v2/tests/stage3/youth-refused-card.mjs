@@ -69,8 +69,8 @@ try {
   for (const w of [375, 1280]) {
     for (const p of PAGES) {
       const s = await open(email, PW, p, w);
-      const back = s.links.find((l) => /Back to the Youth Hub/.test(l));
-      ok('A YOUNG PERSON on ' + p + ' (' + w + '): "This page isn’t for you", back to the Youth Hub, no Sign out, no raw error, nothing in the console',
+      const back = s.links.find((l) => /Open the Youth Hub/.test(l));
+      ok('A YOUNG PERSON on ' + p + ' (' + w + '): "This page isn’t for you", Open the Youth Hub, no Sign out, no raw error, nothing in the console',
         /This page isn’t for you/.test(s.text) && back && /youthapp2\.html/.test(back) && !s.links.some((l) => /^Sign out/i.test(l))
           && !/Something went wrong|insufficient permissions|permission-denied/i.test(s.text) && s.errors.length === 0,
         s.text.slice(0, 200) + ' | ' + JSON.stringify(s.links) + ' | ' + JSON.stringify(s.errors));
