@@ -1,13 +1,123 @@
 {
- "made": "2026-11-06",
- "pending": [
-  "worshiphubapp.html",
-  "rota-reports.html",
-  "AVteamlandingpage.html",
-  "Coreteamcharter.html",
-  "Worshipteamcharter.html"
- ],
+ "made": "ba129211 (29 Oct 2026, before testing), with the controls added since that are on main on 2026-11-06",
+ "pending": [],
  "pages": {
+  "AVteamlandingpage.html": [
+   {
+    "id": "fn:openPwModal",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:toggleTitleEdit",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:openHtmlEditor",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:logoutAdmin",
+    "kind": "button",
+    "words": [
+     "Log Out"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:photo-file-input",
+    "kind": "field",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:page-title-input",
+    "kind": "field",
+    "words": [
+     "Page title"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:photo-add-tile",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:html-textarea",
+    "kind": "field",
+    "words": [
+     "Paste your HTML content here"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:applyHtml",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:closeHtmlEditor",
+    "kind": "button",
+    "words": [
+     "Cancel"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:clearContent",
+    "kind": "button",
+    "words": [
+     "Clear Content"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:pw-input",
+    "kind": "field",
+    "words": [
+     "Password"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:closePwModal",
+    "kind": "button",
+    "words": [
+     "Cancel"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:checkPassword",
+    "kind": "button",
+    "words": [
+     "Unlock"
+    ],
+    "to": "",
+    "count": 1
+   }
+  ],
   "CoreTeamApp.html": [
    {
     "id": "fn:goBack",
@@ -38,6 +148,33 @@
     "words": [],
     "to": "",
     "count": 4
+   },
+   {
+    "id": "button:\"B\"",
+    "kind": "button",
+    "words": [
+     "B"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "button:\"I\"",
+    "kind": "button",
+    "words": [
+     "I"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "button:\"U\"",
+    "kind": "button",
+    "words": [
+     "U"
+    ],
+    "to": "",
+    "count": 1
    },
    {
     "id": "button:\"L\"",
@@ -145,7 +282,9 @@
    {
     "id": "id:new-service-type",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Loading..."
+    ],
     "to": "",
     "count": 1
    },
@@ -161,7 +300,9 @@
    {
     "id": "id:new-service-leader",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Select leader..."
+    ],
     "to": "",
     "count": 1
    },
@@ -205,7 +346,9 @@
    {
     "id": "id:song-title",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Type to search songs..."
+    ],
     "to": "",
     "count": 1
    },
@@ -221,14 +364,18 @@
    {
     "id": "id:item-type",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Prayer Reading Announcement Other"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:item-title",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. Opening Prayer, Notices..."
+    ],
     "to": "",
     "count": 1
    },
@@ -253,7 +400,9 @@
    {
     "id": "id:email-one-person",
     "kind": "field",
-    "words": [],
+    "words": [
+     "— Pick a person —"
+    ],
     "to": "",
     "count": 1
    },
@@ -269,7 +418,9 @@
    {
     "id": "id:who-input",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Your first name..."
+    ],
     "to": "",
     "count": 1
    },
@@ -349,9 +500,20 @@
     "count": 1
    },
    {
-    "id": "fn:selectSongFromSearch",
+    "id": "link:\"Open File\"",
+    "kind": "link",
+    "words": [
+     "Open File"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:loadDraft",
     "kind": "button",
-    "words": [],
+    "words": [
+     "Load"
+    ],
     "to": "",
     "count": 1
    },
@@ -359,11 +521,10 @@
     "id": "fn:endTour",
     "kind": "button",
     "words": [
-     "Close the tour",
      "Skip"
     ],
     "to": "",
-    "count": 3
+    "count": 2
    },
    {
     "id": "id:tour-tooltip",
@@ -380,11 +541,18 @@
     "count": 1
    },
    {
-    "id": "fn:nextTourStep",
+    "id": "button:\"Don't show this again\"",
     "kind": "button",
     "words": [
-     "Next"
+     "Don't show this again"
     ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:nextTourStep",
+    "kind": "button",
+    "words": [],
     "to": "",
     "count": 1
    },
@@ -432,7 +600,9 @@
    {
     "id": "id:spTypeNotes",
     "kind": "field",
-    "words": [],
+    "words": [
+     "General Notes"
+    ],
     "to": "",
     "count": 1
    },
@@ -493,7 +663,9 @@
    {
     "id": "id:spSenderEmail",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Your email..."
+    ],
     "to": "",
     "count": 1
    },
@@ -541,9 +713,20 @@
     "count": 1
    },
    {
-    "id": "fn:spSelectSong",
-    "kind": "button",
-    "words": [],
+    "id": "link:\"YouTube\"",
+    "kind": "link",
+    "words": [
+     "YouTube"
+    ],
+    "to": "",
+    "count": 2
+   },
+   {
+    "id": "link:\"SongSelect\"",
+    "kind": "link",
+    "words": [
+     "SongSelect"
+    ],
     "to": "",
     "count": 1
    },
@@ -568,9 +751,7 @@
    {
     "id": "fn:closeSheet",
     "kind": "button",
-    "words": [
-     "Close"
-    ],
+    "words": [],
     "to": "",
     "count": 1
    },
@@ -691,9 +872,36 @@
     "id": "fn:autoFillPractice",
     "kind": "button",
     "words": [
+     "Sync"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:toggleBucket",
+    "kind": "button",
+    "words": [
+     "Availability"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:deleteEvent",
+    "kind": "button",
+    "words": [
+     "Delete"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:removeRole",
+    "kind": "button",
+    "words": [
      "Close"
     ],
-    "to": "meeting.html",
+    "to": "",
     "count": 1
    },
    {
@@ -762,6 +970,122 @@
     "kind": "button",
     "words": [
      "Show past dates"
+    ],
+    "to": "",
+    "count": 1
+   }
+  ],
+  "Coreteamcharter.html": [
+   {
+    "id": "fn:openPwModal",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:toggleTitleEdit",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:openHtmlEditor",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:logoutAdmin",
+    "kind": "button",
+    "words": [
+     "Log Out"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:photo-file-input",
+    "kind": "field",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:page-title-input",
+    "kind": "field",
+    "words": [
+     "Page title"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:photo-add-tile",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:html-textarea",
+    "kind": "field",
+    "words": [
+     "Paste your HTML content here"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:applyHtml",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:closeHtmlEditor",
+    "kind": "button",
+    "words": [
+     "Cancel"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:clearContent",
+    "kind": "button",
+    "words": [
+     "Clear Content"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:pw-input",
+    "kind": "field",
+    "words": [
+     "Password"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:closePwModal",
+    "kind": "button",
+    "words": [
+     "Cancel"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:checkPassword",
+    "kind": "button",
+    "words": [
+     "Unlock"
     ],
     "to": "",
     "count": 1
@@ -845,28 +1169,36 @@
    {
     "id": "id:adminTitle",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Title (auto-filled from embed)"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:adminAssetType",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Video Image Note"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:adminCategory",
     "kind": "field",
-    "words": [],
+    "words": [
+     "No category"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:adminTags",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Tags (comma separated) — optional"
+    ],
     "to": "",
     "count": 1
    },
@@ -916,7 +1248,9 @@
    {
     "id": "id:newCatName",
     "kind": "field",
-    "words": [],
+    "words": [
+     "New category name…"
+    ],
     "to": "",
     "count": 1
    },
@@ -939,21 +1273,27 @@
    {
     "id": "id:editTitle",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Title"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:editCategory",
     "kind": "field",
-    "words": [],
+    "words": [
+     "No category"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:editTags",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Tags"
+    ],
     "to": "",
     "count": 1
    },
@@ -1049,14 +1389,18 @@
    {
     "id": "id:kbu-title",
     "kind": "field",
-    "words": [],
+    "words": [
+     "What this video shows"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:kbu-cat",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. Sound desk"
+    ],
     "to": "",
     "count": 1
    },
@@ -1079,7 +1423,9 @@
    {
     "id": "id:kbu-entry",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Loading…"
+    ],
     "to": "",
     "count": 1
    },
@@ -1147,12 +1493,14 @@
     "id": "fn:quickSearch",
     "kind": "button",
     "words": [
+     "Sovereign intro",
+     "Way Maker",
      "Songs in G",
      "Keyboard intro",
      "Guitar chorus"
     ],
     "to": "",
-    "count": 3
+    "count": 5
    },
    {
     "id": "fn:setSection",
@@ -1206,56 +1554,72 @@
    {
     "id": "id:adminTitle",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Title (auto-filled)"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:adminSongTitle",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Song Title e.g. Sovereign"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:adminOurKey",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Key… A Bb B C Db D Eb E F F# G Ab"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:adminSongSection",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Section… Full Song Intro Verse Chorus Bridge Return Outro"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:adminInstrument",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Instrument… Guitar Keyboard Both"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:adminCategory",
     "kind": "field",
-    "words": [],
+    "words": [
+     "No category"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:adminTags",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Tags (comma separated) — optional"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:adminDirectURL",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Auto-filled from filename…"
+    ],
     "to": "",
     "count": 1
    },
@@ -1319,7 +1683,9 @@
    {
     "id": "id:newCatName",
     "kind": "field",
-    "words": [],
+    "words": [
+     "New category name…"
+    ],
     "to": "",
     "count": 1
    },
@@ -1342,56 +1708,72 @@
    {
     "id": "id:editTitle",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Title"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:editSongTitle",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Song Title"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:editOurKey",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Key… A Bb B C Db D Eb E F F# G Ab"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:editSongSection",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Section… Full Song Intro Verse Chorus Bridge Return Outro"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:editInstrument",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Instrument… Guitar Keyboard Both"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:editCategory",
     "kind": "field",
-    "words": [],
+    "words": [
+     "No category"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:editTags",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Tags"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:editDirectURL",
     "kind": "field",
-    "words": [],
+    "words": [
+     "https://esherchurch.sharepoint.com/sites/EGBCWorshipandAV/KnowledgeBaseMedia/Pla"
+    ],
     "to": "",
     "count": 1
    },
@@ -1510,14 +1892,18 @@
    {
     "id": "id:kbu-title",
     "kind": "field",
-    "words": [],
+    "words": [
+     "What this video shows"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:kbu-cat",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. Sound desk"
+    ],
     "to": "",
     "count": 1
    },
@@ -1540,7 +1926,9 @@
    {
     "id": "id:kbu-entry",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Loading…"
+    ],
     "to": "",
     "count": 1
    },
@@ -1569,15 +1957,6 @@
      "Play Through"
     ],
     "to": "EGBC-PlayThrough.html",
-    "count": 1
-   },
-   {
-    "id": "link:\"Practice planners\"",
-    "kind": "link",
-    "words": [
-     "Practice planners"
-    ],
-    "to": "trainingportalhub.html",
     "count": 1
    },
    {
@@ -1648,28 +2027,36 @@
    {
     "id": "id:adminTitle",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Title (auto-filled from embed)"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:adminAssetType",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Video Image Note"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:adminCategory",
     "kind": "field",
-    "words": [],
+    "words": [
+     "No category"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:adminTags",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Tags (comma separated) — optional"
+    ],
     "to": "",
     "count": 1
    },
@@ -1719,7 +2106,9 @@
    {
     "id": "id:newCatName",
     "kind": "field",
-    "words": [],
+    "words": [
+     "New category name…"
+    ],
     "to": "",
     "count": 1
    },
@@ -1742,21 +2131,27 @@
    {
     "id": "id:editTitle",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Title"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:editCategory",
     "kind": "field",
-    "words": [],
+    "words": [
+     "No category"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:editTags",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Tags"
+    ],
     "to": "",
     "count": 1
    },
@@ -1852,14 +2247,18 @@
    {
     "id": "id:kbu-title",
     "kind": "field",
-    "words": [],
+    "words": [
+     "What this video shows"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:kbu-cat",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. Sound desk"
+    ],
     "to": "",
     "count": 1
    },
@@ -1882,7 +2281,9 @@
    {
     "id": "id:kbu-entry",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Loading…"
+    ],
     "to": "",
     "count": 1
    },
@@ -1900,6 +2301,15 @@
      "Replace video file"
     ],
     "to": "",
+    "count": 1
+   },
+   {
+    "id": "link:\"Practice planners\"",
+    "kind": "link",
+    "words": [
+     "Practice planners"
+    ],
+    "to": "trainingportalhub.html",
     "count": 1
    }
   ],
@@ -1993,7 +2403,9 @@
    {
     "id": "id:batchCategory",
     "kind": "field",
-    "words": [],
+    "words": [
+     "No category"
+    ],
     "to": "",
     "count": 1
    },
@@ -2025,35 +2437,45 @@
    {
     "id": "id:adminContentURL",
     "kind": "field",
-    "words": [],
+    "words": [
+     "https://…"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:adminTitle",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Title"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:adminAssetType",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Video Image Note"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:adminCategory",
     "kind": "field",
-    "words": [],
+    "words": [
+     "No category"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:adminTags",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Tags (comma separated)"
+    ],
     "to": "",
     "count": 1
    },
@@ -2087,7 +2509,9 @@
    {
     "id": "id:newCatName",
     "kind": "field",
-    "words": [],
+    "words": [
+     "New category name…"
+    ],
     "to": "",
     "count": 1
    },
@@ -2110,21 +2534,27 @@
    {
     "id": "id:editTitle",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Title"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:editCategory",
     "kind": "field",
-    "words": [],
+    "words": [
+     "No category"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:editTags",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Tags"
+    ],
     "to": "",
     "count": 1
    },
@@ -2252,14 +2682,18 @@
    {
     "id": "id:kbu-title",
     "kind": "field",
-    "words": [],
+    "words": [
+     "What this video shows"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:kbu-cat",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. Sound desk"
+    ],
     "to": "",
     "count": 1
    },
@@ -2282,7 +2716,9 @@
    {
     "id": "id:kbu-entry",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Loading…"
+    ],
     "to": "",
     "count": 1
    },
@@ -2375,28 +2811,36 @@
    {
     "id": "id:he-title",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Welcome"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:he-subtitle",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Short tagline"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:he-img",
     "kind": "field",
-    "words": [],
+    "words": [
+     "https://"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:he-pos",
     "kind": "field",
-    "words": [],
+    "words": [
+     "30"
+    ],
     "to": "",
     "count": 1
    },
@@ -2441,9 +2885,9 @@
     "id": "fn:execCmd",
     "kind": "button",
     "words": [
-     "Bold",
-     "Italic",
-     "Underline",
+     "B",
+     "I",
+     "U",
      "1. List",
      "Clear"
     ],
@@ -2474,7 +2918,9 @@
    {
     "id": "id:img-size-slider",
     "kind": "field",
-    "words": [],
+    "words": [
+     "100"
+    ],
     "to": "",
     "count": 1
    },
@@ -2490,7 +2936,9 @@
    {
     "id": "id:body-source",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Or type / paste raw HTML here"
+    ],
     "to": "",
     "count": 1
    },
@@ -2513,7 +2961,9 @@
    {
     "id": "id:ne-date",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. Sunday 4 May"
+    ],
     "to": "",
     "count": 1
    },
@@ -2536,7 +2986,9 @@
    {
     "id": "id:ne-source",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Or type / paste raw HTML here"
+    ],
     "to": "",
     "count": 1
    },
@@ -2582,14 +3034,18 @@
    {
     "id": "id:nodeParent",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Top Level"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:nodeRole",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Team (Worship/AV) Core (Admin Only)"
+    ],
     "to": "",
     "count": 1
    },
@@ -2632,7 +3088,9 @@
    {
     "id": "id:whoInput",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Your first name…"
+    ],
     "to": "",
     "count": 1
    },
@@ -2657,7 +3115,9 @@
    {
     "id": "id:testEmail",
     "kind": "field",
-    "words": [],
+    "words": [
+     "you@email.com"
+    ],
     "to": "",
     "count": 1
    },
@@ -2683,7 +3143,7 @@
     "id": "fn:sendAll",
     "kind": "button",
     "words": [
-     "Send to"
+     "Send to 0 people"
     ],
     "to": "",
     "count": 1
@@ -2707,7 +3167,9 @@
    {
     "id": "id:peopleSearch",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Search name or email…"
+    ],
     "to": "",
     "count": 1
    },
@@ -2724,7 +3186,7 @@
     "id": "fn:closePeople",
     "kind": "button",
     "words": [
-     "Done ·"
+     "Done · 0 picked"
     ],
     "to": "",
     "count": 1
@@ -2759,7 +3221,9 @@
    {
     "id": "id:gifDelay",
     "kind": "field",
-    "words": [],
+    "words": [
+     "500"
+    ],
     "to": "",
     "count": 1
    },
@@ -2798,28 +3262,28 @@
     "count": 1
    },
    {
-    "id": "button:\"Bold\"",
+    "id": "button:\"B\"",
     "kind": "button",
     "words": [
-     "Bold"
+     "B"
     ],
     "to": "",
     "count": 1
    },
    {
-    "id": "button:\"Italic\"",
+    "id": "button:\"I\"",
     "kind": "button",
     "words": [
-     "Italic"
+     "I"
     ],
     "to": "",
     "count": 1
    },
    {
-    "id": "button:\"Bullet list\"",
+    "id": "button:\"•≡\"",
     "kind": "button",
     "words": [
-     "Bullet list"
+     "•≡"
     ],
     "to": "",
     "count": 1
@@ -2827,7 +3291,9 @@
    {
     "id": "id:sizeSelector",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Size Small Normal Large Huge"
+    ],
     "to": "",
     "count": 1
    },
@@ -2844,34 +3310,7 @@
     "id": "fn:resetSpacing",
     "kind": "button",
     "words": [
-     "Reset uneven / pasted spacing"
-    ],
-    "to": "",
-    "count": 1
-   },
-   {
-    "id": "button:\"Colour the chosen text teal\"",
-    "kind": "button",
-    "words": [
-     "Colour the chosen text teal"
-    ],
-    "to": "",
-    "count": 1
-   },
-   {
-    "id": "button:\"Colour the chosen text amber\"",
-    "kind": "button",
-    "words": [
-     "Colour the chosen text amber"
-    ],
-    "to": "",
-    "count": 1
-   },
-   {
-    "id": "button:\"Colour the chosen text black\"",
-    "kind": "button",
-    "words": [
-     "Colour the chosen text black"
+     "⤓ Fix spacing"
     ],
     "to": "",
     "count": 1
@@ -2886,10 +3325,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Align centre\"",
+    "id": "button:\"Align center\"",
     "kind": "button",
     "words": [
-     "Align centre"
+     "Align center"
     ],
     "to": "",
     "count": 1
@@ -2936,7 +3375,9 @@
    {
     "id": "id:preheaderInput",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Preview text shown in the inbox (optional)"
+    ],
     "to": "",
     "count": 1
    },
@@ -2950,7 +3391,9 @@
    {
     "id": "id:senderEmail",
     "kind": "field",
-    "words": [],
+    "words": [
+     "your@email.com"
+    ],
     "to": "",
     "count": 1
    },
@@ -2992,7 +3435,7 @@
     "id": "id:helpBtn",
     "kind": "link",
     "words": [
-     "Open instructions"
+     "?"
     ],
     "to": "emailcompilerinstructions.html",
     "count": 1
@@ -3102,10 +3545,37 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"×\"",
     "kind": "button",
     "words": [
-     "Close"
+     "×"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "button:\"Colour the chosen text teal\"",
+    "kind": "button",
+    "words": [
+     "Colour the chosen text teal"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "button:\"Colour the chosen text amber\"",
+    "kind": "button",
+    "words": [
+     "Colour the chosen text amber"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "button:\"Colour the chosen text black\"",
+    "kind": "button",
+    "words": [
+     "Colour the chosen text black"
     ],
     "to": "",
     "count": 1
@@ -3124,7 +3594,9 @@
    {
     "id": "id:smartSearchInput",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Generating report…"
+    ],
     "to": "",
     "count": 1
    },
@@ -3132,7 +3604,7 @@
     "id": "id:searchSendBtn",
     "kind": "button",
     "words": [
-     "Search"
+     "⏎"
     ],
     "to": "",
     "count": 1
@@ -3178,14 +3650,18 @@
    {
     "id": "id:search",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Search songs..."
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:lyricsSearch",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Find by lyrics..."
+    ],
     "to": "",
     "count": 1
    },
@@ -3199,7 +3675,9 @@
    {
     "id": "id:artist",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Scanning for artist..."
+    ],
     "to": "",
     "count": 1
    },
@@ -3224,14 +3702,18 @@
    {
     "id": "id:youtube",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Paste YouTube link here"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:ccli",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. 1234567"
+    ],
     "to": "",
     "count": 1
    },
@@ -3257,13 +3739,6 @@
     "words": [
      "Delete Song"
     ],
-    "to": "",
-    "count": 1
-   },
-   {
-    "id": "fn:openSong",
-    "kind": "button",
-    "words": [],
     "to": "",
     "count": 1
    },
@@ -3297,7 +3772,9 @@
    {
     "id": "id:svcPick",
     "kind": "field",
-    "words": [],
+    "words": [
+     "—"
+    ],
     "to": "",
     "count": 1
    },
@@ -3322,14 +3799,18 @@
    {
     "id": "id:bridgeIp",
     "kind": "field",
-    "words": [],
+    "words": [
+     "192.168.1.50"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:bridgePort",
     "kind": "field",
-    "words": [],
+    "words": [
+     "3000"
+    ],
     "to": "",
     "count": 1
    },
@@ -3499,7 +3980,9 @@
    {
     "id": "id:notes",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Your notes for this song…"
+    ],
     "to": "",
     "count": 1
    },
@@ -3522,14 +4005,18 @@
    {
     "id": "id:serviceSelect",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Select Service"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:roleSelect",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Choose your instrument…"
+    ],
     "to": "",
     "count": 1
    },
@@ -3579,7 +4066,9 @@
    {
     "id": "id:monitorModal",
     "kind": "button",
-    "words": [],
+    "words": [
+     "Your Monitor Mix"
+    ],
     "to": "",
     "count": 1
    },
@@ -3587,7 +4076,7 @@
     "id": "fn:closeMonitor",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -3667,15 +4156,6 @@
     "id": "id:ppPrEnd",
     "kind": "field",
     "words": [],
-    "to": "",
-    "count": 1
-   },
-   {
-    "id": "link:\"Open your rota\"",
-    "kind": "link",
-    "words": [
-     "Open your rota"
-    ],
     "to": "",
     "count": 1
    },
@@ -3799,7 +4279,9 @@
    {
     "id": "id:termSelect",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Term Spring Summer Autumn"
+    ],
     "to": "",
     "count": 1
    },
@@ -3869,14 +4351,18 @@
    {
     "id": "id:rotaSenderEmail",
     "kind": "field",
-    "words": [],
+    "words": [
+     "your@email.com"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:sendTermSelect",
     "kind": "field",
-    "words": [],
+    "words": [
+     "All active terms"
+    ],
     "to": "",
     "count": 1
    },
@@ -3927,10 +4413,10 @@
     "count": 1
    },
    {
-    "id": "id:plannerGuide",
+    "id": "link:\"?\"",
     "kind": "link",
     "words": [
-     "How to use the planner"
+     "?"
     ],
     "to": "rotaplannerinstructions.html",
     "count": 1
@@ -3949,6 +4435,15 @@
     "kind": "button",
     "words": [
      "More"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "link:\"Open your rota\"",
+    "kind": "link",
+    "words": [
+     "Open your rota"
     ],
     "to": "",
     "count": 1
@@ -3989,10 +4484,31 @@
    {
     "id": "fn:toggleSong",
     "kind": "button",
-    "words": [
-     "Number of Sundays this song has been used"
-    ],
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:updateSongNumbers",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "link-to:music-uploader.html",
+    "kind": "link",
+    "words": [],
     "to": "music-uploader.html",
+    "count": 1
+   },
+   {
+    "id": "link:\"Open File\"",
+    "kind": "link",
+    "words": [
+     "Open File"
+    ],
+    "to": "",
     "count": 1
    },
    {
@@ -4000,6 +4516,24 @@
     "kind": "field",
     "words": [
      "Name..."
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "link:\"YouTube\"",
+    "kind": "link",
+    "words": [
+     "YouTube"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "link:\"SongSelect\"",
+    "kind": "link",
+    "words": [
+     "SongSelect"
     ],
     "to": "",
     "count": 1
@@ -4043,7 +4577,9 @@
    {
     "id": "id:senderEmail",
     "kind": "field",
-    "words": [],
+    "words": [
+     "your@email.com"
+    ],
     "to": "",
     "count": 1
    },
@@ -4085,7 +4621,7 @@
     "id": "id:helpBtn",
     "kind": "link",
     "words": [
-     "Open instructions"
+     "?"
     ],
     "to": "Serviceplannerinstructions.html",
     "count": 1
@@ -4100,14 +4636,18 @@
    {
     "id": "id:eventSelect",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Select Service..."
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:serviceTypeNotes",
     "kind": "field",
-    "words": [],
+    "words": [
+     "General Notes"
+    ],
     "to": "",
     "count": 1
    },
@@ -4224,7 +4764,9 @@
    {
     "id": "id:projName",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Kids Film Club Trailer"
+    ],
     "to": "",
     "count": 1
    },
@@ -4232,7 +4774,7 @@
     "id": "id:btn-undo",
     "kind": "button",
     "words": [
-     "Undo (Ctrl+Z)"
+     "↩"
     ],
     "to": "",
     "count": 1
@@ -4241,7 +4783,7 @@
     "id": "id:btn-redo",
     "kind": "button",
     "words": [
-     "Redo (Ctrl+Y)"
+     "↪"
     ],
     "to": "",
     "count": 1
@@ -4250,7 +4792,7 @@
     "id": "id:btn-keys",
     "kind": "button",
     "words": [
-     "Keyboard shortcuts"
+     "⌨"
     ],
     "to": "",
     "count": 1
@@ -4295,7 +4837,7 @@
     "id": "id:btn-tpl-editor",
     "kind": "button",
     "words": [
-     "Template Editor"
+     "🎨 Templates"
     ],
     "to": "",
     "count": 1
@@ -4647,7 +5189,7 @@
     "id": "id:btn-snap-toggle",
     "kind": "button",
     "words": [
-     "Toggle snapping (N key)"
+     "🧲 Snap"
     ],
     "to": "",
     "count": 1
@@ -4656,7 +5198,7 @@
     "id": "id:btn-ripple-toggle",
     "kind": "button",
     "words": [
-     "Ripple edit — trimming one clip shifts all after it"
+     "⇢ Ripple"
     ],
     "to": "",
     "count": 1
@@ -4665,7 +5207,7 @@
     "id": "id:btn-add-marker",
     "kind": "button",
     "words": [
-     "Add marker at playhead (M key)"
+     "◆ Marker"
     ],
     "to": "",
     "count": 1
@@ -4674,7 +5216,7 @@
     "id": "id:btn-proxy-toggle",
     "kind": "button",
     "words": [
-     "Toggle proxy preview"
+     "480p"
     ],
     "to": "",
     "count": 1
@@ -4682,14 +5224,27 @@
    {
     "id": "id:sl-zoom",
     "kind": "field",
-    "words": [],
+    "words": [
+     "80"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "fn:toggleRsec",
     "kind": "button",
-    "words": [],
+    "words": [
+     "VU Meter CLIP! ▾",
+     "Clip Properties ▾",
+     "Title Style ▾",
+     "Clip Colour ▾",
+     "Keyframes ▾",
+     "Transition ▾",
+     "🎬 Chroma Key ▾",
+     "Audio ▾",
+     "FX (Selected Clip) ▾",
+     "Vegas Pro .VEG ▾"
+    ],
     "to": "",
     "count": 13
    },
@@ -4786,14 +5341,18 @@
    {
     "id": "id:tp-pos",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Centre Top Bottom"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:tp-anim-speed",
     "kind": "field",
-    "words": [],
+    "words": [
+     "1"
+    ],
     "to": "",
     "count": 1
    },
@@ -4893,7 +5452,9 @@
    {
     "id": "id:lyricbg-style",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Dark Glass Frosted Black Gradient Gold Bokeh Colour Wash"
+    ],
     "to": "",
     "count": 1
    },
@@ -4946,7 +5507,7 @@
     "id": "id:ck-eyedropper",
     "kind": "button",
     "words": [
-     "Pick from preview"
+     "👁"
     ],
     "to": "",
     "count": 1
@@ -5177,7 +5738,9 @@
    {
     "id": "id:ly-bg",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Dark Glass Frosted Black Gradient Gold Bokeh Colour Wash"
+    ],
     "to": "",
     "count": 1
    },
@@ -5211,14 +5774,18 @@
    {
     "id": "id:ly-font",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Arial Cinzel Bebas Neue Georgia"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:ly-text",
     "kind": "field",
-    "words": [],
+    "words": [
+     "[Verse 1]Amazing grace how sweet the soundThat saved a wretch like me[Chorus]How"
+    ],
     "to": "",
     "count": 1
    },
@@ -5406,7 +5973,9 @@
    {
     "id": "id:tpl-pos",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Centre Top Bottom"
+    ],
     "to": "",
     "count": 1
    },
@@ -5490,28 +6059,36 @@
    {
     "id": "id:exp-res",
     "kind": "field",
-    "words": [],
+    "words": [
+     "3840×2160 4K UHD 1920×1080 Full HD 1280×720 HD 854×480 SD"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:exp-fps",
     "kind": "field",
-    "words": [],
+    "words": [
+     "60 fps 50 fps (PAL HD) 30 fps 25 fps (PAL/UK) 24 fps (Cinema)"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:exp-vbr",
     "kind": "field",
-    "words": [],
+    "words": [
+     "40 Mbps (Cinema 4K) 20 Mbps (High HD) 10 Mbps (Good HD) 5 Mbps (Web)"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:exp-abr",
     "kind": "field",
-    "words": [],
+    "words": [
+     "320 kbps (Lossless-ish) 192 kbps (High) 128 kbps (Good)"
+    ],
     "to": "",
     "count": 1
    },
@@ -5582,7 +6159,9 @@
    {
     "id": "id:ce-line2",
     "kind": "field",
-    "words": [],
+    "words": [
+     "optional"
+    ],
     "to": "",
     "count": 1
    },
@@ -5595,6 +6174,55 @@
    },
    {
     "id": "id:ce-font",
+    "kind": "field",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:ce-size",
+    "kind": "field",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:ce-col1",
+    "kind": "field",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:ce-col2",
+    "kind": "field",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:ce-pos",
+    "kind": "field",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:ce-speed",
+    "kind": "field",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:ce-fadein",
+    "kind": "field",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:ce-fadeout",
     "kind": "field",
     "words": [],
     "to": "",
@@ -5617,7 +6245,9 @@
    {
     "id": "id:stock-upload-cat",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Sound FX Music Bed Overlay"
+    ],
     "to": "",
     "count": 1
    },
@@ -5629,7 +6259,7 @@
     "count": 1
    }
   ],
-  "Youthcharter.html": [
+  "Worshipteamcharter.html": [
    {
     "id": "fn:openPwModal",
     "kind": "button",
@@ -5655,7 +6285,7 @@
     "id": "fn:logoutAdmin",
     "kind": "button",
     "words": [
-     "Done editing"
+     "Log Out"
     ],
     "to": "",
     "count": 1
@@ -5670,7 +6300,9 @@
    {
     "id": "id:page-title-input",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Page title"
+    ],
     "to": "",
     "count": 1
    },
@@ -5684,7 +6316,9 @@
    {
     "id": "id:html-textarea",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Paste your HTML content here"
+    ],
     "to": "",
     "count": 1
    },
@@ -5716,7 +6350,125 @@
    {
     "id": "id:pw-input",
     "kind": "field",
+    "words": [
+     "Password"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:closePwModal",
+    "kind": "button",
+    "words": [
+     "Cancel"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:checkPassword",
+    "kind": "button",
+    "words": [
+     "Unlock"
+    ],
+    "to": "",
+    "count": 1
+   }
+  ],
+  "Youthcharter.html": [
+   {
+    "id": "fn:openPwModal",
+    "kind": "button",
     "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:toggleTitleEdit",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:openHtmlEditor",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:logoutAdmin",
+    "kind": "button",
+    "words": [
+     "Log Out"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:photo-file-input",
+    "kind": "field",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:page-title-input",
+    "kind": "field",
+    "words": [
+     "Page title"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:photo-add-tile",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:html-textarea",
+    "kind": "field",
+    "words": [
+     "Paste your HTML content here"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:applyHtml",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:closeHtmlEditor",
+    "kind": "button",
+    "words": [
+     "Cancel"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:clearContent",
+    "kind": "button",
+    "words": [
+     "Clear Content"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:pw-input",
+    "kind": "field",
+    "words": [
+     "Password"
+    ],
     "to": "",
     "count": 1
    },
@@ -5761,7 +6513,9 @@
    {
     "id": "fn:deleteMember",
     "kind": "button",
-    "words": [],
+    "words": [
+     "Archive"
+    ],
     "to": "",
     "count": 1
    },
@@ -5792,14 +6546,18 @@
    {
     "id": "id:freq",
     "kind": "field",
-    "words": [],
+    "words": [
+     "2"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:relatedTo",
     "kind": "field",
-    "words": [],
+    "words": [
+     "None / New"
+    ],
     "to": "",
     "count": 1
    },
@@ -6035,15 +6793,6 @@
     "count": 1
    },
    {
-    "id": "button:\"The note before this one\"",
-    "kind": "button",
-    "words": [
-     "The note before this one"
-    ],
-    "to": "",
-    "count": 1
-   },
-   {
     "id": "button:\"The next note\"",
     "kind": "button",
     "words": [
@@ -6129,6 +6878,15 @@
     "kind": "button",
     "words": [
      "See the whole picture"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "button:\"✕\"",
+    "kind": "button",
+    "words": [
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -6291,14 +7049,18 @@
    {
     "id": "id:jb-else",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. the car park"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:jb-what",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. Two lights out"
+    ],
     "to": "",
     "count": 1
    },
@@ -6333,7 +7095,9 @@
    {
     "id": "id:mt-why",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. Repainting"
+    ],
     "to": "",
     "count": 1
    },
@@ -6388,7 +7152,9 @@
    {
     "id": "id:spTypeNotes",
     "kind": "field",
-    "words": [],
+    "words": [
+     "General Notes"
+    ],
     "to": "",
     "count": 1
    },
@@ -6449,7 +7215,9 @@
    {
     "id": "id:spSenderEmail",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Your email..."
+    ],
     "to": "",
     "count": 1
    },
@@ -6488,9 +7256,29 @@
     "count": 1
    },
    {
-    "id": "fn:spSelectSong",
-    "kind": "button",
-    "words": [],
+    "id": "link:\"YouTube\"",
+    "kind": "link",
+    "words": [
+     "YouTube"
+    ],
+    "to": "",
+    "count": 2
+   },
+   {
+    "id": "link:\"Open File\"",
+    "kind": "link",
+    "words": [
+     "Open File"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "link:\"SongSelect\"",
+    "kind": "link",
+    "words": [
+     "SongSelect"
+    ],
     "to": "",
     "count": 1
    },
@@ -6515,9 +7303,7 @@
    {
     "id": "fn:closeSheet",
     "kind": "button",
-    "words": [
-     "Close"
-    ],
+    "words": [],
     "to": "",
     "count": 1
    },
@@ -6629,9 +7415,36 @@
     "id": "fn:autoFillPractice",
     "kind": "button",
     "words": [
+     "Sync"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:toggleBucket",
+    "kind": "button",
+    "words": [
+     "Availability"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:deleteEvent",
+    "kind": "button",
+    "words": [
+     "Delete"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:removeRole",
+    "kind": "button",
+    "words": [
      "Close"
     ],
-    "to": "meeting.html",
+    "to": "",
     "count": 1
    },
    {
@@ -6969,10 +7782,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -7206,10 +8019,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -7229,7 +8042,7 @@
     "id": "id:helpBtn",
     "kind": "link",
     "words": [
-     "Open instructions"
+     "?"
     ],
     "to": "uploaderinstructions.html",
     "count": 1
@@ -7407,28 +8220,36 @@
    {
     "id": "id:input-host",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Please join us to celebrate"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:input-milestone",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. 50 or J&M"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:input-title",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Natasha"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:input-subtitle",
     "kind": "field",
-    "words": [],
+    "words": [
+     "50th Birthday Celebration"
+    ],
     "to": "",
     "count": 1
    },
@@ -7498,7 +8319,9 @@
    {
     "id": "id:input-notes",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. No gifts please, just your companyParking available on site"
+    ],
     "to": "",
     "count": 1
    },
@@ -7564,14 +8387,18 @@
    {
     "id": "id:photo-shape",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Rectangle Rounded Circle Arch"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:photo-frame",
     "kind": "field",
-    "words": [],
+    "words": [
+     "None White border Polaroid Thin accent line Thick accent Drop shadow"
+    ],
     "to": "",
     "count": 1
    },
@@ -7713,7 +8540,9 @@
    {
     "id": "id:el-pick",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Big number Name / title Subtitle Top line Details (date, venue, RSVP)"
+    ],
     "to": "",
     "count": 1
    },
@@ -7754,7 +8583,9 @@
    {
     "id": "id:el-case",
     "kind": "field",
-    "words": [],
+    "words": [
+     "— Design default — As typed (Mixed case) UPPERCASE Title Case"
+    ],
     "to": "",
     "count": 1
    },
@@ -7884,7 +8715,7 @@
     "id": "fn:closeModal",
     "kind": "button",
     "words": [
-     "Close"
+     "×"
     ],
     "to": "",
     "count": 1
@@ -8102,10 +8933,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -8686,10 +9517,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -8999,7 +9830,7 @@
     "id": "id:back",
     "kind": "button",
     "words": [
-     "Back"
+     "←"
     ],
     "to": "",
     "count": 1
@@ -9097,14 +9928,18 @@
    {
     "id": "id:rRoom",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Somewhere else / outside"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:rWhat",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. Emergency light by the side exit not working"
+    ],
     "to": "",
     "count": 1
    },
@@ -9199,10 +10034,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -9375,10 +10210,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -9575,7 +10410,9 @@
    {
     "id": "id:v-ver",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Loading the Bibles\\u2026"
+    ],
     "to": "",
     "count": 1
    },
@@ -9658,14 +10495,18 @@
    {
     "id": "id:s-open",
     "kind": "field",
-    "words": [],
+    "words": [
+     "For example: Popcorn at the ready!"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:s-tags",
     "kind": "field",
-    "words": [],
+    "words": [
+     "#yourchurch"
+    ],
     "to": "",
     "count": 1
    },
@@ -9731,13 +10572,6 @@
     "count": 1
    },
    {
-    "id": "id:cd-",
-    "kind": "field",
-    "words": [],
-    "to": "",
-    "count": 1
-   },
-   {
     "id": "id:cdl-",
     "kind": "field",
     "words": [
@@ -9767,7 +10601,9 @@
    {
     "id": "id:vod-ver",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Berean Standard Bible (free)"
+    ],
     "to": "",
     "count": 1
    },
@@ -9905,10 +10741,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -9918,6 +10754,15 @@
     "kind": "link",
     "words": [
      "View or cancel your place"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "button:\"×\"",
+    "kind": "button",
+    "words": [
+     "×"
     ],
     "to": "",
     "count": 1
@@ -9935,7 +10780,7 @@
     "id": "id:us-shape",
     "kind": "field",
     "words": [
-     "Shape"
+     "Any shape Wide Tall Square"
     ],
     "to": "",
     "count": 1
@@ -10088,10 +10933,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -10374,7 +11219,10 @@
    {
     "id": "field:lwho",
     "kind": "field",
-    "words": [],
+    "words": [
+     "all",
+     "here"
+    ],
     "to": "",
     "count": 2
    },
@@ -10538,10 +11386,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -10887,7 +11735,9 @@
    {
     "id": "id:l-on",
     "kind": "field",
-    "words": [],
+    "words": [
+     "For example 1 November 2026"
+    ],
     "to": "",
     "count": 1
    },
@@ -10903,7 +11753,9 @@
    {
     "id": "id:add-",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Add a person: start typing a name"
+    ],
     "to": "",
     "count": 1
    },
@@ -11013,7 +11865,9 @@
    {
     "id": "id:g-url",
     "kind": "field",
-    "words": [],
+    "words": [
+     "https://"
+    ],
     "to": "",
     "count": 1
    },
@@ -11074,14 +11928,18 @@
    {
     "id": "id:site",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Loading…"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:devName",
     "kind": "field",
-    "words": [],
+    "words": [
+     "For example: Main hall PC, Kids Church laptop"
+    ],
     "to": "",
     "count": 1
    },
@@ -11168,7 +12026,9 @@
    {
     "id": "id:days",
     "kind": "field",
-    "words": [],
+    "words": [
+     "The last week The last 30 days The last 3 months"
+    ],
     "to": "",
     "count": 1
    },
@@ -11263,10 +12123,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -11283,10 +12143,10 @@
   ],
   "compliance.html": [
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -11488,7 +12348,9 @@
    {
     "id": "id:jWhat",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. Replace two emergency light fittings"
+    ],
     "to": "",
     "count": 1
    },
@@ -11612,7 +12474,9 @@
    {
     "id": "id:oA",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Building"
+    ],
     "to": "",
     "count": 1
    },
@@ -11628,7 +12492,9 @@
    {
     "id": "id:oU",
     "kind": "field",
-    "words": [],
+    "words": [
+     "months years weeks"
+    ],
     "to": "",
     "count": 1
    },
@@ -11961,7 +12827,9 @@
    {
     "id": "id:bTitle",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Email sent to the wrong group"
+    ],
     "to": "",
     "count": 1
    },
@@ -12167,10 +13035,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Take off\"",
+    "id": "button:\"×\"",
     "kind": "button",
     "words": [
-     "Take off"
+     "×"
     ],
     "to": "",
     "count": 1
@@ -12255,10 +13123,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -12470,10 +13338,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"×\"",
     "kind": "button",
     "words": [
-     "Close"
+     "×"
     ],
     "to": "",
     "count": 1
@@ -12500,7 +13368,7 @@
     "id": "id:us-shape",
     "kind": "field",
     "words": [
-     "Shape"
+     "Any shape Wide Tall Square"
     ],
     "to": "",
     "count": 1
@@ -12611,7 +13479,7 @@
     "id": "id:t-style",
     "kind": "field",
     "words": [
-     "Style of words"
+     "Normal words Heading Small heading"
     ],
     "to": "",
     "count": 1
@@ -12694,14 +13562,18 @@
    {
     "id": "id:v-ref",
     "kind": "field",
-    "words": [],
+    "words": [
+     "For example Col 3:23-24"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:v-ver",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Loading the Bibles…"
+    ],
     "to": "",
     "count": 1
    },
@@ -13195,7 +14067,9 @@
    {
     "id": "id:ab-team",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Choose a team…"
+    ],
     "to": "",
     "count": 1
    },
@@ -13254,7 +14128,9 @@
    {
     "id": "id:aud-team",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Choose\\u2026"
+    ],
     "to": "",
     "count": 1
    },
@@ -13275,10 +14151,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"×\"",
     "kind": "button",
     "words": [
-     "Close"
+     "×"
     ],
     "to": "",
     "count": 1
@@ -13385,6 +14261,15 @@
     "kind": "button",
     "words": [
      "Copy link"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "button:\"Close\"",
+    "kind": "button",
+    "words": [
+     "Close"
     ],
     "to": "",
     "count": 1
@@ -13718,10 +14603,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -13850,7 +14735,9 @@
    {
     "id": "id:nt-weeks",
     "kind": "field",
-    "words": [],
+    "words": [
+     "1 week 2 weeks 4 weeks"
+    ],
     "to": "",
     "count": 1
    },
@@ -14134,7 +15021,9 @@
    {
     "id": "id:f_video",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Name of the video room"
+    ],
     "to": "",
     "count": 1
    },
@@ -14176,7 +15065,9 @@
    {
     "id": "id:f_overNote",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Agreed with the choir: they will use the vestry"
+    ],
     "to": "",
     "count": 1
    },
@@ -14263,19 +15154,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Move up\"",
+    "id": "button:\"↑\"",
     "kind": "button",
     "words": [
-     "Move up"
-    ],
-    "to": "",
-    "count": 1
-   },
-   {
-    "id": "button:\"Move down\"",
-    "kind": "button",
-    "words": [
-     "Move down"
+     "↑"
     ],
     "to": "",
     "count": 1
@@ -14301,7 +15183,9 @@
    {
     "id": "id:ckWho",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Start typing a name"
+    ],
     "to": "",
     "count": 1
    },
@@ -14354,7 +15238,9 @@
    {
     "id": "id:ckTplName",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Template name"
+    ],
     "to": "",
     "count": 1
    },
@@ -14603,7 +15489,9 @@
    {
     "id": "id:invWho",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Start typing a name"
+    ],
     "to": "",
     "count": 1
    },
@@ -14824,10 +15712,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -14980,10 +15868,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -15050,7 +15938,9 @@
    {
     "id": "id:edPurpose",
     "kind": "field",
-    "words": [],
+    "words": [
+     "We need this to keep your child safe at …"
+    ],
     "to": "",
     "count": 1
    },
@@ -15250,6 +16140,15 @@
     "count": 1
    },
    {
+    "id": "button:\"✕\"",
+    "kind": "button",
+    "words": [
+     "✕"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
     "id": "link:\"View or cancel your place\"",
     "kind": "link",
     "words": [
@@ -15426,10 +16325,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -15448,14 +16347,18 @@
    {
     "id": "id:amt",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. 20"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:often",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Monthly Every 4 weeks"
+    ],
     "to": "",
     "count": 1
    },
@@ -15629,10 +16532,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -15697,7 +16600,9 @@
    {
     "id": "id:g-url",
     "kind": "field",
-    "words": [],
+    "words": [
+     "https://"
+    ],
     "to": "",
     "count": 1
    },
@@ -15774,7 +16679,9 @@
    {
     "id": "id:rc-dbs",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Current Applied for None"
+    ],
     "to": "",
     "count": 1
    },
@@ -15908,7 +16815,9 @@
    {
     "id": "id:f-notes",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. parking, which door"
+    ],
     "to": "",
     "count": 1
    },
@@ -16259,10 +17168,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -16300,7 +17209,7 @@
     "id": "id:f-day",
     "kind": "field",
     "words": [
-     "Day"
+     "Any day"
     ],
     "to": "",
     "count": 1
@@ -16309,7 +17218,7 @@
     "id": "id:f-type",
     "kind": "field",
     "words": [
-     "Kind of group"
+     "Any kind"
     ],
     "to": "",
     "count": 1
@@ -16318,7 +17227,7 @@
     "id": "id:f-area",
     "kind": "field",
     "words": [
-     "Area"
+     "Anywhere"
     ],
     "to": "",
     "count": 1
@@ -16469,10 +17378,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -16641,10 +17550,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -16786,10 +17695,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -16912,10 +17821,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -16941,9 +17850,11 @@
     "count": 1
    },
    {
-    "id": "link-to:hub.html",
+    "id": "link:\"Hub\"",
     "kind": "link",
-    "words": [],
+    "words": [
+     "Hub"
+    ],
     "to": "hub.html",
     "count": 1
    },
@@ -17046,9 +17957,7 @@
    {
     "id": "id:charterLink",
     "kind": "link",
-    "words": [
-     "Open full page"
-    ],
+    "words": [],
     "to": "",
     "count": 1
    },
@@ -17074,7 +17983,7 @@
     "id": "fn:closeTools",
     "kind": "button",
     "words": [
-     "Close the Menu"
+     "Close"
     ],
     "to": "",
     "count": 2
@@ -17147,21 +18056,27 @@
    {
     "id": "id:hrTitle",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Heading"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:hrSub",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Line underneath"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:hrZoom",
     "kind": "field",
-    "words": [],
+    "words": [
+     "100"
+    ],
     "to": "",
     "count": 1
    },
@@ -17226,14 +18141,18 @@
    {
     "id": "id:chTitle",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Title"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:chBody",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Who we are, how we serve, what we expect of each other"
+    ],
     "to": "",
     "count": 1
    },
@@ -17266,7 +18185,9 @@
    {
     "id": "id:pnTitle",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Heading"
+    ],
     "to": "",
     "count": 1
    },
@@ -17308,14 +18229,18 @@
    {
     "id": "id:nwTitle",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. Rehearsal moved to 7pm"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:nwDate",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. Sunday 4 May"
+    ],
     "to": "",
     "count": 1
    },
@@ -17464,9 +18389,7 @@
    {
     "id": "fn:showCharter",
     "kind": "button",
-    "words": [
-     "` + `"
-    ],
+    "words": [],
     "to": "",
     "count": 1
    },
@@ -17753,7 +18676,9 @@
    {
     "id": "id:peopleSearch",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Search"
+    ],
     "to": "",
     "count": 1
    },
@@ -17787,28 +18712,36 @@
    {
     "id": "id:pgTitle",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Name"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:pgUrl",
     "kind": "field",
-    "words": [],
+    "words": [
+     "filename.html"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:pgDesc",
     "kind": "field",
-    "words": [],
+    "words": [
+     "One line describing it"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:pgIcon",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Icon"
+    ],
     "to": "",
     "count": 1
    },
@@ -17822,14 +18755,18 @@
    {
     "id": "id:pgOrder",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Order"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:pgSeenBy",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Seen by that team only Seen by everyone signed in"
+    ],
     "to": "",
     "count": 1
    },
@@ -18053,7 +18990,9 @@
    {
     "id": "id:memberEmail",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Enter your email"
+    ],
     "to": "",
     "count": 1
    },
@@ -18083,10 +19022,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Not you? Start again\"",
+    "id": "button:\"Not you?\"",
     "kind": "button",
     "words": [
-     "Not you? Start again"
+     "Not you?"
     ],
     "to": "",
     "count": 1
@@ -18123,21 +19062,27 @@
    {
     "id": "id:searchInput",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Search items, locations…"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:filterCondition",
     "kind": "field",
-    "words": [],
+    "words": [
+     "All Conditions Excellent Good Fair Poor"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:filterStatus",
     "kind": "field",
-    "words": [],
+    "words": [
+     "All Status Signed In Signed Out"
+    ],
     "to": "",
     "count": 1
    },
@@ -18145,15 +19090,18 @@
     "id": "fn:closeItemModal",
     "kind": "button",
     "words": [
-     "✕"
+     "✕",
+     "Cancel"
     ],
     "to": "",
-    "count": 1
+    "count": 2
    },
    {
     "id": "id:photoZone",
     "kind": "button",
-    "words": [],
+    "words": [
+     "📷"
+    ],
     "to": "",
     "count": 1
    },
@@ -18165,9 +19113,165 @@
     "count": 1
    },
    {
-    "id": "id:fieldName",
+    "id": "id:fieldSerial",
     "kind": "field",
+    "words": [
+     "e.g. SN123456"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:fieldDesc",
+    "kind": "field",
+    "words": [
+     "Brief description of the item…"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:fieldCondition",
+    "kind": "field",
+    "words": [
+     "Select condition Excellent Good Fair Poor"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:fieldLocation",
+    "kind": "field",
+    "words": [
+     "e.g. Store Room A, Shelf 3"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:fieldCategory",
+    "kind": "field",
+    "words": [
+     "e.g. Electronics, Furniture"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:fieldManualValue",
+    "kind": "field",
+    "words": [
+     "Optional override"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:saveItem",
+    "kind": "button",
+    "words": [
+     "Save Item"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:closeSignModal",
+    "kind": "button",
+    "words": [
+     "✕",
+     "Cancel"
+    ],
+    "to": "",
+    "count": 2
+   },
+   {
+    "id": "id:signName",
+    "kind": "field",
+    "words": [
+     "Full name of person signing"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:signNotes",
+    "kind": "field",
+    "words": [
+     "Purpose / notes (optional)"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:clearSig",
+    "kind": "button",
+    "words": [
+     "✕ Clear"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:submitSign",
+    "kind": "button",
+    "words": [
+     "Confirm Sign Out"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:closeLightbox",
+    "kind": "button",
     "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:openLightbox",
+    "kind": "button",
+    "words": [
+     "` : `"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:openEditModal",
+    "kind": "button",
+    "words": [
+     "📷",
+     "✏️"
+    ],
+    "to": "",
+    "count": 2
+   },
+   {
+    "id": "fn:lookupValue",
+    "kind": "button",
+    "words": [
+     "✨ Get Value"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:openSignModal",
+    "kind": "button",
+    "words": [
+     "↩ Sign In",
+     "↪ Sign Out"
+    ],
+    "to": "",
+    "count": 2
+   },
+   {
+    "id": "fn:deleteItem",
+    "kind": "button",
+    "words": [
+     "🗑"
+    ],
     "to": "",
     "count": 1
    }
@@ -18292,15 +19396,6 @@
     "kind": "button",
     "words": [
      "Add a group"
-    ],
-    "to": "",
-    "count": 1
-   },
-   {
-    "id": "button:\"Remove\"",
-    "kind": "button",
-    "words": [
-     "Remove"
     ],
     "to": "",
     "count": 1
@@ -18511,10 +19606,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -18544,6 +19639,15 @@
      "Open Settings"
     ],
     "to": "kids-admin.html",
+    "count": 1
+   },
+   {
+    "id": "button:\"Remove\"",
+    "kind": "button",
+    "words": [
+     "Remove"
+    ],
+    "to": "",
     "count": 1
    }
   ],
@@ -18983,10 +20087,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -19023,14 +20127,19 @@
    {
     "id": "fn:route",
     "kind": "button",
-    "words": [],
+    "words": [
+     "I'm on a team You serve on one of the church's teams or groups. Sign in with you",
+     "I'm part of the youth group Your parent will have been emailed an access code. Y"
+    ],
     "to": "",
     "count": 3
    },
    {
     "id": "id:emailInput",
     "kind": "field",
-    "words": [],
+    "words": [
+     "you@example.com"
+    ],
     "to": "",
     "count": 1
    },
@@ -19120,10 +20229,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Take off\"",
+    "id": "button:\"×\"",
     "kind": "button",
     "words": [
-     "Take off"
+     "×"
     ],
     "to": "",
     "count": 1
@@ -19224,10 +20333,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -19276,7 +20385,9 @@
    {
     "id": "id:c-why",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. Repainting"
+    ],
     "to": "",
     "count": 1
    },
@@ -19317,7 +20428,9 @@
    {
     "id": "id:r-what",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. Two lights out"
+    ],
     "to": "",
     "count": 1
    },
@@ -19444,10 +20557,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -19552,13 +20665,49 @@
     "kind": "button",
     "words": [],
     "to": "",
+    "count": 2
+   },
+   {
+    "id": "fn:closeInvite",
+    "kind": "button",
+    "words": [
+     "Done"
+    ],
+    "to": "",
     "count": 1
    },
    {
-    "id": "fn:invRemove",
+    "id": "id:invFind",
+    "kind": "field",
+    "words": [
+     "Type a name"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:invName",
+    "kind": "field",
+    "words": [
+     "Their name"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:invEmail",
+    "kind": "field",
+    "words": [
+     "Their email"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:invGuest",
     "kind": "button",
     "words": [
-     "Nobody yet."
+     "Invite by email"
     ],
     "to": "",
     "count": 1
@@ -19582,7 +20731,9 @@
    {
     "id": "id:nmDesc",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. Elders, Autumn planning"
+    ],
     "to": "",
     "count": 1
    },
@@ -19614,28 +20765,36 @@
    {
     "id": "id:nmRoom",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Yes, in a room of its own No video call"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:nmFind",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Type a name from the address book"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:nmGName",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Their name"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:nmGEmail",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Their email"
+    ],
     "to": "",
     "count": 1
    },
@@ -19817,7 +20976,7 @@
      "◀"
     ],
     "to": "",
-    "count": 1
+    "count": 2
    },
    {
     "id": "button:\"▶\"",
@@ -19833,15 +20992,6 @@
     "kind": "button",
     "words": [
      "Stop presenting"
-    ],
-    "to": "",
-    "count": 1
-   },
-   {
-    "id": "button:\"Back\"",
-    "kind": "button",
-    "words": [
-     "Back"
     ],
     "to": "",
     "count": 1
@@ -19867,7 +21017,9 @@
    {
     "id": "id:mName",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Building fund update"
+    ],
     "to": "",
     "count": 1
    },
@@ -19881,7 +21033,9 @@
    {
     "id": "id:mLink",
     "kind": "field",
-    "words": [],
+    "words": [
+     "https://…sharepoint.com/…"
+    ],
     "to": "",
     "count": 1
    },
@@ -19949,7 +21103,9 @@
    {
     "id": "id:ev-new-c",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Yes, No, Abstain"
+    ],
     "to": "",
     "count": 1
    },
@@ -20033,98 +21189,126 @@
    {
     "id": "id:target",
     "kind": "field",
-    "words": [],
+    "words": [
+     "120"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:aExit",
     "kind": "field",
-    "words": [],
+    "words": [
+     "0"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:bEntry",
     "kind": "field",
-    "words": [],
+    "words": [
+     "0"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:bars",
     "kind": "field",
-    "words": [],
+    "words": [
+     "16"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:bassCut",
     "kind": "field",
-    "words": [],
+    "words": [
+     "20"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:cutStyle",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Cut + reverb throw Filter fade"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:reverbBars",
     "kind": "field",
-    "words": [],
+    "words": [
+     "2"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:fadeBars",
     "kind": "field",
-    "words": [],
+    "words": [
+     "4"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:bridgeBars",
     "kind": "field",
-    "words": [],
+    "words": [
+     "8"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:method",
     "kind": "field",
-    "words": [],
+    "words": [
+     "EQ filter — clean Separation — aggressive"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:midCut",
     "kind": "field",
-    "words": [],
+    "words": [
+     "24"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:highCut",
     "kind": "field",
-    "words": [],
+    "words": [
+     "0"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:removal",
     "kind": "field",
-    "words": [],
+    "words": [
+     "2"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:overlapBars",
     "kind": "field",
-    "words": [],
+    "words": [
+     "1"
+    ],
     "to": "",
     "count": 1
    },
@@ -20311,7 +21495,9 @@
    {
     "id": "id:importText",
     "kind": "field",
-    "words": [],
+    "words": [
+     "# Track Artist BPM Section Mix Note1 Groove Thang Zhane 104 Warm-up OPENER Your "
+    ],
     "to": "",
     "count": 1
    },
@@ -20448,7 +21634,7 @@
     "id": "id:normaliseBtn",
     "kind": "button",
     "words": [
-     "Level every track to the same loudness"
+     "⚖ Level the tracks"
     ],
     "to": "",
     "count": 1
@@ -20457,7 +21643,7 @@
     "id": "id:matchLowBtn",
     "kind": "button",
     "words": [
-     "Raise the sub-bass of the thinner records so their low end reaches the target, t"
+     "〰 Match low end"
     ],
     "to": "",
     "count": 1
@@ -20466,7 +21652,7 @@
     "id": "id:matchLowTarget",
     "kind": "field",
     "words": [
-     "What to match the thinner records to"
+     "to a set level to the middle of the set to the bassiest record"
     ],
     "to": "",
     "count": 1
@@ -20475,7 +21661,7 @@
     "id": "id:matchLowDb",
     "kind": "field",
     "words": [
-     "The low end to bring thinner records up to, in dB against their own mids"
+     "dB"
     ],
     "to": "",
     "count": 1
@@ -20484,7 +21670,7 @@
     "id": "id:playerBtn",
     "kind": "button",
     "words": [
-     "Open the player for the night — pick the output the PA is on and play the finish"
+     "▶ Player"
     ],
     "to": "",
     "count": 1
@@ -20493,7 +21679,7 @@
     "id": "id:undoBtn",
     "kind": "button",
     "words": [
-     "Ctrl+Z"
+     "↶ Undo"
     ],
     "to": "",
     "count": 1
@@ -20502,7 +21688,7 @@
     "id": "id:redoBtn",
     "kind": "button",
     "words": [
-     "Ctrl+Y"
+     "↷ Redo"
     ],
     "to": "",
     "count": 1
@@ -20581,7 +21767,7 @@
     "id": "act:find-file",
     "kind": "button",
     "words": [
-     "Point this track at its file yourself"
+     "Find the file…"
     ],
     "to": "",
     "count": 1
@@ -20590,7 +21776,7 @@
     "id": "act:up",
     "kind": "button",
     "words": [
-     "Move up"
+     "↑"
     ],
     "to": "",
     "count": 1
@@ -20599,7 +21785,7 @@
     "id": "act:down",
     "kind": "button",
     "words": [
-     "Move down"
+     "↓"
     ],
     "to": "",
     "count": 1
@@ -20608,7 +21794,7 @@
     "id": "act:swap",
     "kind": "button",
     "words": [
-     "Replace from the bench"
+     "Swap"
     ],
     "to": "",
     "count": 1
@@ -20797,15 +21983,6 @@
     "count": 1
    },
    {
-    "id": "act:region-del",
-    "kind": "button",
-    "words": [
-     "✕"
-    ],
-    "to": "",
-    "count": 1
-   },
-   {
     "id": "act:accept-hardcut",
     "kind": "button",
     "words": [
@@ -20895,7 +22072,7 @@
     "id": "act:add-bench",
     "kind": "button",
     "words": [
-     "Add to the end of the set"
+     "Add"
     ],
     "to": "",
     "count": 1
@@ -20904,7 +22081,7 @@
     "id": "act:drop-bench",
     "kind": "button",
     "words": [
-     "Delete permanently"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -21052,7 +22229,7 @@
     "id": "id:refreshSinks",
     "kind": "button",
     "words": [
-     "Re-scan for outputs"
+     "↻"
     ],
     "to": "",
     "count": 1
@@ -21079,7 +22256,7 @@
     "id": "id:back30",
     "kind": "button",
     "words": [
-     "Back 30 seconds"
+     "−30s"
     ],
     "to": "",
     "count": 1
@@ -21088,7 +22265,7 @@
     "id": "id:fwd30",
     "kind": "button",
     "words": [
-     "Forward 30 seconds"
+     "+30s"
     ],
     "to": "",
     "count": 1
@@ -21097,7 +22274,7 @@
     "id": "id:prevTrk",
     "kind": "button",
     "words": [
-     "Start of this track, or the one before"
+     "⏮ Track"
     ],
     "to": "",
     "count": 1
@@ -21106,7 +22283,7 @@
     "id": "id:nextTrk",
     "kind": "button",
     "words": [
-     "Next track"
+     "Track ⏭"
     ],
     "to": "",
     "count": 1
@@ -21304,10 +22481,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -21396,10 +22573,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -21462,10 +22639,10 @@
     "count": 1
    },
    {
-    "id": "link:\"') + esc(d.ev ? E.fmtWhen(d.ev) : 'A date') + (d.key === KEY ? ' (this page)\"",
+    "id": "link:\"') + esc(d.ev ? E.fmtWhen(d.ev) : 'A date') + (d.key === KEY ? ' (this page) ' :\"",
     "kind": "link",
     "words": [
-     "') + esc(d.ev ? E.fmtWhen(d.ev) : 'A date') + (d.key === KEY ? ' (this page)"
+     "') + esc(d.ev ? E.fmtWhen(d.ev) : 'A date') + (d.key === KEY ? ' (this page) ' :"
     ],
     "to": "my-signup.html",
     "count": 1
@@ -21586,10 +22763,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -21793,10 +22970,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -21983,7 +23160,9 @@
    {
     "id": "id:gcKey",
     "kind": "field",
-    "words": [],
+    "words": [
+     "live_…"
+    ],
     "to": "",
     "count": 1
    },
@@ -22042,7 +23221,9 @@
    {
     "id": "id:stripeKey",
     "kind": "field",
-    "words": [],
+    "words": [
+     "rk_live_…"
+    ],
     "to": "",
     "count": 1
    },
@@ -22058,7 +23239,9 @@
    {
     "id": "id:hookSecret",
     "kind": "field",
-    "words": [],
+    "words": [
+     "whsec_…"
+    ],
     "to": "",
     "count": 1
    },
@@ -22169,10 +23352,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -22291,10 +23474,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -22532,7 +23715,7 @@
     "id": "id:btnUpscale",
     "kind": "button",
     "words": [
-     "Upscale the whole document 4× with an offline AI model (slow)"
+     "🔼 AI Upscale ×4"
     ],
     "to": "",
     "count": 1
@@ -22559,7 +23742,7 @@
     "id": "id:btnDeselect",
     "kind": "button",
     "words": [
-     "Deselect (Ctrl+D)"
+     "Deselect"
     ],
     "to": "",
     "count": 1
@@ -22603,7 +23786,9 @@
    {
     "id": "id:opSlider",
     "kind": "field",
-    "words": [],
+    "words": [
+     "100"
+    ],
     "to": "",
     "count": 1
    },
@@ -22870,10 +24055,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -22998,7 +24183,9 @@
    {
     "id": "id:s-pc",
     "kind": "field",
-    "words": [],
+    "words": [
+     "KT10 8AA"
+    ],
     "to": "",
     "count": 1
    },
@@ -23050,7 +24237,9 @@
    {
     "id": "id:r-kind",
     "kind": "field",
-    "words": [],
+    "words": [
+     "A room at a site Online (a video room)"
+    ],
     "to": "",
     "count": 1
    },
@@ -23150,7 +24339,9 @@
    {
     "id": "id:m-unit",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Per person Per item"
+    ],
     "to": "",
     "count": 1
    },
@@ -23236,7 +24427,9 @@
    {
     "id": "id:v-q",
     "kind": "field",
-    "words": [],
+    "words": [
+     "The Red Lion"
+    ],
     "to": "",
     "count": 1
    },
@@ -23282,7 +24475,9 @@
    {
     "id": "id:t-name",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Private hire"
+    ],
     "to": "",
     "count": 1
    },
@@ -23337,7 +24532,9 @@
    {
     "id": "id:rc-who",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Everyone Members (their own price list)"
+    ],
     "to": "",
     "count": 1
    },
@@ -23596,7 +24793,7 @@
     "id": "id:rc-vatRate",
     "kind": "field",
     "words": [
-     "VAT rate, percent"
+     "%"
     ],
     "to": "",
     "count": 1
@@ -23692,10 +24889,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -23949,10 +25146,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -24113,10 +25310,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -24326,7 +25523,7 @@
      "◀"
     ],
     "to": "",
-    "count": 1
+    "count": 2
    },
    {
     "id": "button:\"▶\"",
@@ -24347,15 +25544,6 @@
     "count": 1
    },
    {
-    "id": "button:\"Back\"",
-    "kind": "button",
-    "words": [
-     "Back"
-    ],
-    "to": "",
-    "count": 1
-   },
-   {
     "id": "button:\"Take it back\"",
     "kind": "button",
     "words": [
@@ -24365,9 +25553,20 @@
     "count": 1
    },
    {
+    "id": "button:\"Close\"",
+    "kind": "button",
+    "words": [
+     "Close"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
     "id": "id:mName",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Building fund update"
+    ],
     "to": "",
     "count": 1
    },
@@ -24381,7 +25580,9 @@
    {
     "id": "id:mLink",
     "kind": "field",
-    "words": [],
+    "words": [
+     "https://…sharepoint.com/…"
+    ],
     "to": "",
     "count": 1
    },
@@ -24564,10 +25765,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -24586,7 +25787,9 @@
    {
     "id": "id:search",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Search resources…"
+    ],
     "to": "",
     "count": 1
    },
@@ -24635,21 +25838,27 @@
    {
     "id": "id:lkTitle",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Title"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:lkUrl",
     "kind": "field",
-    "words": [],
+    "words": [
+     "https://…"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:lkDesc",
     "kind": "field",
-    "words": [],
+    "words": [
+     "One-line description — optional"
+    ],
     "to": "",
     "count": 1
    },
@@ -24663,14 +25872,18 @@
    {
     "id": "id:edFolder",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Folder (e.g. Policies)"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:edRole",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Everyone on the team Leaders and above Admins only"
+    ],
     "to": "",
     "count": 1
    },
@@ -24686,14 +25899,37 @@
    {
     "id": "fn:switchTeam",
     "kind": "button",
-    "words": [
-     "` + `"
-    ],
+    "words": [],
     "to": "",
     "count": 1
    },
    {
     "id": "fn:renameItem",
+    "kind": "button",
+    "words": [
+     "Rename"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:removeItem",
+    "kind": "button",
+    "words": [
+     "Delete"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:dropQ",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:uploadAll",
     "kind": "button",
     "words": [],
     "to": "",
@@ -24709,13 +25945,6 @@
     ],
     "to": "data-records.html",
     "count": 2
-   },
-   {
-    "id": "id:delAnswers",
-    "kind": "button",
-    "words": [],
-    "to": "",
-    "count": 1
    },
    {
     "id": "id:del",
@@ -24797,10 +26026,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -24813,14 +26042,21 @@
     ],
     "to": "",
     "count": 1
+   },
+   {
+    "id": "id:delAnswers",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
    }
   ],
   "risk.html": [
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -24885,7 +26121,9 @@
    {
     "id": "id:rWho",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Name and company"
+    ],
     "to": "",
     "count": 1
    },
@@ -25214,10 +26452,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -25451,10 +26689,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -25647,6 +26885,160 @@
     "count": 1
    }
   ],
+  "rota-reports.html": [
+   {
+    "id": "id:csv",
+    "kind": "button",
+    "words": [
+     "Download (CSV)"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "tab:",
+    "kind": "tab",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:from",
+    "kind": "field",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:to",
+    "kind": "field",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:team",
+    "kind": "field",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:person",
+    "kind": "field",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:practices",
+    "kind": "field",
+    "words": [
+     "Include practices"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:subCopy",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:subReset",
+    "kind": "button",
+    "words": [
+     "Reset my link"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:subPhone",
+    "kind": "link",
+    "words": [
+     "Add to my phone\\'s calendar"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:subGoogle",
+    "kind": "link",
+    "words": [
+     "Google Calendar",
+     "Add to Google Calendar"
+    ],
+    "to": "",
+    "count": 2
+   },
+   {
+    "id": "id:subEmail",
+    "kind": "button",
+    "words": [
+     "Email me the link"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:subApple",
+    "kind": "link",
+    "words": [
+     "Apple or Outlook"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "field:subWho",
+    "kind": "field",
+    "words": [
+     "Public events only",
+     "Everything I can see here (my own link)"
+    ],
+    "to": "",
+    "count": 2
+   },
+   {
+    "id": "button:\"See the whole picture\"",
+    "kind": "button",
+    "words": [
+     "See the whole picture"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "button:\"✕\"",
+    "kind": "button",
+    "words": [
+     "✕"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "link:\"View or cancel your place\"",
+    "kind": "link",
+    "words": [
+     "View or cancel your place"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "link:\"Back to the hub\"",
+    "kind": "link",
+    "words": [
+     "Back to the hub"
+    ],
+    "to": "hub.html",
+    "count": 1
+   }
+  ],
   "rotaplannerinstructions.html": [
    {
     "id": "fn:changeStep",
@@ -25733,6 +27125,13 @@
     "count": 1
    },
    {
+    "id": "act:",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
     "id": "button:\"Add a risk\"",
     "kind": "button",
     "words": [
@@ -25758,15 +27157,6 @@
     ],
     "to": "",
     "count": 1
-   },
-   {
-    "id": "button:\"Close\"",
-    "kind": "button",
-    "words": [
-     "Close"
-    ],
-    "to": "",
-    "count": 2
    },
    {
     "id": "id:eRisk",
@@ -25800,7 +27190,7 @@
     "id": "id:eMore",
     "kind": "button",
     "words": [
-     "Another control"
+     "Another"
     ],
     "to": "",
     "count": 1
@@ -25839,7 +27229,7 @@
     "id": "id:eMoreTodo",
     "kind": "button",
     "words": [
-     "Another thing to do"
+     "Another"
     ],
     "to": "",
     "count": 1
@@ -25917,13 +27307,13 @@
     "count": 1
    },
    {
-    "id": "link:\"Add the church’s places\"",
-    "kind": "link",
+    "id": "button:\"Close\"",
+    "kind": "button",
     "words": [
-     "Add the church’s places"
+     "Close"
     ],
-    "to": "places-admin.html",
-    "count": 1
+    "to": "",
+    "count": 2
    },
    {
     "id": "id:subCopy",
@@ -25998,6 +27388,15 @@
     "count": 1
    },
    {
+    "id": "button:\"✕\"",
+    "kind": "button",
+    "words": [
+     "✕"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
     "id": "link:\"View or cancel your place\"",
     "kind": "link",
     "words": [
@@ -26043,7 +27442,9 @@
    {
     "id": "id:sgaQ_",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Who insures it, what it covers, and who checked, when"
+    ],
     "to": "",
     "count": 3
    },
@@ -26180,7 +27581,9 @@
    {
     "id": "id:sgaHostName",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. Hilltop Christian Camp"
+    ],
     "to": "",
     "count": 1
    },
@@ -26398,6 +27801,15 @@
     ],
     "to": "",
     "count": 1
+   },
+   {
+    "id": "link:\"Add the church’s places\"",
+    "kind": "link",
+    "words": [
+     "Add the church’s places"
+    ],
+    "to": "places-admin.html",
+    "count": 1
    }
   ],
   "safeguarding-settings.html": [
@@ -26496,21 +27908,27 @@
    {
     "id": "id:leadTitle",
     "kind": "field",
-    "words": [],
+    "words": [
+     "safeguarding lead"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:guideName",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. your denomination’s or diocese’s safeguarding guidance"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:guideUrl",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Its web address (https://…)"
+    ],
     "to": "",
     "count": 1
    },
@@ -26633,10 +28051,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -26653,13 +28071,13 @@
   ],
   "safeguarding.html": [
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
-    "count": 4
+    "count": 1
    },
    {
     "id": "link-to:checkin.html",
@@ -26819,6 +28237,15 @@
     "count": 1
    },
    {
+    "id": "button:\"Close\"",
+    "kind": "button",
+    "words": [
+     "Close"
+    ],
+    "to": "",
+    "count": 3
+   },
+   {
     "id": "id:exSave",
     "kind": "button",
     "words": [],
@@ -26934,7 +28361,9 @@
    {
     "id": "id:iFa",
     "kind": "field",
-    "words": [],
+    "words": [
+     "No Yes"
+    ],
     "to": "",
     "count": 1
    },
@@ -26948,7 +28377,9 @@
    {
     "id": "id:iTold",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Not yet Yes"
+    ],
     "to": "",
     "count": 1
    },
@@ -27176,7 +28607,9 @@
    {
     "id": "id:sgaQ_",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Who insures it, what it covers, and who checked, when"
+    ],
     "to": "",
     "count": 3
    },
@@ -27304,7 +28737,9 @@
    {
     "id": "id:sgaHostName",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. Hilltop Christian Camp"
+    ],
     "to": "",
     "count": 1
    },
@@ -27434,7 +28869,7 @@
      "🎚 Signals",
      "🔗 Hops",
      "📋 Paths",
-     "Settings"
+     "⚙"
     ],
     "to": "",
     "count": 5
@@ -27442,7 +28877,9 @@
    {
     "id": "id:reg-name",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Name of panel, box, or rack"
+    ],
     "to": "",
     "count": 1
    },
@@ -27458,14 +28895,18 @@
    {
     "id": "id:sig-label",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Name for this signal"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:sig-desk",
     "kind": "field",
-    "words": [],
+    "words": [
+     "-- Not Linked to Desk Yet --"
+    ],
     "to": "",
     "count": 1
    },
@@ -27479,14 +28920,18 @@
    {
     "id": "id:sig-direction",
     "kind": "field",
-    "words": [],
+    "words": [
+     "to-desk"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "field:sig-direction",
     "kind": "field",
-    "words": [],
+    "words": [
+     "from-desk"
+    ],
     "to": "",
     "count": 1
    },
@@ -27527,7 +28972,9 @@
    {
     "id": "id:hop-a-ch",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Channel number"
+    ],
     "to": "",
     "count": 1
    },
@@ -27541,14 +28988,19 @@
    {
     "id": "id:hop-b-ch",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Channel number"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "field:hop-direction",
     "kind": "field",
-    "words": [],
+    "words": [
+     "a→b",
+     "b→a"
+    ],
     "to": "",
     "count": 2
    },
@@ -27588,7 +29040,9 @@
    {
     "id": "id:reset-confirm-input",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Type RESET here"
+    ],
     "to": "",
     "count": 1
    },
@@ -27611,7 +29065,9 @@
    {
     "id": "id:ehop-a-ch-",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Ch"
+    ],
     "to": "",
     "count": 1
    },
@@ -27625,7 +29081,9 @@
    {
     "id": "id:ehop-b-ch-",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Ch"
+    ],
     "to": "",
     "count": 1
    },
@@ -27668,6 +29126,15 @@
    {
     "id": "id:sug-name-",
     "kind": "field",
+    "words": [
+     "Name this signal (e.g. Guitar)"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:sug-confirm-",
+    "kind": "button",
     "words": [],
     "to": "",
     "count": 1
@@ -27757,7 +29224,9 @@
    {
     "id": "id:f-title",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. Ask boldly, plan wisely"
+    ],
     "to": "",
     "count": 1
    },
@@ -27798,7 +29267,9 @@
    {
     "id": "id:ns-name",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. Nehemiah: rebuilding what matters"
+    ],
     "to": "",
     "count": 1
    },
@@ -27828,7 +29299,9 @@
    {
     "id": "id:fd-url",
     "kind": "field",
-    "words": [],
+    "words": [
+     "https://anchor.fm/s/…/podcast/rss"
+    ],
     "to": "",
     "count": 1
    },
@@ -27853,7 +29326,9 @@
    {
     "id": "id:ac-who",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Start typing a name"
+    ],
     "to": "",
     "count": 1
    },
@@ -27939,10 +29414,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -27966,10 +29441,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Move up\"",
+    "id": "button:\"↑\"",
     "kind": "button",
     "words": [
-     "Move up"
+     "↑"
     ],
     "to": "",
     "count": 1
@@ -28148,7 +29623,9 @@
    {
     "id": "id:sLink",
     "kind": "field",
-    "words": [],
+    "words": [
+     "https://"
+    ],
     "to": "",
     "count": 1
    },
@@ -28187,7 +29664,9 @@
    {
     "id": "id:addAs",
     "kind": "field",
-    "words": [],
+    "words": [
+     "as on as away"
+    ],
     "to": "",
     "count": 1
    },
@@ -28268,16 +29747,7 @@
      "×"
     ],
     "to": "",
-    "count": 2
-   },
-   {
-    "id": "button:\"Remove\"",
-    "kind": "button",
-    "words": [
-     "Remove"
-    ],
-    "to": "",
-    "count": 1
+    "count": 5
    },
    {
     "id": "button:\"Remove this part\"",
@@ -28289,15 +29759,6 @@
     "count": 1
    },
    {
-    "id": "button:\"Take off\"",
-    "kind": "button",
-    "words": [
-     "Take off"
-    ],
-    "to": "",
-    "count": 2
-   },
-   {
     "id": "button:\"Remove the group\"",
     "kind": "button",
     "words": [
@@ -28307,37 +29768,37 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
    },
    {
-    "id": "button:\"Free Bibles\"",
+    "id": "button:\"Free Bibles (on the hub)\"",
     "kind": "button",
     "words": [
-     "Free Bibles"
+     "Free Bibles (on the hub)"
     ],
     "to": "",
     "count": 1
    },
    {
-    "id": "button:\"API.Bible\"",
+    "id": "button:\"API.Bible (church key)\"",
     "kind": "button",
     "words": [
-     "API.Bible"
+     "API.Bible (church key)"
     ],
     "to": "",
     "count": 1
    },
    {
-    "id": "button:\"Bible Gateway\"",
+    "id": "button:\"Bible Gateway (link only)\"",
     "kind": "button",
     "words": [
-     "Bible Gateway"
+     "Bible Gateway (link only)"
     ],
     "to": "",
     "count": 1
@@ -28345,14 +29806,18 @@
    {
     "id": "id:bpVer",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Loading…"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:bpRef",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. John 3:16-21"
+    ],
     "to": "",
     "count": 1
    },
@@ -28386,7 +29851,8 @@
     "id": "id:stU",
     "kind": "field",
     "words": [
-     "https://www.youtube.com/watch?v=…"
+     "https://www.youtube.com/watch?v=…",
+     "https://1drv.ms/… or https://…sharepoint.com/…"
     ],
     "to": "",
     "count": 3
@@ -28410,7 +29876,9 @@
    {
     "id": "id:stM",
     "kind": "field",
-    "words": [],
+    "words": [
+     "5"
+    ],
     "to": "",
     "count": 1
    },
@@ -28424,7 +29892,9 @@
    {
     "id": "id:stQ",
     "kind": "field",
-    "words": [],
+    "words": [
+     "When did Nicodemus come to Jesus?At nightIn the morningAt noonHe never came"
+    ],
     "to": "",
     "count": 1
    },
@@ -28439,7 +29909,8 @@
     "id": "id:stN",
     "kind": "field",
     "words": [
-     "e.g. EJ03 slides"
+     "e.g. EJ03 slides",
+     "Open Urban Saints"
     ],
     "to": "",
     "count": 2
@@ -28638,13 +30109,13 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
-    "count": 2
+    "count": 1
    },
    {
     "id": "link:\"View or cancel your place\"",
@@ -28663,6 +30134,15 @@
     ],
     "to": "",
     "count": 1
+   },
+   {
+    "id": "button:\"Close\"",
+    "kind": "button",
+    "words": [
+     "Close"
+    ],
+    "to": "",
+    "count": 2
    },
    {
     "id": "button:\"Record it\"",
@@ -29031,10 +30511,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -29062,7 +30542,9 @@
    {
     "id": "id:aiUrl",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. prosserproperty.co.uk"
+    ],
     "to": "",
     "count": 1
    },
@@ -29157,28 +30639,36 @@
    {
     "id": "id:styleOutline",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Solid fill Outline only"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:styleOutlineWidth",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Fine Medium Bold"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:styleFontSize",
     "kind": "field",
-    "words": [],
+    "words": [
+     "15px Standard 16px Readable 17px Spacious"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:stylePadding",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Compact Balanced Spacious"
+    ],
     "to": "",
     "count": 1
    },
@@ -29247,7 +30737,9 @@
    {
     "id": "fn:executeProductionBundleDownload",
     "kind": "button",
-    "words": [],
+    "words": [
+     "⤓ Download my website"
+    ],
     "to": "",
     "count": 1
    },
@@ -29313,7 +30805,9 @@
    {
     "id": "id:aiTone",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Friendly Professional Bold Playful Elegant"
+    ],
     "to": "",
     "count": 1
    },
@@ -29361,7 +30855,9 @@
    {
     "id": "id:advVoice",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Alloy Echo Fable Onyx Nova Shimmer Ash Sage Coral Verse"
+    ],
     "to": "",
     "count": 1
    },
@@ -29798,7 +31294,7 @@
     "id": "fn:openAddPageModal",
     "kind": "button",
     "words": [
-     "Add new page"
+     "＋"
     ],
     "to": "",
     "count": 1
@@ -29822,7 +31318,9 @@
    {
     "id": "id:noteAuthor",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. Sarah"
+    ],
     "to": "",
     "count": 1
    },
@@ -29836,7 +31334,9 @@
    {
     "id": "id:noteTitle",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Give your suggestion a title…"
+    ],
     "to": "",
     "count": 1
    },
@@ -29852,28 +31352,36 @@
    {
     "id": "id:noteYtUrl",
     "kind": "field",
-    "words": [],
+    "words": [
+     "https://www.youtube.com/watch?v=…"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:noteLink",
     "kind": "field",
-    "words": [],
+    "words": [
+     "https://…"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:noteLinkLabel",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Link label (e.g. Full lyrics)"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:noteImgUrl",
     "kind": "field",
-    "words": [],
+    "words": [
+     "https://… (direct image URL)"
+    ],
     "to": "",
     "count": 1
    },
@@ -29897,14 +31405,18 @@
    {
     "id": "id:newPageTitle",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. Easter Sunday Songs"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:newPageDesc",
     "kind": "field",
-    "words": [],
+    "words": [
+     "What are we collecting ideas on?"
+    ],
     "to": "",
     "count": 1
    },
@@ -29920,7 +31432,9 @@
    {
     "id": "id:adminPin",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Enter admin PIN"
+    ],
     "to": "",
     "count": 1
    },
@@ -29936,14 +31450,18 @@
    {
     "id": "id:reportPageSel",
     "kind": "field",
-    "words": [],
+    "words": [
+     "All Pages"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:reportCatSel",
     "kind": "field",
-    "words": [],
+    "words": [
+     "All Categories Songs Events AV / Tech Prayer General Other"
+    ],
     "to": "",
     "count": 1
    },
@@ -30026,15 +31544,6 @@
     "count": 1
    },
    {
-    "id": "button:\"The note before this one\"",
-    "kind": "button",
-    "words": [
-     "The note before this one"
-    ],
-    "to": "",
-    "count": 1
-   },
-   {
     "id": "button:\"The next note\"",
     "kind": "button",
     "words": [
@@ -30103,14 +31612,18 @@
    {
     "id": "id:search",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Search songs..."
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:lyricsSearch",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Find by lyrics..."
+    ],
     "to": "",
     "count": 1
    },
@@ -30124,21 +31637,27 @@
    {
     "id": "id:artist",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Scanning for artist..."
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:youtube",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Paste YouTube link here"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:ccli",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Enter CCLI Number"
+    ],
     "to": "",
     "count": 1
    },
@@ -30157,13 +31676,6 @@
     "words": [
      "Delete"
     ],
-    "to": "",
-    "count": 1
-   },
-   {
-    "id": "fn:openSong",
-    "kind": "button",
-    "words": [],
     "to": "",
     "count": 1
    },
@@ -30317,10 +31829,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -30339,7 +31851,9 @@
    {
     "id": "id:newName",
     "kind": "field",
-    "words": [],
+    "words": [
+     "For example, Hospitality"
+    ],
     "to": "",
     "count": 1
    },
@@ -30366,6 +31880,15 @@
     "kind": "field",
     "words": [
      "Show archived"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "button:\"×\"",
+    "kind": "button",
+    "words": [
+     "×"
     ],
     "to": "",
     "count": 1
@@ -30402,7 +31925,7 @@
      "🔎 SongSelect"
     ],
     "to": "",
-    "count": 1
+    "count": 2
    },
    {
     "id": "link:\"▶ YouTube\"",
@@ -30423,9 +31946,38 @@
     "count": 1
    },
    {
-    "id": "fn:selectSong",
-    "kind": "button",
-    "words": [],
+    "id": "link:\"🎬 YouTube Video\"",
+    "kind": "link",
+    "words": [
+     "🎬 YouTube Video"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "link:\"Open File\"",
+    "kind": "link",
+    "words": [
+     "Open File"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "link:\"YouTube\"",
+    "kind": "link",
+    "words": [
+     "YouTube"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "link:\"SongSelect\"",
+    "kind": "link",
+    "words": [
+     "SongSelect"
+    ],
     "to": "",
     "count": 1
    },
@@ -30434,15 +31986,6 @@
     "kind": "button",
     "words": [
      "✕ Exit Training"
-    ],
-    "to": "",
-    "count": 1
-   },
-   {
-    "id": "button:\"Close\"",
-    "kind": "button",
-    "words": [
-     "Close"
     ],
     "to": "",
     "count": 1
@@ -30485,7 +32028,7 @@
     "id": "id:helpBtn",
     "kind": "link",
     "words": [
-     "Open instructions"
+     "?"
     ],
     "to": "Serviceplannerinstructions.html",
     "count": 1
@@ -30500,14 +32043,18 @@
    {
     "id": "id:eventSelect",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Select Service..."
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:serviceTypeNotes",
     "kind": "field",
-    "words": [],
+    "words": [
+     "General Notes"
+    ],
     "to": "",
     "count": 1
    },
@@ -30575,6 +32122,15 @@
     "count": 1
    },
    {
+    "id": "button:\"Close\"",
+    "kind": "button",
+    "words": [
+     "Close"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
     "id": "button:\"Reload\"",
     "kind": "button",
     "words": [
@@ -30623,7 +32179,7 @@
     "id": "id:helpBtn",
     "kind": "link",
     "words": [
-     "Open instructions"
+     "?"
     ],
     "to": "uploaderinstructions.html",
     "count": 1
@@ -30681,14 +32237,18 @@
    {
     "id": "id:search",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Search songs..."
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:lyricsSearch",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Find by lyrics..."
+    ],
     "to": "",
     "count": 1
    },
@@ -30702,14 +32262,18 @@
    {
     "id": "id:artist",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Scanning for artist..."
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:youtube",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Paste YouTube link here"
+    ],
     "to": "",
     "count": 1
    },
@@ -30742,16 +32306,9 @@
     "id": "id:helpBtn",
     "kind": "link",
     "words": [
-     "Open instructions"
+     "?"
     ],
     "to": "uploaderinstructions.html",
-    "count": 1
-   },
-   {
-    "id": "fn:openSong",
-    "kind": "button",
-    "words": [],
-    "to": "",
     "count": 1
    }
   ],
@@ -30795,7 +32352,9 @@
    {
     "id": "fn:handleSecret",
     "kind": "button",
-    "words": [],
+    "words": [
+     "Connecting…"
+    ],
     "to": "",
     "count": 1
    },
@@ -30820,28 +32379,36 @@
    {
     "id": "id:he-title",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Training Hub"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:he-subtitle",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Short tagline…"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:he-img",
     "kind": "field",
-    "words": [],
+    "words": [
+     "https://…"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:he-pos",
     "kind": "field",
-    "words": [],
+    "words": [
+     "30"
+    ],
     "to": "",
     "count": 1
    },
@@ -30880,6 +32447,9 @@
     "id": "fn:execCmd",
     "kind": "button",
     "words": [
+     "B",
+     "I",
+     "U",
      "⬅",
      "☰",
      "➡",
@@ -30920,7 +32490,9 @@
    {
     "id": "id:img-size-slider",
     "kind": "field",
-    "words": [],
+    "words": [
+     "100"
+    ],
     "to": "",
     "count": 1
    },
@@ -30973,7 +32545,9 @@
    {
     "id": "id:nodeParent",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Top Level"
+    ],
     "to": "",
     "count": 1
    },
@@ -30987,7 +32561,9 @@
    {
     "id": "id:nodeRole",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Team (Worship/AV) Core (Admin Only)"
+    ],
     "to": "",
     "count": 1
    },
@@ -31182,7 +32758,9 @@
    {
     "id": "id:termSelect",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Term Spring Summer Autumn"
+    ],
     "to": "",
     "count": 1
    },
@@ -31278,10 +32856,10 @@
     "count": 1
    },
    {
-    "id": "link:\"How to use the planner\"",
+    "id": "link:\"?\"",
     "kind": "link",
     "words": [
-     "How to use the planner"
+     "?"
     ],
     "to": "rotaplannerinstructions.html",
     "count": 1
@@ -31502,10 +33080,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Take off\"",
+    "id": "button:\"×\"",
     "kind": "button",
     "words": [
-     "Take off"
+     "×"
     ],
     "to": "",
     "count": 1
@@ -31615,10 +33193,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -31737,10 +33315,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -31780,7 +33358,9 @@
    {
     "id": "id:q",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Search what people say in the videos…"
+    ],
     "to": "",
     "count": 1
    },
@@ -31830,14 +33410,18 @@
    {
     "id": "id:linkTitle",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Name"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:linkUrl",
     "kind": "field",
-    "words": [],
+    "words": [
+     "https://…"
+    ],
     "to": "",
     "count": 1
    },
@@ -31871,7 +33455,9 @@
    {
     "id": "id:eTitle",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Name"
+    ],
     "to": "",
     "count": 1
    },
@@ -31919,9 +33505,7 @@
    {
     "id": "fn:switchTeam",
     "kind": "button",
-    "words": [
-     "` + `"
-    ],
+    "words": [],
     "to": "",
     "count": 1
    },
@@ -31938,7 +33522,7 @@
     "id": "fn:addSection",
     "kind": "button",
     "words": [
-     "Make a new section"
+     "+ Section"
     ],
     "to": "",
     "count": 1
@@ -32062,7 +33646,9 @@
    {
     "id": "id:lv-url",
     "kind": "field",
-    "words": [],
+    "words": [
+     "https://youtube.com/live/…"
+    ],
     "to": "",
     "count": 1
    },
@@ -32134,14 +33720,18 @@
    {
     "id": "id:mv-url",
     "kind": "field",
-    "words": [],
+    "words": [
+     "https://youtu.be/…"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:mv-title",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Morning service, 11 October"
+    ],
     "to": "",
     "count": 1
    },
@@ -32155,7 +33745,9 @@
    {
     "id": "id:mv-who",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Everyone signed in Church members only"
+    ],
     "to": "",
     "count": 1
    },
@@ -32171,7 +33763,9 @@
    {
     "id": "id:ch-id",
     "kind": "field",
-    "words": [],
+    "words": [
+     "UC…"
+    ],
     "to": "",
     "count": 1
    },
@@ -32306,10 +33900,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -32376,7 +33970,7 @@
     "id": "id:prev",
     "kind": "button",
     "words": [
-     "The month before"
+     "‹"
     ],
     "to": "",
     "count": 2
@@ -32385,7 +33979,7 @@
     "id": "id:next",
     "kind": "button",
     "words": [
-     "The month after"
+     "›"
     ],
     "to": "",
     "count": 2
@@ -32463,10 +34057,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -32605,10 +34199,10 @@
     "count": 1
    },
    {
-    "id": "button:\"Close\"",
+    "id": "button:\"✕\"",
     "kind": "button",
     "words": [
-     "Close"
+     "✕"
     ],
     "to": "",
     "count": 1
@@ -32625,9 +34219,29 @@
   ],
   "worried.html": [
    {
+    "id": "button:\"A pastoral concern You have not seen them for a while, they seem lonely, or they\"",
+    "kind": "button",
+    "words": [
+     "A pastoral concern You have not seen them for a while, they seem lonely, or they"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "button:\"A safeguarding concern A child or an adult may be at risk. Goes only to the safe\"",
+    "kind": "button",
+    "words": [
+     "A safeguarding concern A child or an adult may be at risk. Goes only to the safe"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
     "id": "id:who",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Start typing a name"
+    ],
     "to": "",
     "count": 1
    },
@@ -32670,6 +34284,450 @@
      "Back to the hub"
     ],
     "to": "hub.html",
+    "count": 1
+   }
+  ],
+  "worshiphubapp.html": [
+   {
+    "id": "fn:goBack",
+    "kind": "button",
+    "words": [
+     "←"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:startTour",
+    "kind": "button",
+    "words": [
+     "?"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:openSection",
+    "kind": "button",
+    "words": [
+     "📋",
+     "📌",
+     "🎸",
+     "🔧",
+     "🎵",
+     "📚",
+     "📣"
+    ],
+    "to": "",
+    "count": 7
+   },
+   {
+    "id": "id:rota-member-select",
+    "kind": "field",
+    "words": [
+     "Select your name..."
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:downloadICS",
+    "kind": "button",
+    "words": [
+     "My Rota (.ics)",
+     "Family Rota (.ics)"
+    ],
+    "to": "",
+    "count": 2
+   },
+   {
+    "id": "id:rota-date-jump",
+    "kind": "field",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:jumpToRotaDate",
+    "kind": "button",
+    "words": [
+     "Go"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:setBoardFilter",
+    "kind": "button",
+    "words": [
+     "📌 All",
+     "🎵 Songs",
+     "📅 Events",
+     "🎬 AV",
+     "🙏 Prayer",
+     "💡 General",
+     "📎 Other"
+    ],
+    "to": "",
+    "count": 7
+   },
+   {
+    "id": "fn:openAddNote",
+    "kind": "button",
+    "words": [
+     "✏️ Add a Suggestion"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:switchKbTab",
+    "kind": "button",
+    "words": [
+     "▶ Play Through",
+     "📖 Training"
+    ],
+    "to": "",
+    "count": 2
+   },
+   {
+    "id": "id:worship-search",
+    "kind": "field",
+    "words": [
+     "Search songs, topics..."
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:quickKbSearch",
+    "kind": "button",
+    "words": [
+     "Sovereign",
+     "Way Maker",
+     "Vocal warm up",
+     "Guitar",
+     "Keyboard",
+     "No sound",
+     "Camera",
+     "Black screen",
+     "Mic feedback",
+     "Mixing desk"
+    ],
+    "to": "",
+    "count": 10
+   },
+   {
+    "id": "fn:setKbKey",
+    "kind": "button",
+    "words": [
+     "All Keys",
+     "A",
+     "B♭",
+     "B",
+     "C",
+     "D",
+     "E",
+     "F",
+     "G"
+    ],
+    "to": "",
+    "count": 9
+   },
+   {
+    "id": "fn:switchAvTab",
+    "kind": "button",
+    "words": [
+     "🔧 Troubleshoot",
+     "📋 How To"
+    ],
+    "to": "",
+    "count": 2
+   },
+   {
+    "id": "id:av-search",
+    "kind": "field",
+    "words": [
+     "Describe the problem or task..."
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:upload-song-title",
+    "kind": "field",
+    "words": [
+     "e.g. Way Maker"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:upload-key",
+    "kind": "field",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:upload-type",
+    "kind": "field",
+    "words": [
+     "Select Type Chord Sheet Lead Sheet Lyrics Bass Tabs"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:addUploadSlot",
+    "kind": "button",
+    "words": [
+     "+ Add Another File"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:submitUpload",
+    "kind": "button",
+    "words": [
+     "Upload to Library"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:library-search-input",
+    "kind": "field",
+    "words": [
+     "Search songs..."
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:closeKbModal",
+    "kind": "button",
+    "words": [
+     "✕"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:closeNoteDetail",
+    "kind": "button",
+    "words": [
+     "✕"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:note-detail-delete-btn",
+    "kind": "button",
+    "words": [
+     "🗑 Remove this note"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:note-author",
+    "kind": "field",
+    "words": [
+     "First name"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:note-cat",
+    "kind": "field",
+    "words": [
+     "🎵 Song 📅 Event 🎬 AV 🙏 Prayer 💡 General 📎 Other"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:note-title",
+    "kind": "field",
+    "words": [
+     "Give it a title..."
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:note-body",
+    "kind": "field",
+    "words": [
+     "Share your idea..."
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:note-yt",
+    "kind": "field",
+    "words": [
+     "https://youtube.com/..."
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:closeAddNote",
+    "kind": "button",
+    "words": [
+     "Cancel"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:saveNote",
+    "kind": "button",
+    "words": [
+     "📌 Pin It!"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:endTour",
+    "kind": "button",
+    "words": [
+     "Skip"
+    ],
+    "to": "",
+    "count": 2
+   },
+   {
+    "id": "id:tour-dont-show",
+    "kind": "field",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "button:\"Don't show this again\"",
+    "kind": "button",
+    "words": [
+     "Don't show this again"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:nextTourStep",
+    "kind": "button",
+    "words": [
+     "Next →"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:setBoardPage",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:react",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:openNoteDetail",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "link:\"▶ Watch on YouTube\"",
+    "kind": "link",
+    "words": [
+     "▶ Watch on YouTube"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:reactFromDetail",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 2
+   },
+   {
+    "id": "fn:openKbCard",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:openSong",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:openFile",
+    "kind": "button",
+    "words": [
+     "Open"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "link:\"▶ YouTube\"",
+    "kind": "link",
+    "words": [
+     "▶ YouTube"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "link:\"🔗 SongSelect\"",
+    "kind": "link",
+    "words": [
+     "🔗 SongSelect"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:upload-file-input-0",
+    "kind": "field",
+    "words": [],
+    "to": "",
+    "count": 2
+   },
+   {
+    "id": "fn:selectUploadSong",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:upload-force",
+    "kind": "field",
+    "words": [
+     "Replace existing file"
+    ],
+    "to": "",
     "count": 1
    }
   ],
@@ -32721,21 +34779,27 @@
    {
     "id": "id:w-minister",
     "kind": "field",
-    "words": [],
+    "words": [
+     "minister"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:w-member",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Church member"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:w-meeting",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Church meeting"
+    ],
     "to": "",
     "count": 1
    },
@@ -32758,7 +34822,9 @@
    {
     "id": "id:e-switch",
     "kind": "button",
-    "words": [],
+    "words": [
+     "Send an e-news"
+    ],
     "to": "",
     "count": 1
    },
@@ -32809,7 +34875,9 @@
    {
     "id": "id:g-url",
     "kind": "field",
-    "words": [],
+    "words": [
+     "https://"
+    ],
     "to": "",
     "count": 1
    },
@@ -32843,7 +34911,9 @@
    {
     "id": "id:code",
     "kind": "field",
-    "words": [],
+    "words": [
+     "XXXX-XXXX"
+    ],
     "to": "",
     "count": 1
    },
@@ -32880,7 +34950,7 @@
     "id": "fn:startTour",
     "kind": "button",
     "words": [
-     "Help"
+     "?"
     ],
     "to": "",
     "count": 1
@@ -32890,25 +34960,7 @@
     "kind": "button",
     "words": [],
     "to": "",
-    "count": 8
-   },
-   {
-    "id": "link:\"0800 1111\"",
-    "kind": "link",
-    "words": [
-     "0800 1111"
-    ],
-    "to": "",
-    "count": 2
-   },
-   {
-    "id": "link:\"call 999\"",
-    "kind": "link",
-    "words": [
-     "call 999"
-    ],
-    "to": "",
-    "count": 2
+    "count": 7
    },
    {
     "id": "id:serviceDate",
@@ -32920,14 +34972,18 @@
    {
     "id": "id:eventSelect",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Select Service…"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:serviceTypeNotes",
     "kind": "field",
-    "words": [],
+    "words": [
+     "General Notes"
+    ],
     "to": "",
     "count": 1
    },
@@ -33018,7 +35074,9 @@
    {
     "id": "id:worship-search",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Search songs, topics..."
+    ],
     "to": "",
     "count": 1
    },
@@ -33055,7 +35113,9 @@
    {
     "id": "id:upload-song-title",
     "kind": "field",
-    "words": [],
+    "words": [
+     "e.g. Way Maker"
+    ],
     "to": "",
     "count": 1
    },
@@ -33069,7 +35129,9 @@
    {
     "id": "id:upload-type",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Select Type Chord Sheet Lead Sheet Lyrics Bass Tabs"
+    ],
     "to": "",
     "count": 1
    },
@@ -33094,39 +35156,8 @@
    {
     "id": "id:library-search-input",
     "kind": "field",
-    "words": [],
-    "to": "",
-    "count": 1
-   },
-   {
-    "id": "field:worry-who",
-    "kind": "field",
     "words": [
-     "Me",
-     "Someone else"
-    ],
-    "to": "",
-    "count": 2
-   },
-   {
-    "id": "id:worry-name",
-    "kind": "field",
-    "words": [],
-    "to": "",
-    "count": 1
-   },
-   {
-    "id": "id:worry-text",
-    "kind": "field",
-    "words": [],
-    "to": "",
-    "count": 1
-   },
-   {
-    "id": "fn:sendWorry",
-    "kind": "button",
-    "words": [
-     "Send it"
+     "Search songs..."
     ],
     "to": "",
     "count": 1
@@ -33143,21 +35174,27 @@
    {
     "id": "id:note-author",
     "kind": "field",
-    "words": [],
+    "words": [
+     "First name"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:note-cat",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Song Event Prayer General Other"
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:note-title",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Give it a title..."
+    ],
     "to": "",
     "count": 1
    },
@@ -33173,7 +35210,9 @@
    {
     "id": "id:note-yt",
     "kind": "field",
-    "words": [],
+    "words": [
+     "https://youtube.com/..."
+    ],
     "to": "",
     "count": 1
    },
@@ -33221,7 +35260,9 @@
    {
     "id": "id:senderEmail",
     "kind": "field",
-    "words": [],
+    "words": [
+     "your@email.com"
+    ],
     "to": "",
     "count": 1
    },
@@ -33263,11 +35304,10 @@
     "id": "fn:endTour",
     "kind": "button",
     "words": [
-     "Close the tour",
      "Skip"
     ],
     "to": "",
-    "count": 3
+    "count": 2
    },
    {
     "id": "id:tour-dont-show",
@@ -33279,19 +35319,8 @@
    {
     "id": "fn:nextTourStep",
     "kind": "button",
-    "words": [
-     "Next"
-    ],
+    "words": [],
     "to": "",
-    "count": 1
-   },
-   {
-    "id": "link:\"enter your access code\"",
-    "kind": "link",
-    "words": [
-     "enter your access code"
-    ],
-    "to": "youth-access.html",
     "count": 1
    },
    {
@@ -33308,13 +35337,176 @@
      "▶ YouTube"
     ],
     "to": "",
+    "count": 2
+   },
+   {
+    "id": "link:\"Open File\"",
+    "kind": "link",
+    "words": [
+     "Open File"
+    ],
+    "to": "",
     "count": 1
    },
    {
-    "id": "fn:selectSong",
+    "id": "link:\"YouTube\"",
+    "kind": "link",
+    "words": [
+     "YouTube"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "link:\"SongSelect\"",
+    "kind": "link",
+    "words": [
+     "SongSelect"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:setBoardPage",
     "kind": "button",
     "words": [],
     "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:react",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:openNoteDetail",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "link:\"▶ Watch on YouTube\"",
+    "kind": "link",
+    "words": [
+     "▶ Watch on YouTube"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:reactFromDetail",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 2
+   },
+   {
+    "id": "fn:openKbCard",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:openSong",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:open",
+    "kind": "button",
+    "words": [
+     "Open"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:upload-file-input-0",
+    "kind": "field",
+    "words": [],
+    "to": "",
+    "count": 2
+   },
+   {
+    "id": "fn:selectUploadSong",
+    "kind": "button",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:upload-force",
+    "kind": "field",
+    "words": [
+     "Replace existing file"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "link:\"0800 1111\"",
+    "kind": "link",
+    "words": [
+     "0800 1111"
+    ],
+    "to": "",
+    "count": 2
+   },
+   {
+    "id": "link:\"call 999\"",
+    "kind": "link",
+    "words": [
+     "call 999"
+    ],
+    "to": "",
+    "count": 2
+   },
+   {
+    "id": "field:worry-who",
+    "kind": "field",
+    "words": [
+     "Me",
+     "Someone else"
+    ],
+    "to": "",
+    "count": 2
+   },
+   {
+    "id": "id:worry-name",
+    "kind": "field",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "id:worry-text",
+    "kind": "field",
+    "words": [],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "fn:sendWorry",
+    "kind": "button",
+    "words": [
+     "Send it"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "link:\"enter your access code\"",
+    "kind": "link",
+    "words": [
+     "enter your access code"
+    ],
+    "to": "youth-access.html",
     "count": 1
    }
   ],
@@ -33341,9 +35533,29 @@
     "count": 1
    },
    {
-    "id": "fn:selectSong",
-    "kind": "button",
-    "words": [],
+    "id": "link:\"Open File\"",
+    "kind": "link",
+    "words": [
+     "Open File"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "link:\"YouTube\"",
+    "kind": "link",
+    "words": [
+     "YouTube"
+    ],
+    "to": "",
+    "count": 1
+   },
+   {
+    "id": "link:\"SongSelect\"",
+    "kind": "link",
+    "words": [
+     "SongSelect"
+    ],
     "to": "",
     "count": 1
    },
@@ -33386,7 +35598,9 @@
    {
     "id": "id:senderEmail",
     "kind": "field",
-    "words": [],
+    "words": [
+     "your@email.com"
+    ],
     "to": "",
     "count": 1
    },
@@ -33428,7 +35642,7 @@
     "id": "id:helpBtn",
     "kind": "link",
     "words": [
-     "Open instructions"
+     "?"
     ],
     "to": "Serviceplannerinstructions.html",
     "count": 1
@@ -33443,14 +35657,18 @@
    {
     "id": "id:eventSelect",
     "kind": "field",
-    "words": [],
+    "words": [
+     "Select Service..."
+    ],
     "to": "",
     "count": 1
    },
    {
     "id": "id:serviceTypeNotes",
     "kind": "field",
-    "words": [],
+    "words": [
+     "General Notes"
+    ],
     "to": "",
     "count": 1
    },
@@ -33603,10 +35821,10 @@
    "count": 1
   },
   {
-   "id": "button:\"Close help\"",
+   "id": "button:\"×\"",
    "kind": "button",
    "words": [
-    "Close help"
+    "×"
    ],
    "to": "",
    "count": 1
@@ -33634,6 +35852,15 @@
    "kind": "link",
    "words": [],
    "to": "app.html",
+   "count": 1
+  },
+  {
+   "id": "button:\"\\u2715\"",
+   "kind": "button",
+   "words": [
+    "\\u2715"
+   ],
+   "to": "",
    "count": 1
   },
   {
@@ -33719,15 +35946,6 @@
    "count": 1
   },
   {
-   "id": "link:\"Open the Youth Hub\"",
-   "kind": "link",
-   "words": [
-    "Open the Youth Hub"
-   ],
-   "to": "youthapp2.html",
-   "count": 1
-  },
-  {
    "id": "link:\"Hub\"",
    "kind": "link",
    "words": [
@@ -33759,6 +35977,15 @@
    "kind": "link",
    "words": [],
    "to": "hire.html",
+   "count": 1
+  },
+  {
+   "id": "link:\"Open the Youth Hub\"",
+   "kind": "link",
+   "words": [
+    "Open the Youth Hub"
+   ],
+   "to": "youthapp2.html",
    "count": 1
   }
  ]

@@ -2352,13 +2352,12 @@ function maybeTriggerTour(section) {
     <button type="button" class="tour-x" onclick="endTour()" aria-label="Close the tour">&times;</button>
     <div class="tour-tooltip-title" id="tour-title" style="padding-right:40px"></div>
     <div class="tour-tooltip-text"  id="tour-text"></div>
-    <!-- The whole row is the label, 44px tall: the box alone was 16px and the
-         words 16px high, too small to tap on a phone (the going-live audit,
-         3 Nov 2026). As youthapp2's tour does, the browser does the wiring. -->
-    <label for="tour-dont-show" style="display:flex;align-items:center;gap:8px;min-height:44px;font-size:13px;opacity:0.75;margin-bottom:10px;cursor:pointer;">
-      <input type="checkbox" id="tour-dont-show" style="width:18px;height:18px;accent-color:#9bc34a;cursor:pointer;flex-shrink:0;">
-      <span>Don't show this again</span>
-    </label>
+    <!-- Its own "Don't show this again" again (put back 6 Nov 2026), in a row 44px tall: the words tick
+         the box, as they always did. A div, not a label, so one tap ticks it once. -->
+    <div style="display:flex;align-items:center;gap:8px;min-height:44px;font-size:13px;opacity:0.75;margin-bottom:10px;">
+      <input type="checkbox" id="tour-dont-show" style="width:18px;height:18px;accent-color:#9bc34a;cursor:pointer;flex-shrink:0;" onclick="event.stopPropagation()">
+      <span style="cursor:pointer;display:inline-flex;align-items:center;min-height:44px;" onclick="document.getElementById('tour-dont-show').checked=!document.getElementById('tour-dont-show').checked">Don't show this again</span>
+    </div>
     <div class="tour-btn-row">
       <button class="tour-skip" onclick="endTour()">Skip</button>
       <span class="tour-step-count" id="tour-count"></span>

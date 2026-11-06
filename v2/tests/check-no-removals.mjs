@@ -53,7 +53,9 @@ const topPages = () => (COMMIT ? [...gitFiles()].filter((f) => !f.includes('/') 
 const SHARED = ['egbc-shell.js', 'egbc-menu.js', 'egbc-help.js', 'egbc-care.js', 'egbc-ui.js', 'egbc-appmode.js', 'egbc-guard.js',
   'egbc-auth.js', 'egbc-poweredby.js', 'egbc-church.js'];
 
-const TAG = /<([a-zA-Z]+)\b((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
+/* A tag never reads across another '<': a stray "a < b" in a script cannot swallow
+   the real tags after it (the practice Sunday planner's links read as gone). */
+const TAG = /<([a-zA-Z]+)\b((?:[^>"'<]|"[^"<]*"|'[^'<]*')*)>/g;
 const attr = (at, name) => { const m = new RegExp('\\s' + name + '=\\\\?(["\'])([^"\']*)\\\\?\\1').exec(at); return m ? m[2] : ''; };
 /* Words built in script, or code the tag pattern caught (a "> 0) {" inside a script): no words. */
 const dynamic = (w) => /\$\{|'\s*\+|"\s*\+|\+\s*'|\+\s*"|[{};]|=>|\)\s*\{/.test(w);
@@ -80,10 +82,15 @@ export function controlsIn(text) {
     if (tag === 'input' && /type=\\?["']hidden/.test(at)) continue;
     if (tag === 'a' && !/\shref=/.test(at) && !/onclick=|data-act=/.test(at)) continue;
     const kind = /^(input|select|textarea)$/.test(tag) ? 'field' : (/data-tab=/.test(at) || /role=\\?["']tab/.test(at)) ? 'tab' : tag === 'a' ? 'link' : 'button';
-    /* What it says: aria-label, else title, else the words before the next tag, else a field's placeholder or name. */
-    const inner = text.slice(m.index + m[0].length, m.index + m[0].length + 120).split('<')[0];
-    let words = attr(at, 'aria-label') || attr(at, 'title') || inner || attr(at, 'placeholder') || attr(at, 'value');
-    words = dynamic(words) ? '' : clean(words);
+    /* What it says: the words it SHOWS (up to its closing tag, icons and markup taken
+       out); only with none, its aria-label or title, else a field's placeholder or
+       value. A screen-reader name added to a control is a repair, not a rename
+       (Martin, 6 Nov 2026: "put it in aria-label and keep the visible words"). */
+    const close = text.indexOf('</' + tag, m.index + m[0].length);
+    const body = close > 0 && close - m.index < 600 ? text.slice(m.index + m[0].length, close) : text.slice(m.index + m[0].length, m.index + m[0].length + 120).split('<')[0];
+    let shown = dynamic(body) ? '' : clean(body.replace(/<[^>]*>/g, ' '));
+    let words = shown || clean(attr(at, 'aria-label')) || clean(attr(at, 'title')) || clean(attr(at, 'placeholder')) || clean(attr(at, 'value'));
+    words = dynamic(words) ? '' : words;
     /* Where it goes: a link's page, or the page a button's onclick sends to. */
     let to = '';
     const href = /\shref=\\?["']([^"'#?$]+\.html)/.exec(at);

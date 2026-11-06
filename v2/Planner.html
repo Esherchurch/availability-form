@@ -2221,8 +2221,8 @@ ${body}
          help button (24px up, 40px tall), which covered it; it sits just above it now, nothing else
          changed (Martin, 6 Nov 2026: put back as "?", moved only enough not to be covered). -->
     <style>/* In the app's view Help sits above the app's tab bar (egbc-help.js), so the "?" sits above Help there too. */
-      html[data-egbc-app-mode] #plannerGuide{bottom:calc(var(--am-bottom,64px) + 64px) !important}</style>
-    <a href="rotaplannerinstructions.html" id="plannerGuide"
+      html[data-egbc-app-mode] a.fixed[href="rotaplannerinstructions.html"]{bottom:calc(var(--am-bottom,64px) + 64px) !important}</style>
+    <a href="rotaplannerinstructions.html"
        target="_blank" rel="noopener noreferrer"
        title="How to use the planner"
        style="font-family: Inter, system-ui, sans-serif; bottom: 72px;"
