@@ -158,14 +158,21 @@ async function loadStates() {
   const { pathToFileURL } = await import('node:url');
   STATES = (await import(pathToFileURL(path.resolve(opt('states'))).href)).default;
 }
+/* Returns the waits that never came true. A state that never gets where it says - its window never
+   opens - used to carry on and pass, judging the page behind it: the full run of 6 Nov 2026 passed
+   "a leader's checks" and never saw the checks window's seven controls. Now the screen fails. */
 async function runSteps(B, steps) {
+  const missed = [];
   for (const st of steps || []) {
     if (st === 'scope') { await B.ev(MARK_SCOPE); continue; }
     if (String(st).startsWith('wait:')) {
       const sel = JSON.stringify(String(st).slice(5));
-      for (let i = 0; i < 40 && !(await B.ev('!!document.querySelector(' + sel + ')')); i++) await sleep(250);
+      let i = 0;
+      for (; i < 40 && !(await B.ev('!!document.querySelector(' + sel + ')')); i++) await sleep(250);
+      if (i === 40 && !(await B.ev('!!document.querySelector(' + sel + ')'))) missed.push(String(st).slice(5));
     } else { await B.ev('(function(){try{' + st + '}catch(e){}return 1})()'); await settle(B, 200, 1500); }
   }
+  return missed;
 }
 /* Until the page holds still: its size read every 250 ms, the same twice running, after at least
    min ms and at most max. Fixed sleeps (700 ms a step, 4.2 s a page) made a Stage 3 screen take
@@ -1089,7 +1096,7 @@ async function auditScreen(B, { role, size, screen, url, inApp, taps, base, shot
   const [w, h] = ALL_SIZES[size];
   await B.size(w, h);
   await B.go(url);
-  await runSteps(B, steps);
+  const missed = await runSteps(B, steps);
   if (PROBE) {
     const c = JSON.parse((await B.ev(CONTROLS)) || '[]'), f = JSON.parse((await B.ev(FIELDS)) || '[]');
     console.log('  PROBE ' + role + ' ' + size + ' ' + screen + '\n    ' + [...new Set(c.concat(f).map((x) => (x.keys || [])[0]))].join(' '));
@@ -1099,6 +1106,9 @@ async function auditScreen(B, { role, size, screen, url, inApp, taps, base, shot
   const errs = B.errors.slice();
   const m = JSON.parse((await B.ev(MEASURE)) || '{}');
   const why = [];
+  /* the state never got there: what the page showed instead, so a lockout and a wrong step can be told apart */
+  if (missed.length) why.push('the state never got there: waited 10 s for ' + missed.join(', ') + ' (the page says: "' +
+    String(await B.ev('document.body.innerText.replace(/\\s+/g, " ").slice(0, 200)')) + '")');
   /* WHAT THIS PERSON MUST SEE HERE (a state's must: { role: [[selector, words?, what], ...] }): the audit
      only judges what is drawn, so a thing that should be there and is not (the lead's leaders, Checks,
      Exception, "Sign it off") passed. Missing, it fails. */
@@ -1422,6 +1432,13 @@ async function selfTest(base) {
       if (!good) bad++;
       console.log('  ' + (good ? 'PASS' : 'FAIL') + '  the ' + name + ' page ' + (rule ? 'is caught by "' + rule + '"' : 'passes') + (good ? '' : '   got: ' + (r.why.join(' | ') || 'a pass')));
     }
+    /* A state whose window never opens fails its screen. Before 6 Nov 2026 a wait that ran out
+       was silent, and the screen passed on the page behind the window it never opened. */
+    RESULTS.length = 0;
+    await auditScreen(B, { role: 'self', size: '375', screen: 'nowindow', url: base + '__audit/clean.html', inApp: false, taps: true, base, steps: ['wait:#a-window-that-never-opens'] });
+    const nw = (RESULTS[0].why || []).some(w => w.startsWith('the state never got there'));
+    if (!nw) bad++;
+    console.log('  ' + (nw ? 'PASS' : 'FAIL') + '  a state whose window never opens is caught by "the state never got there"' + (nw ? '' : '   got: ' + (RESULTS[0].why.join(' | ') || 'a pass')));
     /* The access rule, both ways, judged as the run judges it. */
     const acc = (should, refused) => should ? !refused : !!refused;
     const a1 = acc(false, false) === false, a2 = acc(true, true) === false, a3 = acc(true, false) && acc(false, true);
