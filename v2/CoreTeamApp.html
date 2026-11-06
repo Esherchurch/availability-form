@@ -344,6 +344,8 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
 }
 
 .tool-btn {
+  /* 32px across at least: "I" was 29px wide (the states audit, 6 Nov 2026). */
+  min-width: 32px; min-height: 32px;
   padding: 7px 12px; border-radius: 8px;
   background: var(--bg); border: 1px solid var(--border);
   font-family: var(--font); font-size: 12px;
@@ -604,9 +606,9 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
   <div id="screen-email" class="screen" style="flex-direction:column;">
     <!-- Toolbar -->
     <div class="email-toolbar">
-      <button class="tool-btn" onmousedown="event.preventDefault();document.execCommand('bold')"><b>B</b></button>
-      <button class="tool-btn" onmousedown="event.preventDefault();document.execCommand('italic')"><i>I</i></button>
-      <button class="tool-btn" onmousedown="event.preventDefault();document.execCommand('underline')"><u>U</u></button>
+      <button class="tool-btn" data-needs-selection onmousedown="event.preventDefault();document.execCommand('bold')"><b>B</b></button>
+      <button class="tool-btn" data-needs-selection onmousedown="event.preventDefault();document.execCommand('italic')"><i>I</i></button>
+      <button class="tool-btn" data-needs-selection onmousedown="event.preventDefault();document.execCommand('underline')"><u>U</u></button>
       <select class="tool-select" onchange="applySize(this.value);this.value=''">
         <option value="">Size</option>
         <option value="12px">Small</option>
@@ -617,9 +619,9 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
       <div class="color-swatch" style="background:#3d6263;" onmousedown="event.preventDefault();applyColor('#3d6263')"></div>
       <div class="color-swatch" style="background:#000000;" onmousedown="event.preventDefault();applyColor('#000000')"></div>
       <div class="color-swatch" style="background:#a0b0b0;" onmousedown="event.preventDefault();applyColor('#a0b0b0')"></div>
-      <button class="tool-btn" onmousedown="event.preventDefault();document.execCommand('justifyLeft')">L</button>
-      <button class="tool-btn" onmousedown="event.preventDefault();document.execCommand('justifyCenter')">C</button>
-      <button class="tool-btn" onmousedown="event.preventDefault();document.execCommand('justifyRight')">R</button>
+      <button class="tool-btn" data-needs-selection onmousedown="event.preventDefault();document.execCommand('justifyLeft')">L</button>
+      <button class="tool-btn" data-needs-selection onmousedown="event.preventDefault();document.execCommand('justifyCenter')">C</button>
+      <button class="tool-btn" data-needs-selection onmousedown="event.preventDefault();document.execCommand('justifyRight')">R</button>
       <button class="tool-btn" onclick="insertSideLayout()" title="Side-by-side layout"><i data-lucide="columns-2" style="width:16px;height:16px"></i></button>
       <button class="tool-btn" onclick="uploadEmailImage()" title="Add a picture"><i data-lucide="image-plus" style="width:16px;height:16px"></i></button>
       <button class="tool-btn" onclick="resizeImg()" title="Resize"><i data-lucide="move-horizontal" style="width:16px;height:16px"></i></button>
@@ -779,7 +781,10 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
     <div class="modal-title">Email the team</div>
     <p style="font-size:12px;font-weight:600;color:var(--teal);opacity:0.6;margin-bottom:14px;">The full worship plan will be copied to your clipboard and your email app will open.</p>
     <div style="display:flex;flex-direction:column;gap:10px;">
-      <button class="btn btn-primary btn-full" onclick="emailWholeTeam()">Email Whole Team</button>
+      <!-- A mail link, built as it is pressed: it opens the person's mail app,
+           as a mailto: link does (the states audit, 6 Nov 2026: a button that
+           set location to mailto: read as doing nothing). -->
+      <a class="btn btn-primary btn-full" href="mailto:" style="text-decoration:none" onclick="return emailWholeTeam(this)">Email Whole Team</a>
       <div style="border-top:1px solid var(--border);padding-top:10px;">
         <div class="form-label" style="margin-bottom:8px;">Or email one person:</div>
         <select class="form-select" id="email-one-person" style="margin-bottom:8px;">
@@ -1042,7 +1047,8 @@ setTimeout(() => maybeTriggerTour('home'), 600);
 // ── WHO ARE YOU ───────────────────────────────────────────────────────────
 function saveWho() {
   const name = $('who-input').value.trim();
-  if (!name) return;
+  /* Pressed with no name: say so (the states audit, 6 Nov 2026: it did nothing). */
+  if (!name) { toast('Type your first name, then press Let’s go.'); $('who-input').focus(); return; }
   currentUser = name;
   localStorage.setItem('egbc_planner_user', name);
   closeModal('modal-who');
@@ -1850,12 +1856,14 @@ function buildServicePlanText() {
   return plan;
 }
 
-async function emailWholeTeam() {
-  const plan = buildServicePlanText();
-  try {
-    // Plan sending handled via Resend
-  } catch(e) {}
-
+/**
+ * Opens the person's mail app addressed (Bcc) to this service's rota and the
+ * core team. Called from the Email Whole Team link: it sets the link's mailto:
+ * address and lets it open, or says why not and keeps the window open.
+ * @param {HTMLAnchorElement} link the Email Whole Team link
+ * @returns {boolean} true to let the link open the mail app
+ */
+function emailWholeTeam(link) {
   // Get all team emails from rota + core team
   const rotaNames = Object.values(currentService._rotaAssignments||{}).map(a=>a?.name).filter(Boolean);
   const emails = [...new Set(
@@ -1864,9 +1872,12 @@ async function emailWholeTeam() {
       .map(m=>m.email).filter(Boolean)
   )];
 
-  closeModal('modal-email-team');
+  /* Nobody with an address: say so, rather than opening an empty email. */
+  if (!emails.length) { toast('Nobody on this service has an email address on file yet.'); return false; }
   const subject = encodeURIComponent(`Worship Plan — ${fmtShortDate(currentService.date)}`);
-  window.location.href = `mailto:?bcc=${emails.join(';')}&subject=${subject}`;
+  link.href = `mailto:?bcc=${emails.join(';')}&subject=${subject}`;
+  setTimeout(() => closeModal('modal-email-team'), 0);
+  return true;
 }
 
 function emailOnePerson() {

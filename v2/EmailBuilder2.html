@@ -252,6 +252,7 @@
         <h3><i data-lucide="hand" style="width:15px;height:15px;vertical-align:-2px"></i> Who are you?</h3>
         <p class="sub">Your name is saved alongside any drafts you create or edit — so the team can see who wrote what.</p>
         <input id="whoInput" type="text" placeholder="Your first name…" maxlength="30" />
+        <p id="whoNeed" class="sub" role="alert" style="display:none;color:#b42318;margin:8px 0 0">Type your first name first.</p>
         <button class="btn-primary" onclick="saveWhoAndContinue()">Let's go</button>
     </div>
 </div>
@@ -635,7 +636,9 @@ function initUser() {
 }
 function saveWhoAndContinue() {
     const name = $('whoInput').value.trim();
-    if (!name) return;
+    /* Pressed with no name: say so (the states audit, 6 Nov 2026: it did nothing). */
+    $('whoNeed').style.display = name ? 'none' : 'block';
+    if (!name) { $('whoInput').focus(); return; }
     currentUser = name;
     localStorage.setItem('egbc_email_user', name);
     $('currentUserLabel').textContent = name;
