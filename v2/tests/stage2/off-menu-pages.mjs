@@ -55,7 +55,7 @@ const PAGES = {
   'trainingportalhub.html': { for: 'the worship team (Worship Training\'s "Practice planners")', kinds: ['worship', 'core', 'areaAdmin', 'master'], private: [] },
   'trainingrotaplanner.html': { for: 'leaders of the worship, children\'s and youth teams (practice copy)', kinds: ['core', 'areaAdmin', 'master'], private: ['rota'] },
   'uploaderinstructions.html': { for: 'anyone signed in (words only; linked from the Music Uploader)', kinds: ['everyone', 'worship', 'kids', 'core', 'areaAdmin', 'master'], private: [] },
-  'worshiphubapp.html': { for: 'nobody now: it sends everyone to the hub app\'s worship Rota (behaviour change)', kinds: [], private: [] },
+  'worshiphubapp.html': { for: 'the worship team and those covering it (the installed Worship Hub app)', kinds: ['worship', 'core', 'areaAdmin', 'master'], private: ['rota'] },
   'youth-access.html': { for: 'a young person with a code (no account needed)', kinds: KINDS, private: [] },
   'youthapp2.html': { for: 'the youth teams and young people with a code', kinds: ['master'], private: [] }
 };

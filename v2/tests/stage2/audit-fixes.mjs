@@ -7,7 +7,9 @@
  *   - a page on egbc-db.js whose Firestore stops itself ("INTERNAL
  *     ASSERTION FAILED") says so at once, with Reload (the Rota planner and
  *     Performance notes, two of the eleven pages on it);
- *   - worshiphubapp.html sends everyone to the hub app's worship Rota;
+ *   - worshiphubapp.html, the installed Worship Hub, opens for the worship
+ *     team and draws, with no errors (put back 6 Nov 2026: its first-visit
+ *     tour's Next button had no id, so it threw for everyone);
  *   - EGBCWorship&AV.html opens for the worship team and draws, with no
  *     errors (put back 6 Nov 2026: Martin had not approved sending it to
  *     the hub);
@@ -84,9 +86,9 @@ try {
     await p.browserContext().close();
   }
 
-  console.log('\nThe old Worship Hub sends people to the hub app');
+  console.log('\nThe Worship Hub app opens and draws');
   { const p = await fresh(lead, 'worshiphubapp.html'); await sleep(6000);
-    ok('worshiphubapp.html lands on the hub app\'s worship Rota', await p.evaluate(() => /app\.html$/.test(location.pathname) && location.hash === '#worship:rota' && document.querySelector('[data-tab="rota"][aria-current="page"]') !== null), await p.evaluate(() => location.href));
+    ok('worshiphubapp.html stays on its own page and draws', await p.evaluate(() => /worshiphubapp\.html$/.test(location.pathname) && document.body.innerText.trim().length > 50), await p.evaluate(() => location.href));
     ok('no errors', !p.__errs.length, p.__errs.join(' | ')); await p.browserContext().close(); }
   { const p = await fresh(lead, 'EGBCWorship%26AV.html'); await sleep(6000);
     ok('EGBCWorship&AV.html stays on its own page and draws', await p.evaluate(() => /EGBCWorship/.test(decodeURIComponent(location.pathname)) && document.body.innerText.trim().length > 50), await p.evaluate(() => location.href));
