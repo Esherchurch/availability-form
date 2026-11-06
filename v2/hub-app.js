@@ -2920,7 +2920,17 @@ async function setRole(uid,team,role){
 async function savePerson(p,teams,roles){
   if(!EGBCAuth.isMaster()){
     const mine=EGBCAuth.adminAreas();
-    const touched=[...new Set([...(p.teams||[]),...teams])];
+    /* Only what CHANGES counts: a team added or taken off, or a role
+       changed. Someone also on a team this admin does not run can still
+       be given a role on theirs - as the rules decide it (bda348de:
+       the changed keys only). Counting every team they were on refused
+       a Worship Team admin changing the role of a singer who is also on
+       AV (the People-tab check, 6 Nov 2026). */
+    const was=new Set(p.teams||[]), now=new Set(teams), oldRoles=p.roles||{};
+    const touched=[...new Set([
+      ...[...was].filter(t=>!now.has(t)), ...[...now].filter(t=>!was.has(t)),
+      ...[...new Set([...Object.keys(oldRoles),...Object.keys(roles||{})])].filter(t=>oldRoles[t]!==(roles||{})[t])
+    ])];
     const outside=touched.filter(t=>!mine.includes(t));
     if(outside.length){alert('You can only change teams you administer. Not yours: '+outside.join(', '));return;}
   }
