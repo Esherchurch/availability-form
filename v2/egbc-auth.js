@@ -1131,6 +1131,9 @@
       } else if (refused) {
         EGBCAuth._blockPage('This page isn’t for you', notYours + ' If you think it should, ask your church office.', null);
       } else {
+        /* Only a real fault goes to the console: a refused read is the
+           rules doing their job, and the audits count console errors. */
+        console.error('EGBCAuth profile load failed', e);
         EGBCAuth._blockPage('Something went wrong', vaEsc((e && e.message) || String(e)), null);
       }
     });
@@ -1996,7 +1999,6 @@
                or anyone else whose profile read is refused gets a plain card,
                never the raw error: refusedCard (Martin, 5 Nov 2026; the
                events window's full Stage 3 run, 6 Nov 2026, found the same). */
-            console.error('EGBCAuth profile load failed', e);
             refusedCard(user, e);
           });
         });
