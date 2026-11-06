@@ -2925,6 +2925,19 @@ async function savePerson(p,teams,roles){
     if(outside.length){alert('You can only change teams you administer. Not yours: '+outside.join(', '));return;}
   }
   const patch={teams,roles,status:teams.length?'active':'pending'};
+  /* A CHURCH ON THE HUB: its users records are the server's (its rules
+     refuse every page write, the People-tab finding of 6 Nov 2026). The
+     address book is what is saved, and the server's mirror
+     (churchBookToUsers) carries the teams and roles onto the sign-in. */
+  if(EGBCAuth.churchId()){
+    if(!p.memberId){alert('Link this sign-in to an address book record first.');return;}
+    try{
+      await db.collection('addressBook').doc(p.memberId).update({markers:teams,roles});
+      Object.assign(p,{teams,roles});
+      renderPeople();
+    }catch(e){alert('Could not save: '+e.message);}
+    return;
+  }
   try{
     await db.collection('users').doc(p.id).update(patch);
     if(p.memberId){
@@ -2966,6 +2979,7 @@ async function linkPerson(uid,memberId){
     : '\n\nThey will get whatever teams are ticked against that record.';
   if(!confirm(`Link the sign-in ${u.email} to ${m.name||'this record'}?`+warn))return;
 
+  if(EGBCAuth.churchId())return linkOnServer(uid,memberId,'Could not link: ');
   try{
     const extra=Array.isArray(m.signInEmails)?m.signInEmails.slice():[];
     if(!extra.includes(u.email))extra.push(u.email);
@@ -2985,10 +2999,28 @@ async function linkPerson(uid,memberId){
 }
 
 
+/**
+ * Link (memberId) or unlink (null) a church's sign-in through the server,
+ * then reload the list. A church's users records are the server's to write
+ * (functions/church-join.js churchLinkSignIn, which applies EGBC's own
+ * limits on who may do which), so the page asks rather than writes.
+ * @param {string} uid the sign-in's users id
+ * @param {?string} memberId the address book record, or null to unlink
+ * @param {string} fail the words in front of the server's refusal
+ */
+async function linkOnServer(uid,memberId,fail){
+  try{
+    await EGBCAuth.call('churchLinkSignIn',{uid,memberId});
+    await loadPeople();
+  }catch(e){alert(fail+e.message);}
+}
+
+
 async function unlinkPerson(uid){
   const u=PEOPLE.find(x=>x.id===uid);
   if(!u||!u.memberId)return;
   if(!confirm(`Unlink ${u.email} from their address book record?`))return;
+  if(EGBCAuth.churchId())return linkOnServer(uid,null,'Could not unlink: ');
   try{
     const m=BOOK.find(x=>x.id===u.memberId);
     if(m&&Array.isArray(m.signInEmails)&&m.signInEmails.includes(u.email)){
@@ -3005,6 +3037,7 @@ async function repoint(uid){
   const u=PEOPLE.find(x=>x.id===uid);
   if(!u)return;
   if(!confirm(`Detach ${u.email} from ${u.name||'this record'}?\n\nYou can then link it to the right person.`))return;
+  if(EGBCAuth.churchId())return linkOnServer(uid,null,'Could not detach: ');
   try{
     if(u.memberId){
       const m=BOOK.find(x=>x.id===u.memberId);

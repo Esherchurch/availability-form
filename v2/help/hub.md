@@ -97,7 +97,7 @@ For team admins and master admins.
 For team admins and master admins. Press the cog (on a phone, it is in your initials menu).
 - **People**: everyone who has signed in. Someone marked **Needs linking** signed in with an email the address book does not hold. Choose who they are and press **Link**.
 - On a linked person, tick their teams and choose **Member**, **Leader** or **Admin**. This updates the address book too. A team admin can only change their own teams.
-- **Wrong person?** or **Unlink** takes a sign-in off the record it was linked to.
+- **Wrong person?** or **Unlink** takes a sign-in off the record it was linked to. Only a master admin can do this. A team admin can link a sign-in only to someone on a team they run. On a church's hub, a team admin cannot link anyone to an administrator's record: ask a master admin.
 - At the top of **People**, a gold box says how many sign-ins need linking and how many people have no teams ticked. It goes when there are none.
 - When you link a sign-in to a record that is a master admin, administers a team, or is on a core team, you are warned what that sign-in will be able to do before you say yes.
 - **Notices**: every notice you can manage, with **Edit** and **Remove**, and **+ New notice**.

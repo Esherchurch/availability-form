@@ -958,7 +958,7 @@ export { pastoralFollowUps } from './pastoral-visits.js';
 /* ChurchShow: today's services in its building, and the church's words (H-11 item 2). */
 export { churchShowServicesToday, churchShowWords } from './churchshow-services.js';
 /* A church's people sign in, and its users records follow its address book (the setup frame). */
-export { hqJoinChurch, churchBookToUsers } from './church-join.js';
+export { hqJoinChurch, churchBookToUsers, churchLinkSignIn } from './church-join.js';
 /* The privacy tools on the information asset register (UK GDPR). */
 export { privacyFind, privacyExport } from './privacy-tools.js';
 /* Records that link to other records: the data map carried out (on-delete rules). */

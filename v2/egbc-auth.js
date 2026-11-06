@@ -1151,6 +1151,11 @@
       /* Someone linked since their last visit: pick the membership up now,
          so they do not have to be told to sign out and back in. */
       if (!d.memberId) {
+        /* A church's record is the server's: an unlinked one stays as the
+           server left it until the office links it (churchLinkSignIn).
+           provisionProfile would write it, which a church's rules refuse,
+           and the person would be shown that refusal on every page. */
+        if (CHURCH) return d;
         return provisionProfile(user, d);
       }
 
@@ -1171,6 +1176,10 @@
          of the cost. */
       /* NOT AWAITED, and that is the whole of the fix. Once a session, and
          behind the page rather than in front of it. */
+      /* A church's server does both of these itself (churchBookToUsers:
+         the mirror, and a second record on the address), and its rules
+         refuse the page's write - so the page reads what it has. */
+      if (CHURCH) return d;
       if (d.linkedBy !== 'admin' && !checkedThisSession(user.uid)) {
         markCheckedThisSession(user.uid);
         recheckIdentityLater(user);
@@ -1394,6 +1403,14 @@
   }
 
   function doChoose(user, memberId) {
+    /* A church's users record is the server's: it checks the choice
+       (one of this person's own candidates; an admin's record only while
+       the church has no admin) and writes it. */
+    if (CHURCH) {
+      return callFunction('churchLinkSignIn', { uid: user.uid, memberId: memberId, choose: true })
+        .then(function () { location.reload(); })
+        .catch(function (e) { alert('Could not continue: ' + e.message); });
+    }
     return db.collection('addressBook').doc(memberId).get().then(function (d) {
       if (!d.exists) return;
       var isAdminRecord = d.data().masterAdmin === true ||
