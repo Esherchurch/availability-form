@@ -2978,7 +2978,8 @@ function recordGrants(m){
 }
 
 async function linkPerson(uid,memberId){
-  if(!memberId)return;
+  /* Pressed with nobody chosen: say so, rather than doing nothing (the states audit, 6 Nov 2026). */
+  if(!memberId){alert('Choose who this sign-in belongs to first, then press Link.');return;}
   const u=PEOPLE.find(x=>x.id===uid);
   const m=BOOK.find(x=>x.id===memberId);
   if(!u||!m)return;
@@ -3458,7 +3459,6 @@ function renderAdminPages(){
         </p>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn" id="btnCheckLinks" onclick="checkRegistryLinks()">Check every link</button>
-          <button class="btn" onclick="markSharedPages()">Open shared pages to everyone</button>
           <button class="btn" id="btnAddPage" onclick="newPage()">+ Add</button>
         </div>
       </div>

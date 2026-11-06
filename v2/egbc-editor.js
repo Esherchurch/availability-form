@@ -115,6 +115,7 @@
     '.eed{border:1px solid #d1d5db;border-radius:10px;background:#fff;overflow:hidden;font-family:Inter,system-ui,sans-serif}',
     '.eed:focus-within{border-color:#3d6263;box-shadow:0 0 0 3px rgba(61,98,99,.15)}',
     '.eed-tb{display:flex;flex-wrap:wrap;gap:2px;padding:6px;border-bottom:1px solid #e5e7eb;background:#f9fafb}',
+    '.eed-tb button:disabled{opacity:.35;cursor:default}' +
     '.eed-tb button{display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:32px;padding:0 7px;',
     'border:0;border-radius:6px;background:transparent;color:#374151;cursor:pointer;font:600 13px Inter,sans-serif}',
     '.eed-tb button:hover{background:#e5e7eb;color:#111827}',
@@ -170,6 +171,10 @@
 
     var area = el.querySelector('.eed-ar');
     var status = el.querySelector('.eed-st');
+    /* WHAT UNDO AND REDO HAVE TO DO: the edits made since the text was set,
+       and the ones undone since. With none, the buttons are switched off, not
+       left to do nothing when pressed (the states audit, 6 Nov 2026). */
+    var steps = 0, back = 0;
     var file = el.querySelector('input[type=file]');
     try { document.execCommand('defaultParagraphSeparator', false, 'p'); } catch (e) {}
 
@@ -193,6 +198,13 @@
         } catch (e) {}
         b.classList.toggle('on', on);
       });
+      /* Undo, Redo and Remove link only when there is something for them to do. */
+      var u = el.querySelector('[data-c=undo]'), r = el.querySelector('[data-c=redo]'), l = el.querySelector('[data-c=unlink]');
+      var sl = window.getSelection(), an = sl && sl.anchorNode, inLink = false;
+      if (an && area.contains(an)) { var ae = an.nodeType === 1 ? an : an.parentElement; inLink = !!(ae && ae.closest && ae.closest('a') && area.contains(ae.closest('a'))); }
+      if (u) u.disabled = steps <= 0;
+      if (r) r.disabled = back <= 0;
+      if (l) l.disabled = !inLink;
     }
 
     function say(msg) { status.textContent = msg || ''; status.style.display = msg ? 'block' : 'none'; }
@@ -261,13 +273,20 @@
       sync();
     });
 
+    area.addEventListener('input', function (e) {
+      var t = e.inputType || '';
+      if (t === 'historyUndo') { steps = Math.max(0, steps - 1); back++; }
+      else if (t === 'historyRedo') { back = Math.max(0, back - 1); steps++; }
+      else { steps++; back = 0; }
+      sync();
+    });
     area.addEventListener('keyup', sync);
     area.addEventListener('mouseup', sync);
     area.addEventListener('drop', function (e) { if (e.dataTransfer && e.dataTransfer.files.length) e.preventDefault(); });
 
     var api = {
       getHTML: function () { return clean(area.innerHTML, opts.palette); },
-      setHTML: function (h) { area.innerHTML = clean(h, opts.palette); say(''); },
+      setHTML: function (h) { area.innerHTML = clean(h, opts.palette); say(''); steps = 0; back = 0; sync(); },
       isEmpty: function () { return !area.textContent.trim() && !area.querySelector('img'); },
       focus: function () { area.focus(); }
     };

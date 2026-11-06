@@ -46,7 +46,7 @@
 <!-- Step N: the Menu's structure, shared by the Menu, the sidebar and Where to? -->
 <script src="egbc-menu.js?v=202611031700"></script>
 <script src="egbc-poweredby.js?v=202610081518"></script>
-<script src="egbc-editor.js?v=202610221600"></script>
+<script src="egbc-editor.js?v=202611061700"></script>
 <style>
   /* v108 design: Inter, line icons (egbc-ui.js), sentence case, quiet greys
      around the EGBC teal. Variable names are kept from the old sheet because
@@ -420,7 +420,7 @@
   .pin .bd *{max-width:100%!important;width:auto!important;font-family:inherit!important}
   .nw .acts{margin-left:auto;display:flex;gap:2px}
   .nw .acts button{display:inline-flex;align-items:center;gap:4px;font:500 12px Inter,sans-serif;color:var(--muted);background:none;
-                   border:0;border-radius:6px;padding:3px 7px;cursor:pointer}
+                   border:0;border-radius:6px;padding:3px 7px;cursor:pointer;min-height:32px;min-width:32px;justify-content:center}
   .nw .acts button:hover{background:#f3f4f6;color:var(--ink)}
   .nw .acts button.del:hover{color:#b42318;background:#fef3f2}
 
@@ -498,6 +498,13 @@
      out but to guess). */
   .modal .box>:first-child:has(.btn.x){position:sticky;top:-24px;z-index:2;background:#fff;margin:-24px -24px 8px;padding:16px 24px 10px;border-radius:14px 14px 0 0}
   .modal .btn.x{min-width:44px;min-height:44px}
+  /* THE ADMIN WINDOW'S LISTS (People, Pages, Youth codes) are written with Tailwind's
+     class names, which the hub does not load, so their buttons, pickers and team
+     ticks came out about 20px tall - too small to tap (the states audit, 6 Nov
+     2026: Link, Unlink, Revoke, Resend, the person picker). 32px, as .btn.sm. */
+  #adminModal button:not(.x),#adminModal select,#adminModal label:has(>input[type=checkbox]){min-height:32px}
+  #adminModal button:not(.btn):not(.x){padding:0 10px}
+  #adminModal label:has(>input[type=checkbox]){display:inline-flex;align-items:center;gap:8px;padding:0 12px}
   .modal h2{font-size:17px;font-weight:600}
   .fld{width:100%;height:40px;padding:0 12px;border:1px solid var(--line-2);border-radius:8px;background:#fff;
        font:400 14px Inter,sans-serif;color:var(--ink);outline:none;margin-bottom:10px}

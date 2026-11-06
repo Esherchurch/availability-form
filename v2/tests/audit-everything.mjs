@@ -483,6 +483,11 @@ const MEASURE = `(function(){
     if (!vis(el)) return; var r = el.getBoundingClientRect(), s = getComputedStyle(el);
     if (r.width < iw * 0.5 || r.height > ih * 0.6) return;
     if (inBar(el.parentElement)) return;
+    /* A bar something else sits on (an open window over the page) is not a
+       bar on screen: the window's own end is not under it (the hub's admin
+       window over its bottom bar, 6 Nov 2026). */
+    var bh = document.elementFromPoint((Math.max(r.left, 0) + Math.min(r.right, iw)) / 2, (Math.max(r.top, 0) + Math.min(r.bottom, ih)) / 2);
+    if (bh && !el.contains(bh) && !bh.contains(el)) return;
     if (r.top <= 2 && r.bottom <= ih * 0.45 && (s.top !== 'auto' || q === 'fixed')) tops.push([r.top, r.bottom, el]);
     else if (q === 'fixed' && r.bottom >= ih - 2 && r.top >= ih * 0.55) bots.push([r.top, r.bottom, el]);
   });
@@ -848,12 +853,20 @@ async function tapAll(B, url, reopen, ctx) {
       /* A backdrop is tapped beside the panel it sits under, not in its
          middle (3 Nov 2026): any part of it that shows will do. */
       + 'if(!(hit&&(hit===el||el.contains(hit)))&&r.width*r.height>innerWidth*innerHeight*0.35){for(var gi=1;gi<8;gi++)for(var gj=1;gj<8;gj++){var gx=Math.max(1,r.left)+(Math.min(r.right,innerWidth)-Math.max(1,r.left))*gi/8,gy=Math.max(1,r.top)+(Math.min(r.bottom,innerHeight)-Math.max(1,r.top))*gj/8,gh=document.elementFromPoint(gx,gy);if(gh===el){x=gx;y=gy;hit=gh;gi=gj=9;}}}'
-      + 'var vv=window.visualViewport;return JSON.stringify({x:x,y:y,vx:vv?vv.offsetLeft:0,vy:vv?vv.offsetTop:0,ok:!!hit&&(hit===el||el.contains(hit)||hit.contains(el)),shell:!!(hit&&hit.closest&&hit.closest("[id^=egbc-you],[id^=egbc-nav]")),by:hit?(hit.tagName+(hit.id?"#"+hit.id:"")+(typeof hit.className==="string"&&hit.className?"."+hit.className.trim().split(/\\s+/)[0]:"")):"nothing"})})()')) || 'null');
+      /* Clipped away inside a shut fold (an ancestor that hides what overflows
+         it, and whose box does not hold the point): not on screen, so not
+         "covered" (the training portal's edit mode redraws its menu with every
+         fold shut, after a fold's rows were listed open; 6 Nov 2026). */
+      + 'var clipped=false;for(var an=el.parentElement;an&&an!==document.body;an=an.parentElement){var cs=getComputedStyle(an);if(cs.overflow!=="visible"||cs.overflowY!=="visible"){var ar=an.getBoundingClientRect();if(x<ar.left||x>ar.right||y<ar.top||y>ar.bottom){clipped=true;break;}}}'
+      /* Behind a fixed layer (an open window or its backdrop) that does not hold it. */
+      + 'var fx=null;for(var hn=hit;hn&&hn!==document.body;hn=hn.parentElement){if(getComputedStyle(hn).position==="fixed"){fx=hn;break;}}var behind=!!fx&&!fx.contains(el);'
+      + 'var vv=window.visualViewport;return JSON.stringify({clipped:clipped,behind:behind,x:x,y:y,vx:vv?vv.offsetLeft:0,vy:vv?vv.offsetTop:0,ok:!!hit&&(hit===el||el.contains(hit)||hit.contains(el)),shell:!!(hit&&hit.closest&&hit.closest("[id^=egbc-you],[id^=egbc-nav]")),by:hit?(hit.tagName+(hit.id?"#"+hit.id:"")+(typeof hit.className==="string"&&hit.className?"."+hit.className.trim().split(/\\s+/)[0]:"")):"nothing"})})()')) || 'null');
     if (!pt) continue;
     if (!pt.ok) {
       /* Something left open by the last tap? Start the page again and try
          this one once more before calling it covered. */
       if (pt.by === 'nothing') { n--; notUsed(next, 'off screen (an off-canvas panel)'); continue; }            /* off screen (an off-canvas panel): not something to tap */
+      if (pt.clipped) { n--; notUsed(next, 'in a shut fold (clipped, not on screen)'); continue; }
       /* The shell's small drop-downs (You) are too small to count as a pop-up, but
          one left open by an earlier tap covers the corner under it (3 Nov 2026). */
       /* A first-visit tour covers the page until it is ended, as a person's first
@@ -864,6 +877,12 @@ async function tapAll(B, url, reopen, ctx) {
       if (!retried.has(next.sig) && await B.ev('!!document.getElementById("egbc-help")')) { retried.add(next.sig); tapped.delete(next.sig); n--; await B.ev('(window.EGBCHelp&&EGBCHelp.close(),1)'); await sleep(300); continue; }
       if (!retried.has(next.sig) && /tour-dismiss/.test(pt.by)) { retried.add(next.sig); tapped.delete(next.sig); n--; await B.ev('(window.endTour&&endTour(),1)'); await sleep(300); continue; }
       if (!retried.has(next.sig) && (pt.shell || /^[A-Z]+(#egbc-(you|nav)|.ey-)/.test(pt.by) || ((await B.ev(OVERLAY)) || 'null') !== resting)) { retried.add(next.sig); tapped.delete(next.sig); n--; await reopen(); continue; }
+      /* A STATE THAT IS AN OPEN WINDOW (a notice, an editor): the page behind it
+         is the first view's, pressed there. A control behind the window the
+         state opened, with that window still the one open, is not this
+         state's to press (the hub's states, 6 Nov 2026). One covered inside
+         the window still fails. */
+      if (ctx.state && pt.behind && resting !== 'null' && ((await B.ev(OVERLAY)) || 'null') === resting) { notUsed(next, 'behind the window this state opens'); continue; }
       why.push('covered: "' + (next.words || next.href) + '" is under ' + pt.by); notUsed(next, 'covered by ' + pt.by); continue;
     }
     const overBefore = (await B.ev(OVERLAY)) || 'null';
