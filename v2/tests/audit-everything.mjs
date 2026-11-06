@@ -871,16 +871,19 @@ async function tapAll(B, url, reopen, ctx) {
          it, and whose box does not hold the point): not on screen, so not
          "covered" (the training portal's edit mode redraws its menu with every
          fold shut, after a fold's rows were listed open; 6 Nov 2026). */
-      + 'var clipped=false;for(var an=el.parentElement;an&&an!==document.body;an=an.parentElement){var cs=getComputedStyle(an);if(cs.overflow!=="visible"||cs.overflowY!=="visible"){var ar=an.getBoundingClientRect();if(x<ar.left||x>ar.right||y<ar.top||y>ar.bottom){clipped=true;break;}}}'
+      + 'var clipped=false;for(var an=el.parentElement;an&&an!==document.body;an=an.parentElement){var cs=getComputedStyle(an);if(cs.overflow!=="visible"||cs.overflowY!=="visible"){var ar=an.getBoundingClientRect();if(x<=ar.left||x>=ar.right||y<=ar.top||y>=ar.bottom){clipped=true;break;}}}'
       /* Behind a fixed layer (an open window or its backdrop) that does not hold it. */
       + 'var fx=null;for(var hn=hit;hn&&hn!==document.body;hn=hn.parentElement){if(getComputedStyle(hn).position==="fixed"){fx=hn;break;}}var behind=!!fx&&!fx.contains(el);'
       + 'var vv=window.visualViewport;return JSON.stringify({clipped:clipped,behind:behind,x:x,y:y,vx:vv?vv.offsetLeft:0,vy:vv?vv.offsetTop:0,ok:!!hit&&(hit===el||el.contains(hit)||hit.contains(el)),shell:!!(hit&&hit.closest&&hit.closest("[id^=egbc-you],[id^=egbc-nav]")),by:hit?(hit.tagName+(hit.id?"#"+hit.id:"")+(typeof hit.className==="string"&&hit.className?"."+hit.className.trim().split(/\\s+/)[0]:"")):"nothing"})})()')) || 'null');
     if (!pt) continue;
+    /* Clipped away in a shut fold: never pressed, whatever the point test
+       says (a point there finds the page that holds it, which reads as
+       "reachable" - the self-test's foldok page, 6 Nov 2026). */
+    if (pt.clipped) { n--; notUsed(next, 'in a shut fold (clipped, not on screen)'); continue; }
     if (!pt.ok) {
       /* Something left open by the last tap? Start the page again and try
          this one once more before calling it covered. */
       if (pt.by === 'nothing') { n--; notUsed(next, 'off screen (an off-canvas panel)'); continue; }            /* off screen (an off-canvas panel): not something to tap */
-      if (pt.clipped) { n--; notUsed(next, 'in a shut fold (clipped, not on screen)'); continue; }
       /* The shell's small drop-downs (You) are too small to count as a pop-up, but
          one left open by an earlier tap covers the corner under it (3 Nov 2026). */
       /* A first-visit tour covers the page until it is ended, as a person's first
