@@ -41,7 +41,7 @@ const COMMIT = ((process.argv.find((x) => x.startsWith('--commit=')) || '').slic
 let TREE = null;
 function gitFiles() {
   if (TREE) return TREE;
-  const out = execFileSync('git', ['ls-tree', '-r', '--name-only', COMMIT, '--', 'v2/'], { cwd: V2, encoding: 'utf8', maxBuffer: 64 << 20 });
+  const out = execFileSync('git', ['ls-tree', '-r', '--full-tree', '--name-only', COMMIT, '--', 'v2/'], { cwd: V2, encoding: 'utf8', maxBuffer: 64 << 20 });
   TREE = new Set(out.split('\n').filter(Boolean).map((f) => f.replace(/^v2\//, '')));
   return TREE;
 }
