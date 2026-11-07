@@ -2408,7 +2408,8 @@ function maybeTriggerTour(section) {
     <!-- Its own "Don't show this again" again (put back 6 Nov 2026), in a row 44px tall: the words tick
          the box, as they always did. A div, not a label, so one tap ticks it once. -->
     <div style="display:flex;align-items:center;gap:8px;min-height:44px;font-size:13px;opacity:0.75;margin-bottom:10px;">
-      <input type="checkbox" id="tour-dont-show" style="width:18px;height:18px;accent-color:#9bc34a;cursor:pointer;flex-shrink:0;" onclick="event.stopPropagation()">
+      <!-- The box's own 44px tap area: a label around the box alone, so one tap ticks it once (it was 18px, the first-view audit). -->
+      <label style="display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;margin:0 -13px;cursor:pointer;"><input type="checkbox" id="tour-dont-show" style="width:18px;height:18px;accent-color:#9bc34a;cursor:pointer;flex-shrink:0;" onclick="event.stopPropagation()"></label>
       <span style="cursor:pointer;display:inline-flex;align-items:center;min-height:44px;" onclick="document.getElementById('tour-dont-show').checked=!document.getElementById('tour-dont-show').checked">Don't show this again</span>
     </div>
     <div class="tour-btn-row">
