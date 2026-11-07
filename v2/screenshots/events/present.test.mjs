@@ -161,7 +161,10 @@ await db.collection('planSessions').doc('ps_1').set({ groupId: 'pg_kids', date: 
 
 const errors = [], browsers = [];
 async function as(who, w = 375, h = 812) {
-  const b = await puppeteer.launch({ executablePath: CHROME, headless: 'new', userDataDir: fs.mkdtempSync(path.join(TMP, who + '-')), args: ['--no-first-run'] });
+  /* --disable-audio-output: a fake sound output. With this PC's own, headless Chrome never ran an
+     unmuted video's clock - play() succeeded and the time stayed at 0, with no page of ours at all
+     (a bare <video>, 7 Nov 2026) - so the TV, the one screen with sound, failed PLAY "in step". */
+  const b = await puppeteer.launch({ executablePath: CHROME, headless: 'new', userDataDir: fs.mkdtempSync(path.join(TMP, who + '-')), args: ['--no-first-run', '--disable-audio-output'] });
   GUARD.watchBrowser(b); browsers.push(b);
   const pg = await b.newPage();
   await GUARD.protect(pg, who);
