@@ -6,7 +6,8 @@
  *
  * For each kind of person the audit uses (everyone, worship, kids, core, area
  * admin, master), at 375 and 1440: from the hub and every page their Menu
- * offers, every visible link to another v2 page, and the Menu's own links. Each
+ * offers, every visible link to another v2 page, and the Menu's own links;
+ * and from every app screen they have, its links and the pages it opens. Each
  * target is opened once, as that person, and must not end on a refusal card
  * ("This page isn't for you", "This page is for...", or any page egbc-auth has
  * blocked). Reports N of N links, and lists every one that ends on a card with
@@ -82,12 +83,25 @@ try {
         if (here.card) continue;   /* a Menu page that refuses them is the Menu's link, judged below */
         (await linksHere(page)).forEach((l) => note(start, l));
       }
-      for (const [, [from, words, to]] of seen) {
-        checked++;
-        const end = await landing(page, to);
-        if (end.card) bad.push({ kind, size: w, from, words, to, said: end.text });
+      /* THE APP (7 Nov 2026): every screen the app offers this person, its visible links and its
+         "open:" buttons (egbc-app.js opens those pages inside the app, ?app=1). Followed in the app. */
+      await landing(page, 'app.html');
+      await page.waitForFunction(() => window.EGBCApp && EGBCApp.who && EGBCApp.who(), { timeout: 20000 }).catch(() => {});
+      const screens = await page.evaluate(() => { const out = []; try { const me = EGBCApp.who(); EGBCApp.spacesFor(me).forEach((s) => (EGBCApp.tabsFor(s) || []).forEach((t) => out.push([s, t[0]]))); } catch (e) {} return out; });
+      for (const [space, tab] of screens) {
+        await page.evaluate((s, t) => { const b = document.createElement('button'); b.setAttribute('data-act', 'go:' + s + ':' + t); b.style.display = 'none'; document.body.appendChild(b); b.click(); b.remove(); }, space, tab);
+        await sleep(1200);
+        const here = 'app: ' + space + ' / ' + tab;
+        const opens = await page.evaluate(() => [...document.querySelectorAll('[data-act^="open:"]')].filter((b) => { const r = b.getBoundingClientRect(); return r.width > 0 && r.height > 0; })
+          .map((b) => ({ to: b.getAttribute('data-act').slice(5).split('?')[0].split('#')[0], words: (b.innerText || b.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim().slice(0, 50) })));
+        opens.concat(await linksHere(page)).forEach((l) => { const t = l.to.toLowerCase(); if (!PAGES.has(t) || t === 'app.html' || seen.has('app:' + t)) return; seen.set('app:' + t, [here, l.words, l.to, true]); });
       }
-      console.log('  ' + kind + ' at ' + w + ': ' + seen.size + ' links followed');
+      for (const [, [from, words, to, inApp]] of seen) {
+        checked++;
+        const end = await landing(page, inApp ? to + '?app=1' : to);
+        if (end.card) bad.push({ kind, size: w, from, words, to: to + (inApp ? ' (in the app)' : ''), said: end.text });
+      }
+      console.log('  ' + kind + ' at ' + w + ': ' + seen.size + ' links followed (' + screens.length + ' app screens)');
       await page.close();
     }
   }

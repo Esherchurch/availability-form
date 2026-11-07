@@ -1080,7 +1080,10 @@ async function tapAll(B, url, reopen, ctx) {
         const reopenSheet = async () => {
           await reopen(); await sleep(300);
           await B.ev('(function(){document.querySelectorAll("[data-aud-scope]").forEach(function(e){e.removeAttribute("data-aud-scope")});var l=' + CONTROLS + ';var c=JSON.parse(l).filter(function(x){return x.sig===' + JSON.stringify(opener) + '})[0];'
-            + 'if(!c)return 0;document.querySelectorAll("a[href],button,[role=button],[role=tab],[data-act],[data-lact],[data-mact],[data-tab],[onclick],summary")[c.i].click();return 1})()');
+            /* as many presses as it says (data-presses): the Worship & AV dashboard's Secure Portal opens its
+               admin menu on the third, and one press left every control inside "dead" (7 Nov 2026) */
+            + 'if(!c)return 0;var o=document.querySelectorAll("a[href],button,[role=button],[role=tab],[data-act],[data-lact],[data-mact],[data-tab],[onclick],summary")[c.i];'
+            + 'var n=Math.min(5,Math.max(1,+(o.getAttribute("data-presses")||1)||1));for(var k=0;k<n;k++)o.click();return 1})()');
           await sleep(600); await B.ev(markScope(layersBefore));
         };
         if ((await B.ev(markScope(layersBefore))) !== 'null') {

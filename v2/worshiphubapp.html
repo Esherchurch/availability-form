@@ -3296,12 +3296,17 @@ function showTourStep(steps) {
     highlight.style.height = rect.height + 8 + 'px';
     highlight.style.display = 'block';
 
-    // Position tooltip
-    const tooltipTop = rect.bottom + 12;
-    tooltip.style.top  = Math.min(tooltipTop, window.innerHeight - 160) + 'px';
+    // Position tooltip: below the target, or above it when there is no room, by its real height.
+    // It was held to 160px from the bottom; with its 44px rows (6 Nov 2026) it is taller than
+    // that, and Skip and Next ended below a phone's screen (the first-view audit, 7 Nov 2026).
     tooltip.style.left = '20px';
     tooltip.style.right = '20px';
     tooltip.style.maxWidth = 'calc(100% - 40px)';
+    tooltip.style.transform = '';
+    const h = tooltip.offsetHeight, ih = window.innerHeight;
+    let tooltipTop = rect.bottom + 12;
+    if (tooltipTop + h > ih - 12) tooltipTop = rect.top - h - 12 >= 12 ? rect.top - h - 12 : ih - h - 12;
+    tooltip.style.top  = Math.max(12, tooltipTop) + 'px';
   } else {
     highlight.style.display = 'none';
     tooltip.style.top  = '50%';
