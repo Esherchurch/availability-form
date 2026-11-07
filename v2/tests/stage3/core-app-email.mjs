@@ -5,8 +5,8 @@
  *     through hubSend one copy each, under-18-only addresses left out and named;
  *   - the Core Team app's teams are the church's own: EGBC sees Worship, AV,
  *     Youth, Core, Choir and Everyone, as it always did;
- *   - "Open shared pages to everyone" works again: the rota's and the training
- *     portal's hub entries are opened to everyone, nothing else.
+ *   - "Open shared pages to everyone" works again: the rota's hub entry is opened
+ *     to everyone, nothing else (the training portal was taken out, 7 Nov 2026).
  *
  *   firebase emulators:exec --config firebase.spare.json --only firestore,auth,functions \
  *     --project egbc-worship-planner "node tests/stage3/core-app-email.mjs"
@@ -27,9 +27,8 @@ const core = await person({ key: 'ce_core', name: 'Cora Core (synthetic)', teams
 const sing = await person({ key: 'ce_sing', name: 'Sam Singer (synthetic)', teams: ['Worship Team'] });
 /* A young singer whose address only under-18s hold: never emailed, named instead. */
 await put('addressBook/ab_ce_young', { name: 'Yo Young (synthetic)', email: 'ce_young@example.invalid', markers: ['Worship Team'], isMinor: true, under18: true, archived: false });
-/* The hub's entries: the rota and the training portal shared, one that is not. */
+/* The hub's entries: the rota shared, one that is not. */
 await put('hubPages/hp_rota', { title: 'Rota', url: 'view-only-rota.html', team: 'Worship Team', order: 1, enabled: true, everyone: false });
-await put('hubPages/hp_tp', { title: 'Training portal', url: 'trainingportalhub.html', team: 'Worship Team', order: 2, enabled: true, everyone: false });
 await put('hubPages/hp_other', { title: 'Song library', url: 'Library.html', team: 'Worship Team', order: 3, enabled: true, everyone: false });
 
 const server = await serve(8977);
@@ -84,10 +83,10 @@ try {
   await signIn(page, base, mo, 'hub.html');
   await page.waitForFunction(() => typeof markSharedPages === 'function' && typeof PAGES !== 'undefined' && PAGES.length >= 3, { timeout: 30000 }).catch(() => {});
   await page.evaluate(() => { window.confirm = () => true; window.alert = (m) => { window.__alert = m; }; return markSharedPages(); }); await sleep(1500);
-  const rota = await get('hubPages/hp_rota'), tp = await get('hubPages/hp_tp'), other = await get('hubPages/hp_other');
-  ok('6. "Open shared pages to everyone" opens the rota and the training portal to everyone', rota && rota.everyone === true && tp && tp.everyone === true, J([rota, tp]));
+  const rota = await get('hubPages/hp_rota'), other = await get('hubPages/hp_other');
+  ok('6. "Open shared pages to everyone" opens the rota to everyone', rota && rota.everyone === true, J(rota));
   ok('   and nothing else', other && other.everyone === false, J(other));
-  ok('   and says how many', /2 now open to everyone/.test(await page.evaluate(() => window.__alert || '')), await page.evaluate(() => window.__alert || ''));
+  ok('   and says how many', /1 now open to everyone/.test(await page.evaluate(() => window.__alert || '')), await page.evaluate(() => window.__alert || ''));
   const btn = await page.evaluate(() => { openAdmin(); adminTab('pages'); return [...document.querySelectorAll('button')].some((x) => /Open shared pages to everyone/.test(x.textContent)); });
   ok('   its button is on the Pages tab', btn);
   ok('   no errors on the page', !errs.length, J(errs));

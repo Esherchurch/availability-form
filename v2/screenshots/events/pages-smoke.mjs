@@ -37,8 +37,7 @@ const CHROME = process.env.CHROME || 'C:/Program Files/Google/Chrome/Application
 
 /* Out of scope (NEXT-BRIEF §4) or opening their own Firebase app. */
 const SKIP = new Set(['mix-analyser.html', 'mix-builder.html', 'mix-player.html', 'studio.html', 'worshiphubapp.html',
-  'trainingbatchimporter.html', 'trainingmusicdatabase.html', 'trainingportalhub.html', 'trainingrotaplanner.html',
-  'training Sunday planner.html', 'data-tools.html']);
+  'data-tools.html']);
 const pages = fs.readdirSync(DIR).filter(f => f.endsWith('.html') && !SKIP.has(f))
   .filter(f => !/initializeApp\s*\(/.test(fs.readFileSync(path.join(DIR, f), 'utf8'))).sort();
 

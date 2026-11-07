@@ -181,27 +181,6 @@ try {
     ok(pg + ': a long event name keeps the page on the screen', wide <= 375, wide + 'px');
     ok(pg + ': no errors', !p.__errs.length, p.__errs.join(' | ')); await p.browserContext().close(); }
 
-  console.log('\nThe training copies, on a phone');
-  for (const pg of ['trainingrotaplanner.html', 'trainingbatchimporter.html', 'trainingmusicdatabase.html', 'training Sunday planner.html']) {
-    const p = await fresh(lead, pg, 375, 812); await sleep(7000);
-    /* A song's row was what ran the practice Sunday planner off the screen. */
-    if (/Sunday/.test(pg)) { await p.evaluate(() => { addSong(); addItem(); }); await sleep(500); }
-    /* Content in a box that scrolls sideways is meant to be wider than the screen. */
-    const inScroller = 'function(e){for(var a=e.parentElement;a&&a!==document.body;a=a.parentElement)if(/^(auto|scroll)$/.test(getComputedStyle(a).overflowX))return true;return false}';
-    const wide = await p.evaluate((f) => { const ok = eval('(' + f + ')'); return Math.max(document.documentElement.scrollWidth, ...[...document.querySelectorAll('.service-block *')].filter((e) => !ok(e)).map((e) => Math.round(e.getBoundingClientRect().right))); }, inScroller);
-    const widest = wide <= 375 ? '' : await p.evaluate((f) => { const ok = eval('(' + f + ')'); return [...document.querySelectorAll('body *')].filter((e) => !ok(e)).map((e) => [Math.round(e.getBoundingClientRect().right), e.tagName + (e.id ? '#' + e.id : '') + '.' + String(e.className).slice(0, 40)]).sort((a, b) => b[0] - a[0]).slice(0, 4).map((x) => x.join(' ')).join(' | '); }, inScroller);
-    ok(pg + ': the page stays on the screen', wide <= 375, wide + 'px: ' + widest);
-    ok(pg + ': Exit Training is big enough to tap', await p.evaluate(() => (document.getElementById('exit-btn') || document.getElementById('exit-training-btn')).getBoundingClientRect().height >= 44));
-    if (pg === 'trainingrotaplanner.html') {
-      /* Gather Avail opens it only once there are services to simulate; the fix is the box's own
-         layout, so it is opened as Gather Avail does, with a long email in it. */
-      await p.evaluate(() => { document.getElementById('ep-body').innerText = 'A long availability email.\n'.repeat(80); document.getElementById('emailPreviewModal').classList.add('show'); }); await sleep(500);
-      await p.evaluate(() => { const b = document.querySelector('#emailPreviewModal .t-modal-box'); b.scrollTop = b.scrollHeight; }); await sleep(300);
-      const f = await p.evaluate(() => { const el = document.querySelector('#emailPreviewModal button[onclick="closeEmailPreview()"]'); if (!document.getElementById('emailPreviewModal').classList.contains('show')) return 'not open'; const r = el.getBoundingClientRect(), h = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return h === el || el.contains(h) ? 'free' : 'under ' + (h ? h.tagName + '.' + h.className : 'nothing (scrolled away)'); });
-      ok(pg + ': the email preview\'s Close is still there after scrolling it', f === 'free', f);
-    }
-    ok(pg + ': no errors', !p.__errs.length, p.__errs.join(' | ')); await p.browserContext().close(); }
-
   console.log('\nThe mix builder, on a phone');
   { const p = await fresh(lead, 'mix-builder.html', 375, 812); await sleep(7000);
     const seen = async (btn, box) => { await p.evaluate((btn) => { const b = document.getElementById(btn); b.scrollIntoView({ block: 'center' }); b.click(); }, btn); await sleep(400);
@@ -248,14 +227,6 @@ try {
     ok(pg + ': Help is above the app\'s tab bar, not under it', got === 'free', got);
     await p.browserContext().close(); }
 
-  console.log('\nThe practice Sunday planner, on a phone');
-  { const p = await fresh(lead, 'training Sunday planner.html', 375, 812); await sleep(7000);
-    const add = await p.evaluate(async () => { const b = [...document.querySelectorAll('button')].find((x) => x.getAttribute('onclick') === 'addItem()'); b.click(); await new Promise((r) => setTimeout(r, 900)); const rows = document.querySelectorAll('#service-order .item-block'), last = rows[rows.length - 1], r = last.getBoundingClientRect(); return (r.top >= 0 && r.bottom <= innerHeight ? 'shown' : 'out of sight') + ', ' + (document.activeElement === last.querySelector('input') ? 'cursor in it' : 'no cursor'); });
-    ok('"+ Add Item" shows the new row and puts the cursor in it', add === 'shown, cursor in it', add);
-    const cl = await p.evaluate(() => { const m = document.getElementById('emailModal'); m.classList.add('active'); const box = document.getElementById('emailModalBox'); box.scrollTop = box.scrollHeight; const x = box.querySelector('button.close'); if (!x) return 'no close'; const r = x.getBoundingClientRect(), h = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return h === x || x.contains(h) ? 'free' : 'under ' + (h ? h.tagName : 'nothing'); });
-    ok('Email Team\'s box keeps a close in reach after scrolling', cl === 'free', cl);
-    ok('no errors', !p.__errs.length, p.__errs.join(' | ')); await p.browserContext().close(); }
-
   console.log('\nThe team charters: no password, the team\'s admins edit');
   { const fs = await import('node:fs');
     const has = ['AVteamlandingpage.html', 'Coreteamcharter.html', 'Worshipteamcharter.html'].filter((f) => /ADMIN_PW|Surreykt10/.test(fs.readFileSync(new URL('../../' + f, import.meta.url), 'utf8')));
@@ -265,15 +236,6 @@ try {
       const got = await tri(p); ok('an AV team member who is not its admin is told only its admins can edit, and stays out of edit mode', /only this team.s admins/i.test(got), got); await p.browserContext().close(); }
     { const p = await fresh(lead, 'AVteamlandingpage.html'); await sleep(6000);
       const got = await tri(p); ok('a master admin gets edit mode', got === 'edit mode', got); await p.browserContext().close(); } }
-
-  console.log('\nThe practice rota planner, on a phone');
-  { const p = await fresh(lead, 'trainingrotaplanner.html', 375, 812); await sleep(7000);
-    const cl = await p.evaluate(() => { const m = document.getElementById('emailPreviewModal'); m.classList.add('show'); const sc = m.querySelector('.t-modal-box > div:last-child'); sc.scrollTop = sc.scrollHeight;
-      const x = [...m.querySelectorAll('button')].find((b) => /close/i.test(b.textContent)); if (!x) return 'no close'; const r = x.getBoundingClientRect(), h = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return r.top >= 0 && (h === x || x.contains(h)) ? 'free' : 'under ' + (h ? h.tagName : 'nothing'); });
-    ok('the email preview keeps Close in reach after scrolling', cl === 'free', cl);
-    const ha = await p.evaluate(() => { const b = document.querySelector('button[onclick="toggleHideAssigned()"]'); if (!b) return 'no button'; b.click(); const one = b.textContent + '/' + b.getAttribute('aria-pressed'); b.click(); return one + ', ' + b.textContent + '/' + b.getAttribute('aria-pressed'); });
-    ok('Hide Assigned becomes Show Assigned, and back', ha === 'Show Assigned/true, Hide Assigned/false', ha);
-    ok('no errors', !p.__errs.length, p.__errs.join(' | ')); await p.browserContext().close(); }
 
   console.log('\nThe Email Builder, on a phone');
   { const p = await fresh(lead, 'EmailBuilder2.html', 375, 812); await sleep(7000);

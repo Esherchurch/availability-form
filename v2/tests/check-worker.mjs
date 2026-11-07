@@ -100,7 +100,7 @@ try {
   ok('  with its query passed on', homeQ.status === 302 && homeQ.headers.location === 'http://localhost:' + W + '/hub.html?notices=1', homeQ.headers.location);
   const form = await req(W, 'GET', '/index.html');
   ok('  /index.html is still the availability form, as it is', form.status === 200 && form.body === fs.readFileSync('index.html', 'utf8') && /Member Availability/.test(form.body), form.status);
-  const mails = ['Planner.html', 'trainingrotaplanner.html', 'egbc-core-rota.js'].filter((f) => !/location\.pathname\.replace\(\/\[\^\/\]\*\$\/, ''\) \+ '?index\.html/.test(fs.readFileSync(f, 'utf8')));
+  const mails = ['Planner.html', 'egbc-core-rota.js'].filter((f) => !/location\.pathname\.replace\(\/\[\^\/\]\*\$\/, ''\) \+ '?index\.html/.test(fs.readFileSync(f, 'utf8')));
   ok('  and the availability emails link to index.html, never the bare address', mails.length === 0, mails);
   const hub = await req(W, 'GET', '/hub.html?x=1');
   ok('  a page is v2\'s file, as it is', hub.status === 200 && hub.body === fs.readFileSync('hub.html', 'utf8') && /text\/html/.test(hub.headers['content-type']), hub.status);

@@ -37,15 +37,7 @@ const kbStates = KB.flatMap(([url, name]) => [
   { name: name + ': editing an item', url, roles: ['master'], steps: kbCats.concat(['toggleAdmin()', 'showAdminTab("manage")', wait('[onclick^="editItem"]'), click('[onclick^="editItem"]')]) }
 ]);
 
-/* The training portal's edit mode is three presses on its title (handleSecret). */
-const portalEdit = [wait('#nav-list'), 'clickCount = 2; handleSecret()'];
-
 export default kbStates.concat([
-  { name: 'training portal: edit mode', url: 'trainingportalhub.html', roles: ['master'], steps: portalEdit },
-  { name: 'training portal: adding a page', url: 'trainingportalhub.html', roles: ['master'], steps: portalEdit.concat(['openMenuModal()']) },
-  { name: 'training portal: editing a page', url: 'trainingportalhub.html', roles: ['master'], steps: portalEdit.concat([wait('[onclick^="openEdit"]'), click('[onclick^="openEdit"]')]) },
-  { name: 'training portal: the banner editor', url: 'trainingportalhub.html', roles: ['master'], steps: portalEdit.concat(['openHeroEditor()']) },
-  { name: 'training portal: the page editor', url: 'trainingportalhub.html', roles: ['master'], steps: portalEdit.concat(['openBodyEditor()']) },
 
   /* ---- the hub ---- */
   { name: 'hub: a notice open', url: 'hub.html', roles: ['master', 'worship'], steps: [wait('#newsTrack'), 'openRead("audit_notice")'] },
@@ -84,7 +76,7 @@ export default kbStates.concat([
      An event's row opened (its teams, roles and Delete), the sheets the
      header's buttons open, and the date stepper the "+ Service" sheet's
      date carries. */
-  ...['Planner.html', 'trainingrotaplanner.html'].flatMap((url) => {
+  ...['Planner.html'].flatMap((url) => {
     const nm = url === 'Planner.html' ? 'rota planner' : 'practice rota planner', R = ['master', 'areaAdmin'];
     const row = [wait('[onclick^="toggleEventExpand"]'), click('[onclick^="toggleEventExpand"]')];
     /* The practice planner keeps its rows in the tab's session storage, and these

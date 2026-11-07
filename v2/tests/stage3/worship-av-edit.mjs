@@ -3,7 +3,7 @@
  *   firebase emulators:exec --config firebase.spare.json --only firestore,auth,functions \
  *     --project egbc-worship-planner "node tests/stage3/worship-av-edit.mjs"
  *
- *   - EGBCWorship&AV.html and trainingportalhub.html: "Edit Dashboard" opens the dashboard settings, for a
+ *   - EGBCWorship&AV.html: "Edit Dashboard" opens the dashboard settings, for a
  *     core-team admin, at 375 and 1440 (the audit found it did nothing);
  *   - worshiphubapp.html: the tour's Skip and Next are on screen at 375 (with the
  *     44px rows the tooltip was taller than the 160px it was kept to, and they
@@ -24,7 +24,7 @@ const base = 'http://localhost:8976';
 const b = await browser();
 
 try {
-  for (const PAGE of ['EGBCWorship&AV.html', 'trainingportalhub.html']) for (const [w, h] of [[375, 812], [1440, 900]]) {
+  for (const PAGE of ['EGBCWorship&AV.html']) for (const [w, h] of [[375, 812], [1440, 900]]) {
     const page = await b.newPage();
     await page.setViewport({ width: w, height: h });
     const errs = [];

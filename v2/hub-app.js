@@ -3450,14 +3450,15 @@ function renderAdminPeople(){
 }
 
 /* SHARED PAGES: pages filed under one team that are for everyone on any team -
-   the live rota, the training portal. They need the `everyone` flag to reach
+   the live rota among them. They need the `everyone` flag to reach
    people on other teams. Taken out with the hub's old imports on 28 Oct
    (acb20999), with its button left behind and doing nothing; put back
    (Martin, 6 Nov 2026: "worked until 28 Oct, so it's lost behaviour"), for any
    church: the list is the Menu's own pages marked anyTeam (for anyone on a
-   team, the rota among them), plus the training portal, which is the whole
-   church's by design. Page names, never a church's own data. */
-const SHARED_ALWAYS = ['trainingportalhub.html'];
+   team, the rota among them). The training portal was the one added by name;
+   it was taken out with the other training copies (Martin, 7 Nov 2026), so
+   none is now. Page names, never a church's own data. */
+const SHARED_ALWAYS = [];
 /** @returns {string[]} the file names (lower case) whose hub entries should be seen by everyone */
 function sharedPageUrls() {
   const fromMenu = (window.EGBCMenu && EGBCMenu.allPages ? EGBCMenu.allPages() : [])

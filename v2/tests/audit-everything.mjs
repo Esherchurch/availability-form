@@ -128,7 +128,7 @@ let ONLY_PAGES = opt('pages') ? opt('pages').split(',') : null;
    going-live test's first-stage list), on top of ALSO_AUDIT. */
 const ALSO_OPT = opt('also') ? opt('also').split(',') : [];
 /* --pages-file=list.txt: the same list from a file, for names a shell
-   mangles ("training Sunday planner.html", "EGBCWorship&AV.html"). The
+   mangles ("EGBCWorship&AV.html"). The
    pages are both the only ones visited and visited even off the Menu. */
 if (opt('pages-file')) {
   const list = fs.readFileSync(opt('pages-file'), 'utf8').split(',').map((x) => x.trim()).filter(Boolean);
@@ -244,11 +244,6 @@ const OFF_MENU_BY_DESIGN = {
   'EGBCWorship&AV.html': { roles: ['worship', 'areaAdmin', 'core', 'master'], why: 'the worship team’s installed app, and those covering it' },
   'sundayplannersonglibrary.html': { roles: ['worship', 'areaAdmin', 'core', 'master'], why: 'opened from the Sunday planner, for the worship team' },
   'music-uploader.html': { roles: ['areaAdmin', 'core', 'master'], why: 'opened from the planners\' Upload Song, for worship leaders and the core teams covering them' },
-  'trainingportalhub.html': { roles: ['worship', 'areaAdmin', 'core', 'master'], why: 'Worship Training\'s Practice planners, for the worship team' },
-  'trainingmusicdatabase.html': { roles: ['worship', 'areaAdmin', 'core', 'master'], why: 'a practice copy, for the worship team' },
-  'training Sunday planner.html': { roles: ['areaAdmin', 'core', 'master'], why: 'a practice copy, for worship leaders' },
-  'trainingbatchimporter.html': { roles: ['areaAdmin', 'core', 'master'], why: 'a practice copy, for worship leaders' },
-  'trainingrotaplanner.html': { roles: ['areaAdmin', 'core', 'master'], why: 'a practice copy, for leaders' },
   'mix-builder.html': { roles: ['master'], why: 'Martin\'s own mix tools: master admins on the hub' },
   'mix-player.html': { roles: ['master'], why: 'Martin\'s own mix tools: master admins on the hub' },
   'mix-analyser.html': { roles: ['master'], why: 'Martin\'s own mix tools: master admins on the hub' },

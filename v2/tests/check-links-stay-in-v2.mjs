@@ -28,7 +28,6 @@ const V2_ADDRESS = OLD + 'v2/';
 /* Allowed to be a full address, because it is read in an email client. */
 const IN_AN_EMAIL = [
   { file: 'Planner.html', what: 'the Fill In My Availability button on the rota email' },
-  { file: 'trainingrotaplanner.html', what: 'the same button in the training copy of that email' },
   /* THE AVAILABILITY EMAIL MOVED. It was built in CoreTeamApp.html until
      the Core Team rota was lifted into egbc-core-rota.js so both hosts
      run one copy (febf6797, 11 Oct 2026). The link is the same link and

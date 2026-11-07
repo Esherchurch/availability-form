@@ -30,11 +30,6 @@ const OUT_OF_SCOPE = [
   /^manifest-worship\.json$/i,
   /^mix-.*/i,
   /^studio\.html$/i,
-  /^trainingrotaplanner\.html$/i,   /* training copies read the training_* collections */
-  /^training .*\.html$/i,
-  /^trainingbatchimporter\.html$/i,
-  /^trainingmusicdatabase\.html$/i,
-  /^trainingportalhub\.html$/i,
 ];
 
 const outOfScope = f => OUT_OF_SCOPE.some(r => r.test(f));

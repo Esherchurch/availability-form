@@ -65,7 +65,6 @@ const PAGES = [
   ['EGBC-PlayThrough.html', 'div'],
   ['EGBC-Troubleshoot-AV.html', 'div'],
   ['EGBC-Training-Worship.html', 'div'],
-  ['trainingportalhub.html', 'div, a'],
   ['hubresources.html', 'div, a'],
   ['birthday.html', 'div, button'],
   ['youth-access.html', 'div, input']

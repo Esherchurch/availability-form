@@ -14,3 +14,10 @@
 - The rota email's "Open your rota" button. Martin, 6 Nov 2026.
 - With no hub address, rotas are not sent, and the sender is told why. Martin, 6 Nov 2026.
 - Approved for after testing, not built yet: the Worship & AV dashboard's logos come from each church's own team logos. Martin, 6 Nov 2026.
+- The five training copies taken out of the hub, because they no longer reflect the real site; the "?" help on each real page replaces them. Martin, 7 Nov 2026.
+  - `trainingportalhub.html`
+  - `training Sunday planner.html`
+  - `trainingrotaplanner.html`
+  - `trainingmusicdatabase.html`
+  - `trainingbatchimporter.html`
+  - Worship Training's link to them, now "Using the planners": the Sunday planner, the rota planner and Upload songs, each with its "?" help: `EGBC-Training-Worship.html :: link:"Practice planners"`

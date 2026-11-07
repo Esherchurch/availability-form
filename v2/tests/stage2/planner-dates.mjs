@@ -74,9 +74,6 @@ const PLANNERS = [
     open: async (page) => { await page.waitForFunction(() => typeof openSection === 'function', { timeout: 30000 }); await sleep(1500); await page.evaluate(() => { try { if (typeof endTour === 'function') endTour(); } catch (e) {} openSection('service'); }); } }, SP),
   Object.assign({ key: 'app', name: 'app.html "This Sunday"', url: 'app.html', picker: true, save: 'button[onclick^="spSave"]',
     open: async (page) => { await page.waitForFunction(() => window.EGBCApp && EGBCApp.go, { timeout: 30000 }); await sleep(2500); await page.evaluate(() => EGBCApp.go('core', 'plan')); } }, SP),
-  Object.assign({ key: 'training', name: 'Training Sunday planner', url: 'training Sunday planner.html', picker: false, save: 'button[onclick^="saveSchedule"]', store: 'session',
-    /* It shows trainees an example in the service box, and reloads once with its version on the address. */
-    noPlanNotes: 'Communion Service', open: async (page) => { await page.waitForFunction(() => /[?&]v=/.test(location.search) && typeof window.selectEvent === 'function', { timeout: 30000 }); await sleep(1500); } }, PAGE),
   Object.assign({ key: 'youthhub', name: 'Youth Hub planner', url: 'youthapp2.html', picker: false, save: '#planner-save-btn',
     open: async (page) => { await page.waitForFunction(() => typeof openSection === 'function', { timeout: 30000 }); await sleep(1500); await page.evaluate(() => { try { if (typeof endTour === 'function') endTour(); } catch (e) {} openSection('planner'); }); } },
     PAGE, { songs: '#service-order .song-title-input' }),
