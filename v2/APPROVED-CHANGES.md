@@ -14,3 +14,8 @@
 - The rota email's "Open your rota" button. Martin, 6 Nov 2026.
 - With no hub address, rotas are not sent, and the sender is told why. Martin, 6 Nov 2026.
 - Approved for after testing, not built yet: the Worship & AV dashboard's logos come from each church's own team logos. Martin, 6 Nov 2026.
+- The Youth charter: the admin password in the page source replaced by admin sign-in (the youth team's admins and master admins). Martin, 7 Nov 2026.
+- The wider rule reads for kids leads (kids settings, groups and terms) and for role holders on no team (a site's safeguarding lead and deputy, an event's organisers and named leaders, the building's health and safety lead: eventLeaders, eventForms, safeguardingSettings, users, addressBook, kidsSettings, events, planGroups, leaderChecks; a concern taken by a lead or a deputy). Martin, 7 Nov 2026.
+- The Menu's Kids Church section shown to a kids lead or safeguarding lead on no team. Martin, 7 Nov 2026.
+- The Youth Hub's Music Uploader is offered only to people who can upload (an admin on a worship, AV or youth team, or a master admin); a young person, and an adult volunteer who is not an admin, do not see it. Martin, 7 Nov 2026.
+- The app's Kids Church "Lesson plans and resources" opens the Kids Church lesson plans (the session planner, read only for the team; a group's leaders edit their own group), not the worship and AV resources page. Martin, 7 Nov 2026.

@@ -114,6 +114,10 @@ try {
   await open(M);
   await tap(M, '[data-act="job"]');
   await M.evaluate(() => { const s = document.querySelector('[data-job="services"]'); if (s.checked) s.click(); const l = document.querySelector('[data-job="lesson"][value="pg_cs"]'); if (!l.checked) l.click(); });
+  /* Job pressed again while its box is open: the box stays, with the ticks just made - not greyed (Martin, 7 Nov 2026) */
+  const jobAgain = await M.evaluate(() => { const b = document.querySelector('[data-act="job"]'); b.click();
+    return { greyed: b.disabled, open: !document.querySelector('.jb').hidden, services: document.querySelector('[data-job="services"]').checked, lesson: document.querySelector('[data-job="lesson"][value="pg_cs"]').checked }; });
+  ok('0. JOB PRESSED AGAIN: the box stays open with the ticks just made; not greyed', !jobAgain.greyed && jobAgain.open && !jobAgain.services && jobAgain.lesson, JSON.stringify(jobAgain));
   await tap(M, '[data-act="jobsave"]');
   const saved = await until(async () => { const d = await device(); return d.jobs && d.jobs.services === false && (d.jobs.lessonGroups || []).join() === 'pg_cs' ? d : null; });
   ok('1. A MASTER ADMIN GIVES THE COMPUTER A JOB: lessons for one group, not the services', !!saved, JSON.stringify((await device()).jobs));
@@ -129,6 +133,11 @@ try {
   ok('3. AN AV ADMIN is not offered "Job"', !(await A.$('[data-act="job"]')) && !!(await A.$('[data-act="rename"]')));
   await tap(A, '[data-act="rename"]');
   await A.evaluate(() => { const i = document.querySelector('.rn input'); i.value = 'Hall laptop (synthetic)'; });
+  /* Rename pressed again while its box is open: it works, keeps the box and what is typed, and takes the
+     cursor back to it - not greyed (Martin, 7 Nov 2026) */
+  const again = await A.evaluate(() => { const b = document.querySelector('[data-act="rename"]'), i = document.querySelector('.rn input'); i.blur(); b.click();
+    return { greyed: b.disabled, open: !document.querySelector('.rn').hidden, typed: i.value, focused: document.activeElement === i }; });
+  ok('   RENAME PRESSED AGAIN: the box stays open with what was typed, and the cursor is in it; not greyed', !again.greyed && again.open && again.typed === 'Hall laptop (synthetic)' && again.focused, JSON.stringify(again));
   await tap(A, '[data-act="save"]');
   ok('   renames it: saved', !!(await until(async () => (await device()).name === 'Hall laptop (synthetic)')), (await device()).name);
   const adaJob = await callAs(A, 'churchShowSetJob', { deviceId: DEV, services: true, lessonGroups: [] });

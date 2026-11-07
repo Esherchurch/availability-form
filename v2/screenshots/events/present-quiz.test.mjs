@@ -224,8 +224,13 @@ try {
   await karen.setViewport({ width: 375, height: 812 }); await sleep(500);
   await karen.screenshot({ path: path.join(HERE, 'quiz-real-leader-remove-375.png'), fullPage: true });
   await karen.setViewport({ width: 1440, height: 900 }); await sleep(300);
-  await tap(karen, '[data-qkickyes]');
+  /* Remove says "Removing…" the moment it is pressed, not greyed (Martin, 7 Nov 2026), and the time to
+     the phone being told is printed, so a slow call shows */
+  const kickSaid = await karen.$eval('[data-qkickyes]', (b) => { b.click(); return b.textContent + (b.disabled ? ' (greyed)' : ''); });
+  ok('   REMOVE says "Removing…" at once, and is not greyed', kickSaid === 'Removing…', kickSaid);
+  const kickAt = Date.now();
   await until(async () => /removed that name/.test(await text(bad)));
+  console.log('      (removed, and the phone told, in ' + (Date.now() - kickAt) + ' ms)');
   ok('   THE LEADER REMOVES A NAME: that phone is told to join again with another name', /removed that name/.test(await text(bad)) && !!badBtn, await text(bad));
   /* question 1 */
   await until(() => karen.$('[data-qopen="0"]')); await tap(karen, '[data-qopen="0"]');
@@ -262,13 +267,23 @@ try {
   ok('   SHOWN: Sam\u2019s phone says Right! with points for a quick answer; Zoe\u2019s says not this time', samPts > 500 && samPts <= 1000 && /Not this time/.test(await text(zoe)), J({ samPts, zoe: await text(zoe) }));
   ok('   the TV shows how many chose each answer, and the right one', /At night.*1/.test(await text(tv, '#pzStage .ans.ok')), await text(tv, '#pzStage'));
   await sam.screenshot({ path: path.join(HERE, 'quiz-real-phone-result-375.png') });
-  await tap(karen, '[data-qboard]');
+  const boardSaid = await karen.$eval('[data-qboard]', (b) => { b.click(); return b.textContent + (b.disabled ? ' (greyed)' : ''); });
+  ok('   SHOW THE LEADERBOARD says "Showing…" at once, and is not greyed', boardSaid === 'Showing…', boardSaid);
+  const boardAt = Date.now();
   await until(async () => /After question 1/.test(await text(tv, '#pzStage')));
+  console.log('      (the leaderboard on the TV in ' + (Date.now() - boardAt) + ' ms)');
+  /* where the time goes: the same call again, now its function is running (it changes nothing: the board is showing) */
+  const warm = await karen.evaluate(async (id) => { const t = []; for (let i = 0; i < 3; i++) { const a = performance.now(); await EGBCAuth.call('quizHost', { action: 'phase', runId: id, phase: 'board' }); t.push(Math.round(performance.now() - a)); } return t; }, runId);
+  console.log('      (the call again, three times: ' + warm.join(', ') + ' ms)');
   ok('   THE LEADERBOARD: Sam first, on the TV and on Sam\u2019s phone', /1 · Sam\b/.test(await text(tv, '#pzStage')) && /1 · Sam\b/.test(await text(sam)), await text(tv, '#pzStage'));
   await tv.screenshot({ path: path.join(HERE, 'quiz-real-tv-board.png') });
   /* only the presenter runs it */
   const tomRun = await tom.evaluate((id) => EGBCAuth.call('quizOpen', { runId: id, q: 1 }).then(() => 'opened', e => (e.code || '') + ' ' + e.message), runId);
   ok('   ONLY THE PRESENTER runs it: a team member cannot open a question', /permission/.test(tomRun), tomRun);
+  /* quizHost, the one function the presenter's page now calls, asks the same questions */
+  const tomHost = await tom.evaluate((id) => EGBCAuth.call('quizHost', { action: 'open', runId: id, q: 1 }).then(() => 'opened', e => (e.code || '') + ' ' + e.message), runId);
+  const oddHost = await karen.evaluate((id) => Promise.all(['constructor', 'sweep', ''].map((a) => EGBCAuth.call('quizHost', { action: a, runId: id }).then(() => 'done', e => (e.code || '') + ''))), runId);
+  ok('   and through quizHost: a team member is refused, and an action it does not know is refused', /permission/.test(tomHost) && oddHost.every((x) => /invalid-argument/.test(x)), J({ tomHost, oddHost }));
   /* question 2: too late */
   await until(() => karen.$('[data-qopen="1"]')); await tap(karen, '[data-qopen="1"]');
   await until(async () => (await db.collection('quizRuns').doc(runId).get()).data().q === 1);

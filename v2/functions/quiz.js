@@ -21,6 +21,8 @@
      quizPhase  { runId, phase }      'board' (the leaderboard) or 'final'
      quizKick   { runId, pid }        a rude nickname: removed; its key stops working
      quizEnd    { runId }             everything deleted, at once
+     quizHost   { action, ... }      any of the six above (action start, open, reveal, phase, kick,
+                                      end), in one function so it is running after the first press
    A player (plain web requests, no sign-in - quiz.html):
      quizJoin   { code, name }        -> { runId, pid, key, name }
      quizAnswer { runId, pid, key, q, choice }   once per question, in time
@@ -87,7 +89,7 @@ async function mayRun(D, req, ctx) {
   return mayPresent(D, req.auth.uid, ctx);
 }
 
-export const quizStart = onCall({ region: REGION }, async (req) => {
+async function hostStart(req) {
   const uid = req.auth && req.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Please sign in.');
   const { sessionId, step } = req.data || {};
@@ -116,9 +118,10 @@ export const quizStart = onCall({ region: REGION }, async (req) => {
   await D.collection('quizRuns').doc(runId).set({ code, join, ctx, title: String(st.title || 'Quiz').slice(0, 80), total: questions.length, phase: 'join', q: -1,
     question: null, reveal: null, players: {}, scores: {}, last: {}, removed: [], count: 0, answered: 0, createdAt: Date.now(), by: uid });
   return { runId, code, join };
-});
+}
+export const quizStart = onCall({ region: REGION }, hostStart);
 
-export const quizOpen = onCall({ region: REGION }, async (req) => {
+async function hostOpen(req) {
   const { D, ref } = await presenterOf(req, (req.data || {}).runId);
   const q = +(req.data || {}).q;
   const sec = (await D.collection('quizSecret').doc(ref.id).get()).data();
@@ -128,9 +131,10 @@ export const quizOpen = onCall({ region: REGION }, async (req) => {
   await ref.update({ phase: 'question', q, answered: 0, reveal: null, last: {},
     question: { text: x.q, answers: order.map((i) => x.answers[i]), seconds: x.seconds, openedAt: now, openUntil: now + x.seconds * 1000 } });
   return { ok: true, openedAt: now };
-});
+}
+export const quizOpen = onCall({ region: REGION }, hostOpen);
 
-export const quizReveal = onCall({ region: REGION }, async (req) => {
+async function hostReveal(req) {
   const { D, ref, run } = await presenterOf(req, (req.data || {}).runId);
   if (!run.question || run.q < 0) throw new HttpsError('failed-precondition', 'No question is open.');
   const sec = (await D.collection('quizSecret').doc(ref.id).get()).data(), order = sec.order[run.q] || [];
@@ -145,24 +149,27 @@ export const quizReveal = onCall({ region: REGION }, async (req) => {
   for (const pid of Object.keys(run.players)) if (!last[pid]) last[pid] = { right: false, points: 0, choice: -1 };
   await ref.update({ phase: 'answer', reveal: { right, counts }, scores, last, 'question.openUntil': Math.min(run.question.openUntil, Date.now()) });
   return { right, counts };
-});
+}
+export const quizReveal = onCall({ region: REGION }, hostReveal);
 
-export const quizPhase = onCall({ region: REGION }, async (req) => {
+async function hostPhase(req) {
   const { ref } = await presenterOf(req, (req.data || {}).runId);
   const phase = String((req.data || {}).phase || '');
   if (!['board', 'final', 'join'].includes(phase)) throw new HttpsError('invalid-argument', 'Which?');
   await ref.update({ phase });
   return { ok: true };
-});
+}
+export const quizPhase = onCall({ region: REGION }, hostPhase);
 
-export const quizKick = onCall({ region: REGION }, async (req) => {
+async function hostKick(req) {
   const { D, ref, run } = await presenterOf(req, (req.data || {}).runId);
   const pid = String((req.data || {}).pid || '');
   if (!(pid in (run.players || {}))) throw new HttpsError('not-found', 'That name has gone already.');
   await D.collection('quizPlayers').doc(ref.id + '_' + pid).delete().catch(() => {});
   await ref.update({ ['players.' + pid]: FieldValue.delete(), ['scores.' + pid]: FieldValue.delete(), ['last.' + pid]: FieldValue.delete(), removed: FieldValue.arrayUnion(pid), count: FieldValue.increment(-1) });
   return { ok: true };
-});
+}
+export const quizKick = onCall({ region: REGION }, hostKick);
 
 export async function deleteRun(d, runId) {
   const run = (await d.collection('quizRuns').doc(runId).get()).data();
@@ -173,10 +180,24 @@ export async function deleteRun(d, runId) {
   if (run && run.code) { const c = await d.collection('quizCodes').doc(run.code).get(); if (c.exists && c.data().runId === runId) await c.ref.delete(); }
   await d.collection('quizRuns').doc(runId).delete();
 }
-export const quizEnd = onCall({ region: REGION }, async (req) => {
+async function hostEnd(req) {
   const { D, ref } = await presenterOf(req, (req.data || {}).runId);
   await deleteRun(D, ref.id);
   return { ok: true };
+}
+export const quizEnd = onCall({ region: REGION }, hostEnd);
+
+/* quizHost { action, ...as above }: every presenter action in one function. Each separate function
+   starts cold the first time it is called, and in a quiz Remove, Show the leaderboard and the rest are
+   each pressed once or twice, so nearly every press waited for its function to start (the quiz test,
+   7 Nov 2026: 1.4-2 s to the screen, against 50-60 ms once running). Through quizHost, "Play on phones"
+   starts it, and the presses after it find it running. The separate functions stay, for a page loaded
+   before this one, and do exactly the same. */
+const HOST = { start: hostStart, open: hostOpen, reveal: hostReveal, phase: hostPhase, kick: hostKick, end: hostEnd };
+export const quizHost = onCall({ region: REGION }, async (req) => {
+  const act = HOST[String((req.data || {}).action || '')];
+  if (!act || !Object.prototype.hasOwnProperty.call(HOST, String(req.data.action))) throw new HttpsError('invalid-argument', 'Which?');
+  return act(req);
 });
 
 /* Players: plain web requests, no account (CORS: the hub's pages anywhere). */

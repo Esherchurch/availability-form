@@ -71,6 +71,8 @@
     var S = function () { return api.getS() || {}; };
     var Q = function (i) { var q = S().quiz; return q && q.step === i ? q : null; };
     var item = function (i) { return api.items[i] || {}; };
+    /* The presenter's quiz calls all go to quizHost (functions/quiz.js), one function that is already
+       running after the first press, so each later press answers in a moment (7 Nov 2026). */
     var call = function (n, d) { return EGBCAuth.call(n, d).then(function (r) { return r && r.data !== undefined ? r.data : r; }); };
     var write = function (q) { return api.ref.update({ quiz: q }).catch(function (e) { alert('Could not update the quiz: ' + (e.message || e)); }); };
     /* a countdown that starts when this screen first sees the question */
@@ -194,7 +196,7 @@
       });
       on('[data-qphones]', function (b) {
         b.disabled = true; b.textContent = 'Starting…';
-        call('quizStart', { sessionId: api.sessionId, step: it.key }).then(function (r) { return write({ step: i, mode: 'phones', runId: r.runId, code: r.code }); }, function (e) { b.disabled = false; b.textContent = 'Play on phones'; err(e); });
+        call('quizHost', { action: 'start', sessionId: api.sessionId, step: it.key }).then(function (r) { return write({ step: i, mode: 'phones', runId: r.runId, code: r.code }); }, function (e) { b.disabled = false; b.textContent = 'Play on phones'; err(e); });
       });
       if (!q) return;
       var save = function (patch) { return write(Object.assign({}, q, patch)); };
@@ -215,15 +217,19 @@
       });
       on('[data-qclose]', function () { write(null); });
       /* phones mode */
-      on('[data-qopen]', function (b) { b.disabled = true; call('quizOpen', { runId: q.runId, q: +b.getAttribute('data-qopen') }).catch(err); });
-      on('[data-qreveal]', function (b) { b.disabled = true; call('quizReveal', { runId: q.runId }).catch(err); });
-      /* Greyed at once, as Start and End are, while the call goes (Stage 3 audit, 4 Nov 2026). */
-      on('[data-qboard]', function (b) { b.disabled = true; call('quizPhase', { runId: q.runId, phase: 'board' }).catch(err); });
-      on('[data-qfinal]', function () { call('quizPhase', { runId: q.runId, phase: 'final' }).catch(err); });
+      on('[data-qopen]', function (b) { b.disabled = true; call('quizHost', { action: 'open', runId: q.runId, q: +b.getAttribute('data-qopen') }).catch(err); });
+      on('[data-qreveal]', function (b) { b.disabled = true; call('quizHost', { action: 'reveal', runId: q.runId }).catch(err); });
+      /* Says what it is doing the moment it is pressed ("Showing…", "Removing…"), and the screen changes
+         when the call is done; if the call fails, the button says its own words again and the fault is
+         shown (Martin, 7 Nov 2026: greying it while the call went was a workaround). busy() sets the
+         words at once and returns the failure handler. */
+      var busy = function (b, words, back) { b.textContent = words; return function (e) { b.textContent = back; err(e); }; };
+      on('[data-qboard]', function (b) { call('quizHost', { action: 'phase', runId: q.runId, phase: 'board' }).catch(busy(b, 'Showing…', 'Show the leaderboard')); });
+      on('[data-qfinal]', function () { call('quizHost', { action: 'phase', runId: q.runId, phase: 'final' }).catch(err); });
       on('[data-qkick]', function (b) { confirmPid = b.getAttribute('data-qkick'); api.redraw(); });
       on('[data-qkickno]', function () { confirmPid = ''; api.redraw(); });
-      on('[data-qkickyes]', function (b) { b.disabled = true; var p = confirmPid; confirmPid = ''; call('quizKick', { runId: q.runId, pid: p }).catch(err); });
-      on('[data-qend]', function (b) { b.disabled = true; call('quizEnd', { runId: q.runId }).then(function () { return write(null); }, err); });
+      on('[data-qkickyes]', function (b) { var p = confirmPid; confirmPid = ''; call('quizHost', { action: 'kick', runId: q.runId, pid: p }).catch(busy(b, 'Removing…', 'Remove')); });
+      on('[data-qend]', function (b) { b.disabled = true; call('quizHost', { action: 'end', runId: q.runId }).then(function () { return write(null); }, err); });
     }
     return {
       stage: function (i, stageId) { setTimeout(drawQr, 0); return stage(i, stageId); },

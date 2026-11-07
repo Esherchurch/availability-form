@@ -1024,7 +1024,7 @@ body { color: var(--body); font-size: 16px; -webkit-font-smoothing: antialiased;
         <div class="tile-desc">Play-through videos &amp; training</div>
         <div class="tile-arrow">›</div>
       </div>
-      <div class="tile tile-upload" onclick="openSection('upload')">
+      <div class="tile tile-upload" id="tileUpload" style="display:none" onclick="openSection('upload')"><!-- shown only to those who may upload: mayUploadMusic() -->
         <div class="tile-icon"><i data-lucide="music" style="width:26px;height:26px"></i></div>
         <div class="tile-name">Music Uploader</div>
         <div class="tile-desc">Add sheet music to the library</div>
@@ -1373,6 +1373,22 @@ const storage = EGBCAuth.storage();
    Martin's principle, and it is not negotiable. So the address book is read
    only when a signed-in volunteer is looking, and the button is not offered
    otherwise. Everything else on the page works for both. */
+/**
+ * Whether this person may add sheet music to the library: the rules let an admin (master, or the admin
+ * of any team: firestore.rules songs, isAdmin) write the song, and the file goes to Storage only from
+ * someone on a worship, AV or youth team, or a master admin (storage.rules songs, worshipJobs). A young
+ * person's phone has no profile, so it is never offered the Music Uploader (Martin, 7 Nov 2026).
+ * @returns {boolean}
+ */
+function mayUploadMusic() {
+  try {
+    if (!window.EGBCAuth || !EGBCAuth.isAdmin || !EGBCAuth.isAdmin()) return false;
+    if (EGBCAuth.isMaster && EGBCAuth.isMaster()) return true;
+    var jobs = (EGBCAuth.myJobs && EGBCAuth.myJobs()) || [];
+    return ['worship', 'av', 'youth'].some(function (j) { return jobs.indexOf(j) !== -1; });
+  } catch (e) { return false; }
+}
+
 function onTheYouthTeam() {
   try {
     return !!(window.EGBCAuth && EGBCAuth.isVolunteer && EGBCAuth.isVolunteer());
@@ -1613,6 +1629,7 @@ async function youthDoor() {
 
 window.addEventListener('load', async () => {
   if (!(await youthDoor())) return;
+  document.getElementById('tileUpload').style.display = mayUploadMusic() ? '' : 'none';
   Sortable.create(document.getElementById('service-order'), {
     animation: 150, handle: '.drag-handle', onEnd: () => updateSongNumbers()
   });

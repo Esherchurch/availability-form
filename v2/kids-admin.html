@@ -333,17 +333,23 @@
           '<button class="btn sec" data-gedit="' + esc(g.id) + '">Edit</button></div>';
       }).join('') : '<p class="hint">No groups yet.</p>') +
       '<div style="margin-top:10px"><button class="btn" id="g-new">Add a group</button></div></div><div id="g-form"></div>';
-    /* The button whose form is open cannot be pressed again: pressing it drew the form afresh and threw
-       away what had been typed, and on screen nothing seemed to happen (Stage 3 audit, 4 Nov 2026).
-       Another group's Edit still switches to that group. */
-    var opened = function (b) { el.querySelectorAll('#g-new,[data-gedit]').forEach(function (x) { x.disabled = x === b; }); };
-    document.getElementById('g-new').onclick = function () { opened(this); groupForm(null, rooms); };
-    el.querySelectorAll('[data-gedit]').forEach(function (b) { b.onclick = function () { opened(b); groupForm(group(b.dataset.gedit), rooms); }; });
+    document.getElementById('g-new').onclick = function () { groupForm(null, rooms); };
+    el.querySelectorAll('[data-gedit]').forEach(function (b) { b.onclick = function () { groupForm(group(b.dataset.gedit), rooms); }; });
   }
   function groupForm(g, rooms) {
+    var box = document.getElementById('g-form');
+    /* The form for this group (or the new group) is already open: pressing its button again takes you
+       to it with what you have typed, rather than drawing it afresh and throwing that away (Stage 3
+       audit, 4 Nov 2026; greying the button instead was a workaround, put right 7 Nov 2026). */
+    var key = g && g.id ? g.id : 'new', open = document.getElementById('g-card');
+    if (open && box.dataset.open === key) {
+      open.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      document.getElementById('g-name').focus({ preventScroll: true });
+      return;
+    }
+    box.dataset.open = key;
     g = g || { name: '', years: [], day: 7, start: '10:30', end: '12:00', ratio: 5, roomId: '', active: true, leaderIds: [] };
     var leaders = (g.leaderIds || []).slice();
-    var box = document.getElementById('g-form');
     function drawLeaders() {
       document.getElementById('g-leaders').innerHTML = leaders.length ? leaders.map(function (m) {
         return '<span class="pill ok" data-leader="' + esc(m) + '">' + esc((person(m) || {}).name || m) + ' <button class="btn sec" style="height:32px;min-width:32px;padding:0 8px" aria-label="Remove" data-unlead="' + esc(m) + '">&times;</button></span>'; }).join('') : '<span class="hint">None yet.</span>';

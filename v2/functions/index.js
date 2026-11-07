@@ -942,7 +942,7 @@ export { welcomeSubscriber, welcomeSubscriberChurch, welcomeNewcomer, welcomeNew
 /* Present: a PowerPoint into slides and notes, from a file or a OneDrive link; the 30-day sweep (F-242), the events window's file. */
 export { presentConvert, presentFromLink, presentSweep, presentLeave } from './present.js';
 export { m365Start, m365Callback, m365Status, m365Disconnect } from './microsoft.js';
-export { quizStart, quizOpen, quizReveal, quizPhase, quizKick, quizEnd, quizJoin, quizAnswer, quizSweep } from './quiz.js';
+export { quizStart, quizOpen, quizReveal, quizPhase, quizKick, quizEnd, quizHost, quizJoin, quizAnswer, quizSweep } from './quiz.js';
 export { cateringSync, cateringSyncChurch, arrivalCheck } from './rooms-day.js';
 export { sgWarningsSync, sgWarningsNow, sgTwoAdultsDaily } from './sg-warnings.js';
 export { sgAssessCheck, sgAssessCheckChurch } from './sg-assess-check.js';

@@ -2020,7 +2020,10 @@ A.screen('kids', 'team', function () {
     row('sticky-note', 'Pin boards', 'Ideas from the team', null, 'sheet:board-kids') +
     row('clipboard-list', "Children's register", 'Who came, by group and term', null, 'open:kids-admin.html') +
     row('scan-line', 'Sunday check-in', 'The desk on a Sunday morning', null, 'open:kids-checkin.html') +
-    row('folder-open', 'Lesson plans and resources', "This term's material", null, 'open:resources.html') +
+    /* The Kids Church lesson plans: the session planner, which shows a team member their team's groups
+       read only ("you can read the plans"; a group's own leaders edit it). It opened resources.html, the
+       worship and AV team's page, which turned them away (Martin, 7 Nov 2026). */
+    row('folder-open', 'Lesson plans and resources', "This term's material", null, 'open:session-planner.html') +
     planRows());
 });
 

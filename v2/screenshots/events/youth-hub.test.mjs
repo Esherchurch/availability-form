@@ -78,7 +78,8 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   const db = ctx.firestore();
   for (const x of [P.vic, P.lee, P.eve]) {
     await setDoc(doc(db, 'addressBook', x.mid), { name: x.name, email: x.email, markers: x.teams, adminFor: x.adminFor, masterAdmin: false });
-    await setDoc(doc(db, 'users', x.uid), { memberId: x.mid, linkedBy: 'admin', name: x.name, email: x.email, teams: x.teams, adminFor: x.adminFor, masterAdmin: false, status: 'active' });
+    /* jobs: as the server's permsOnUser writes them (Youth Worship does the youth job), which storage.rules reads */
+    await setDoc(doc(db, 'users', x.uid), { memberId: x.mid, linkedBy: 'admin', name: x.name, email: x.email, teams: x.teams, adminFor: x.adminFor, masterAdmin: false, status: 'active', jobs: x.teams.includes('Youth Worship') ? ['youth'] : [] });
   }
   await setDoc(doc(db, 'youthAccess', P.yan.uid), { active: true, expiresAt: new Date(Date.now() + 30 * 86400000), memberName: 'Yan Youth', memberId: 'm_yan', groups: ['Youth Worship'] });
   await setDoc(doc(db, 'churchSettings', 'details'), { name: "St Aidan's with St Hild, Testbury (synthetic)", enquiryEmail: 'office@example.invalid' });
@@ -174,6 +175,10 @@ try {
   await until(() => SAID.yan);
   ok('   the young person is told only a youth leader can save it, and nothing changes', /Only a youth leader can save the plan/.test(SAID.yan) && !(await services()).some((s) => (s.order || []).some((o) => /Changed by Yan/.test(o.title))), SAID.yan);
 
+  /* 4: Upload is offered only to those who may add to the library (Martin, 7 Nov 2026) */
+  const tileShown = (p) => p.evaluate(() => { const t = document.getElementById('tileUpload'); return !!t && getComputedStyle(t).display !== 'none'; });
+  ok('4. THE MUSIC UPLOADER: not offered to the young person, nor to the adult volunteer', !(await tileShown(Y)) && !(await tileShown(V)));
+  ok('   offered to the youth leader (an admin of Youth Worship)', await tileShown(Ld));
   /* 4 */
   const pdf = path.join(TMP, 'here-i-am (synthetic).pdf');
   fs.writeFileSync(pdf, '%PDF-1.4\n% synthetic\n');
@@ -188,6 +193,14 @@ try {
     ok('4. MUSIC FOR THE LIBRARY, AS ' + (who === 'vic' ? 'THE ADULT VOLUNTEER' : 'THE YOUNG PERSON') + ': refused, in words', /Not uploaded: only the church.s admins/.test(said || ''), said);
   }
   ok('   and nothing was added to the library', !(await all('songs')).length);
+  /* and the youth leader, who is offered it, can use it */
+  await Ld.evaluate(() => openSection('upload'));
+  await Ld.evaluate(() => { document.getElementById('upload-song-title').value = 'Here I am (synthetic)'; document.getElementById('upload-key').selectedIndex = 1; document.getElementById('upload-type').selectedIndex = 1; });
+  await (await Ld.$('#upload-file-input-0')).uploadFile(pdf);
+  await sleep(300);
+  await Ld.evaluate(() => submitUpload());
+  const leeSaid = await until(() => Ld.evaluate(() => { const s = document.getElementById('upload-status').textContent; return /Not uploaded|Upload failed|Uploaded/.test(s) ? s : ''; }), 20000);
+  ok('   THE YOUTH LEADER UPLOADS: the music is added to the library', /^Uploaded/.test(leeSaid || '') && (await all('songs')).length === 1, JSON.stringify({ leeSaid, songs: (await all('songs')).length }));
 
   /* 5 */
   const E = await as('eve');

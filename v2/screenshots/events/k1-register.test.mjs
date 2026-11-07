@@ -281,6 +281,13 @@ try {
   ok('5. Ben moved by hand to Little ones', (await get('kidsChildren', ben.id)).groupFixed === true);
   await go(K, 'kids-admin.html', '[data-tab="groups"]'); await tap(K, '[data-tab="groups"]');
   await K.waitForSelector(`[data-gedit="${juniors.id}"]`); await tap(K, `[data-gedit="${juniors.id}"]`);
+  /* Edit pressed again while that group's form is open: it works, and the form keeps what was typed -
+     not greyed, not drawn afresh (Martin, 7 Nov 2026) */
+  await K.waitForSelector('#g-name');
+  const keep = await K.evaluate((gid) => { const n = document.getElementById('g-name'), was = n.value; n.value = was + ' (typed)';
+    const b = document.querySelector('[data-gedit="' + gid + '"]'); b.click();
+    const n2 = document.getElementById('g-name'); const r = { greyed: b.disabled, same: n2 === n, typed: n2.value === was + ' (typed)' }; n2.value = was; return r; }, juniors.id);
+  ok('   EDIT PRESSED AGAIN: the open form keeps what was typed; not greyed', !keep.greyed && keep.same && keep.typed, JSON.stringify(keep));
   await K.waitForSelector('#g-save'); await val(K, '#g-ratio', '9'); await tap(K, '#g-save');
   await until(async () => (await get('kidsGroups', juniors.id)).ratio === 9);
   await sleep(1000);
