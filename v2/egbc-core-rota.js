@@ -554,7 +554,7 @@
     if (!confirm('Remove role "' + roleName + '"?')) return;
     var updates = { roles: firebase.firestore.FieldValue.arrayRemove(roleName) };
     updates['assignments.' + roleName] = firebase.firestore.FieldValue.delete();
-    await db().collection('events').doc(eventId).update(updates);
+    await db().collection('events').doc(eventId).update(slotNamed(updates));
   };
 
   // ══════════════════════════════════════════════════════════════════════
@@ -714,10 +714,11 @@
       .find(function (e) { return e[1] && e[1].id === personId && e[0] !== role; });
     var displaced = ev && (ev.assignments || {})[role];
 
+    /* Each step a save of its own: one refused (false) stops the move there. */
     if (existing) {
-      await global.unassignPerson(eventId, existing[0]);
+      if ((await global.unassignPerson(eventId, existing[0])) === false) return;
       if (displaced && displaced.id !== personId) {
-        await global.assignPerson(eventId, existing[0], displaced.id, displaced.name);
+        if ((await global.assignPerson(eventId, existing[0], displaced.id, displaced.name)) === false) return;
       }
     }
     await global.assignPerson(eventId, role, personId, name);
@@ -733,16 +734,28 @@
     await global.unassignPerson(eventId, role);
   };
 
+  /* THE SLOT, NAMED (7 Nov 2026): the rules' under-18s check (safeguardingOk) learns which slot a
+     change fills from lastSlot, and checks it is the one slot that changed. The pages never sent it,
+     so on a team that works with under-18s no slot could be filled or emptied. One slot changed: it
+     is named. More than one at once (the practice copy, auto-fill) stays unnamed, and the rules
+     refuse that on an under-18s event by design (one clearance check per write). A refusal is said
+     by the wrapper at the end (A REFUSED SAVE SAYS SO), which returns false so a swap stops there. */
+  function slotNamed(updates) {
+    var k = Object.keys(updates).filter(function (x) { return x.indexOf('assignments.') === 0; });
+    if (k.length === 1) updates.lastSlot = k[0].slice('assignments.'.length);
+    return updates;
+  }
+
   global.assignPerson = async function (eventId, role, personId, personName) {
     var updates = {};
     updates['assignments.' + role] = { id: personId, name: personName };
-    await db().collection('events').doc(eventId).update(updates);
+    await db().collection('events').doc(eventId).update(slotNamed(updates));
   };
 
   global.unassignPerson = async function (eventId, role) {
     var updates = {};
     updates['assignments.' + role] = firebase.firestore.FieldValue.delete();
-    await db().collection('events').doc(eventId).update(updates);
+    await db().collection('events').doc(eventId).update(slotNamed(updates));
   };
 
   global.deleteEvent = async function (eventId) {
@@ -767,7 +780,7 @@
     e.preventDefault();
     var pid = e.dataTransfer.getData('personId'), pname = e.dataTransfer.getData('personName');
     var sEv = e.dataTransfer.getData('sourceEventId'), sRole = e.dataTransfer.getData('sourceRole');
-    if (sEv === eventId && sRole) await global.unassignPerson(sEv, sRole);
+    if (sEv === eventId && sRole && (await global.unassignPerson(sEv, sRole)) === false) return;
     await global.assignPerson(eventId, role, pid, pname);
   };
 
@@ -775,7 +788,7 @@
     e.preventDefault();
     var pid = e.dataTransfer.getData('personId');
     var sEv = e.dataTransfer.getData('sourceEventId'), sRole = e.dataTransfer.getData('sourceRole');
-    if (sEv && sRole) await global.unassignPerson(sEv, sRole);
+    if (sEv && sRole && (await global.unassignPerson(sEv, sRole)) === false) return;
     if (targetStatus && eventId && pid) await setAvailability(eventId, pid, targetStatus);
   };
 
@@ -1056,7 +1069,7 @@
       var p = (sunday.assignments || {})[r];
       if (p && (rotaAvailability[practiceId] || {})[p.id] === 'avail') updates['assignments.' + r] = { id: p.id, name: p.name };
     });
-    if (Object.keys(updates).length) await db().collection('events').doc(practiceId).update(updates);
+    if (Object.keys(updates).length) await db().collection('events').doc(practiceId).update(slotNamed(updates));
     toast('Synced');
   };
 
@@ -1497,14 +1510,31 @@
    'addSingleLine', 'generateTerm', 'addThursdayPractices', 'autoFillPractice', 'autoFillAllEvents', 'gatherTermAvailability'].forEach(function (name) {
     var f = global[name]; if (typeof f !== 'function') return;
     global[name] = async function () {
+      var eventId = arguments[0];
       try { return await f.apply(this, arguments); }
       catch (e) {
         console.warn('Rota: ' + name, e);
-        toast(e && e.code === 'permission-denied' ? 'Not saved: only the teams on this service, and those who cover them, can change it.' : 'Not saved: ' + ((e && e.message) || e));
+        toast(e && e.code === 'permission-denied' ? await refusedWords(eventId) : 'Not saved: ' + ((e && e.message) || e));
         try { renderPlanner(); } catch (e2) {}
+        /* false, so a move made of two saves (doAssign, the drops) stops at the one refused (7 Nov 2026) */
+        return false;
       }
     };
   });
+  /* Why a save was refused, in words. On a team that works with under-18s the rules also ask that
+     the person going on is cleared (safeguardingOk; 7 Nov 2026: the words said only "the teams on
+     this service", which was not the reason there). */
+  async function refusedWords(eventId) {
+    var ev = cachedEvents.find(function (e) { return e.id === eventId; });
+    /* not on screen yet (the rota not drawn): read it, so the reason is still the right one */
+    if (!ev && typeof eventId === 'string' && eventId) {
+      try { var s = await db().collection('events').doc(eventId).get(); ev = s.exists ? s.data() : null; } catch (e) { ev = null; }
+    }
+    var T = (global.EGBCAuth && EGBCAuth.TEAMS) || {};
+    var u18 = ev && (ev.teams || []).some(function (t) { return T[t] && T[t].under18; });
+    return 'Not saved: only the teams on this service, and those who cover them, can change it.'
+      + (u18 ? ' On a team that works with under-18s, each person on the rota also needs an in-date DBS check and safeguarding training, or an exception recorded by the safeguarding lead.' : '');
+  }
   global.EGBCCoreRota = {
     mount: mount,
     newEvent: function () { global.openNewEventModal(); },

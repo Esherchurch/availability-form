@@ -163,8 +163,9 @@ async function loadStates() {
    "a leader's checks" and never saw the checks window's seven controls. Now the screen fails. */
 async function runSteps(B, steps) {
   const missed = [];
+  const resting = (steps || []).includes('scope') ? layersOf(await B.ev(OVERLAY)) : [];   /* the layers open before the state's steps */
   for (const st of steps || []) {
-    if (st === 'scope') { await B.ev(MARK_SCOPE); continue; }
+    if (st === 'scope') { await B.ev(markScope(resting)); continue; }
     if (String(st).startsWith('wait:')) {
       const sel = JSON.stringify(String(st).slice(5));
       let i = 0;
@@ -406,6 +407,9 @@ const FIXTURES = {
   /* A bottom bar with an open window over it, the window longer than the screen: its end is not "hidden". Passes. */
   barok: FIX_HEAD + '<h1>A bar under a window</h1><div style="height:1500px">The page</div><div style="position:fixed;left:0;right:0;bottom:0;height:56px;background:#eee;z-index:40">Bottom bar</div><div style="position:fixed;inset:0;z-index:110;background:rgba(0,0,0,.4);overflow:auto;padding:24px"><div style="background:#fff;padding:16px"><h2>The window</h2><p style="height:1400px">A long window</p><button onclick="this.textContent=this.textContent===\'Tap\'?\'Done\':\'Tap\'">Tap</button></div></div></body></html>',
   /* A page that ends under a real bottom bar, nothing over it: still hidden. */
+  /* A side panel open all along (the hub's Menu) and a pop-up a state opens over it: the state's
+     controls are the pop-up's, not the panel's under it. Passes (7 Nov 2026). */
+  scopenew: FIX_HEAD + '<h1>The page</h1><div id="side" style="position:fixed;top:0;bottom:0;left:0;width:30%;background:#eee;z-index:20"><button>One</button><button>Two</button><button>Three</button></div><div id="pop" style="display:none;position:fixed;inset:0;z-index:120;background:rgba(0,0,0,.4);padding:24px"><div style="background:#fff;padding:16px"><h2>The pop-up</h2><button onclick="this.textContent=this.textContent===\'Tap\'?\'Done\':\'Tap\'">Tap</button><button aria-label="Close" onclick="this.textContent=this.textContent===\'Shut\'?\'Close\':\'Shut\'">Close</button></div></div></body></html>',
   hiddenbottom: FIX_HEAD + '<h1>Ends under the bar</h1><div style="height:1200px"></div><p>The end of the page</p><div style="position:fixed;left:0;right:0;bottom:0;height:80px;background:#eee">Bottom bar</div></body></html>'
 };
 
@@ -585,21 +589,31 @@ const OVERLAY = `(function(){
    form and tab, nothing sampled - and an editor's Save or a sheet's tabs are
    only there once something opens them. Marks the pop-up OVERLAY found (or,
    when that is a bare backdrop, the fixed element holding the most
-   controls), so CONTROLS and FIELDS list only what is inside it. */
-const MARK_SCOPE = `(function(){
-  var iw=innerWidth, ih=innerHeight, best=null, ba=0, most=null, mn=0;
+   controls), so CONTROLS and FIELDS list only what is inside it.
+   The layer that OPENED, as SHEET_CLOSE finds it (7 Nov 2026): __SKIP__ is the
+   layers open before (OVERLAY's all), passed over while a new one is there.
+   Taking merely the smallest marked the hub's Menu, open all along, when a
+   pop-up opened over it, and every control in the Menu read as covered. */
+const MARK_SCOPE_OF = `(function(){
+  var iw=innerWidth, ih=innerHeight, best=null, ba=0, any=null, aa=0, most=null, mn=0, skip=__SKIP__;
   document.querySelectorAll('[data-aud-scope]').forEach(function(e){e.removeAttribute('data-aud-scope')});
   document.querySelectorAll('body *').forEach(function(el){ var s=getComputedStyle(el); if(s.position!=='fixed'||s.display==='none'||s.visibility==='hidden'||+s.opacity===0)return;
     if(el.id==='egbc-app'||el.querySelector('#egbc-app'))return;
     var n=el.querySelectorAll('a[href],button,input,select,textarea,[data-act],[onclick]').length; if(n>mn&&el!==document.body){most=el;mn=n;}
     var r=el.getBoundingClientRect(), a=Math.max(0,Math.min(r.right,iw)-Math.max(r.left,0))*Math.max(0,Math.min(r.bottom,ih)-Math.max(r.top,0)); if(a < iw*ih*0.35 && !(r.left < iw && r.right > 0 && Math.min(r.bottom,ih)-Math.max(r.top,0) >= ih*0.6 && el.querySelectorAll("a[href],button").length >= 3))return; if(el.hasAttribute("data-am-own")||el.hasAttribute("data-page-view"))return;
     if(!(el.textContent||'').trim())return;
+    if(!any||a<aa){any=el;aa=a;}
+    if(skip.indexOf((el.id||'')+'.'+String(el.className||el.tagName).slice(0,40))!==-1)return;
     if(!best||a<ba){best=el;ba=a;} });
+  best=best||any;
   var el = best && best.querySelector('a[href],button,input,select,textarea,[data-act],[onclick]') ? best : most;
   if(!el)return 'null';
   el.setAttribute('data-aud-scope','1');
   return (el.id||'')+'.'+String(el.className||el.tagName).slice(0,40);
 })()`;
+/** MARK_SCOPE passing over the layers that were open before (OVERLAY results' all). */
+const markScope = (layersBefore) => MARK_SCOPE_OF.replace('__SKIP__', JSON.stringify(layersBefore || []));
+const layersOf = (over) => (!over || over === 'null') ? [] : String(JSON.parse(over).all || '').split(',').filter(Boolean);
 /* Written as a template literal, so a regex's backslash is doubled: a single \b here was a backspace
    in the page, and a close said only in words (Done, Cancel, Close) was never found - 54 Stage 3
    screens called "no visible close" (4 Nov 2026). tools: see the template scan in the findings. */
@@ -1067,9 +1081,9 @@ async function tapAll(B, url, reopen, ctx) {
           await reopen(); await sleep(300);
           await B.ev('(function(){document.querySelectorAll("[data-aud-scope]").forEach(function(e){e.removeAttribute("data-aud-scope")});var l=' + CONTROLS + ';var c=JSON.parse(l).filter(function(x){return x.sig===' + JSON.stringify(opener) + '})[0];'
             + 'if(!c)return 0;document.querySelectorAll("a[href],button,[role=button],[role=tab],[data-act],[data-lact],[data-mact],[data-tab],[onclick],summary")[c.i].click();return 1})()');
-          await sleep(600); await B.ev(MARK_SCOPE);
+          await sleep(600); await B.ev(markScope(layersBefore));
         };
-        if ((await B.ev(MARK_SCOPE)) !== 'null') {
+        if ((await B.ev(markScope(layersBefore))) !== 'null') {
           const inner = await tapAll(B, url, reopenSheet, Object.assign({}, ctx, { depth: (ctx.depth || 0) + 1, sheets }));
           why.push(...inner.why.map((w) => w.replace(/^(\w+): /, '$1 (in "' + (next.words || 'a pop-up').slice(0, 30) + '"): ')));
           await reopenSheet();
@@ -1558,13 +1572,13 @@ async function selfTest(base) {
   const liveOk = liveWordsCheck();
   const B = await browser(PORT0, 'self');
   const expect = { clean: null, console: 'console', overflow: 'overflow', bars: 'bars', chrome: 'chrome', dead: 'dead', covered: 'covered', sheet: 'sheet', hidden: 'hidden', insideapp: 'chrome', small: 'small',
-    foldok: null, foldcovered: 'covered', windowok: null, windowcovered: 'covered', windowabs: null, windowclear: 'covered', threepress: null, barok: null, hiddenbottom: 'hidden' };
+    foldok: null, foldcovered: 'covered', windowok: null, windowcovered: 'covered', windowabs: null, windowclear: 'covered', threepress: null, barok: null, hiddenbottom: 'hidden', scopenew: null };
   let bad = 0;
   try {
     for (const [name, rule] of Object.entries(expect)) {
       RESULTS.length = 0;
       /* The window pages are judged as a state (a step that does nothing), as the hub's are. */
-      await auditScreen(B, { role: 'self', size: '375', screen: name, url: base + '__audit/' + name + '.html', inApp: name === 'insideapp', taps: true, base, steps: /^window/.test(name) ? ['1'] : undefined });
+      await auditScreen(B, { role: 'self', size: '375', screen: name, url: base + '__audit/' + name + '.html', inApp: name === 'insideapp', taps: true, base, steps: /^window/.test(name) ? ['1'] : name === 'scopenew' ? ["document.getElementById('pop').style.display='block'", 'scope'] : undefined });
       const r = RESULTS[0], rules = r.why.map(w => w.split(':')[0]);
       const good = rule ? rules.includes(rule) : r.pass;
       if (!good) bad++;

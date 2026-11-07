@@ -546,6 +546,30 @@ ${body}
             if (kidsTeam) await clearSignoff(eventId, roleTeam(KIDS_MANDATORY_ROLES()[0] || KIDS_ROLES()[0] || ''));
         };
 
+        /* THE SLOT, NAMED (7 Nov 2026). The rules' under-18s check (safeguardingOk, 10 Oct) learns
+           which rota slot a change fills from lastSlot, and the rules make sure it is the one slot
+           that changed. The pages never sent it, so on a team that works with under-18s no slot could
+           be filled or emptied, and the refusal was an unhandled error (the first-view audit). One
+           slot changed: it is named. More than one at once (the practice copy, auto-fill) is left
+           unnamed; on an under-18s event the rules refuse that by design, one clearance per write. */
+        const slotNamed = (updates) => {
+            const k = Object.keys(updates).filter(x => x.startsWith('assignments.'));
+            if (k.length === 1) updates.lastSlot = k[0].slice('assignments.'.length);
+            return updates;
+        };
+        /* A slot saved, and a refusal said in words rather than lost: on an under-18s team the
+           person needs in-date checks (or the safeguarding lead's recorded exception). */
+        const saveSlot = async (eventId, updates) => {
+            try { await updateDoc(doc(db, "events", eventId), slotNamed(updates)); return true; }
+            catch (e) {
+                console.warn('Planner: rota slot', e);
+                alert(e && e.code === 'permission-denied'
+                    ? "That did not save. On a team that works with under-18s, each person on the rota needs an in-date DBS check and safeguarding training, or an exception recorded by the safeguarding lead."
+                    : "That did not save: " + (e && e.message || e));
+                return false;
+            }
+        };
+
         window.addRole = async (eventId, roleName) => {
             if(!roleName) return;
             await updateDoc(doc(db, "events", eventId), { roles: arrayUnion(roleName) });
@@ -556,21 +580,20 @@ ${body}
             if(confirm(`Remove role "${roleName}"?`)) {
                 const updates = { roles: arrayRemove(roleName) };
                 updates[`assignments.${roleName}`] = deleteField();
-                await updateDoc(doc(db, "events", eventId), updates);
-                await clearSignoff(eventId, roleTeam(roleName));
+                if (await saveSlot(eventId, updates)) await clearSignoff(eventId, roleTeam(roleName));
             }
         };
 
         window.assignPerson = async (eventId, role, personId, personName) => {
             const updates = {};
             updates[`assignments.${role}`] = { id: personId, name: personName };
-            await updateDoc(doc(db, "events", eventId), updates);
+            return saveSlot(eventId, updates);
         };
 
         window.unassignPerson = async (eventId, role) => {
             const updates = {};
             updates[`assignments.${role}`] = deleteField();
-            await updateDoc(doc(db, "events", eventId), updates);
+            return saveSlot(eventId, updates);
         };
 
         // Remove a single person from a multi-person role
@@ -581,7 +604,7 @@ ${body}
             const remaining = current.filter(p => p.id !== personId);
             const updates = {};
             updates[`assignments.${role}`] = remaining.length > 0 ? remaining : deleteField();
-            await updateDoc(doc(db, "events", eventId), updates);
+            await saveSlot(eventId, updates);
         };
 
         // Called from data-attribute inputs — avoids inline JS string escaping issues
@@ -603,7 +626,7 @@ ${body}
                 updates[`assignments.${role}`] = [{ id: member?.id || name.trim(), name: name.trim() }];
             }
             try {
-                await updateDoc(doc(db, "events", eventId), updates);
+                await updateDoc(doc(db, "events", eventId), slotNamed(updates));
                 // Brief visual confirmation on the input
                 const inputs = document.querySelectorAll(`input[data-qid="${eventId}-${role}"]`);
                 inputs.forEach(el => { el.style.borderColor = '#3b7d23'; setTimeout(() => { el.style.borderColor = ''; }, 1500); });
@@ -651,8 +674,9 @@ ${body}
             const personName = e.dataTransfer.getData("personName");
             const sourceEventId = e.dataTransfer.getData("sourceEventId");
             const sourceRole = e.dataTransfer.getData("sourceRole");
+            /* A move is two saves: when the first is refused, the second is not tried. */
             if(sourceEventId === eventId && sourceRole) {
-                await unassignPerson(sourceEventId, sourceRole);
+                if (!(await unassignPerson(sourceEventId, sourceRole))) return;
             }
             await assignPerson(eventId, role, personId, personName);
         };
@@ -664,7 +688,7 @@ ${body}
             const sourceRole = e.dataTransfer.getData("sourceRole");
 
             if(sourceEventId && sourceRole) {
-                await unassignPerson(sourceEventId, sourceRole);
+                if (!(await unassignPerson(sourceEventId, sourceRole))) return;
             }
 
             if(targetStatus && eventId && personId) {
@@ -863,7 +887,7 @@ ${body}
                copied nothing and said nothing, and a refused save was silent too
                (the going-live audit, 3 Nov 2026). The background sync stays quiet. */
             if(Object.keys(updates).length > 0) {
-                try { await updateDoc(doc(db, "events", practiceId), updates); }
+                try { await updateDoc(doc(db, "events", practiceId), slotNamed(updates)); }
                 catch (e) { if (silent) throw e; console.warn('Planner: practice sync', e); alert("That did not save: " + (e && e.message || e)); }
             } else if (!silent) {
                 alert("Nobody is on that service's rota yet, so there is no one to copy to this practice.");
