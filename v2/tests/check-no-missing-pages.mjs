@@ -25,8 +25,7 @@ const NOT_LINKS = {
   'invitation-email.html': 'birthday.html: the name of a file it gives to download',
   'filename.html': 'hub-app.js: the example in the page form\'s empty box',
   'services.html': 'sitemaker.html: a page of the site it builds for a church, not of v2',
-  'contact.html': 'sitemaker.html: a page of the site it builds for a church, not of v2',
-  'forms.html': 'egbc-app.js PAGE_EXTRA: a switch for a page the app never opens (form.html is the forms page; raised with Martin, 7 Nov 2026)'
+  'contact.html': 'sitemaker.html: a page of the site it builds for a church, not of v2'
 };
 const files = fs.readdirSync(V2).filter((f) => /\.(html|js)$/.test(f))
   .concat(fs.readdirSync(path.join(V2, 'functions')).filter((f) => /\.(js|cjs)$/.test(f)).map((f) => 'functions/' + f));

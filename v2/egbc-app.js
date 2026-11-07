@@ -276,8 +276,10 @@
   function uses(name) {
     return !(global.EGBCAuth && EGBCAuth.uses) || EGBCAuth.uses(name);
   }
+  /* form.html: it named a page "forms" that does not exist, so the forms switch matched nothing
+     (the missing-pages check, 7 Nov 2026). */
   var PAGE_EXTRA = { 'groups.html': 'smallGroups', 'signup.html': 'events', 'my-signup.html': 'events',
-    'forms.html': 'forms', 'meeting.html': 'meetings', 'hub.html?notice=new': 'notices' };
+    'form.html': 'forms', 'meeting.html': 'meetings', 'hub.html?notice=new': 'notices' };
   var TAB_FEATURE = { kids_today: 'kids', kids_children: 'kids', core_meetings: 'meetings',
     office_bookings: 'roomBookings', maint_jobs: 'maintenance', maint_rooms: 'roomBookings' };
   var SHEET_FEATURE = { give: 'payments', notices: 'notices' };

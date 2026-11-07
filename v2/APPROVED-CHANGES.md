@@ -21,3 +21,11 @@
   - `trainingmusicdatabase.html`
   - `trainingbatchimporter.html`
   - Worship Training's link to them, now "Using the planners": the Sunday planner, the rota planner and Upload songs, each with its "?" help: `EGBC-Training-Worship.html :: link:"Practice planners"`
+- The Core Team app's mailing teams: the team names come from the church's teams, drawn by the page, not six names written into it. Martin, 6 Nov 2026: team names come from the church's teams.
+  - `CoreTeamApp.html :: fn:toggleMailTeam :: 6 -> 1`
+  - `CoreTeamApp.html :: fn:toggleMailTeam :: renamed "Worship"`
+  - `CoreTeamApp.html :: fn:toggleMailTeam :: renamed "AV"`
+  - `CoreTeamApp.html :: fn:toggleMailTeam :: renamed "Youth"`
+  - `CoreTeamApp.html :: fn:toggleMailTeam :: renamed "Core"`
+  - `CoreTeamApp.html :: fn:toggleMailTeam :: renamed "Choir"`
+  - `CoreTeamApp.html :: fn:toggleMailTeam :: renamed "Everyone"`
