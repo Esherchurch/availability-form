@@ -570,7 +570,14 @@ async function saveBodyContent() {
 }
 
 function openDashboardEditor() { openModal('dash-settings-modal'); }
-function openModal(id)  { document.getElementById(id).classList.add('open'); }
+/* The editors live in the dashboard (#landing-content). Opened from the menu's "Edit Dashboard"
+   while a tool is open in the page, the dashboard was hidden and the editor opened inside it,
+   unseen: the press did nothing (the first-view audit, 7 Nov 2026). The dashboard is shown first. */
+function openModal(id)  {
+    const m = document.getElementById(id), land = document.getElementById('landing-content');
+    if (land && land.contains(m) && getComputedStyle(land).display === 'none') showLanding();
+    m.classList.add('open');
+}
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 function openMenuModal()  { document.getElementById('menu-modal-overlay').classList.add('open'); }
 function closeMenuModal() { document.getElementById('menu-modal-overlay').classList.remove('open'); }

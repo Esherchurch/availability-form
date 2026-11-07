@@ -410,6 +410,9 @@ const FIXTURES = {
   /* A side panel open all along (the hub's Menu) and a pop-up a state opens over it: the state's
      controls are the pop-up's, not the panel's under it. Passes (7 Nov 2026). */
   scopenew: FIX_HEAD + '<h1>The page</h1><div id="side" style="position:fixed;top:0;bottom:0;left:0;width:30%;background:#eee;z-index:20"><button>One</button><button>Two</button><button>Three</button></div><div id="pop" style="display:none;position:fixed;inset:0;z-index:120;background:rgba(0,0,0,.4);padding:24px"><div style="background:#fff;padding:16px"><h2>The pop-up</h2><button onclick="this.textContent=this.textContent===\'Tap\'?\'Done\':\'Tap\'">Tap</button><button aria-label="Close" onclick="this.textContent=this.textContent===\'Shut\'?\'Close\':\'Shut\'">Close</button></div></div></body></html>',
+  /* A press opens an absolute window with a dim backdrop (the Worship & AV menu editor) and leaves it
+     open: the page is opened again before the next press, so the button after it is not "covered". Passes. */
+  absleft: FIX_HEAD + '<div style="position:relative;min-height:700px"><h1>The page</h1><button onclick="document.getElementById(\'w\').style.display=\'flex\'">Open the editor</button><button onclick="this.textContent=this.textContent===\'Tap\'?\'Done\':\'Tap\'">Tap</button><div id="w" style="display:none;position:absolute;inset:0;background:rgba(20,32,31,.5);align-items:center;justify-content:center"><div style="background:#fff;padding:16px"><h2>The editor</h2><button onclick="document.getElementById(\'w\').style.display=\'none\'">Cancel</button></div></div></div></body></html>',
   hiddenbottom: FIX_HEAD + '<h1>Ends under the bar</h1><div style="height:1200px"></div><p>The end of the page</p><div style="position:fixed;left:0;right:0;bottom:0;height:80px;background:#eee">Bottom bar</div></body></html>'
 };
 
@@ -639,6 +642,16 @@ const SHEET_CLOSE = `(function(){
   return JSON.stringify({close:close.length, sig:String(best.id||best.className||best.tagName).slice(0,40)});
 })()`;
 
+/* THE WINDOWS OVERLAY CANNOT SEE (7 Nov 2026): an absolute layer over a third of the screen with a
+   dim backdrop, the same test the press uses for "behind a window". The Worship & AV dashboard's menu
+   editor is one: opened by a press and left open, it covered every dashboard button after it, because
+   the page was only opened again when a FIXED layer was left. Compared with the page at rest. */
+const ABSWIN = `(function(){var iw=innerWidth,ih=innerHeight,out=[];document.querySelectorAll('body *').forEach(function(el){var s=getComputedStyle(el);
+  if(s.position!=='absolute'||s.display==='none'||s.visibility==='hidden'||+s.opacity===0)return;var r=el.getBoundingClientRect();
+  if(r.width*r.height<iw*ih*0.35)return;var m=/rgba?\\(([^)]+)\\)/.exec(s.backgroundColor),p=m?m[1].split(','):[],a=p.length>3?+p[3]:(p.length?1:0);
+  if(a>=0.1&&a<1)out.push((el.id||'')+'.'+String(el.className||el.tagName).slice(0,30));});return out.sort().join(',');})()`;
+/** What is open over the page: the fixed layers (OVERLAY) and the absolute windows (ABSWIN). */
+const layersNow = async (B) => ((await B.ev(OVERLAY)) || 'null') + '|' + ((await B.ev(ABSWIN)) || '');
 /* --probe (building --states): each state's controls and fields listed, nothing pressed */
 const PROBE = flag('probe');
 /* --state=words: only the states whose name holds the words */
@@ -888,7 +901,7 @@ async function tapAll(B, url, reopen, ctx) {
   const page0 = await B.ev(PAGEHASH);
   await B.ev('window.__aud&&(window.__aud.mut0=window.__aud.mut);1'); await sleep(700);
   const pageNoisy = (await B.ev(PAGEHASH)) !== page0;
-  const resting = (await B.ev(OVERLAY)) || 'null';
+  const resting = (await B.ev(OVERLAY)) || 'null', restingAll = await layersNow(B);
   const home = await B.ev(HERE);
   const retried = new Set(), moved = new Set();
   const noise = (await B.ev('window.__aud?window.__aud.mut-window.__aud.mut0:0')) || 0;
@@ -982,7 +995,7 @@ async function tapAll(B, url, reopen, ctx) {
          events window, 3 Nov 2026). */
       if (!retried.has(next.sig) && await B.ev('!!document.getElementById("egbc-help")')) { retried.add(next.sig); tapped.delete(next.sig); n--; await B.ev('(window.EGBCHelp&&EGBCHelp.close(),1)'); await sleep(300); continue; }
       if (!retried.has(next.sig) && /tour-dismiss/.test(pt.by)) { retried.add(next.sig); tapped.delete(next.sig); n--; await B.ev('(window.endTour&&endTour(),1)'); await sleep(300); continue; }
-      if (!retried.has(next.sig) && (pt.shell || /^[A-Z]+(#egbc-(you|nav)|.ey-)/.test(pt.by) || ((await B.ev(OVERLAY)) || 'null') !== resting)) { retried.add(next.sig); tapped.delete(next.sig); n--; await reopen(); continue; }
+      if (!retried.has(next.sig) && (pt.shell || /^[A-Z]+(#egbc-(you|nav)|.ey-)/.test(pt.by) || (await layersNow(B)) !== restingAll)) { retried.add(next.sig); tapped.delete(next.sig); n--; await reopen(); continue; }
       /* A STATE THAT IS AN OPEN WINDOW (a notice, an editor): the page behind it
          is the first view's, pressed there. A control behind the window the
          state opened, with that window still the one open, is not this
@@ -1105,7 +1118,7 @@ async function tapAll(B, url, reopen, ctx) {
     /* Whatever happened, the next tap starts from the page as it rests: a
        sheet that would not close is closed by opening the page again. */
     if (process.env.AUDIT_DEBUG) console.log('    overlay now', await B.ev(OVERLAY), 'resting', resting, 'here', await B.ev(HERE), 'home', home);
-    if (ctx.state || ((await B.ev(OVERLAY)) || 'null') !== resting || (await B.ev(HERE)) !== home) await reopen();
+    if (ctx.state || (await layersNow(B)) !== restingAll || (await B.ev(HERE)) !== home) await reopen();
   }
   /* Every tap dead, on a page with several: taps are not reaching the page
      (seen when the emulator is overloaded). Say so, rather than blame every
@@ -1154,7 +1167,7 @@ const FILL = (i) => `(function(){
 })()`;
 async function fillFields(B, reopen, ctx) {
   const why = [];
-  const home = await B.ev(HERE), resting = (await B.ev(OVERLAY)) || 'null';
+  const home = await B.ev(HERE), restingAll = await layersNow(B);
   const done = new Set();
   for (let guard = 0; guard < 400; guard++) {
     const list = JSON.parse((await B.ev(FIELDS)) || '[]');
@@ -1183,7 +1196,7 @@ async function fillFields(B, reopen, ctx) {
     }
     if (r === 'filled' || r === 'one choice') { if (next.keys.length) REACHED.push({ page: ctx.page, role: ctx.role, size: ctx.size, screen: ctx.screen, keys: next.keys, how: r === 'filled' ? 'filled' : 'shown (one choice)' }); }
     if (B.errors.length > before) why.push('console: filling "' + next.words + '": ' + B.errors[before]);
-    if (ctx.state || ((await B.ev(OVERLAY)) || 'null') !== resting || (await B.ev(HERE)) !== home) await reopen();
+    if (ctx.state || (await layersNow(B)) !== restingAll || (await B.ev(HERE)) !== home) await reopen();
   }
   return why;
 }
@@ -1575,7 +1588,7 @@ async function selfTest(base) {
   const liveOk = liveWordsCheck();
   const B = await browser(PORT0, 'self');
   const expect = { clean: null, console: 'console', overflow: 'overflow', bars: 'bars', chrome: 'chrome', dead: 'dead', covered: 'covered', sheet: 'sheet', hidden: 'hidden', insideapp: 'chrome', small: 'small',
-    foldok: null, foldcovered: 'covered', windowok: null, windowcovered: 'covered', windowabs: null, windowclear: 'covered', threepress: null, barok: null, hiddenbottom: 'hidden', scopenew: null };
+    foldok: null, foldcovered: 'covered', windowok: null, windowcovered: 'covered', windowabs: null, windowclear: 'covered', threepress: null, barok: null, hiddenbottom: 'hidden', scopenew: null, absleft: null };
   let bad = 0;
   try {
     for (const [name, rule] of Object.entries(expect)) {

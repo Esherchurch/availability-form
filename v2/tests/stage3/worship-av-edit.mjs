@@ -3,7 +3,7 @@
  *   firebase emulators:exec --config firebase.spare.json --only firestore,auth,functions \
  *     --project egbc-worship-planner "node tests/stage3/worship-av-edit.mjs"
  *
- *   - EGBCWorship&AV.html: "Edit Dashboard" opens the dashboard settings, for a
+ *   - EGBCWorship&AV.html and trainingportalhub.html: "Edit Dashboard" opens the dashboard settings, for a
  *     core-team admin, at 375 and 1440 (the audit found it did nothing);
  *   - worshiphubapp.html: the tour's Skip and Next are on screen at 375 (with the
  *     44px rows the tooltip was taller than the 160px it was kept to, and they
@@ -24,12 +24,12 @@ const base = 'http://localhost:8976';
 const b = await browser();
 
 try {
-  for (const [w, h] of [[375, 812], [1440, 900]]) {
+  for (const PAGE of ['EGBCWorship&AV.html', 'trainingportalhub.html']) for (const [w, h] of [[375, 812], [1440, 900]]) {
     const page = await b.newPage();
     await page.setViewport({ width: w, height: h });
     const errs = [];
     page.on('pageerror', (e) => errs.push(String(e.message).slice(0, 200)));
-    await signIn(page, base, mo, 'EGBCWorship&AV.html');
+    await signIn(page, base, mo, PAGE);
     await page.waitForFunction(() => window.EGBCGuard && document.getElementById('dash-settings-modal'), { timeout: 30000 }).catch(() => {});
     await sleep(3000);
     const seen = await page.evaluate(() => {
@@ -42,7 +42,7 @@ try {
       const m = document.getElementById('dash-settings-modal');
       return Object.assign(before, { threw, open: m.classList.contains('open'), shown: vis(m) });
     });
-    ok('1. At ' + w + ': "Edit Dashboard" opens the dashboard settings', seen.open && seen.shown && !seen.threw, J(seen) + ' ' + J(errs));
+    ok('1. ' + PAGE + ' at ' + w + ': "Edit Dashboard" opens the dashboard settings', seen.open && seen.shown && !seen.threw, J(seen) + ' ' + J(errs));
     /* Pressed as a person presses it: the page opened afresh, the menu opened if that is where it is, a real click. */
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => window.EGBCGuard && document.getElementById('dash-settings-modal'), { timeout: 30000 }).catch(() => {});
@@ -64,6 +64,14 @@ try {
     await sleep(800);
     const after = await page.evaluate(() => { const m = document.getElementById('dash-settings-modal'); const r = m.getBoundingClientRect(); return { open: m.classList.contains('open'), shown: r.width > 0 && r.height > 0, landing: getComputedStyle(document.getElementById('landing-content')).display }; });
     ok('   pressed with a real click at ' + w + ', it opens', after.open && after.shown, J({ where, after }));
+    /* With a tool open in the page (the landing hidden behind it), the same press still opens it. */
+    await page.evaluate(() => { closeModal('dash-settings-modal'); navigate('rotaplannerinstructions.html'); });
+    await sleep(1500);
+    const mid = await page.evaluate(() => { const b = [...document.querySelectorAll('button')].find((x) => /Edit Dashboard/.test(x.textContent)); const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width }; });
+    if (mid.w > 0) await page.mouse.click(mid.x, mid.y); else await page.evaluate(() => openDashboardEditor());
+    await sleep(800);
+    const over = await page.evaluate(() => { const m = document.getElementById('dash-settings-modal'); const r = m.getBoundingClientRect(); return { open: m.classList.contains('open'), shown: r.width > 0 && r.height > 0 }; });
+    ok('   with a tool open first, at ' + w + ', it still opens', over.open && over.shown, J(over));
     await page.close();
   }
 
