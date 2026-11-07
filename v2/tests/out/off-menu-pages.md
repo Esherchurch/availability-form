@@ -1,6 +1,6 @@
 # The pages in nobody's Menu: who each is for, and what each kind of person sees
 
-Made by tests/stage2/off-menu-pages.mjs on the spare emulators with the locked rules, 2026-11-04T06:55 UTC. "[shows: ...]" names any seeded private word on the page.
+Made by tests/stage2/off-menu-pages.mjs on the spare emulators with the locked rules, 2026-11-03T03:54 UTC. "[shows: ...]" names any seeded private word on the page.
 
 ## AVteamlandingpage.html
 
@@ -55,24 +55,24 @@ Made by tests/stage2/off-menu-pages.mjs on the spare emulators with the locked r
 **For:** anyone signed in (words only; linked from Send an email)
 
 - signed out: sent to sign in
-- everyone: opens: "Email Compiler - how to Hub Menu Care & support EE Secure Portal Worsh"
+- everyone: refused: "Email Compiler - how to Hub Care & support 🔒 Something went wrong Fai"
 - worship: opens: "Email Compiler - how to Hub Menu Care & support WW Secure Portal Worsh"
-- kids: opens: "Email Compiler - how to Hub Menu Care & support KK Secure Portal Worsh"
-- core: opens: "Email Compiler - how to Hub Menu Care & support CC Secure Portal Worsh"
+- kids: refused: "Email Compiler - how to Hub Care & support 🔒 Something went wrong Fai"
+- core: opens: "Could not check your access This is nearly always the connection. Your"
 - areaAdmin: opens: "Email Compiler - how to Hub Menu Care & support AA Secure Portal Worsh"
-- master: opens: "Email Compiler - how to Hub Menu Care & support MM Secure Portal Worsh"
+- master: refused: "Email Compiler - how to Hub Care & support 🔒 Something went wrong Fai"
 
 ## event-ra.html
 
 **For:** anyone signed in reaching it from an event (with no event chosen it says how to open one)
 
 - signed out: sent to sign in
-- everyone: refused: "Event risk assessment Hub Menu Care & support EE 🔒 This page isn’t fo"
+- everyone: refused: "Event risk assessment Hub Care & support 🔒 Something went wrong Faile"
 - worship: refused: "Event risk assessment Hub Menu Care & support WW 🔒 This page isn’t fo"
 - kids: refused: "Event risk assessment Hub Menu Care & support KK 🔒 This page isn’t fo"
 - core: refused: "Event risk assessment Hub Menu Care & support CC 🔒 This page isn’t fo"
 - areaAdmin: opens: "Event risk assessment Hub Menu Care & support AA Event risk assessment"
-- master: opens: "Event risk assessment Hub Menu Care & support MM Event risk assessment"
+- master: refused: "Event risk assessment Hub Care & support 🔒 Something went wrong Faile"
 
 ## kids-admin.html
 
@@ -130,9 +130,9 @@ Made by tests/stage2/off-menu-pages.mjs on the spare emulators with the locked r
 - everyone: refused: "🔒 Master admins only Martin’s own mix tools: for master admins only. "
 - worship: refused: "🔒 Master admins only Martin’s own mix tools: for master admins only. "
 - kids: refused: "🔒 Master admins only Martin’s own mix tools: for master admins only. "
-- core: refused: "🔒 Master admins only Martin’s own mix tools: for master admins only. "
+- core: opens: "Could not check your access This is nearly always the connection. Your"
 - areaAdmin: refused: "🔒 Master admins only Martin’s own mix tools: for master admins only. "
-- master: opens: "Output Output ↻ 48 kHz out Keeping the laptop awake Open mix… Open the"
+- master: opens: "Could not check your access This is nearly always the connection. Your"
 
 ## music-uploader.html
 
@@ -148,13 +148,13 @@ Made by tests/stage2/off-menu-pages.mjs on the spare emulators with the locked r
 
 ## rota-reports.html
 
-**For:** master admins and the admins of rota teams (the Menu and the access matrix; behaviour change, 4 Nov 2026)
+**For:** leaders of the teams it reports on, and those covering them
 
 - signed out: sent to sign in
 - everyone: opens: "Rota reports Hub Menu Care & support EE Rota reports This page is for "
 - worship: opens: "Rota reports Hub Menu Care & support WW Rota reports This page is for "
 - kids: opens: "Rota reports Hub Menu Care & support KK Rota reports This page is for "
-- core: opens: "Rota reports Hub Menu Care & support CC Rota reports This page is for "
+- core: opens: "Rota reports Hub Menu Care & support CC Rota reports Who serves, how o"
 - areaAdmin: opens: "Rota reports Hub Menu Care & support AA Rota reports Who serves, how o"
 - master: opens: "Rota reports Hub Menu Care & support MM Rota reports Who serves, how o"
 
@@ -199,12 +199,12 @@ Made by tests/stage2/off-menu-pages.mjs on the spare emulators with the locked r
 **For:** everyone on that Sunday's plan email, and any volunteer on a team (the rules: the plan's audience, or volunteer())
 
 - signed out: sent to sign in
-- everyone: opens: "Song Summary Hub Menu Care & support EE Song Summary Friday 13 Novembe"
-- worship: opens: "Song Summary Hub Menu Care & support WW Song Summary Friday 13 Novembe" [shows: plan]
-- kids: opens: "Song Summary Hub Menu Care & support KK Song Summary Friday 13 Novembe" [shows: plan]
-- core: opens: "Song Summary Hub Menu Care & support CC Song Summary Friday 13 Novembe" [shows: plan]
-- areaAdmin: opens: "Song Summary Hub Menu Care & support AA Song Summary Friday 13 Novembe" [shows: plan]
-- master: opens: "Song Summary Hub Menu Care & support MM Song Summary Friday 13 Novembe" [shows: plan]
+- everyone: opens: "Song Summary Hub Menu Care & support EE Song Summary Thursday 12 Novem"
+- worship: opens: "Song Summary Hub Menu Care & support WW Song Summary Thursday 12 Novem" [shows: plan]
+- kids: opens: "Song Summary Hub Menu Care & support KK Song Summary Thursday 12 Novem" [shows: plan]
+- core: opens: "Song Summary Hub Menu Care & support CC Song Summary Thursday 12 Novem" [shows: plan]
+- areaAdmin: opens: "Song Summary Hub Menu Care & support AA Song Summary Thursday 12 Novem" [shows: plan]
+- master: opens: "Song Summary Hub Menu Care & support MM Song Summary Thursday 12 Novem" [shows: plan]
 
 ## sundayplannersonglibrary.html
 

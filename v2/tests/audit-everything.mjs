@@ -401,6 +401,8 @@ const FIXTURES = {
   windowabs: FIX_HEAD + '<div style="position:relative;min-height:600px"><h1>The page</h1><button onclick="this.textContent=\'x\'">Behind one</button><div style="position:absolute;inset:0;background:rgba(20,32,31,.5);display:flex;align-items:center;justify-content:center"><div style="background:#fff;padding:16px"><h2>The window</h2><button onclick="this.textContent=this.textContent===\'Tap\'?\'Done\':\'Tap\'">Tap</button></div></div></div></body></html>',
   /* The same place with a near-clear absolute cover, also judged as a state: not a window, still covered. */
   windowclear: FIX_HEAD + '<div style="position:relative;min-height:600px"><h1>The page</h1><button onclick="this.textContent=\'x\'">Under a faint cover</button><div style="position:absolute;inset:0;background:rgba(0,0,0,.01)"></div></div></body></html>',
+  /* A control that acts only on its third press, and says so (data-presses="3"): pressed three times, it passes. */
+  threepress: FIX_HEAD + '<h1>Three presses</h1><button data-presses="3" onclick="window.n=(window.n||0)+1;if(window.n>=3)this.textContent=\'Opened\'">Secure Portal</button></body></html>',
   /* A bottom bar with an open window over it, the window longer than the screen: its end is not "hidden". Passes. */
   barok: FIX_HEAD + '<h1>A bar under a window</h1><div style="height:1500px">The page</div><div style="position:fixed;left:0;right:0;bottom:0;height:56px;background:#eee;z-index:40">Bottom bar</div><div style="position:fixed;inset:0;z-index:110;background:rgba(0,0,0,.4);overflow:auto;padding:24px"><div style="background:#fff;padding:16px"><h2>The window</h2><p style="height:1400px">A long window</p><button onclick="this.textContent=this.textContent===\'Tap\'?\'Done\':\'Tap\'">Tap</button></div></div></body></html>',
   /* A page that ends under a real bottom bar, nothing over it: still hidden. */
@@ -618,7 +620,7 @@ const SHEET_CLOSE = `(function(){
   best.querySelectorAll('*').forEach(function(x){ if(x.scrollHeight>x.clientHeight+4) x.scrollTop=x.scrollHeight; }); best.scrollTop=best.scrollHeight;
   var close=[].filter.call(best.querySelectorAll('button,a,[role=button],[data-act]'),function(b){
     var w=((b.getAttribute('aria-label')||'')+' '+(b.textContent||'')).trim(); var r=b.getBoundingClientRect();
-    return (/^(\u2715|\u00d7|x|close|done|cancel|back|not now)\\b/i.test(w) || /close/i.test((b.getAttribute('aria-label')||'')+' '+(b.getAttribute('title')||'')) || b.getAttribute('data-act')==='close' || /(^|[ _-])close([ _-]|$)/i.test(typeof b.className==='string'?b.className:'')) && r.width>0 && r.top>=0 && r.bottom<=ih;
+    return (/^(\u2715|\u00d7|x|close|done|cancel|back|not now|skip)\\b/i.test(w) || /close/i.test((b.getAttribute('aria-label')||'')+' '+(b.getAttribute('title')||'')) || b.getAttribute('data-act')==='close' || /(^|[ _-])close([ _-]|$)/i.test(typeof b.className==='string'?b.className:'')) && r.width>0 && r.top>=0 && r.bottom<=ih;
   });
   return JSON.stringify({close:close.length, sig:String(best.id||best.className||best.tagName).slice(0,40)});
 })()`;
@@ -670,6 +672,8 @@ setInterval(() => {
   }
 }, 5000).unref();
 const memLow = () => MEM < 1.5 * 2 ** 30;
+/* AUD_RESTART_EVERY=n (a test of the swap itself): a fresh browser every n presses, memory or not. */
+const RESTART_EVERY = Number(process.env.AUD_RESTART_EVERY || 0);
 
 async function browser(port, tag) {
   const dir = path.join(os.tmpdir(), 'cdp-audit-' + tag + '-' + process.pid);
@@ -778,9 +782,21 @@ async function browser(port, tag) {
     for (let tries = 0; tries < 3; tries++) {
       const n = ++B.restarts;
       let fresh = null;
-      try { fresh = await browser(port + 600 + n % 40, tag + 'r' + n);   /* 9710-9751 from 9110: clear of every emulator port (port + 40 could reach 9189, the spare Storage) */ } catch (e) { fresh = null; }
+      try { fresh = await browser(port + 600 + (n % 40) * 8, tag + 'r' + n);   /* from 9110: 9710 up, eight apart, so the workers (port, port + 1...) never share one - two swapped at once had (6 Nov 2026: every sign-in after failed); clear of every emulator port */ } catch (e) { fresh = null; }
       const alive = fresh && await Promise.race([fresh.ev('1+1'), sleep(15000).then(() => null)]) === 2;
-      if (alive) { Object.assign(B, fresh); B.restarts = n; B.dead = false; return; }
+      /* THE ONE OBJECT THE AUDIT HOLDS (6 Nov 2026: every sign-in after a
+         worker's second fresh browser came back null). The fresh browser's
+         own restart was copied over this one, so the next restart updated
+         the fresh browser's object, not this, and the audit kept talking to
+         a browser already closed. Its restart is never copied; and the flags
+         its message handler reads and writes on its own object (tapping,
+         ctx, mainFrame, dead) are this object's, so they cannot drift. */
+      if (alive) {
+        const { restart: _r, restarts: _n, ...parts } = fresh;
+        Object.assign(B, parts); B.restarts = n; B.dead = false;
+        for (const k of ['tapping', 'ctx', 'mainFrame', 'dead']) Object.defineProperty(fresh, k, { get: () => B[k], set: (v) => { B[k] = v; }, configurable: true });
+        return;
+      }
       if (fresh) fresh.close();
       console.log('          (a fresh browser did not answer; another)');
       await sleep(1500);
@@ -870,7 +886,7 @@ async function tapAll(B, url, reopen, ctx) {
        keeps what it leaks. Every 10 presses: under 1.5 GB free, a fresh
        browser, signed in again, the screen opened again; still under 1 GB,
        the run stops, its finished screens saved, for --resume. */
-    if (guard && !SELF && ctx.base && ctx.role && memLow()) {   /* before every press (MEM, read every 5 s) */
+    if (guard && !SELF && ctx.base && ctx.role && (memLow() || (RESTART_EVERY && guard % RESTART_EVERY === 0))) {   /* before every press (MEM, read every 5 s) */
       console.log('          (only ' + (os.freemem() / 2 ** 30).toFixed(1) + ' GB free: a fresh browser)');
       await B.restart(); await B.size(...ALL_SIZES[ctx.size]); await signIn(B, ctx.base, ctx.role); await reopen();
       if (os.freemem() < 2 ** 30) { console.log('STOPPED: under 1 GB free even with a fresh browser. Finished screens are saved; carry on with --resume.'); process.exit(3); }
@@ -970,8 +986,15 @@ async function tapAll(B, url, reopen, ctx) {
     /* Input events land in the visual viewport: a page a little too wide
        leaves it shifted, and the tap would fall on a neighbour. */
     const tx = pt.x - (pt.vx || 0), ty = pt.y - (pt.vy || 0);
-    await B.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: tx, y: ty, button: 'left', clickCount: 1 });
-    await B.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: tx, y: ty, button: 'left', clickCount: 1 });
+    /* A control a person presses several times on purpose (data-presses="3": the
+       portals' hidden edit gesture) is pressed that many times, then judged
+       (6 Nov 2026: one press of the Worship & AV dashboard's read as dead). */
+    const presses = Math.min(5, Math.max(1, Number(await B.ev('(function(){var el=' + sel + ';return el&&el.getAttribute("data-presses")||1})()')) || 1));
+    for (let pr = 0; pr < presses; pr++) {
+      await B.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: tx, y: ty, button: 'left', clickCount: 1 });
+      await B.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: tx, y: ty, button: 'left', clickCount: 1 });
+      if (pr < presses - 1) await sleep(120);
+    }
     const t0 = Date.now();
     await sleep(550);
     let after = JSON.parse((await B.ev('JSON.stringify({mut:window.__aud.mut,acts:window.__aud.acts.slice(' + before.acts + '),sx:scrollX,sy:scrollY,f:(document.activeElement&&/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))?document.activeElement.outerHTML.slice(0,80):"",u:location.href})')) || 'null');
@@ -1535,7 +1558,7 @@ async function selfTest(base) {
   const liveOk = liveWordsCheck();
   const B = await browser(PORT0, 'self');
   const expect = { clean: null, console: 'console', overflow: 'overflow', bars: 'bars', chrome: 'chrome', dead: 'dead', covered: 'covered', sheet: 'sheet', hidden: 'hidden', insideapp: 'chrome', small: 'small',
-    foldok: null, foldcovered: 'covered', windowok: null, windowcovered: 'covered', windowabs: null, windowclear: 'covered', barok: null, hiddenbottom: 'hidden' };
+    foldok: null, foldcovered: 'covered', windowok: null, windowcovered: 'covered', windowabs: null, windowclear: 'covered', threepress: null, barok: null, hiddenbottom: 'hidden' };
   let bad = 0;
   try {
     for (const [name, rule] of Object.entries(expect)) {
