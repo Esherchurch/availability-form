@@ -2,12 +2,12 @@
 <html lang="en" data-own-title>
 <head>
 <script src="egbc-appmode.js?v=202611031900"></script>
-<script src="egbc-shell.js?v=202611031800" data-title="Worship Training"></script>
+<script src="egbc-shell.js?v=202611071400" data-title="Worship Training"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="egbc-auth.js?v=202611061100"></script>
+<script src="egbc-auth.js?v=202611071400"></script>
 <script src="egbc-church.js?v=202611031810"></script>
 <script src="egbc-kbupload.js?v=202611040400"></script>
 <script src="egbc-guard.js?v=202611030600" data-job="worship" data-role="member"></script>
@@ -74,7 +74,7 @@
           <span class="px-5 py-2 rounded-lg font-semibold text-[12px] bg-[#3d6263] text-white">Training</span>
           <!-- The practice copies were taken out (Martin, 7 Nov 2026): the "?" help on each real page
                replaces them. "Using the planners" goes to the list of those pages, below. -->
-          <a href="#using-the-planners" class="px-5 py-2 rounded-lg font-semibold text-[12px] border border-[#d1d5db] hover:bg-[#f0f6f6] transition-all">Using the planners</a>
+          <a href="#using-the-planners" id="using-nav" hidden class="px-5 py-2 rounded-lg font-semibold text-[12px] border border-[#d1d5db] hover:bg-[#f0f6f6] transition-all">Using the planners</a>
         </div>
       </nav>
       <button onclick="toggleAdmin()" class="bg-white border border-[#d1dfdf] px-6 py-2.5 rounded-lg font-semibold text-[12px] shadow-sm hover:bg-[#3d6263] hover:text-white transition-all"><i data-lucide="settings" style="width:15px;height:15px;vertical-align:-2px"></i> Admin</button>
@@ -83,14 +83,36 @@
 
   <!-- Where the practice copies were: the real pages, each with its own "?" help (Martin, 7 Nov 2026).
        Only pages that have a help file (help/<page>.md) are named here. -->
-  <div id="using-the-planners" class="bg-white rounded-[14px] border border-[#d1dfdf] shadow-sm p-5 mb-6">
+  <div id="using-the-planners" hidden class="bg-white rounded-[14px] border border-[#d1dfdf] shadow-sm p-5 mb-6">
     <div class="text-[12px] font-semibold tracking-[0.2em] opacity-50 mb-2">Using the planners</div>
     <ul class="text-sm leading-7">
-      <li>Open the <a href="SundayServicePlanner.html" class="font-semibold underline">Sunday planner</a> and press <b>?</b> for help.</li>
-      <li>Open the <a href="Planner.html" class="font-semibold underline">rota planner</a> and press <b>?</b> for help.</li>
-      <li>Open <a href="batchupload.html" class="font-semibold underline">Upload songs</a> and press <b>?</b> for help.</li>
+      <li data-page="SundayServicePlanner.html" hidden>Open the <a href="SundayServicePlanner.html" class="font-semibold underline">Sunday planner</a> and press <b>?</b> for help.</li>
+      <li data-page="Planner.html" hidden>Open the <a href="Planner.html" class="font-semibold underline">rota planner</a> and press <b>?</b> for help.</li>
+      <li data-page="batchupload.html" hidden>Open <a href="batchupload.html" class="font-semibold underline">Upload songs</a> and press <b>?</b> for help.</li>
     </ul>
   </div>
+  <script>
+  /* EACH ONLY TO THOSE ITS PAGE LETS IN (Martin: nobody sees a link that ends on "This page isn't for you").
+     The planners and Upload songs are for the team's leaders; a team member was refused all three (the
+     links check, 7 Nov 2026). Each line shows when the Menu offers its page to this person; with none,
+     neither the card nor its link in the header shows. Asked again once the team jobs are in. */
+  (function () {
+    function apply() {
+      var A = window.EGBCAuth, M = window.EGBCMenu;
+      if (!(A && M && M.forPerson && A.profile && A.profile())) return false;
+      var offered = [];
+      (function walk(n) { (n || []).forEach(function (x) { if (x.url) offered.push(String(x.url).split("?")[0].split("#")[0]); walk(x.children); }); })(M.forPerson(M.who()));
+      var any = false;
+      document.querySelectorAll("#using-the-planners li[data-page]").forEach(function (li) { var on = offered.indexOf(li.dataset.page) !== -1; li.hidden = !on; any = any || on; });
+      document.getElementById("using-the-planners").hidden = !any;
+      document.getElementById("using-nav").hidden = !any;
+      return true;
+    }
+    var n = 0, t = setInterval(function () {
+      if (apply() || ++n > 120) { clearInterval(t); if (window.EGBCAuth && EGBCAuth.loadPerms) EGBCAuth.loadPerms().then(apply, apply); }
+    }, 250);
+  })();
+  </script>
 
   <div class="bg-white rounded-[14px] border border-[#d1dfdf] shadow-lg p-6 mb-8">
     <div class="flex gap-3 items-center">

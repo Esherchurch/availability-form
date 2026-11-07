@@ -4,10 +4,10 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="egbc-auth.js?v=202611061100"></script>
+<script src="egbc-auth.js?v=202611071400"></script>
 <!-- The shell after egbc-auth.js, as every working page has it (AVteamlandingpage): loaded first, every
      kind of person sat on "Could not check your access" (Stage 2, before 3 Nov 2026). -->
-<script src="egbc-shell.js?v=202611031800" data-title="Worship & AV Hub"></script>
+<script src="egbc-shell.js?v=202611071400" data-title="Worship & AV Hub"></script>
 <script src="egbc-guard.js?v=202611030600" data-job="worship" data-role="member"></script>
     <meta charset="UTF-8">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -250,7 +250,7 @@
     <header>
         <img id="dept-logo" src="https://firebasestorage.googleapis.com/v0/b/egbc-worship-planner.firebasestorage.app/o/1774936285076.png?alt=media&token=ea8cd929-6f35-4a23-9ffa-e78ac46fa300">
         <div style="text-align: right">
-            <div id="secret-trigger" data-presses="3" onclick="handleSecret()" style="font-size: 11px; color: #2a4e4e; text-transform: uppercase; cursor: pointer; min-height: 44px; display: flex; align-items: center; justify-content: flex-end;">Secure Portal</div><!-- three presses open editing for the core team (data-presses tells the audit); 44px to tap: it was 14px (the first-view audit, 6 Nov 2026) -->
+            <div id="secret-trigger" data-presses="3" onclick="handleSecret()" style="font-size: 11px; color: #2a4e4e; text-transform: uppercase; cursor: pointer; min-height: 44px; display: none; align-items: center; justify-content: flex-end;">Secure Portal</div><!-- three presses open editing for the core team (data-presses tells the audit); 44px to tap: it was 14px (the first-view audit, 6 Nov 2026). Shown only to the people it works for, the core level (Martin, 7 Nov 2026): showSecretFor() below. -->
             <div style="font-size: 12px; color: var(--accent-teal); font-weight: 700;">Worship &amp; AV Hub</div>
             <div id="sync-status">Connecting&hellip;</div>
         </div>
@@ -1061,7 +1061,11 @@ async function resetMenu() {
 /* Only once the guard has let this person in: for anyone else the page says
    it isn't for them, and reading underneath only filled the console with
    refusals (the going-live audit, 2 Nov 2026). */
-EGBCGuard.allowed.then(function () { if (!urlParams.get('role') && coreBySignIn()) userRole = 'core'; return loadAll(); });
+/* SECURE PORTAL ONLY FOR THOSE IT WORKS FOR (Martin, 7 Nov 2026): the core level - the church's own core
+   teams (isCoreTeam, from its teams, no fixed name), master admins and admins, or the address saying
+   role=core. Everyone else, for whom its three presses did nothing, does not see it. */
+function showSecretFor() { const t = document.getElementById('secret-trigger'); if (t) t.style.display = userRole === 'core' ? 'flex' : 'none'; }
+EGBCGuard.allowed.then(function () { if (!urlParams.get('role') && coreBySignIn()) userRole = 'core'; showSecretFor(); return loadAll(); });
 initSidebar();
 </script>
 </body>

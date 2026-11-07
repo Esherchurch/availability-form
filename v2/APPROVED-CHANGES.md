@@ -29,3 +29,5 @@
   - `CoreTeamApp.html :: fn:toggleMailTeam :: renamed "Core"`
   - `CoreTeamApp.html :: fn:toggleMailTeam :: renamed "Choir"`
   - `CoreTeamApp.html :: fn:toggleMailTeam :: renamed "Everyone"`
+- Secure Portal on the Worship & AV dashboard shows only to the people it works for, the core level: the church's own core teams (from its teams, not a fixed name), master admins and admins. Everyone else, for whom it did nothing, does not see it. Martin, 7 Nov 2026.
+- The Sunday check-in desk shows in the Menu, and in the app's Kids section, to each group's leaders and that morning's Session Leader as well: exactly the people kids-checkin lets in. Martin, 7 Nov 2026.

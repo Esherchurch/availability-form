@@ -737,7 +737,7 @@
   /* The children's register and check-in (the access matrix, proposal 3):
      a kids lead is an admin of a team a site's kids settings name (as the
      pages decide), and a group leader leads a kidsGroups group. */
-  var kidsGroupLeader = false, kidsTeams = [];
+  var kidsGroupLeader = false, kidsTeams = [], kidsSessionLeader = false;
 
   /* THE PEOPLE WHO LOOK AFTER SERMONS AND WATCH (sermonShow/access, the
      events window's; the rules' sermonAdmin()). Read once with the profile
@@ -978,7 +978,14 @@
         var t = {}; s.forEach(function (d) { ((d.data() || {}).teams || []).forEach(function (x) { t[x] = 1; }); });
         return Object.keys(t);
       }).catch(function () { return []; })
-    ]).then(function (r) { groupLeader = r[0] || r[1] || r[2]; dataLead = r[3]; kidsGroupLeader = r[0]; kidsTeams = r[4]; });
+      /* TODAY'S SESSION LEADER (Martin, 7 Nov 2026: the check-in desk shows in the Menu to exactly the
+         people kids-checkin lets in). Copied exactly from kids-checkin.html begin() (ROTASL): the rota
+         event on today's date (EGBCKids.morningDay: the UTC date) whose "Session Leader" is one person,
+         this one. As there, it counts once the church has chosen its children's teams. */
+      , db.collection('events').where('date', '==', new Date().toISOString().slice(0, 10)).get().then(function (s) {
+        return s.docs.some(function (d) { var a = ((d.data() || {}).assignments || {})['Session Leader']; return !!a && !Array.isArray(a) && a.id === memberId; });
+      }).catch(function () { return false; })
+    ]).then(function (r) { groupLeader = r[0] || r[1] || r[2]; dataLead = r[3]; kidsGroupLeader = r[0]; kidsTeams = r[4]; kidsSessionLeader = !!r[5] && r[4].length > 0; });
   }
 
   function loadBuildingLead(memberId) {
@@ -2345,6 +2352,9 @@
       return teams.some(function (t) { return EGBCAuth.isAdminOf(t); })
         || (!(EGBCAuth.viewingAs && EGBCAuth.viewingAs()) && kidsGroupLeader);
     },
+    /* Today's Session Leader on the rota (never previewed into, as a group leader): with the kids
+       leads, the safeguarding leads and master admins, the people the check-in desk is for. */
+    isKidsSessionLeader: function () { return !(EGBCAuth.viewingAs && EGBCAuth.viewingAs()) && kidsSessionLeader; },
     isDataLead: function () { return !(EGBCAuth.viewingAs && EGBCAuth.viewingAs()) && dataLead; },
     isBuildingLead: function () { return !(EGBCAuth.viewingAs && EGBCAuth.viewingAs()) && buildingLeadOf.length > 0; },
     mayBookRoom: function () {

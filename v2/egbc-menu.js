@@ -347,7 +347,9 @@
              proposal 3): the pages show a leader only their own group. */
           { title: "Children's register", url: 'kids-admin.html', icon: 'clipboard-list', feature: 'kids', kidsLead: true,
             description: 'The children, their groups, and who may collect them' },
-          { title: 'Sunday check-in', url: 'kids-checkin.html', icon: 'scan-line', feature: 'kids', kidsLead: true,
+          /* kidsDesk (Martin, 7 Nov 2026): the people kids-checkin lets in - the kids leads and each
+             group's leaders, the safeguarding leads, master admins, and that morning's Session Leader. */
+          { title: 'Sunday check-in', url: 'kids-checkin.html', icon: 'scan-line', feature: 'kids', kidsDesk: true,
             description: 'The desk on a Sunday: check children in and out, labels and the fire roll-call' }
         ] },
       /* The Worship Core Team's own charter, not every core team's (H-15). */
@@ -432,6 +434,7 @@
     if (node.pastoralVisits && !who.isPastoralVisitor && !who.isPastoralLead && !who.isMaster) return false;
     if (node.dataLeadOnly && !who.isDataLead && !who.isMaster) return false;
     if (node.kidsLead && !who.isMaster && !who.isKidsLead && !who.isSgLead) return false;
+    if (node.kidsDesk && !who.isMaster && !who.isKidsLead && !who.isSgLead && !who.isKidsSession) return false;
     /* Safeguarding: the lead and deputy (careRouting/status, kept by the
        server). Lead and deputy only, and a master admin (who names the lead) - not
        any team admin (Martin's rule; the reviewing window, 22 Oct 2026). */
@@ -454,7 +457,7 @@
        the children's team, and a Menu that offers everybody everything is
        the wall this replaced. The page turns away anyone who gets there
        another way. */
-    if (node.team && !onTeam(node.team, who) && !(node.kidsLeads && (who.isMaster || who.isKidsLead || who.isSgLead))) return false;
+    if (node.team && !onTeam(node.team, who) && !(node.kidsLeads && (who.isMaster || who.isKidsLead || who.isSgLead || who.isKidsSession))) return false;
     if (node.master && !who.isMaster) return false;
     /* A leader of that team, as the page's own guard decides it. */
     /* One team or a list (a leader of any of them), exactly as the page's
@@ -522,7 +525,7 @@
       /* A TEAM heading is different: not on the team means nothing under it
          either. Otherwise Worship & AV's ungated pages kept the heading on
          screen for Kids Church (Martin, 8 Oct 2026). */
-      if (node.team && !onTeam(node.team, who) && !(node.kidsLeads && (who.isMaster || who.isKidsLead || who.isSgLead))) continue;
+      if (node.team && !onTeam(node.team, who) && !(node.kidsLeads && (who.isMaster || who.isKidsLead || who.isSgLead || who.isKidsSession))) continue;
       const kids = node.children ? prune(node.children, who) : null;
       const hasKids = !!(kids && kids.length);
       const self = visible(node, who);
@@ -1079,6 +1082,8 @@
         isDataLead: !!(A && A.isDataLead && A.isDataLead()),
         seesAllMeetings: !!(A && A.seesAllMeetings && A.seesAllMeetings()),
         isKidsLead: !!(A && A.isKidsLead && A.isKidsLead()),
+        /* today's Session Leader on the rota: the check-in desk (kidsDesk) */
+        isKidsSession: !!(A && A.isKidsSessionLeader && A.isKidsSessionLeader()),
         /* sermonShow/access, read with the profile by egbc-auth.js. */
         isSermons: !previewing && !!(A && A.isSermonsAdmin && A.isSermonsAdmin()),
         isEventTeam: !!(A && A.isOnEventTeam && A.isOnEventTeam()),
