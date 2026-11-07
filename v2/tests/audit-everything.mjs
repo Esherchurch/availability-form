@@ -57,6 +57,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { NO_MAIL_OUT_JS, leavesBrowser } from './no-mail-out.mjs';
 
 const V2 = path.resolve('.');
 /* No run without test stand-ins for every secret: the functions emulator
@@ -413,6 +414,16 @@ const FIXTURES = {
   /* A press opens an absolute window with a dim backdrop (the Worship & AV menu editor) and leaves it
      open: the page is opened again before the next press, so the button after it is not "covered". Passes. */
   absleft: FIX_HEAD + '<div style="position:relative;min-height:700px"><h1>The page</h1><button onclick="document.getElementById(\'w\').style.display=\'flex\'">Open the editor</button><button onclick="this.textContent=this.textContent===\'Tap\'?\'Done\':\'Tap\'">Tap</button><div id="w" style="display:none;position:absolute;inset:0;background:rgba(20,32,31,.5);align-items:center;justify-content:center"><div style="background:#fff;padding:16px"><h2>The editor</h2><button onclick="document.getElementById(\'w\').style.display=\'none\'">Cancel</button></div></div></div></body></html>',
+  /* Every way a page sends someone to another app (7 Nov 2026, Outlook opened by a run): each is stopped
+     in the page, written down as "opened a mail link to", and none reaches the browser. Passes. */
+  mailout: FIX_HEAD + '<h1>Mail links</h1><a href="mailto:link@example.invalid">Email link</a> '
+    + '<button onclick="location.href=\'mailto:href@example.invalid\'">Email by href</button> '
+    + '<button onclick="location.assign(\'tel:+440000000000\')">Call</button> '
+    + '<button onclick="location.replace(\'sms:+440000000000\')">Text</button> '
+    + '<button onclick="window.open(\'mailto:open@example.invalid\')">Email in a new window</button> '
+    + '<button onclick="var a=document.createElement(\'a\');a.href=\'webcal:example.invalid/cal.ics\';document.body.appendChild(a);a.click();a.remove()">Add to calendar</button> '
+    + '<form action="mailto:form@example.invalid" method="post" style="display:inline"><button>Email by form</button></form>'
+    + '</body></html>',
   hiddenbottom: FIX_HEAD + '<h1>Ends under the bar</h1><div style="height:1200px"></div><p>The end of the page</p><div style="position:fixed;left:0;right:0;bottom:0;height:80px;background:#eee">Bottom bar</div></body></html>'
 };
 
@@ -759,10 +770,16 @@ async function browser(port, tag) {
       const got = info && info.result && info.result.value ? JSON.parse(info.result.value) : { accept: '', keys: [] };
       const given = await send('DOM.setFileInputFiles', { files: [madeUpFile(got.accept)], backendNodeId: m.params.backendNodeId });
       if (B.ctx && !(given && given.error) && got.keys.length) REACHED.push({ page: B.ctx.page, role: B.ctx.role, size: B.ctx.size, screen: B.ctx.screen, keys: got.keys, how: 'given a made-up file (from the button that opens it)' });
+    } else if (m.method === 'Page.frameRequestedNavigation' && leavesBrowser(m.params.url)) {
+      /* the tripwire: one that got past the stop in the page reached the browser */
+      (B.escaped = B.escaped || []).push(m.params.url); console.log('  NO-MAIL-OUT: a navigation to ' + String(m.params.url).slice(0, 120) + ' reached the browser (' + m.params.reason + ')');
     } else if (m.method === 'Page.javascriptDialogOpening') { B.acts.push('dialog'); send('Page.handleJavaScriptDialog', { accept: m.params.type === 'beforeunload' }); }
   };
   await send('Runtime.enable'); await send('Page.enable');
   await send('Page.addScriptToEvaluateOnNewDocument', { source: INSTRUMENT });
+  /* No mail link leaves the browser for another app (7 Nov 2026: the run opened Martin's Outlook):
+     mailto:, tel:, sms: and the like are stopped in every frame and written down (no-mail-out.mjs). */
+  await send('Page.addScriptToEvaluateOnNewDocument', { source: NO_MAIL_OUT_JS });
   await send('Page.setInterceptFileChooserDialog', { enabled: true });
   await send('Browser.setDownloadBehavior', { behavior: 'deny' }).catch(() => {});
   await send('Target.setDiscoverTargets', { discover: true });
@@ -928,7 +945,9 @@ async function tapAll(B, url, reopen, ctx) {
     /* mailto:, tel:, webcal: and the like open another app: they work by
        definition, and tapping one in a headless browser (webcal: did it)
        stops every later tap reaching the page. */
-    if (next.tel) { notUsed(next, 'opens another app (mail, phone, calendar)'); continue; }
+    /* Its address says what it does; written down as the stopped presses are (no-mail-out.mjs). */
+    /* (A link is known by its page; one to another app has none, so it is known by its address.) */
+    if (next.tel) { used(Object.assign({}, next, { keys: next.keys && next.keys.length ? next.keys : ['href:' + next.href.slice(0, 120)] }), 'opened a mail link to ' + next.href.slice(0, 200) + ' (its address; not pressed)'); continue; }
     if (next.chosen) { used(next, 'already chosen'); continue; }      /* the choice already made: tapping it rightly changes nothing */
     if (next.needsSel) { notUsed(next, 'acts on selected text'); continue; }    /* Bold, Italic...: they act on selected text, and there is none */
     /* A PLAIN LINK (--every, 3 Nov 2026): all it does is open its page, and
@@ -1062,7 +1081,13 @@ async function tapAll(B, url, reopen, ctx) {
     }
     /* Its page does not scroll at this size, so a "to the top" has nothing to
        do: listed as not reached, with that reason, rather than called dead. */
-    if (noScroll) { notUsed(next, 'back to the top, on a page that does not scroll at this size'); }
+    /* A mail, phone or calendar link it opened, stopped in the page (no-mail-out.mjs): what it does,
+       and nothing left the browser (7 Nov 2026). */
+    const mailed = JSON.parse((await B.ev('JSON.stringify((window.__mailOut||[]).splice(0))')) || '[]');
+    const escaped = (B.escaped || []).splice(0);
+    if (escaped.length) why.push('mail-out: "' + (next.words || 'a control') + '" got ' + escaped[0] + ' past the stop to the browser (no-mail-out.mjs needs another way covered)');
+    if (mailed.length) { used(next, 'opened a mail link to ' + mailed.map((x) => x.to).join(', ').slice(0, 200)); }
+    else if (noScroll) { notUsed(next, 'back to the top, on a page that does not scroll at this size'); }
     else if (!did && !didScrolled) why.push('dead: "' + (next.words || next.href || 'a control') + '" does nothing');
     else used(next, didScrolled ? 'pressed, scrolled down' : 'pressed');
     /* A sheet or pop-up came up: it must have a close that can be seen,
@@ -1588,7 +1613,7 @@ async function selfTest(base) {
   const liveOk = liveWordsCheck();
   const B = await browser(PORT0, 'self');
   const expect = { clean: null, console: 'console', overflow: 'overflow', bars: 'bars', chrome: 'chrome', dead: 'dead', covered: 'covered', sheet: 'sheet', hidden: 'hidden', insideapp: 'chrome', small: 'small',
-    foldok: null, foldcovered: 'covered', windowok: null, windowcovered: 'covered', windowabs: null, windowclear: 'covered', threepress: null, barok: null, hiddenbottom: 'hidden', scopenew: null, absleft: null };
+    foldok: null, foldcovered: 'covered', windowok: null, windowcovered: 'covered', windowabs: null, windowclear: 'covered', threepress: null, barok: null, hiddenbottom: 'hidden', scopenew: null, absleft: null, mailout: null };
   let bad = 0;
   try {
     for (const [name, rule] of Object.entries(expect)) {
@@ -1603,6 +1628,19 @@ async function selfTest(base) {
       if (!good) {
         REACHED.filter((x) => x.screen === name).forEach((x) => console.log('          pressed: ' + JSON.stringify(x.keys).slice(0, 80) + ' (' + x.how + ')'));
         SKIPPED_KEYS.filter((x) => x.screen === name).forEach((x) => console.log('          set aside: ' + (x.words || JSON.stringify(x.keys).slice(0, 60)) + ' - ' + x.why));
+      }
+    }
+    /* The mail-link page: every way out pressed, each written down as "opened a mail link to", none
+       reaching the browser (a "mail-out" fails the screen above, and the page passes only without one). */
+    {
+      const got = REACHED.filter((x) => x.screen === 'mailout' && /^opened a mail link to /.test(x.how)).map((x) => x.how.slice(22));
+      const want = ['link@', 'href@', 'tel:', 'sms:', 'open@', 'webcal:', 'form@'];
+      const all = want.every((w) => got.some((g) => g.includes(w)));
+      if (!all) bad++;
+      console.log('  ' + (all ? 'PASS' : 'FAIL') + '  every way to another app is stopped and written down as "opened a mail link to" (' + got.length + ' of ' + want.length + ')' + (all ? '' : '   got: ' + JSON.stringify(got)));
+      if (!all) {
+        REACHED.filter((x) => x.screen === 'mailout').forEach((x) => console.log('          pressed: ' + JSON.stringify(x.keys).slice(0, 80) + ' (' + x.how + ')'));
+        SKIPPED_KEYS.filter((x) => x.screen === 'mailout').forEach((x) => console.log('          set aside: ' + (x.words || JSON.stringify(x.keys).slice(0, 60)) + ' - ' + x.why));
       }
     }
     /* A state whose window never opens fails its screen. Before 6 Nov 2026 a wait that ran out

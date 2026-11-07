@@ -24,6 +24,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import puppeteer from 'puppeteer-core';
+import { guardPage } from '../no-mail-out.mjs';
 import { DEFAULT_CORES, coversFor, sharesFor, jobsFor } from '../../functions/core-teams.js';
 import { missingStandIns } from '../../tools/secret-stand-ins.mjs';
 
@@ -139,12 +140,18 @@ export function serve(port) {
 
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 /** @returns {Promise<import('puppeteer-core').Browser>} */
-export function browser() {
+export async function browser() {
   /* The live project's hosts lead nowhere, so a page whose emulator hookup
      fails cannot reach live data; it fails loudly instead. */
   const live = ['identitytoolkit.googleapis.com', 'securetoken.googleapis.com', 'firestore.googleapis.com', 'firebasestorage.googleapis.com', '*.firebaseio.com', '*.cloudfunctions.net', '*.run.app'];
-  return puppeteer.launch({ executablePath: CHROME, headless: true, userDataDir: path.join(os.tmpdir(), 'stage2-' + process.pid + '-' + Date.now()),
+  const b = await puppeteer.launch({ executablePath: CHROME, headless: true, userDataDir: path.join(os.tmpdir(), 'stage2-' + process.pid + '-' + Date.now()),
     args: ['--no-first-run', '--host-resolver-rules=' + live.map((h) => 'MAP ' + h + ' ~NOTFOUND').join(', ')] });
+  /* No mail link leaves it (7 Nov 2026: a run opened Martin's Outlook): every page it makes, and
+     any a page opens, has mailto:, tel:, sms: and the like stopped and written down (no-mail-out.mjs). */
+  const newPage = b.newPage.bind(b);
+  b.newPage = async (...a) => guardPage(await newPage(...a));
+  b.on('targetcreated', (t) => { if (t.type() === 'page' && t.opener()) t.page().then((p) => p && guardPage(p)).catch(() => {}); });
+  return b;
 }
 
 /**
