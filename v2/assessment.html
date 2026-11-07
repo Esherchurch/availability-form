@@ -464,6 +464,13 @@
       /* who may open it: the office, the trustees, master admins, and each building's leads (their own buildings) */
       var mid = ME.memberId || '', mine = r[3].filter(function (x) { return mid && [x.hsLead, x.hsDeputy, x.fireLead].indexOf(mid) >= 0; }).map(function (x) { return x.id; });
       if (!OFFICE && !TRUSTEE) SITES = SITES.filter(function (s) { return mine.indexOf(s.id) >= 0; });
+      /* The office, the trustees and master admins see every building; with none set up yet that is
+         not a refusal (it read "This is for the office...", to the office: the links check, 7 Nov
+         2026). Said as it is, with where buildings are added, as risk.html does. */
+      if (!SITES.length && (OFFICE || TRUSTEE)) {
+        $('wrap').innerHTML = '<h1>Building risk assessment</h1><div class="card" id="noSites">No buildings are set up yet. Add them on <a href="buildings.html">Your buildings</a>; each one then has its assessment here.</div>';
+        return null;
+      }
       if (!SITES.length) {
         E.refused();
         $('wrap').innerHTML = '<h1>Building risk assessment</h1><div class="card"><p id="whoFor">This is for the office (' + esc(jobName('office') || 'nobody yet') + '), the trustees (' + esc(jobName('trustees') || 'nobody yet') + '), each building’s health and safety and fire safety leads, and master admins.</p></div>';

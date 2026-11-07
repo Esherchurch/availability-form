@@ -44,10 +44,23 @@ async function landing(page, url) {
   await page.goto(base + '/' + url, { waitUntil: 'domcontentloaded' }).catch(() => {});
   await page.waitForFunction(() => document.body && (document.body.getAttribute('data-egbc-blocked') || (window.EGBCAuth && EGBCAuth.profile && EGBCAuth.profile()) || /isn.t for you|This page is for /.test(document.body.innerText)), { timeout: 15000 }).catch(() => {});
   await sleep(800);
-  return page.evaluate((re) => {
-    const t = (document.body && document.body.innerText) || '';
-    return { card: !!(document.body && document.body.getAttribute('data-egbc-blocked')) || new RegExp(re, 'i').test(t.slice(0, 2500)), text: t.replace(/\s+/g, ' ').trim().slice(0, 140) };
+  /* A refusal card is the page blocked, or a card that starts with its lock (egbc-auth.js's
+     refusedCard and E.notForYou). Words alone are not: "worried about someone" and the booking
+     pages say "is for" and "only for" in their own text, and were taken for cards (7 Nov 2026). */
+  const look = () => page.evaluate((re) => {
+    const t = (document.body && document.body.innerText) || '', s = t.replace(/\s+/g, ' ').trim();
+    const lock = /^🔒/.test(s) || [...document.querySelectorAll('h1,h2,h3,.card,[role=alert]')].some((h) => /^🔒/.test((h.innerText || '').trim()) && new RegExp(re, 'i').test(h.parentElement ? h.parentElement.innerText : ''));
+    return { card: !!(document.body && document.body.getAttribute('data-egbc-blocked')) || lock, offline: /client is offline/i.test(s), text: s.slice(0, 140) };
   }, CARD.source);
+  let r = await look();
+  /* The emulator dropping a page's connection (A-090: "client is offline") is not a refusal: once more. */
+  if (r.offline) {
+    await sleep(1500);
+    await page.goto(base + '/' + url, { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await sleep(2500);
+    r = await look();
+  }
+  return r;
 }
 
 /** The visible links on the page now: [{ to, words }] to v2 pages. */

@@ -2010,6 +2010,23 @@ A.screen('worship', 'team', function () {
 
 A.screen('kids', 'rota', function () { return teamRota('Kids Church', 'kids'); });
 
+/* THE MENU'S ANSWER FOR ONE PAGE (7 Nov 2026, Martin: nobody may see a link that ends on "This page
+   isn't for you"). The register and the check-in desk are for the children's team leads, the
+   safeguarding leads and the master admin; the Menu offers them to those (kidsLead), and the app
+   offered them to every Kids Church member, who were refused. The app now asks the Menu, as it does
+   for the building pages (egbc-app.js buildingPages). With no Menu loaded it offers them as before. */
+function menuOffers(url) {
+  if (!window.EGBCMenu || !EGBCMenu.forPerson || !EGBCMenu.who) return true;
+  var found = false;
+  (function walk(nodes) {
+    (nodes || []).forEach(function (n) {
+      if (n.url && String(n.url).split('?')[0].split('#')[0] === url) found = true;
+      if (n.children) walk(n.children);
+    });
+  })(EGBCMenu.forPerson(EGBCMenu.who()));
+  return found;
+}
+
 A.screen('kids', 'team', function () {
   return teamTeam('kids',
     row('shield-check', 'Safeguarding', 'Report a concern, the policy, your training', null, 'open:safeguarding.html') +
@@ -2018,8 +2035,8 @@ A.screen('kids', 'team', function () {
        Church did not, so the people the board is FOR had no way to it
        from the app (Martin, 10 Oct 2026). */
     row('sticky-note', 'Pin boards', 'Ideas from the team', null, 'sheet:board-kids') +
-    row('clipboard-list', "Children's register", 'Who came, by group and term', null, 'open:kids-admin.html') +
-    row('scan-line', 'Sunday check-in', 'The desk on a Sunday morning', null, 'open:kids-checkin.html') +
+    (menuOffers('kids-admin.html') ? row('clipboard-list', "Children's register", 'Who came, by group and term', null, 'open:kids-admin.html') : '') +
+    (menuOffers('kids-checkin.html') ? row('scan-line', 'Sunday check-in', 'The desk on a Sunday morning', null, 'open:kids-checkin.html') : '') +
     row('folder-open', 'Lesson plans and resources', "This term's material", null, 'open:resources.html') +
     planRows());
 });
