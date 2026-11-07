@@ -94,7 +94,7 @@
         var day = function (d) { try { return new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }); } catch (e) { return d; } };
         document.title = 'Present';
         document.getElementById('app').innerHTML = '<div style="max-width:640px;margin:0 auto;padding:24px 16px">' +
-          '<h1 style="font:800 26px Inter,sans-serif;color:#fff;margin:0 0 4px">Present</h1><p style="color:#94a3b8;margin:0 0 16px">Your groups’ sessions. Leaders present; everyone else follows on their own phone. <a href="present-guide.html" style="color:#a7d4d4">How to present</a></p>' +
+          '<h1 style="font:800 26px Inter,sans-serif;color:#fff;margin:0 0 4px">Present</h1><p style="color:#94a3b8;margin:0 0 16px">Your groups’ sessions. Present from your phone onto the TV, or follow on your own phone. <a href="present-guide.html" style="color:#a7d4d4">How to present</a></p>' +
           (all.length ? all.map(function (s) { var g = groups[s.groupId] || {};
             return '<a href="present.html?s=' + encodeURIComponent(s.id) + '" style="display:flex;align-items:center;gap:12px;min-height:56px;padding:12px 14px;margin:0 0 10px;border:1px solid #22303b;border-radius:14px;background:#121a21;color:#e2e8f0;text-decoration:none">' +
               '<span style="flex:1"><b style="color:#fff">' + esc(s.title || 'Session') + '</b><br><span style="font-size:13px;color:#94a3b8">' + esc(g.name || '') + ' · ' + esc(day(s.date)) + '</span></span><span style="color:#a7d4d4;font-weight:600">Open ▶</span></a>'; }).join('')
@@ -136,7 +136,9 @@
         var grp = g.exists ? g.data() : {};
         var lead = (grp.leaderIds || []).indexOf(mid) >= 0;
         if (!master && !lead && (me.teams || []).concat(EGBCAuth.coversOfTeams ? EGBCAuth.coversOfTeams(me.teams || []) : []).indexOf(grp.teamName || '-') < 0) return msg(NOT_YOURS);
-        var may = master || lead;
+        /* Everyone let in here may present it: the group's leaders, and its team, who read the plan
+           (Martin, 7 Nov 2026; the rules' deckShows). Editing the plan and its slides stays with the leaders. */
+        var may = true;
         return itemsFor(s).then(function (x) {
           if (!x.items.length) return msg('This session has nothing to show yet. In the planner, add slides, verses or a picture to a part.');
           document.title = (s.title || 'Present') + ' · Present';

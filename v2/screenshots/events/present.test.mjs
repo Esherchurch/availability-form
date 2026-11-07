@@ -14,7 +14,7 @@
      3. PRESENTING: the leader presses Present; the team's phones and the TV
         follow; Next moves EVERYONE, at once (timed)
      4. the presenter sees now, next, notes, timer, thumbnails; viewers never
-        get the notes (the rules)
+        see the notes on a screen that follows (the team may present it, Martin 7 Nov 2026)
      5. browse on your own, then "Back to presenter"
      6. WEAK WI-FI: a phone that drops off keeps its slide, and catches up on
         the right one when it is back; the slides were all fetched ahead
@@ -248,7 +248,8 @@ try {
   const tom = await as('tom', 375, 812);
   await tom.goto(URLB + 'present.html?s=ps_1', { waitUntil: 'networkidle2' });
   await until(async () => /Nobody is presenting yet/.test(await text(tom)));
-  ok('3. BEFORE PRESENTING: the team see "Nobody is presenting yet"; no Present button for them', !(await tom.$('[data-start]')));
+  /* the team may present a plan they read (Martin, 7 Nov 2026): Tom is offered Present too */
+  ok('3. BEFORE PRESENTING: the team see "Nobody is presenting yet", and may present it themselves', !!(await until(() => tom.$('[data-start]'))));
   await tap(karen, '[data-start]');
   await until(() => karen.$('[data-go]'));
   await until(async () => (await onStage(tom)) === 'Slide 1');
@@ -266,13 +267,14 @@ try {
   const lag = Date.now() - tNext;
   ok('   NEXT MOVES EVERYONE AT ONCE: Tom and the TV on slide 2 within ' + lag + ' ms', (await onStage(tom)) === 'Slide 2' && (await onStage(tv)) === 'Slide 2' && lag < 2500, lag);
 
-  /* ---------- 4. the presenter's view; notes never for viewers ---------- */
+  /* ---------- 4. the presenter's view; notes never on a screen that follows ---------- */
   await until(async () => /Nicodemus/.test(await text(karen, '[data-notes]')));
   const kt = await text(karen);
   ok('4. THE PRESENTER SEES: everyone\u2019s slide, up next, her notes, the timer, the thumbnails', /Everyone sees this/i.test(kt) && /Up next/i.test(kt) && /Nicodemus comes at night/.test(kt) && !!(await karen.$('[data-timer]')) && (await karen.$$('[data-jump]')).length === 5, kt.slice(0, 300));
   ok('   VIEWERS NEVER SEE THE NOTES', !/Nicodemus/.test(await text(tom)) && !/Nicodemus/.test(await text(tv)));
   const tomNotes = await tom.evaluate((id) => EGBCAuth.db.collection('presentNotes').doc(id).get().then(() => 'read', e => e.code), made.id);
-  ok('   and the rules refuse Tom the notes', tomNotes === 'permission-denied', tomNotes);
+  /* Tom may present it (Martin, 7 Nov 2026), so the rules let him read the notes; his screen, following, shows none */
+  ok('   the rules let Tom, who may present it, read the notes; following, his screen shows none', tomNotes === 'read', tomNotes);
   await karen.screenshot({ path: path.join(SHOTS, 'present-real-presenter-desk.png') });
   await tom.screenshot({ path: path.join(SHOTS, 'present-real-viewer-375.png') });
   await tv.screenshot({ path: path.join(SHOTS, 'present-real-tv.png') });
@@ -378,7 +380,9 @@ try {
   const where = (pg) => pg.evaluate(() => {
     const v = document.querySelector('.pz-mhost video'), img = document.querySelector('#pzStage .layer.on img'); if (!v || !img) return null;
     const a = v.parentNode.getBoundingClientRect(), b = img.getBoundingClientRect(), w = b.width, h = Math.min(b.height, b.width * 9 / 16), top = b.top + (b.height - h) / 2;
-    return { x: (a.left - b.left) / w, y: (a.top - top) / h, w: a.width / w, h: a.height / h, paused: v.paused, t: v.currentTime, controls: v.controls, muted: v.muted, shown: getComputedStyle(document.querySelector('.pz-mhost')).display };
+    return { x: (a.left - b.left) / w, y: (a.top - top) / h, w: a.width / w, h: a.height / h, paused: v.paused, t: v.currentTime, controls: v.controls, muted: v.muted, shown: getComputedStyle(document.querySelector('.pz-mhost')).display,
+      /* whether it loaded: said when PLAY fails */
+      ready: v.readyState, net: v.networkState, err: v.error && v.error.code, src: decodeURIComponent(String(v.currentSrc || v.src || '')).split('/present/').pop().slice(0, 60) };
   });
   const near = (p) => p && Math.abs(p.x - 0.25) < 0.02 && Math.abs(p.y - 0.3) < 0.02 && Math.abs(p.w - 0.5) < 0.02 && Math.abs(p.h - 0.5) < 0.02;
   const w1 = await where(vk), w2 = await where(vt), w3 = await where(vtv);
@@ -390,7 +394,7 @@ try {
   await until(async () => { const a = await where(vt), b = await where(vtv); return a && b && !a.paused && !b.paused && a.t > 0.3; }, 8000);
   await sleep(1500);
   const tk = await where(vk), tt = await where(vt), ttv = await where(vtv);
-  ok('   PLAY: it plays on every screen, IN STEP (within a second of the presenter\u2019s)', !tk.paused && !tt.paused && !ttv.paused && Math.abs(tt.t - tk.t) < 1 && Math.abs(ttv.t - tk.t) < 1, J({ k: tk.t, phone: tt.t, tv: ttv.t }));
+  ok('   PLAY: it plays on every screen, IN STEP (within a second of the presenter\u2019s)', !tk.paused && !tt.paused && !ttv.paused && Math.abs(tt.t - tk.t) < 1 && Math.abs(ttv.t - tk.t) < 1, J({ k: tk, phone: tt, tv: ttv, tvSays: await text(vtv, ".pz-tap").catch(() => "") }));
   ok('   STREAMED: the phone asked for the video in ranges, it did not download it first', vtRanges.length > 0 && /^bytes=/.test(vtRanges[0]), J(vtRanges.slice(0, 3)));
   ok('   SOUND: off on the phone (a room of phones would echo) with "Sound off here" to change it; the TV plays it, or asks for one click', tt.muted && /Sound off here/.test(await text(vt, '[data-mbar]')) && (!ttv.muted || !!(await vtv.$('.pz-tap'))), J({ phoneMuted: tt.muted, tvMuted: ttv.muted, tap: !!(await vtv.$('.pz-tap')) }));
   /* a viewer tries to skip ahead */

@@ -4455,7 +4455,9 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  the leader renames it, or keeps it', 'allow', () => updateDoc(doc(ctx('u_samy'), 'presentDecks', 'dk_ready'), { name: 'Renamed', keep: true }));
   await check('  but cannot mark it ready or change its count', 'deny', () => updateDoc(doc(ctx('u_samy'), 'presentDecks', 'dk_1'), { status: 'ready', count: 9 }));
   await check('THE SPEAKER NOTES: the leader reads them', 'allow', () => getDoc(doc(ctx('u_samy'), 'presentNotes', 'dk_ready')));
-  await check('  THE TEAM FOLLOWING DOES NOT', 'deny', () => getDoc(doc(ctx('u_tomk'), 'presentNotes', 'dk_ready')));
+  /* Martin, 7 Nov 2026: a team member who reads the plan may present it, so they read its speaker notes too */
+  await check('  THE TEAM, WHO MAY PRESENT IT, READ THEM TOO', 'allow', () => getDoc(doc(ctx('u_tomk'), 'presentNotes', 'dk_ready')));
+  await check('  another group does not', 'deny', () => getDoc(doc(ctx('u_yola'), 'presentNotes', 'dk_ready')));
   await check('  nobody writes them from a page (only the converter)', 'deny', () => setDoc(doc(as('martin'), 'presentNotes', 'dk_ready'), { context: SCTX, notes: [] }));
   await check('WHICH SLIDE: before anyone presents, the team may look (nothing there yet)', 'allow', () => getDoc(doc(ctx('u_tomk'), 'presentNow', 'ps_ps_1')));
   await check('  the leader starts presenting', 'allow', () => setDoc(doc(ctx('u_samy'), 'presentNow', 'ps_ps_1'), NOW('u_samy')));
@@ -4464,7 +4466,8 @@ await check('  while making the same record without it is fine', 'allow',
   await check('  another group does not', 'deny', () => getDoc(doc(ctx('u_yola'), 'presentNow', 'ps_ps_1')));
   await check('  the presenter moves on', 'allow', () => updateDoc(doc(ctx('u_samy'), 'presentNow', 'ps_ps_1'), { slide: 1, slideAt: 'y' }));
   await check('  A TEAM MEMBER CANNOT MOVE THE SLIDES', 'deny', () => updateDoc(doc(ctx('u_tomk'), 'presentNow', 'ps_ps_1'), { slide: 3, slideAt: 'z' }));
-  await check('  nor take over', 'deny', () => setDoc(doc(ctx('u_tomk'), 'presentNow', 'ps_ps_1'), NOW('u_tomk')));
+  await check('  A TEAM MEMBER MAY TAKE OVER and present it (Martin, 7 Nov 2026)', 'allow', () => setDoc(doc(ctx('u_tomk'), 'presentNow', 'ps_ps_1'), NOW('u_tomk')));
+  await check('  someone from another group may not', 'deny', () => setDoc(doc(ctx('u_yola'), 'presentNow', 'ps_ps_1'), NOW('u_yola')));
   await check('  a master admin may take over', 'allow', () => setDoc(doc(as('martin'), 'presentNow', 'ps_ps_1'), NOW('u_martin')));
   await check('  then the leader cannot just move the slides (it is not theirs now)', 'deny', () => updateDoc(doc(ctx('u_samy'), 'presentNow', 'ps_ps_1'), { slide: 2, slideAt: 'z' }));
   const MED = (extra) => ({ i: 1, k: 0, state: 'playing', at: 0, since: '2026-11-01T10:00:00.000Z', ...(extra || {}) });

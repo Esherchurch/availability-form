@@ -19,3 +19,4 @@
 - The Menu's Kids Church section shown to a kids lead or safeguarding lead on no team. Martin, 7 Nov 2026.
 - The Youth Hub's Music Uploader is offered only to people who can upload (an admin on a worship, AV or youth team, or a master admin); a young person, and an adult volunteer who is not an admin, do not see it. Martin, 7 Nov 2026.
 - The app's Kids Church "Lesson plans and resources" opens the Kids Church lesson plans (the session planner, read only for the team; a group's leaders edit their own group), not the worship and AV resources page. Martin, 7 Nov 2026.
+- A Kids Church team member who is not a leader may present a plan they can read: from their phone onto the TV, the PowerPoint included, with its speaker notes, and its quiz while they are the one presenting; the plan, its slides and its PowerPoint stay the leaders' to change (rules deckShows; functions mayShow). Martin, 7 Nov 2026.

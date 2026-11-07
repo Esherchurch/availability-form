@@ -75,6 +75,26 @@ export async function mayPresent(dbi, uid, ctx) {
 }
 export const ALLOW_MS = 3 * 60 * 1000;
 
+/**
+ * May this person show (present) a session's slides: whoever may present it (mayPresent), or anyone
+ * on the team its group belongs to, with the teams their core teams cover - the people who can read
+ * the plan (the rules' deckShows and readsPlanGroup). Martin, 7 Nov 2026: a Kids Church team member
+ * who is not a leader may present a plan they can read. Adding or changing slides stays mayPresent.
+ * @param {FirebaseFirestore.Firestore} dbi the church's database
+ * @param {string} uid the signed-in person
+ * @param {Object} ctx the session or meeting
+ * @returns {Promise<boolean>}
+ */
+export async function mayShow(dbi, uid, ctx) {
+  if (await mayPresent(dbi, uid, ctx)) return true;
+  if (!(ctx && ctx.type === 'session' && ctx.groupId)) return false;
+  const u = (await dbi.collection('users').doc(uid).get()).data() || {};
+  if (u.status !== 'active') return false;
+  const g = (await dbi.collection('planGroups').doc(String(ctx.groupId)).get()).data();
+  const mine = [].concat(u.teams || [], u.covers || []);
+  return !!(g && g.teamName && mine.includes(g.teamName));
+}
+
 async function launched(dbi) {
   const l = await dbi.collection('churchSettings').doc('launch').get().catch(() => null);
   return !!(l && l.exists && l.data().rulesLocked === true);

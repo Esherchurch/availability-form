@@ -6328,6 +6328,12 @@ service cloud.firestore {
       return ctx is map && ((ctx.get('type', '') == 'session' && editsPlanGroup(ctx.get('groupId', '')))
                             || (ctx.get('type', '') == 'meeting' && (meetingHostE(ctx) || presentAllowed(ctx))));
     }
+    // Showing a session's slides (presentNow, the speaker notes): whoever may present it, and anyone
+    // who can read the plan - its team (Martin, 7 Nov 2026: a Kids Church team member who is not a
+    // leader may present a plan they can read). Adding, renaming or removing a deck stays deckPresents.
+    function deckShows(ctx) {
+      return deckPresents(ctx) || (ctx is map && ctx.get('type', '') == 'session' && readsPlanGroup(ctx.get('groupId', '')));
+    }
     function presentCtxOk(ctx) {
       return (ctx.get('type', '') != 'session'
               || (ctx.get('sessionId', '') is string && exists(/databases/$(database)/documents/planSessions/$(ctx.get('sessionId', '-')))
@@ -6360,9 +6366,9 @@ service cloud.firestore {
                     && request.resource.data.get('keep', false) is bool;
       allow delete: if deckPresents(resource.data.context);
     }
-    // The speaker notes: whoever may present, never the viewers. The converter writes them.
+    // The speaker notes: whoever may show the slides, never a screen that only follows. The converter writes them.
     match /presentNotes/{deckId} {
-      allow read: if deckPresents(resource.data.context);
+      allow read: if deckShows(resource.data.context);
       allow write: if false;
     }
     // Which slide everyone is on: one small document per session or meeting.
@@ -6427,9 +6433,9 @@ service cloud.firestore {
       // may look (there is nothing to see), so every screen's listener stays
       // alive and follows the moment someone starts.
       allow read: if resource == null ? active() : deckReads(resource.data.context);
-      allow create: if deckPresents(request.resource.data.context) && presentCtxOk(request.resource.data.context) && presentNowShape(key);
+      allow create: if deckShows(request.resource.data.context) && presentCtxOk(request.resource.data.context) && presentNowShape(key);
       // The presenter moves on, stops, or someone allowed takes over; the context never changes.
-      allow update: if deckPresents(resource.data.context) && request.resource.data.context == resource.data.context
+      allow update: if deckShows(resource.data.context) && request.resource.data.context == resource.data.context
                     && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['slide', 'slideAt', 'blank', 'media', 'quiz'])
                           ? resource.data.presenterUid == request.auth.uid && presentMediaOk(request.resource.data.get('media', null)) && presentQuizOk(request.resource.data.get('quiz', null))
                           : presentNowShape(key));

@@ -3931,6 +3931,9 @@ function deckPresents(ctx) {
 return ctx is map && ((ctx.get('type', '') == 'session' && editsPlanGroup(ctx.get('groupId', '')))
 || (ctx.get('type', '') == 'meeting' && (meetingHostE(ctx) || presentAllowed(ctx))));
 }
+function deckShows(ctx) {
+return deckPresents(ctx) || (ctx is map && ctx.get('type', '') == 'session' && readsPlanGroup(ctx.get('groupId', '')));
+}
 function presentCtxOk(ctx) {
 return (ctx.get('type', '') != 'session'
 || (ctx.get('sessionId', '') is string && exists(/databases/$(database)/documents/planSessions/$(ctx.get('sessionId', '-')))
@@ -3961,7 +3964,7 @@ allow update: if deckPresents(resource.data.context)
 allow delete: if deckPresents(resource.data.context);
 }
 match /presentNotes/{deckId} {
-allow read: if deckPresents(resource.data.context);
+allow read: if deckShows(resource.data.context);
 allow write: if false;
 }
 function presentMediaOk(m) {
@@ -4011,8 +4014,8 @@ allow delete: if resource == null || resource.data.get('uid', '') == request.aut
 }
 match /presentNow/{key} {
 allow read: if resource == null ? active() : deckReads(resource.data.context);
-allow create: if deckPresents(request.resource.data.context) && presentCtxOk(request.resource.data.context) && presentNowShape(key);
-allow update: if deckPresents(resource.data.context) && request.resource.data.context == resource.data.context
+allow create: if deckShows(request.resource.data.context) && presentCtxOk(request.resource.data.context) && presentNowShape(key);
+allow update: if deckShows(resource.data.context) && request.resource.data.context == resource.data.context
 && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['slide', 'slideAt', 'blank', 'media', 'quiz'])
 ? resource.data.presenterUid == request.auth.uid && presentMediaOk(request.resource.data.get('media', null)) && presentQuizOk(request.resource.data.get('quiz', null))
 : presentNowShape(key));

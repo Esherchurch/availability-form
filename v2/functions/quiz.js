@@ -37,7 +37,7 @@ import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import crypto from 'node:crypto';
-import { mayPresent } from './present.js';
+import { mayPresent, mayShow } from './present.js';
 import { featureOn } from './features.js';
 import { usesPart } from './parts.js';
 import { churchOf, eachChurch } from './church-scope.js';
@@ -86,7 +86,13 @@ async function mayRun(D, req, ctx) {
     const g = (await D.collection('planGroups').doc(String(ctx.groupId || '-')).get()).data();
     return !!(g && !g.archived && String(g.siteId || '') === dev.siteId && dev.lessonGroups.includes(String(ctx.groupId)));
   }
-  return mayPresent(D, req.auth.uid, ctx);
+  /* Its leaders, as before. Its team (Martin, 7 Nov 2026: a team member may present a plan they read)
+     run its quiz only while they are the one presenting it, so nobody following can open a question
+     in someone else's quiz. */
+  if (await mayPresent(D, req.auth.uid, ctx)) return true;
+  if (!(ctx && ctx.type === 'session' && ctx.sessionId) || !(await mayShow(D, req.auth.uid, ctx))) return false;
+  const now = (await D.collection('presentNow').doc('ps_' + String(ctx.sessionId)).get()).data();
+  return !!(now && now.presenterUid === req.auth.uid);
 }
 
 async function hostStart(req) {
